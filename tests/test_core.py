@@ -32,6 +32,10 @@ def test_parse_steps():
     assert parse_step("Log in as admin").kind == "do"
     s = parse_step({"type": None, "text": "a", "into": "Email"})
     assert (s.kind, s.opts["into"]) == ("type", "Email")
+    nested = parse_step({"type": {"text": "a", "into": "Email"}})
+    assert (nested.value, nested.opts) == (None, {"text": "a", "into": "Email"})
+    with pytest.raises(SpecError):
+        parse_step({"type": {"txt": "a"}})
     with pytest.raises(SpecError):
         parse_step({"tap": "x", "bogus": 1})
     with pytest.raises(SpecError):

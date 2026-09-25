@@ -169,6 +169,11 @@ class IOSDriver(Driver):
     def resume(self):
         self._call("/activate")
 
+    def app_state(self) -> str:
+        # XCUIApplication.State: 1 notRunning, 2 suspended, 3 background, 4 foreground
+        state = self._call("/state")["state"]
+        return {4: "foreground", 1: "not_running", 0: "not_running"}.get(state, "background")
+
     def stop(self):
         simctl("terminate", self.udid, self.app_id, check=False)
 

@@ -108,6 +108,10 @@ class Driver(ABC):
     def network(self, on: bool): ...
 
     @abstractmethod
+    def app_state(self) -> str:
+        """'foreground', 'background' or 'not_running' (cheap: no screen dump)."""
+
+    @abstractmethod
     def resume(self):
         """Bring the app back to the foreground without restarting it."""
 

@@ -75,7 +75,8 @@ def start_emulator(timeout: float = 180) -> str:
     avds = run([emulator, "-list-avds"], timeout=30).split()
     if not avds:
         raise DriverError("No Android device connected and no AVDs exist. Create one in Android Studio.")
-    subprocess.Popen([emulator, "-avd", avds[0], "-no-snapshot-save", "-no-boot-anim"],
+    env = dict(os.environ, ANDROID_SDK_ROOT=os.environ.get("ANDROID_SDK_ROOT", str(root)))
+    subprocess.Popen([emulator, "-avd", avds[0], "-no-snapshot-save", "-no-boot-anim"], env=env,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -159,8 +160,15 @@ class AndroidDriver(Driver):
         self.sh(f"pm uninstall {self.app_id}", check=False)
         self.install(self.app_path)
 
-    def running(self) -> bool:
-        return bool(self.sh(f"pidof {self.app_id}", check=False).strip())
+    def app_state(self) -> str:
+        out = self.sh(f"pidof {self.app_id}; dumpsys activity activities | grep -m1 topResumedActivity",
+                      check=False)
+        if not re.search(r"^\d+", out.strip()):
+            return "not_running"
+        return "foreground" if f" {self.app_id}/" in out else "background"
+
+    def keyboard_shown(self) -> bool:
+        return "mInputShown=true" in self.sh("dumpsys input_method | grep mInputShown", check=False)
 
     # --- observe ---------------------------------------------------------
     def screen(self) -> Screen:
@@ -211,9 +219,8 @@ class AndroidDriver(Driver):
                 checked=(a.get("checked") == "true") if checkable else None,
                 selected=a.get("selected") == "true",
             ))
-        ime = self.sh("dumpsys input_method | grep -E 'mInputShown|mIsInputViewShown'", check=False)
-        return Screen(width=w, height=h, elements=elements,
-                      keyboard_visible="=true" in ime, app_running=self.running())
+        return Screen(width=w, height=h, elements=elements, keyboard_visible=self.keyboard_shown(),
+                      app_running=self.app_state() != "not_running")
 
     def screenshot(self, path: Path):
         path.write_bytes(run([self.adb, "-s", self.serial, "exec-out", "screencap", "-p"], binary=True))
@@ -258,7 +265,8 @@ class AndroidDriver(Driver):
         self.key("home")
 
     def hide_keyboard(self):
-        if self.screen().keyboard_visible:
+        # Back closes the keyboard, but with no keyboard it would leave the screen: check right before.
+        if self.keyboard_shown():
             self.key("back")
 
     # --- device --------------------------------------------------------------

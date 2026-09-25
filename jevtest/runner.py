@@ -91,7 +91,7 @@ class Runner:
                 self.driver.launch()
                 self.expect_running = True
                 self.settle()
-            elif not self.screen().app_running:
+            elif self.driver.app_state() != "foreground":
                 self.driver.launch()
                 self.expect_running = True
                 self.settle()
@@ -118,8 +118,11 @@ class Runner:
             if detail:
                 result["detail"] = detail
             if self.expect_running and step.kind not in ("stop", "home", "open_url"):
-                if not self.driver.screen().app_running:
+                state = self.driver.app_state()
+                if state == "not_running":
                     raise StepFailed("The app is no longer running (crashed or closed)")
+                if state == "background":
+                    raise StepFailed("The app left the foreground")
         except (StepFailed, DriverError, JevError) as e:
             result["status"] = "fail"
             result["detail"] = str(e)

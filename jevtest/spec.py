@@ -41,9 +41,10 @@ class Step:
     def title(self) -> str:
         if self.kind == "do":
             return str(self.value)
+        opts = " ".join(f"{k}={v!r}" for k, v in self.opts.items())
         if self.value is None or self.value is True:
-            return self.kind
-        return f"{self.kind}: {self.value}"
+            return f"{self.kind} {opts}".strip()
+        return f"{self.kind}: {self.value} {opts}".strip()
 
 
 @dataclass
@@ -96,6 +97,12 @@ def parse_step(raw) -> Step:
             raise SpecError(f"Step {raw!r} has unknown keys: {', '.join(sorted(unknown))}")
         opts = {k: v for k, v in raw.items() if k != kind}
         value = raw[kind]
+        if isinstance(value, dict):  # `type: {text: .., into: ..}` form
+            bad = set(value) - OPTIONS
+            if bad:
+                raise SpecError(f"Step {raw!r} has unknown keys: {', '.join(sorted(bad))}")
+            opts.update(value)
+            value = None
         if kind in VALUED and value is None and kind not in ("type", "swipe"):
             raise SpecError(f"Step '{kind}' needs a value")
         return Step(kind, value, opts, raw)
