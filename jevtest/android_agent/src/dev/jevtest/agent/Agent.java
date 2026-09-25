@@ -3,6 +3,7 @@ package dev.jevtest.agent;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
+import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.view.Display;
@@ -19,7 +20,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 
 /**
  * jevtest Android agent. Started with
@@ -27,8 +27,8 @@ import java.util.concurrent.TimeoutException;
  * it keeps one UiAutomation connection open and answers on 127.0.0.1:port:
  *   GET /tree        -> the active window as uiautomator-style XML, plus
  *                       ime="true|false" and package="..." on the root element
- *   GET /idle?ms=N&quiet=Q -> returns once the UI has had no accessibility events for Q ms
- *                       (default 150; max N ms)
+ *   GET /idle?ms=N&quiet=Q -> returns once, for Q ms (default 150; max N ms), neither the tree nor
+ *                       the screen's pixels have changed
  *   GET /change?ms=N -> returns as soon as the tree differs from the last one /tree served (max N ms):
  *                       comparing with what the client last saw means a change that lands between
  *                       its /tree and its /change is not missed
@@ -39,6 +39,9 @@ import java.util.concurrent.TimeoutException;
  */
 public class Agent extends Instrumentation {
     private static final long QUIET_MS = 150;
+    // Re-read the tree on every accessibility event, and at least this often: some changes send
+    // no event (a dialog moving into place while its window animates).
+    private static final long CHECK_MS = 50;
     private int port = 7912;
     private final Object changed = new Object();
     private long changes = 0;
@@ -123,13 +126,38 @@ public class Agent extends Instrumentation {
         return fallback;
     }
 
-    private static String idle(UiAutomation ui, long quiet, long ms) {
-        try {
-            ui.waitForIdle(quiet, ms);
-            return "idle";
-        } catch (TimeoutException e) {
-            return "busy";
+    /** Idle = for `quiet` ms neither the tree nor the pixels changed. Both matter: a window sliding
+     *  in (a permission prompt) keeps reporting its start positions until it lands, so only the
+     *  pixels show it moving; and some tree changes are invisible in pixels. */
+    private String idle(UiAutomation ui, long quiet, long ms) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + ms;
+        String last = tree(ui);
+        Bitmap lastPixels = ui.takeScreenshot();
+        long stableSince = System.currentTimeMillis();
+        while (System.currentTimeMillis() - stableSince < quiet) {
+            long left = deadline - System.currentTimeMillis();
+            if (left <= 0) {
+                return "busy";
+            }
+            synchronized (changed) {
+                changed.wait(Math.min(CHECK_MS, left));  // an event wakes it early
+            }
+            String now = tree(ui);
+            Bitmap pixels = ui.takeScreenshot();
+            boolean moved = pixels == null || lastPixels == null || !pixels.sameAs(lastPixels);
+            if (lastPixels != null) {
+                lastPixels.recycle();
+            }
+            lastPixels = pixels;
+            if (!now.equals(last) || moved) {
+                last = now;
+                stableSince = System.currentTimeMillis();
+            }
         }
+        if (lastPixels != null) {
+            lastPixels.recycle();
+        }
+        return "idle";
     }
 
     /** Sleeps until an accessibility event arrives, then compares the tree: events also fire for

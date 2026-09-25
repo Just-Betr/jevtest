@@ -304,7 +304,8 @@ def test_lifecycle_commands(drv, adb):
     drv.resume()
     drv.stop()
     drv.clear_data()
-    assert adb.shell() == ["settings put system accelerometer_rotation 0", "am start -W -n dev.demo/.MainActivity",
+    # launching never touches device settings
+    assert adb.shell() == ["am start -W -n dev.demo/.MainActivity",
                            "am start -W -n dev.demo/.MainActivity", "am force-stop dev.demo", "pm clear dev.demo"]
 
 
@@ -475,6 +476,7 @@ def test_hide_keyboard_only_presses_back_when_open(drv, adb, agent, ime, pressed
 # --- device ----------------------------------------------------------------------------------------
 
 def test_device_commands(drv, adb):
+    adb.rules["settings get system accelerometer_rotation"] = "1\n"
     drv.rotate("landscape")
     drv.open_url("https://x.dev/a b")
     drv.dark_mode(True)
@@ -483,11 +485,21 @@ def test_device_commands(drv, adb):
     drv.grant("com.custom.PERM")
     drv.network(False)
     assert adb.shell() == [
+        "settings get system accelerometer_rotation",
         "settings put system accelerometer_rotation 0", "settings put system user_rotation 1",
         "am start -W -a android.intent.action.VIEW -d 'https://x.dev/a b'",
         "cmd uimode night yes", "cmd uimode night no",
         "pm grant dev.demo android.permission.CAMERA", "pm grant dev.demo com.custom.PERM",
         "svc wifi disable; svc data disable"]
+
+
+def test_rotation_restores_the_users_auto_rotate(drv, adb, agent):
+    adb.rules["settings get system accelerometer_rotation"] = "1\n"
+    drv.rotate("landscape")
+    drv.rotate("portrait")
+    assert adb.shell().count("settings get system accelerometer_rotation") == 1  # remembered once
+    drv.close()
+    assert adb.shell()[-1] == "settings put system accelerometer_rotation 1"
 
 
 def test_rotate_rejects_unknown(drv):
@@ -535,20 +547,6 @@ def test_agent_reinstalled_when_version_differs(adb, agent):
     AndroidDriver()
     assert "pm uninstall dev.jevtest.agent" in adb.shell()
     assert any(c.endswith("install /cache/android-agent-abc123.apk") for c in adb.cmds)
-
-
-def test_animations_off_for_the_run_and_restored_after(adb, agent):
-    adb.rules["settings get global window_animation_scale"] = "1.0\n"
-    adb.rules["settings get global transition_animation_scale"] = "null\n"
-    adb.rules["settings get global animator_duration_scale"] = "0.5\n"
-    d = AndroidDriver()
-    assert "settings put global window_animation_scale 0" in adb.shell()
-    assert "settings put global animator_duration_scale 0" in adb.shell()
-    adb.cmds.clear()
-    d.close()
-    assert adb.shell()[-3:] == ["settings put global window_animation_scale 1.0",
-                                "settings delete global transition_animation_scale",
-                                "settings put global animator_duration_scale 0.5"]
 
 
 def test_close_quits_agent_and_removes_forward(drv, adb, agent):

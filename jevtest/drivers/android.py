@@ -37,9 +37,6 @@ EDITABLE = {"EditText", "AutoCompleteTextView"}
 TOGGLES = {"CheckBox", "Switch", "RadioButton", "ToggleButton", "SwitchCompat", "SwitchMaterial"}
 DOUBLE_TAP_GAP = 0.1      # Android and Flutter ignore taps < 40 ms apart and > 300 ms apart
 AGENT_START_TIMEOUT = 30
-# System animations off for the run, as Espresso and Appium recommend: a tap during a window's
-# entrance animation is dropped, and window animations send no accessibility events to wait on.
-ANIMATION_SETTINGS = ("window_animation_scale", "transition_animation_scale", "animator_duration_scale")
 TOP_ACTIVITY = re.compile(r"topResumedActivity=ActivityRecord\{\S+ \S+ ([\w.]+)/")
 PERMISSION_PROMPT = re.compile(r"com\.(google\.)?android\.permissioncontroller")
 AGENT_SRC = Path(__file__).resolve().parent.parent / "android_agent"
@@ -224,16 +221,8 @@ class AndroidDriver(Driver):
         self.activity = ""
         self._size: tuple[int, int] | None = None
         self.agent: subprocess.Popen | None = None
-        self._animations = self._disable_animations()
+        self._auto_rotate: str | None = None  # the user's setting, if a rotate step changed it
         self._start_agent()
-
-    def _disable_animations(self) -> dict[str, str]:
-        """Turn system animations off; return the user's values so close() can restore them."""
-        before = {}
-        for name in ANIMATION_SETTINGS:
-            before[name] = self.sh(f"settings get global {name}", check=False).strip()
-            self.sh(f"settings put global {name} 0")
-        return before
 
     # --- agent -------------------------------------------------------------------
     def _start_agent(self):
@@ -262,11 +251,8 @@ class AndroidDriver(Driver):
                 self._agent("/quit")
         stop_process(self.agent)
         run([self.adb, "-s", self.serial, "forward", "--remove", f"tcp:{self.port}"], check=False)
-        for name, value in self._animations.items():
-            if value in ("", "null"):
-                self.sh(f"settings delete global {name}", check=False)
-            else:
-                self.sh(f"settings put global {name} {value}", check=False)
+        if self._auto_rotate is not None:  # leave the device as the user had it
+            self.sh(f"settings put system accelerometer_rotation {self._auto_rotate}", check=False)
 
     def wait_idle(self, timeout: float, quiet: float | None = None):
         extra = f"&quiet={int(quiet * 1000)}" if quiet is not None else ""
@@ -321,7 +307,6 @@ class AndroidDriver(Driver):
                  "--adb", self.adb], timeout=300)
 
     def launch(self):
-        self.sh("settings put system accelerometer_rotation 0", check=False)
         self.sh(f"am start -W -n {self.activity}")
 
     def resume(self):
@@ -440,6 +425,8 @@ class AndroidDriver(Driver):
     def rotate(self, orientation):
         if orientation not in ROTATIONS:
             raise DriverError(f"Unknown orientation '{orientation}' (use {', '.join(ROTATIONS)})")
+        if self._auto_rotate is None:  # rotating needs auto-rotate off; close() puts it back
+            self._auto_rotate = self.sh("settings get system accelerometer_rotation", check=False).strip() or "1"
         self.sh("settings put system accelerometer_rotation 0")
         self.sh(f"settings put system user_rotation {ROTATIONS[orientation]}")
 

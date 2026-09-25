@@ -55,7 +55,6 @@ Both agents stay running for the whole run and answer "what's on screen?" in mil
 **How jevtest waits.** There are no fixed sleeps:
 - **After an action**, it waits until the screen has not changed for 150 ms (0.5 s after launching the app, because startup pauses longer). Android gets this from accessibility events; iOS has no such events (WebDriverAgent and Maestro poll too), so its agent compares screen snapshots.
 - **When a check or element isn't there yet**, it waits for the screen to differ from the one it last looked at, then looks again. Jev is only asked again when the screen actually changed.
-- **On Android, system animations are turned off for the run** (as Espresso and Appium recommend, because a tap during a window's entrance animation is dropped), and restored afterwards.
 
 **System prompts.** Permission dialogs are part of the screen on both platforms (on iOS they belong to SpringBoard, and the agent merges them in), so a test can `expect:` a prompt and `do: Allow camera access`. Android installs do not auto-grant permissions; use `grant:` to pre-grant one.
 
@@ -187,7 +186,7 @@ cd .. && jevtest run examples/demo.yaml --platform android
 - Jev is text-only, so anything with no accessibility label (canvas, games, unlabeled images) is invisible to it.
 - `input text` on Android is ASCII only (non-ASCII text fails the step clearly).
 - WebViews work on both platforms: their HTML elements show up like native ones. Clearing a web text field relies on its reported value, which may not always match the page.
-- iOS runs are slower than Android (about 10 s vs 4 s per test on the demo app): an XCUITest tap costs ~0.55 s, and apps animate longer on iOS. Android can turn system animations off for the run; iOS offers no equivalent.
+- iOS runs are slower than Android on the demo app: an XCUITest tap costs ~0.55 s. Animations are never turned off: jevtest tests the app as users see it, and waits for it.
 - Very large screens are snapshotted in full on iOS (no depth limit yet).
 - Tested on the Flutter demo app with native and web screens, on the Android emulator (API 37) and iOS 26 simulators.
 

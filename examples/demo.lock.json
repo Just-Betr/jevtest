@@ -2539,6 +2539,46 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "671aade7782bdb2ebd06df8312187e80a2339dca0790b4bf96ed8f6d69e651ec": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.95,
+     "probabilities": {
+      "back": 0,
+      "done": 0.96,
+      "double_tap": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.04,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e6",
+     "confidence": 0.96,
+     "probabilities": {
+      "e1": 0.01,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0.96,
+      "e7": 0.02,
+      "e8": 0.01
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "676d4894fb98e992ab26734c1ca2d41e7775a6e4084c0aecfc005843e83b613a": {
    "answers": {
     "action": {
@@ -4074,6 +4114,53 @@
      "probabilities": {
       "v0": 1,
       "v1": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "9b755d185148c02b0a071f466f6971f19d7391059b8206ae76f478f7833f8351": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.96,
+     "probabilities": {
+      "back": 0,
+      "done": 0.97,
+      "double_tap": 0,
+      "impossible": 0.01,
+      "long_press": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.01,
+      "wait": 0.01
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 0.32,
+     "probabilities": {
+      "e1": 0.15,
+      "e10": 0.06,
+      "e11": 0,
+      "e12": 0.01,
+      "e13": 0.01,
+      "e14": 0,
+      "e15": 0.08,
+      "e2": 0.37,
+      "e3": 0,
+      "e4": 0.21000000000000002,
+      "e5": 0,
+      "e6": 0.09,
+      "e7": 0,
+      "e8": 0.02,
+      "e9": 0
      },
      "type": "choice"
     }
