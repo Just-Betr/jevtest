@@ -6,3 +6,5 @@ jevtest-results/
 .env
 .DS_Store
 xcuserdata/
+.coverage
+.ruff_cache/

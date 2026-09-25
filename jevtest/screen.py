@@ -84,6 +84,3 @@ class Screen:
                 d["scrollable"] = True
             out.append(d)
         return out
-
-    def fingerprint(self) -> tuple:
-        return tuple((el.kind, el.text, el.bounds, el.checked) for el in self.elements)

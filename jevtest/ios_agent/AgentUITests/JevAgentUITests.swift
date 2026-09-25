@@ -217,6 +217,7 @@ final class JevAgentUITests: XCTestCase {
 
     private static func typeName(_ t: XCUIElement.ElementType) -> String {
         switch t {
+        case .application: return "application"
         case .button: return "button"
         case .textField, .searchField: return "text_field"
         case .secureTextField: return "password_field"

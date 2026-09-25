@@ -1,4 +1,4 @@
-"""iOS Simulator driver: simctl for the app/device, the XCUITest agent for screen and touch."""
+"""iOS Simulator driver: simctl for the app and device, the XCUITest agent for screen and touch."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import plistlib
+import re
 import shutil
 import socket
 import subprocess
@@ -19,35 +20,49 @@ from ..screen import Element, Screen
 from .base import Driver, DriverError, run
 
 AGENT_SRC = Path(__file__).resolve().parent.parent / "ios_agent"
-CACHE = Path(os.environ.get("JEVTEST_CACHE", Path.home() / ".cache" / "jevtest"))
+AGENT_START_TIMEOUT = 180
+LAUNCH_ATTEMPTS = 5        # right after a reinstall the app can take a moment to register
+# Container types that only matter when they carry a label or identifier.
+CONTAINERS = {"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"}
+# Kinds whose accessibility value means something (for plain text it repeats the label or is a heading level).
+VALUE_KINDS = {"text_field", "text_area", "slider", "picker", "segmented_control", "progress"}
+SCROLL_INDICATOR = re.compile(r"^(Vertical|Horizontal) scroll bar\b")
+TOUCHABLE = {"button", "cell", "link", "switch", "tab", "menu_item", "segmented_control"}
+EDITABLE = {"text_field", "password_field", "text_area"}
+# XCUIApplication.State raw values.
+APP_STATES = {0: "not_running", 1: "not_running", 2: "background", 3: "background", 4: "foreground"}
 
-# Container types that never matter to a tester on their own.
-SKIP_KINDS = {"other", "keyboard", "navigation_bar", "tab_bar", "list", "scroll_view"}
-SPRINGBOARD = "com.apple.springboard"
+
+def cache_dir() -> Path:
+    return Path(os.environ.get("JEVTEST_CACHE", Path.home() / ".cache" / "jevtest"))
 
 
 def simctl(*args, timeout=120, check=True) -> str:
     return run(["xcrun", "simctl", *args], timeout=timeout, check=check)
 
 
+def _runtime_version(runtime: str) -> tuple[int, ...]:
+    return tuple(int(n) for n in runtime.rsplit("iOS-", 1)[-1].split("-") if n.isdigit())
+
+
 def simulators() -> list[dict]:
+    """Available iOS simulators, newest runtime first, then by name."""
     data = json.loads(simctl("list", "devices", "available", "-j"))
-    def version(runtime: str) -> tuple:
-        return tuple(int(n) for n in runtime.rsplit("iOS-", 1)[-1].split("-") if n.isdigit())
-    runtimes = sorted((r for r in data["devices"] if "iOS" in r), key=version, reverse=True)
-    return [dict(d, runtime=r.rsplit(".", 1)[-1]) for r in runtimes for d in data["devices"][r]]
+    runtimes = sorted((r for r in data["devices"] if ".iOS-" in r), key=_runtime_version, reverse=True)
+    return [dict(d, runtime=r.rsplit(".", 1)[-1])
+            for r in runtimes for d in sorted(data["devices"][r], key=lambda d: (d["name"], d["udid"]))]
 
 
-def pick_simulator(udid: str | None) -> str:
+def pick_simulator(wanted: str | None) -> str:
     sims = simulators()
-    if udid:
-        match = [d for d in sims if udid in (d["udid"], d["name"])]
+    if wanted:
+        match = [d for d in sims if wanted in (d["udid"], d["name"])]
         if not match:
-            raise DriverError(f"No iOS simulator '{udid}'")
+            raise DriverError(f"No iOS simulator named or with UDID '{wanted}'")
         dev = match[0]
     else:
         booted = [d for d in sims if d["state"] == "Booted"]
-        phones = [d for d in sims if "iPhone" in d["name"]]
+        phones = [d for d in sims if d["name"].startswith("iPhone")]
         if not (booted or phones):
             raise DriverError("No iOS simulators available. Install one in Xcode > Settings > Components.")
         dev = (booted or phones)[0]
@@ -64,17 +79,68 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
-def _app_bundle(app_path: Path, workdir: Path) -> Path:
-    """Return a simulator .app directory from a .app, .zip or .ipa."""
-    if app_path.is_dir() and app_path.suffix == ".app":
+def app_bundle(app_path: Path, workdir: Path) -> Path:
+    """A simulator .app directory from a .app, or a .zip / .ipa containing one."""
+    if app_path.suffix.lower() == ".app" and app_path.is_dir():
         return app_path
-    if app_path.suffix.lower() in (".zip", ".ipa"):
+    if app_path.suffix.lower() in (".zip", ".ipa") and zipfile.is_zipfile(app_path):
         with zipfile.ZipFile(app_path) as z:
             z.extractall(workdir)
-        found = sorted(workdir.rglob("*.app"), key=lambda p: len(p.parts))
+        found = sorted(workdir.rglob("*.app"), key=lambda p: (len(p.parts), str(p)))
         if found:
             return found[0]
-    raise DriverError(f"iOS needs a simulator .app (or .zip/.ipa containing one), got {app_path.name}")
+    raise DriverError(f"iOS needs a simulator .app (or a .zip/.ipa containing one), got {app_path.name}")
+
+
+def agent_digest(src: Path = AGENT_SRC) -> str:
+    """Hash of the agent sources, so a changed agent is rebuilt."""
+    h = hashlib.sha256()
+    for f in sorted(src.rglob("*")):
+        if f.is_file() and "xcuserdata" not in f.parts:
+            h.update(str(f.relative_to(src)).encode())
+            h.update(f.read_bytes())
+    return h.hexdigest()[:12]
+
+
+def parse_tree(data: dict) -> Screen:
+    """The agent's /tree reply -> the elements a tester cares about, duplicates removed."""
+    w, h = int(data["width"]), int(data["height"])
+    elements, seen = [], set()
+    for d in data["elements"]:
+        kind = d["type"]
+        label, value = d.get("label", ""), d.get("value") or ""
+        if kind == "application" or SCROLL_INDICATOR.match(label):
+            continue
+        x1, y1 = max(int(d["x"]), 0), max(int(d["y"]), 0)
+        x2, y2 = min(int(d["x"] + d["w"]), w), min(int(d["y"] + d["h"]), h)
+        if x2 - x1 < 2 or y2 - y1 < 2:
+            continue
+        text = label
+        if kind in VALUE_KINDS and value and value != label:  # secure fields are excluded: bullets
+            text = f"{label}: {value}" if label else value
+        text = " ".join(text.split())
+        if kind in CONTAINERS and not (text or d.get("identifier")):
+            continue
+        el = Element(
+            kind="text" if kind == "other" else kind, text=text, hint=d.get("placeholder", ""),
+            resource_id=d.get("identifier", ""), bounds=(x1, y1, x2, y2),
+            enabled=d.get("enabled", True), editable=kind in EDITABLE, clickable=kind in TOUCHABLE,
+            focused=d.get("focused", False), selected=d.get("selected", False),
+            checked=value in ("1", "true") if kind == "switch" else None,
+        )
+        key = (el.kind, el.text, el.bounds)  # XCUITest often reports a wrapper and its child
+        if key not in seen:
+            seen.add(key)
+            elements.append(el)
+    return Screen(width=w, height=h, elements=elements, keyboard_visible=data.get("keyboard", False),
+                  app_running=data.get("running", False))
+
+
+def http_post(url: str, body: dict, timeout: float) -> dict:
+    req = urllib.request.Request(url, method="POST", data=json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read())
 
 
 class IOSDriver(Driver):
@@ -86,63 +152,59 @@ class IOSDriver(Driver):
         self.udid = pick_simulator(udid)
         self.port = free_port()
         self.agent: subprocess.Popen | None = None
+        self.agent_log = cache_dir() / f"ios-agent-{self.port}.log"
         self.app_path: Path | None = None
         self._tmp = tempfile.TemporaryDirectory()
         self._start_agent()
 
-    # --- agent ------------------------------------------------------------
+    # --- agent ------------------------------------------------------------------
     def _build_agent(self) -> Path:
-        digest = hashlib.sha1()
-        for f in sorted(AGENT_SRC.rglob("*")):
-            if f.is_file():
-                digest.update(f.read_bytes())
-        out = CACHE / f"ios-agent-{digest.hexdigest()[:12]}"
-        runs = list((out / "Build/Products").glob("*.xctestrun")) if out.exists() else []
-        if runs:
-            return runs[0]
-        print("  building iOS agent (one time, ~1 min)...", flush=True)
-        run(["xcodebuild", "build-for-testing", "-project", str(AGENT_SRC / "JevAgent.xcodeproj"),
-             "-scheme", "JevAgent", "-destination", "generic/platform=iOS Simulator",
-             "-derivedDataPath", str(out), "-quiet"], timeout=900)
-        runs = list((out / "Build/Products").glob("*.xctestrun"))
+        out = cache_dir() / f"ios-agent-{agent_digest()}"
+        runs = sorted((out / "Build/Products").glob("*.xctestrun"))
         if not runs:
-            raise DriverError("iOS agent build produced no .xctestrun")
+            print("  building iOS agent (one time, ~1 min)...", flush=True)
+            run(["xcodebuild", "build-for-testing", "-project", str(AGENT_SRC / "JevAgent.xcodeproj"),
+                 "-scheme", "JevAgent", "-destination", "generic/platform=iOS Simulator",
+                 "-derivedDataPath", str(out), "-quiet"], timeout=900)
+            runs = sorted((out / "Build/Products").glob("*.xctestrun"))
+            if not runs:
+                raise DriverError("iOS agent build produced no .xctestrun")
         return runs[0]
 
     def _start_agent(self):
         xctestrun = self._build_agent()
+        self.agent_log.parent.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ, TEST_RUNNER_JEVTEST_PORT=str(self.port))
-        self.agent_log = CACHE / "ios-agent.log"
-        log = open(self.agent_log, "w")
-        self.agent = subprocess.Popen(
-            ["xcodebuild", "test-without-building", "-xctestrun", str(xctestrun),
-             "-destination", f"id={self.udid}"],
-            stdout=log, stderr=subprocess.STDOUT, env=env, start_new_session=True)
-        deadline = time.monotonic() + 180
+        with open(self.agent_log, "w") as log:
+            self.agent = subprocess.Popen(
+                ["xcodebuild", "test-without-building", "-xctestrun", str(xctestrun),
+                 "-destination", f"id={self.udid}"],
+                stdout=log, stderr=subprocess.STDOUT, env=env, start_new_session=True)
+        deadline = time.monotonic() + AGENT_START_TIMEOUT
         while time.monotonic() < deadline:
             if self.agent.poll() is not None:
-                raise DriverError("iOS agent exited: " + self.agent_log.read_text()[-1500:])
+                raise DriverError("iOS agent exited: " + self._log_tail())
             try:
-                if self._call("/status", timeout=2).get("ok"):
+                if http_post(self._url("/status"), {}, timeout=2).get("ok"):
                     return
             except OSError:
                 pass
             time.sleep(1)
-        raise DriverError("iOS agent did not start within 180s")
+        raise DriverError(f"iOS agent did not start within {AGENT_START_TIMEOUT}s")
 
-    def _call(self, path: str, timeout: float = 60, **body) -> dict:
+    def _url(self, path: str) -> str:
+        return f"http://127.0.0.1:{self.port}{path}"
+
+    def _log_tail(self) -> str:
+        return self.agent_log.read_text()[-1500:] if self.agent_log.exists() else "(no log)"
+
+    def _call(self, path: str, **body) -> dict:
         body.setdefault("bundle_id", self.app_id)
-        req = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", method="POST",
-                                     data=json.dumps(body).encode(),
-                                     headers={"Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data = json.loads(resp.read())
+            data = http_post(self._url(path), body, timeout=60)
         except OSError as e:
-            if path == "/status":
-                raise
-            tail = self.agent_log.read_text()[-1200:] if self.agent_log.exists() else ""
-            raise DriverError(f"Lost the iOS agent during {path} ({e}). Agent log tail:\n{tail}") from None
+            raise DriverError(f"Lost the iOS agent during {path} ({e}). Agent log tail:\n{self._log_tail()}") \
+                from None
         if "error" in data:
             raise DriverError(f"iOS agent {path}: {data['error']}")
         return data
@@ -156,14 +218,19 @@ class IOSDriver(Driver):
                 self.agent.kill()
         self._tmp.cleanup()
 
-    # --- lifecycle ---------------------------------------------------------
+    # --- lifecycle ----------------------------------------------------------------
     def install(self, app_path: Path) -> str:
-        bundle = _app_bundle(app_path, Path(self._tmp.name) / "app")
-        info = plistlib.loads((bundle / "Info.plist").read_bytes())
+        bundle = app_bundle(app_path, Path(self._tmp.name) / "app")
+        try:
+            info = plistlib.loads((bundle / "Info.plist").read_bytes())
+        except (OSError, plistlib.InvalidFileException) as e:
+            raise DriverError(f"{app_path.name} has no readable Info.plist ({e})") from None
         platforms = info.get("CFBundleSupportedPlatforms", [])
         if platforms and "iPhoneSimulator" not in platforms:
-            raise DriverError(f"{app_path.name} is built for {platforms}, not the iOS Simulator. "
+            raise DriverError(f"{app_path.name} is built for {', '.join(platforms)}, not the iOS Simulator. "
                               "Build with `-sdk iphonesimulator` (physical devices are not supported yet).")
+        if "CFBundleIdentifier" not in info:
+            raise DriverError(f"{app_path.name} Info.plist has no CFBundleIdentifier")
         self.app_path = bundle
         self.app_id = info["CFBundleIdentifier"]
         simctl("install", self.udid, str(bundle), timeout=300)
@@ -171,81 +238,39 @@ class IOSDriver(Driver):
 
     def launch(self):
         simctl("launch", self.udid, self.app_id)
-        for attempt in range(5):  # right after a reinstall the app can take a moment to register
+        for _ in range(LAUNCH_ATTEMPTS - 1):
             try:
                 self._call("/activate")
                 return
             except DriverError:
-                if attempt == 4:
-                    raise
                 time.sleep(1)
+        self._call("/activate")  # last attempt: let its error through
 
     def resume(self):
         self._call("/activate")
 
     def app_state(self) -> str:
-        # XCUIApplication.State: 1 notRunning, 2 suspended, 3 background, 4 foreground
-        state = self._call("/state")["state"]
-        return {4: "foreground", 1: "not_running", 0: "not_running"}.get(state, "background")
+        return APP_STATES.get(self._call("/state")["state"], "background")
 
     def stop(self):
         simctl("terminate", self.udid, self.app_id, check=False)
 
     def clear_data(self):
-        # The simulator has no "clear data"; a reinstall is the equivalent.
-        self.reinstall()
+        self.reinstall()  # the simulator has no "clear data"; a reinstall is the equivalent
 
     def reinstall(self):
         self.stop()
         simctl("uninstall", self.udid, self.app_id, check=False)
         simctl("install", self.udid, str(self.app_path), timeout=300)
 
-    # --- observe -------------------------------------------------------------
+    # --- observe --------------------------------------------------------------------
     def screen(self) -> Screen:
-        data = self._call("/tree")
-        w, h = int(data["width"]), int(data["height"])
-        elements = []
-        for d in data["elements"]:
-            kind = d["type"]
-            x1, y1 = max(int(d["x"]), 0), max(int(d["y"]), 0)
-            x2, y2 = min(int(d["x"] + d["w"]), w), min(int(d["y"] + d["h"]), h)
-            if x2 - x1 < 2 or y2 - y1 < 2:
-                continue
-            label, value = d.get("label", ""), d.get("value", "")
-            editable = kind in ("text_field", "password_field", "text_area")
-            if kind == "password_field":
-                value = ""  # secure fields report bullets
-            text = label
-            if value and value != label and kind not in ("switch",):
-                text = f"{label}: {value}" if label else value
-            checked = None
-            if kind == "switch":
-                checked = value in ("1", "true")
-            if kind in SKIP_KINDS and not (text or d.get("identifier")):
-                continue
-            if kind == "other" and not text:
-                continue
-            elements.append(Element(
-                kind="text" if kind == "other" else kind, text=" ".join(text.split()),
-                hint=d.get("placeholder", ""), resource_id=d.get("identifier", ""),
-                bounds=(x1, y1, x2, y2), enabled=d.get("enabled", True), editable=editable,
-                clickable=kind in ("button", "cell", "link", "switch", "tab", "menu_item"),
-                focused=d.get("focused", False), checked=checked, selected=d.get("selected", False),
-            ))
-        # Drop exact duplicates (XCUITest often reports a container and its child with the same label).
-        seen, unique = set(), []
-        for el in elements:
-            key = (el.kind, el.text, el.bounds)
-            if key not in seen:
-                seen.add(key)
-                unique.append(el)
-        return Screen(width=w, height=h, elements=unique,
-                      keyboard_visible=data.get("keyboard", False), app_running=data.get("running", False))
+        return parse_tree(self._call("/tree"))
 
     def screenshot(self, path: Path):
         simctl("io", self.udid, "screenshot", str(path))
 
-    # --- touch & keys ----------------------------------------------------------
+    # --- touch & keys -----------------------------------------------------------------
     def tap(self, x, y):
         self._call("/tap", x=x, y=y)
 
@@ -279,7 +304,7 @@ class IOSDriver(Driver):
     def hide_keyboard(self):
         self._call("/hide_keyboard")
 
-    # --- device ----------------------------------------------------------------
+    # --- device -----------------------------------------------------------------------
     def rotate(self, orientation):
         self._call("/rotate", orientation=orientation)
 
@@ -297,4 +322,4 @@ class IOSDriver(Driver):
         simctl("privacy", self.udid, "grant", permission, self.app_id)
 
     def network(self, on):
-        raise DriverError("The iOS Simulator shares the Mac's network; it cannot be turned off per device")
+        raise DriverError("The iOS Simulator shares the Mac's network; it can't be turned off per device")

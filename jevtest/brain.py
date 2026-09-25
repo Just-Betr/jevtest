@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from .jev import Jev, choice, noul
+from .jev import JevError, choice, noul
 from .screen import Element, Screen
 
 QUOTED = re.compile(r'"([^"]+)"|“([^”]+)”')
@@ -72,6 +72,14 @@ def _element_options(screen: Screen, elements: list[Element]) -> dict:
     return opts
 
 
+def _picked(answers: dict, qid: str, options) -> str:
+    """The option Jev chose for `qid`; anything outside the options is an error, never a guess."""
+    chosen = answers[qid].get("choice")
+    if chosen not in options:
+        raise JevError(f"Jev answered {chosen!r} for {qid}, which is not one of the options")
+    return chosen
+
+
 def _state(screen: Screen, **extra) -> dict:
     state = {"screen": screen.to_state(), "keyboard_visible": screen.keyboard_visible}
     state.update(extra)
@@ -79,13 +87,12 @@ def _state(screen: Screen, **extra) -> dict:
 
 
 class Brain:
-    def __init__(self, jev: Jev, threshold: float = 0.5):
-        self.jev = jev
-        self.threshold = threshold
+    def __init__(self, jev):
+        self.jev = jev  # a Jev client or a LockedJev: anything with ask() and calls
 
     def next_action(self, goal: str, screen: Screen, actions_taken: list[str]) -> Decision:
         """One Jev call: what to do next toward `goal`, plus (speculatively) on what."""
-        values = quoted_values(goal)
+        values = quoted_values(goal)[:MAX_OPTIONS]
         fields = screen.editable
         kinds = dict(ACTIONS)
         if not (values and fields):
@@ -95,6 +102,9 @@ class Brain:
         if not screen.keyboard_visible:
             kinds.pop("hide_keyboard")
             kinds.pop("press_enter")
+        if not screen.elements:
+            for k in TOUCH:
+                kinds.pop(k)
 
         state = _state(screen, actions_taken=actions_taken or ["(none yet)"])
         questions = {
@@ -118,15 +128,14 @@ class Brain:
                 {f"v{i}": f'"{v}"' for i, v in enumerate(values)})
 
         answers = self.jev.ask(state, questions)
-        a = answers["action"]
-        d = Decision(action=a["choice"], confidence=a.get("confidence", 0.0),
-                     probabilities=a.get("probabilities", {}))
+        d = Decision(action=_picked(answers, "action", kinds), confidence=answers["action"].get("confidence", 0.0),
+                     probabilities=answers["action"].get("probabilities", {}))
         if d.action in TOUCH:
-            d.element = screen.by_id(answers["target"]["choice"])
+            d.element = screen.by_id(_picked(answers, "target", questions["target"]["criteria"]))
         elif d.action in ("type", "clear"):
-            d.element = screen.by_id(answers["field"]["choice"])
+            d.element = screen.by_id(_picked(answers, "field", questions["field"]["criteria"]))
             if d.action == "type":
-                d.text = values[int(answers["value"]["choice"][1:])]
+                d.text = values[int(_picked(answers, "value", questions["value"]["criteria"])[1:])]
         return d
 
     def locate(self, target: str, screen: Screen, candidates: list[Element] | None = None) -> Element | None:
@@ -143,11 +152,14 @@ class Brain:
         options["not_on_screen"] = "No element on the screen is `target`."
         ans = self.jev.ask(_state(screen), {"element": choice(
             {"target": target, "question": "Which element on the screen is `target`?"}, options)})
-        pick = ans["element"]["choice"]
+        pick = _picked(ans, "element", options)
         return None if pick == "not_on_screen" else screen.by_id(pick)
 
     def check(self, statement: str, screen: Screen) -> float:
         """Probability that `statement` is true of the current screen."""
         ans = self.jev.ask(_state(screen), {"check": noul(
             {"statement": statement, "question": "Is `statement` true of the current `screen`?"})})
-        return ans["check"]["noul"]
+        p = ans["check"].get("noul")
+        if not isinstance(p, (int, float)) or not 0 <= p <= 1:
+            raise JevError(f"Jev returned {p!r} for a yes/no question")
+        return float(p)

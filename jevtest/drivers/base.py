@@ -13,19 +13,18 @@ class DriverError(RuntimeError):
     pass
 
 
-def run(cmd: list[str], timeout: float = 120, check: bool = True, binary: bool = False,
-        env: dict | None = None):
+def run(cmd: list[str], timeout: float = 120, check: bool = True, binary: bool = False):
+    """Run a command; return stdout (text, or bytes if `binary`). Raise DriverError on failure."""
     try:
-        p = subprocess.run(cmd, capture_output=True, timeout=timeout, text=not binary, env=env)
+        p = subprocess.run(cmd, capture_output=True, timeout=timeout)
     except FileNotFoundError:
         raise DriverError(f"Command not found: {cmd[0]}") from None
     except subprocess.TimeoutExpired:
-        raise DriverError(f"Timed out after {timeout}s: {' '.join(map(str, cmd))}") from None
+        raise DriverError(f"Timed out after {timeout:g}s: {' '.join(map(str, cmd))}") from None
     if check and p.returncode != 0:
-        err = p.stderr if not binary else p.stderr.decode(errors="replace")
-        out = p.stdout if not binary else ""
-        raise DriverError(f"{' '.join(map(str, cmd))} failed ({p.returncode}): {(err or out).strip()[:800]}")
-    return p.stdout
+        detail = (p.stderr or p.stdout).decode(errors="replace").strip()[:800]
+        raise DriverError(f"{' '.join(map(str, cmd))} failed ({p.returncode}): {detail}")
+    return p.stdout if binary else p.stdout.decode(errors="replace")
 
 
 class Driver(ABC):
@@ -116,8 +115,8 @@ class Driver(ABC):
     def resume(self):
         """Bring the app back to the foreground without restarting it."""
 
-    def close(self):
-        pass
+    def close(self):  # noqa: B027 - optional hook, most drivers hold nothing to release
+        """Release anything the driver started (the iOS agent)."""
 
     # --- shared helpers --------------------------------------------------
     def swipe(self, direction: str, el: Element | None = None, screen: Screen | None = None):

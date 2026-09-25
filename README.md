@@ -25,6 +25,20 @@ Jev reads text only and answers by **choosing from options you give it**. It nev
 
 Text to type always comes from your test file (anything in `"quotes"`), never from the model.
 
+## Deterministic runs: the lockfile
+
+Jev's probabilities wobble slightly between identical calls, so a close call can come out differently. Measured on this project's own runs: 4 of 97 action decisions changed at least once across 20 identical repeats. Yes/no checks never changed.
+
+jevtest makes runs deterministic with a **lockfile** next to your test file (`tests.yaml` → `tests.lock.json`). It stores Jev's answer for every exact screen + question:
+
+- **The first time** a screen is seen, Jev is asked and the answer is recorded.
+- **After that**, the same screen and question always get the same answer, with no network call.
+- **If the app changes**, its screen text changes, so it's a new question and Jev is asked fresh. Recorded answers are never applied to a screen they weren't recorded on.
+
+Commit the lockfile. In CI, run with `--frozen`: every decision must come from the lockfile, a new screen fails the run, and no API key or network is needed. `--refresh-lock` re-asks Jev for everything; `--no-lock` ignores the file.
+
+The model is pinned (`typesafe/jev-1.13`), as TypeSafe recommends, so an alias update can't change behaviour underneath you.
+
 ## Setup
 
 ```bash
@@ -43,7 +57,7 @@ app: build/app.apk            # .apk / .aab (Android), .app / .zip / .ipa with a
 # or both:  app: { android: app.apk, ios: Runner.app }  and pick with --platform
 
 settings:                     # all optional
-  model: ~typesafe/jev-latest
+  model: typesafe/jev-1.13     # pinned; the lockfile is per model
   max_actions: 8              # Jev actions allowed per plain-English step
   timeout: 10                 # seconds to wait for expect / see / element lookups
   settle: 1.0                 # pause after each action
@@ -110,39 +124,70 @@ After every action the harness also fails the step if the app crashed or left th
 ## Commands
 
 ```bash
-jevtest run tests.yaml [--platform android|ios] [--device SERIAL|UDID|NAME] [--test NAME] [--out DIR]
+jevtest run tests.yaml [--platform android|ios] [--device SERIAL|UDID|NAME] [--test NAME]...
+                       [-v] [--junit PATH] [--out DIR] [--frozen | --refresh-lock | --no-lock]
 jevtest screen --app app.apk      # print the current screen exactly as Jev receives it
 jevtest devices
 ```
 
-Exit code is `0` when everything passes, `1` when a test fails, `2` for setup errors.
+| Exit code | Meaning |
+|---|---|
+| 0 | every test passed |
+| 1 | a test failed |
+| 2 | setup error (bad test file, no device, missing key, …) |
+| 130 | interrupted |
 
-Results go to `jevtest-results/<timestamp>/`: `report.json` (every step, and every Jev request and answer with its probabilities) plus screenshots.
+### Output
+
+Every run prints each step, the actions Jev chose, and each check. It ends with a summary: failures with their reason, and how many Jev decisions came from the lockfile vs. were asked live, with time and cost. `-v` also prints every Jev question with its top answers and probabilities.
+
+Each run writes to `jevtest-results/<timestamp>/`:
+- `junit.xml` for CI test reporting (`--junit PATH` to put it elsewhere);
+- `report.json` with every step, check and Jev request/answer;
+- a screenshot of every failure.
+
+### CI
+
+```yaml
+# GitHub Actions, on a macOS runner with a simulator
+- run: pip install jevtest
+- run: jevtest run tests.yaml --platform ios --frozen --junit results/junit.xml
+- uses: actions/upload-artifact@v4
+  if: always()
+  with: { name: jevtest-results, path: jevtest-results }
+```
 
 ## Demo app
 
-`demo_app/` is a small Flutter app that exercises every action (login, counter, double tap, long press dialog, switch, long list, swipe to delete, detail page). The login password is `hunter22`.
+`demo_app/` is a small Flutter app that exercises every action: login, counter, double tap, long press dialog, switch, long list, swipe to delete, detail page, and an in-app **WebView** with plain HTML (input, button, checkbox, link). The login password is `hunter22`.
 
 ```bash
 cd demo_app
 flutter build apk --debug
 # iOS simulator (Flutter 3.38 + Xcode 27 needs arm64-only):
-xcodebuild -project ios/Runner.xcodeproj -scheme Runner -configuration Debug -sdk iphonesimulator \
+flutter build ios --simulator --debug --config-only
+LANG=en_US.UTF-8 pod install --project-directory=ios
+xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Debug -sdk iphonesimulator \
   -derivedDataPath build/ios_sim ARCHS=arm64 ONLY_ACTIVE_ARCH=YES -quiet
 cd .. && jevtest run examples/demo.yaml --platform android
 ```
 
-## Limits (v0.1)
+## Limits
 
 - iOS runs on the **simulator** only. A device `.ipa` can't be installed there; build with `-sdk iphonesimulator`.
 - Jev is text-only, so anything with no accessibility label (canvas, games, unlabeled images) is invisible to it.
-- `input text` on Android is ASCII only.
+- `input text` on Android is ASCII only (non-ASCII text fails the step clearly).
+- WebViews work on both platforms: their HTML elements show up like native ones.
 
 ## Development
 
 ```bash
-pip install -e . pytest && pytest -q
+pip install -e '.[dev]'
+ruff check jevtest tests
+pytest --cov                                 # 100% line + branch coverage is enforced in CI
 ruby scripts/generate_ios_agent_project.rb   # only if you change the iOS agent's targets
 ```
+
+The unit tests need no device and no network: devices, the clock and Jev are faked, and the driver tests parse real screen captures from `tests/fixtures/`.
 
 MIT licensed.

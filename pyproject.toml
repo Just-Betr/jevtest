@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jevtest"
-version = "0.1.0"
+version = "0.2.0"
 description = "Mobile app test harness driven by TypeSafe's Jev model"
 readme = "README.md"
 license = "MIT"
@@ -19,3 +19,30 @@ packages = ["jevtest", "jevtest.drivers"]
 
 [tool.setuptools.package-data]
 jevtest = ["ios_agent/**/*"]
+
+[tool.setuptools.exclude-package-data]
+jevtest = ["ios_agent/**/xcuserdata/**"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["jevtest"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
+exclude_also = ["if __name__ == .__main__.:"]
