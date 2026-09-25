@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jevtest"
+version = "0.1.0"
+description = "Mobile app test harness driven by TypeSafe's Jev model"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["pyyaml>=6"]
+
+[project.scripts]
+jevtest = "jevtest.cli:main"
+
+[tool.setuptools]
+packages = ["jevtest", "jevtest.drivers"]
+
+[tool.setuptools.package-data]
+jevtest = ["ios_agent/**/*"]

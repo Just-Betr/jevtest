@@ -1,0 +1,143 @@
+"""The device interface every platform driver implements."""
+
+from __future__ import annotations
+
+import subprocess
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+from ..screen import Element, Screen
+
+
+class DriverError(RuntimeError):
+    pass
+
+
+def run(cmd: list[str], timeout: float = 120, check: bool = True, binary: bool = False,
+        env: dict | None = None):
+    try:
+        p = subprocess.run(cmd, capture_output=True, timeout=timeout, text=not binary, env=env)
+    except FileNotFoundError:
+        raise DriverError(f"Command not found: {cmd[0]}") from None
+    except subprocess.TimeoutExpired:
+        raise DriverError(f"Timed out after {timeout}s: {' '.join(map(str, cmd))}") from None
+    if check and p.returncode != 0:
+        err = p.stderr if not binary else p.stderr.decode(errors="replace")
+        out = p.stdout if not binary else ""
+        raise DriverError(f"{' '.join(map(str, cmd))} failed ({p.returncode}): {(err or out).strip()[:800]}")
+    return p.stdout
+
+
+class Driver(ABC):
+    platform: str
+    app_id: str = ""
+
+    # --- app lifecycle -------------------------------------------------
+    @abstractmethod
+    def install(self, app_path: Path) -> str:
+        """Install the app build, return its package / bundle id."""
+
+    @abstractmethod
+    def launch(self): ...
+
+    @abstractmethod
+    def stop(self): ...
+
+    @abstractmethod
+    def clear_data(self): ...
+
+    @abstractmethod
+    def reinstall(self): ...
+
+    # --- observe -------------------------------------------------------
+    @abstractmethod
+    def screen(self) -> Screen: ...
+
+    @abstractmethod
+    def screenshot(self, path: Path): ...
+
+    # --- touch & keys --------------------------------------------------
+    @abstractmethod
+    def tap(self, x: int, y: int): ...
+
+    @abstractmethod
+    def double_tap(self, x: int, y: int): ...
+
+    @abstractmethod
+    def long_press(self, x: int, y: int, seconds: float = 1.2): ...
+
+    @abstractmethod
+    def drag(self, x1: int, y1: int, x2: int, y2: int, seconds: float = 0.3): ...
+
+    @abstractmethod
+    def type_text(self, text: str): ...
+
+    @abstractmethod
+    def clear_text(self, el: Element): ...
+
+    @abstractmethod
+    def key(self, name: str):
+        """enter, delete, tab, escape, ..."""
+
+    @abstractmethod
+    def back(self): ...
+
+    @abstractmethod
+    def home(self): ...
+
+    @abstractmethod
+    def hide_keyboard(self): ...
+
+    # --- device --------------------------------------------------------
+    @abstractmethod
+    def rotate(self, orientation: str): ...
+
+    @abstractmethod
+    def set_location(self, lat: float, lon: float): ...
+
+    @abstractmethod
+    def open_url(self, url: str): ...
+
+    @abstractmethod
+    def dark_mode(self, on: bool): ...
+
+    @abstractmethod
+    def grant(self, permission: str): ...
+
+    @abstractmethod
+    def network(self, on: bool): ...
+
+    @abstractmethod
+    def resume(self):
+        """Bring the app back to the foreground without restarting it."""
+
+    def close(self):
+        pass
+
+    # --- shared helpers --------------------------------------------------
+    def swipe(self, direction: str, el: Element | None = None, screen: Screen | None = None):
+        """Finger swipe in `direction` (up/down/left/right), across an element or the screen."""
+        if el is not None:
+            x1, y1, x2, y2 = el.bounds
+        else:
+            s = screen or self.screen()
+            x1, y1, x2, y2 = 0, 0, s.width, s.height
+        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+        w, h = x2 - x1, y2 - y1
+        dx, dy = int(w * 0.35), int(h * 0.3)
+        moves = {
+            "up": (cx, cy + dy, cx, cy - dy),
+            "down": (cx, cy - dy, cx, cy + dy),
+            "left": (cx + dx, cy, cx - dx, cy),
+            "right": (cx - dx, cy, cx + dx, cy),
+        }
+        if direction not in moves:
+            raise DriverError(f"Unknown swipe direction '{direction}' (use up/down/left/right)")
+        self.drag(*moves[direction])
+
+    def scroll(self, direction: str, screen: Screen | None = None):
+        """Scroll the content so more of it in `direction` becomes visible."""
+        finger = {"down": "up", "up": "down", "left": "right", "right": "left"}
+        if direction not in finger:
+            raise DriverError(f"Unknown scroll direction '{direction}' (use up/down/left/right)")
+        self.swipe(finger[direction], screen=screen)

@@ -1,0 +1,60 @@
+# jevtest example: runs against the bundled demo app.
+#   jevtest run examples/demo.yaml --platform android
+#   jevtest run examples/demo.yaml --platform ios
+
+app:
+  android: ../demo_app/build/app/outputs/flutter-apk/app-debug.apk
+  ios: ../demo_app/build/ios_sim/Build/Products/Debug-iphonesimulator/Runner.app
+
+settings:
+  max_actions: 8     # Jev actions allowed per plain-English step
+  timeout: 10        # seconds to wait for expect / see / tap targets
+
+tests:
+  # Plain-English steps: Jev reads the screen and picks each action.
+  - name: Wrong password shows an error
+    steps:
+      - Sign in with email "demo@jevtest.dev" and password "nope"
+      - expect: An error message about an invalid email or password is shown
+
+  - name: Sign in and use the home screen
+    steps:
+      - Sign in with email "demo@jevtest.dev" and password "hunter22"
+      - see: Welcome, demo@jevtest.dev
+      - Tap the Add one button two times
+      - see: "Taps: 2"
+      - double_tap: Double tap me
+      - see: "Double taps: 1"
+      - long_press: Press and hold me
+      - expect: A dialog says the item was held
+      - tap: Close
+      - Turn notifications on
+      - see: Notifications are on
+
+  # Explicit steps: no guessing about *what* to do, Jev only finds the element.
+  - name: List, detail and swipe to delete
+    steps:
+      - type: { text: "demo@jevtest.dev", into: Email }
+      - type: { text: "hunter22", into: Password }
+      - hide_keyboard
+      - tap: Sign in button
+      - scroll_to: Open list
+      - tap: Open list
+      - scroll_to: Item 25
+      - tap: Item 25
+      - see: Details for Item 25
+      - back
+      - swipe: left
+        target: Item 26
+      - see: Item 26 deleted
+      - screenshot: after-delete
+
+  - name: Device actions keep the session
+    fresh: false        # continue from the previous test instead of reinstalling
+    steps:
+      - rotate: landscape
+      - rotate: portrait
+      - background: 2
+      - expect: A list of items is showing
+      - restart
+      - expect: The sign in screen is showing
