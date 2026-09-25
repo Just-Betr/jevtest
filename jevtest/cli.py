@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -21,6 +22,20 @@ from .runner import Runner, write_report
 from .spec import SpecError, load, platform_of
 
 
+def load_env(*dirs: Path):
+    """Read KEY=value lines from .env files; real environment variables win."""
+    for d in dirs:
+        f = d / ".env"
+        if not f.is_file():
+            continue
+        for line in f.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.removeprefix("export ").split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+
+
 def make_driver(platform: str, device: str | None):
     if platform == "android":
         from .drivers.android import AndroidDriver
@@ -31,6 +46,7 @@ def make_driver(platform: str, device: str | None):
 
 def cmd_run(args) -> int:
     spec = load(args.file)
+    load_env(Path.cwd(), spec.path.parent)
     if args.test:
         spec.tests = [t for t in spec.tests if t.name in args.test]
         if not spec.tests:
