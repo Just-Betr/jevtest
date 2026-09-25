@@ -52,21 +52,38 @@ settings:                     # all optional
 tests:                        # run in this order
   - name: Sign in
     steps:
-      - Sign in with email "me@x.dev" and password "hunter22"   # Jev drives
-      - expect: The home screen greets the user                  # Jev judges
-      - see: Welcome                                             # exact text check
+      - do: Sign in with email "me@x.dev" and password "hunter22"   # action: Jev drives
+        expect: The home screen greets the user                     # check: Jev judges
+        see: Welcome                                                # check: exact text
+
+  - name: Counter
+    steps:
+      - use: Sign in                        # run the "Sign in" test's steps first
+      - do: Tap the Add one button twice
+        see: "Taps: 2"
 ```
 
-Each test starts from a clean install (clear data + launch) unless you set `fresh: false`. The first failing step stops that test, takes a screenshot, and the run moves on to the next test.
+**Every step is one action, then the checks that must hold after it.** Checks are optional, and a step can be checks only (`- expect: …`). Checks retry until `timeout`, so a slow screen still passes. To check several things of the same kind, give a list: `see: [Welcome, Log out]`.
+
+**`use: <test name>`** runs another test's steps inside this one, so tests build on each other. Uses can nest, but a loop is an error. The used test still runs on its own too.
+
+Each test starts from a clean install (clear data + launch) unless you set `fresh: false`. The first failing step or check stops that test, takes a screenshot, and the run moves on to the next test.
 
 ### Steps
 
-| Step | What it does |
+**Checks** (go under any action, or alone):
+
+| Check | Passes when |
 |---|---|
-| `- Any plain sentence` | Jev works out the actions to reach this goal. Values in `"quotes"` are what it may type. |
-| `- do: sentence` + `max_actions: N` | Same thing, with its own action limit |
-| `- expect: statement` | Jev decides whether the statement is true of the screen (keeps retrying until `timeout`) |
-| `- see: text` / `- not_see: text` | Exact, case-insensitive text check, no model involved |
+| `expect: statement` | Jev says the statement is true of the screen |
+| `see: text` / `not_see: text` | The exact text is / isn't on screen (case-insensitive, no model) |
+
+**Actions** (one per step):
+
+| Action | What it does |
+|---|---|
+| `- do: sentence` (or just `- sentence`) | Jev works out the taps and typing to reach this goal. Values in `"quotes"` are what it may type. `max_actions: N` overrides the limit |
+| `- use: test name` | Run another test's steps here |
 | `- tap: target` / `double_tap:` / `long_press:` | Jev finds the element you describe (an exact unique label match skips Jev) |
 | `- type: {text: "abc", into: Email}` | Type into a field. Without `into:`, types into the focused field |
 | `- clear: Email` | Erase a text field |
@@ -86,7 +103,9 @@ Each test starts from a clean install (clear data + launch) unless you set `fres
 | `- network: off` | Wi-Fi and data off/on (Android only; the simulator shares the Mac's network) |
 | `- screenshot: name` | Save a PNG into the results folder |
 
-After every step the harness checks the app is still running and fails the step if it crashed.
+A bare word like `- back` is fine alone. To put checks under it, add a colon: `- back:` then the checks on the next lines.
+
+After every action the harness also fails the step if the app crashed or left the foreground.
 
 ## Commands
 

@@ -39,14 +39,47 @@ def test_parse_steps():
     with pytest.raises(SpecError):
         parse_step({"tap": "x", "bogus": 1})
     with pytest.raises(SpecError):
-        parse_step({"tap": "x", "see": "y"})
+        parse_step({"tap": "x", "do": "y"})  # two actions
+
+
+def test_action_then_checks():
+    s = parse_step({"do": "Sign in", "expect": "Home shows", "see": ["Welcome", "Log out"]})
+    assert s.kind == "do"
+    assert s.checks == [("expect", "Home shows"), ("see", "Welcome"), ("see", "Log out")]
+    only = parse_step({"expect": "Home shows"})
+    assert only.kind is None and only.checks == [("expect", "Home shows")]
+    with pytest.raises(SpecError):
+        parse_step({"timeout": 3})
+
+
+def write(tmp_path, body):
+    (tmp_path / "a.apk").write_text("")
+    f = tmp_path / "t.yaml"
+    f.write_text("app: a.apk\ntests:\n" + body)
+    return f
+
+
+def test_use_links_tests(tmp_path):
+    spec = load(write(tmp_path, """
+  - name: Sign in
+    steps: [{do: sign in}]
+  - name: Counter
+    steps: [{use: Sign in}, {do: tap add, see: "Taps: 1"}]
+"""))
+    assert spec.tests[1].steps[0].used is spec.tests[0]
+
+
+def test_use_errors(tmp_path):
+    with pytest.raises(SpecError, match="no test has that name"):
+        load(write(tmp_path, "  - name: A\n    steps: [{use: Nope}]\n"))
+    with pytest.raises(SpecError, match="loop"):
+        load(write(tmp_path, "  - name: A\n    steps: [{use: B}]\n  - name: B\n    steps: [{use: A}]\n"))
 
 
 def test_load_example():
     spec = load(Path(__file__).parent.parent / "examples" / "demo.yaml")
     assert set(spec.apps) == {"android", "ios"}
-    assert spec.tests[0].steps[0].kind == "do"
-    assert spec.tests[-1].fresh is False
+    assert spec.tests[0].steps[0].checks[0][0] == "expect"
     with pytest.raises(SpecError):
         spec.app_for(None)  # two platforms: must pick one
 

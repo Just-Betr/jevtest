@@ -99,42 +99,97 @@ class Runner:
             status = "fail"
             steps.append({"step": "(start app)", "status": "fail", "detail": str(e)})
             self.log(f"  ✗ could not start app: {e}")
-        for step in test.steps if status == "pass" else []:
-            result = self.run_step(step)
-            steps.append(result)
-            if result["status"] != "pass":
-                status = "fail"
-                result["screenshot"] = self.screenshot(f"FAIL_{test.name}")
-                break
+        if status == "pass":
+            status = self.run_steps(test.steps, steps, "  ")
+            if status != "pass":
+                steps[-1]["screenshot"] = self.screenshot(f"FAIL_{test.name}")
         took = round(time.monotonic() - started, 1)
         self.log(f"  {'PASS' if status == 'pass' else 'FAIL'} {test.name} ({took}s)")
         return {"name": test.name, "status": status, "seconds": took, "steps": steps}
 
-    def run_step(self, step: Step) -> dict:
+    def run_steps(self, steps: list[Step], results: list, pad: str) -> str:
+        for step in steps:
+            result = self.run_step(step, pad)
+            results.append(result)
+            if result["status"] != "pass":
+                return "fail"
+        return "pass"
+
+    def run_step(self, step: Step, pad: str) -> dict:
         started = time.monotonic()
-        result = {"step": step.raw, "status": "pass", "decisions": []}
-        try:
-            detail = self.do(step, result["decisions"])
-            if detail:
-                result["detail"] = detail
-            if self.expect_running and step.kind not in ("stop", "home", "open_url"):
-                state = self.driver.app_state()
-                if state == "not_running":
-                    raise StepFailed("The app is no longer running (crashed or closed)")
-                if state == "background":
-                    raise StepFailed("The app left the foreground")
-        except (StepFailed, DriverError, JevError) as e:
-            result["status"] = "fail"
-            result["detail"] = str(e)
+        result = {"step": step.raw, "status": "pass"}
+        if step.kind == "use":
+            self.log(f"{pad}▸ use: {step.used.name}")
+            inner = []
+            result["steps"] = inner
+            result["status"] = self.run_steps(step.used.steps, inner, pad + "  ")
+        elif step.kind is not None:
+            decisions = []
+            try:
+                detail = self.do(step, decisions)
+                if detail:
+                    result["detail"] = detail
+                self.check_app(step)
+            except (StepFailed, DriverError, JevError) as e:
+                result["status"] = "fail"
+                result["detail"] = str(e)
+            if decisions:
+                result["decisions"] = decisions
+            secs = round(time.monotonic() - started, 1)
+            mark = "✓" if result["status"] == "pass" else "✗"
+            extra = f" — {result['detail']}" if result.get("detail") else ""
+            self.log(f"{pad}{mark} {step.title()} ({secs}s){extra}")
+            for d in decisions:
+                self.log(f"{pad}    → {d['did']}  (confidence {d['confidence']:.2f})")
+
+        # Checks run after the action, indented under it.
+        check_pad = pad + "    " if step.kind is not None else pad
+        result["checks"] = []
+        for kind, text in step.checks if result["status"] == "pass" else []:
+            c = {"check": kind, "text": text, "status": "pass"}
+            try:
+                c["detail"] = self.check(kind, text, float(step.opts.get("timeout", self.s.timeout)))
+            except (StepFailed, DriverError, JevError) as e:
+                c["status"], c["detail"] = "fail", str(e)
+            result["checks"].append(c)
+            mark = "✓" if c["status"] == "pass" else "✗"
+            extra = f" — {c['detail']}" if c.get("detail") else ""
+            self.log(f"{check_pad}{mark} {kind}: {text}{extra}")
+            if c["status"] != "pass":
+                result["status"] = "fail"
+                break
+        if not result["checks"]:
+            result.pop("checks")
         result["seconds"] = round(time.monotonic() - started, 1)
-        mark = "✓" if result["status"] == "pass" else "✗"
-        extra = f" — {result['detail']}" if result.get("detail") else ""
-        self.log(f"  {mark} {step.title()} ({result['seconds']}s){extra}")
-        for d in result["decisions"]:
-            self.log(f"      → {d['did']}  (confidence {d['confidence']:.2f})")
-        if not result["decisions"]:
-            result.pop("decisions")
         return result
+
+    def check_app(self, step: Step):
+        """Fail if the app crashed or left the foreground during the action."""
+        if not self.expect_running or step.kind in ("stop", "home", "open_url"):
+            return
+        state = self.driver.app_state()
+        if state == "not_running":
+            raise StepFailed("The app is no longer running (crashed or closed)")
+        if state == "background":
+            raise StepFailed("The app left the foreground")
+
+    def check(self, kind: str, text: str, timeout: float) -> str | None:
+        """expect: Jev judges the statement. see/not_see: exact text. Retries until timeout."""
+        deadline = time.monotonic() + timeout
+        while True:
+            if kind == "expect":
+                p = self.brain.check(text, self.screen())
+                if p > self.s.threshold:
+                    return f"Jev {p:.2f}"
+                failure = f"Jev says false ({p:.2f})"
+            else:
+                found = any(text.lower() in t.lower() for t in self.screen().texts())
+                if found == (kind == "see"):
+                    return None
+                failure = "not on screen" if kind == "see" else "still on screen"
+            if time.monotonic() >= deadline:
+                raise StepFailed(failure)
+            time.sleep(0.5)
 
     # --- steps ----------------------------------------------------------------
     def do(self, step: Step, decisions: list) -> str | None:
@@ -219,25 +274,6 @@ class Runner:
             d.grant(str(v))
         elif k == "network":
             d.network(_on_off(v))
-        elif k in ("see", "not_see"):
-            want = k == "see"
-            deadline = time.monotonic() + timeout
-            while True:
-                found = any(str(v).lower() in t.lower() for t in self.screen().texts())
-                if found == want:
-                    return None
-                if time.monotonic() >= deadline:
-                    raise StepFailed(f"'{v}' {'not found' if want else 'is still'} on screen")
-                time.sleep(0.5)
-        elif k == "expect":
-            deadline = time.monotonic() + timeout
-            while True:
-                p = self.brain.check(str(v), self.screen())
-                if p > self.s.threshold:
-                    return f"Jev: true ({p:.2f})"
-                if time.monotonic() >= deadline:
-                    raise StepFailed(f"Jev says false ({p:.2f})")
-                time.sleep(1.0)
         elif k == "do":
             return self.achieve(str(v), int(o.get("max_actions", self.s.max_actions)), decisions)
         else:
