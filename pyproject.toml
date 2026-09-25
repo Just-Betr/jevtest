@@ -18,7 +18,7 @@ jevtest = "jevtest.cli:main"
 packages = ["jevtest", "jevtest.drivers"]
 
 [tool.setuptools.package-data]
-jevtest = ["ios_agent/**/*"]
+jevtest = ["ios_agent/**/*", "android_agent/**/*"]
 
 [tool.setuptools.exclude-package-data]
 jevtest = ["ios_agent/**/xcuserdata/**"]
