@@ -9,6 +9,10 @@ import XCTest
 final class JevAgentUITests: XCTestCase {
     private var app: XCUIApplication?
     private var bundleId = ""
+    private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    private var served = ""  // signature of the tree the client last received
+    private static let quiet: TimeInterval = 0.15        // same quiet window as the Android agent
+    private static let pollInterval: TimeInterval = 0.05 // no change events on iOS: this is the pace
     private var issues: [String] = []
 
     // A failed XCUITest call (e.g. typing with no focus) would normally fail and end
@@ -112,16 +116,18 @@ final class JevAgentUITests: XCTestCase {
             // one points at the removed app; wait(for:) reacts as soon as the app is frontmost.
             let fresh = XCUIApplication(bundleIdentifier: bundleId)
             self.app = fresh
-            guard fresh.wait(for: .runningForeground, timeout: 30) else {
+            guard fresh.wait(for: .runningForeground, timeout: (body["timeout"] as? Double) ?? 10) else {
                 return ["error": "App '\(bundleId)' did not come to the foreground"]
             }
         case "/activate":
             app.activate()
-            return ["ok": app.wait(for: .runningForeground, timeout: 10)]
+            return ["ok": app.wait(for: .runningForeground, timeout: (body["timeout"] as? Double) ?? 10)]
         case "/state":
             return ["state": app.state.rawValue]
         case "/tree":
-            return try tree(app)
+            let (reply, signature) = try tree(app)
+            served = signature
+            return reply
         case "/tap":
             point(app, body["x"], body["y"]).tap()
         case "/double_tap":
@@ -129,20 +135,37 @@ final class JevAgentUITests: XCTestCase {
         case "/long_press":
             point(app, body["x"], body["y"]).press(forDuration: (body["seconds"] as? Double) ?? 1.2)
         case "/drag":
-            let start = point(app, body["x1"], body["y1"])
-            let end = point(app, body["x2"], body["y2"])
-            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0.05)
+            point(app, body["x1"], body["y1"]).press(
+                forDuration: 0.05, thenDragTo: point(app, body["x2"], body["y2"]),
+                withVelocity: .fast, thenHoldForDuration: 0.05)
         case "/type":
             app.typeText((body["text"] as? String) ?? "")
+        case "/change":
+            // iOS has no "UI changed" event (WebDriverAgent and Maestro poll too), so poll here,
+            // on the device. "Changed" = differs from the tree the client last received, so a
+            // change that lands between its /tree and its /change is not missed.
+            let deadline = Date().addingTimeInterval((body["timeout"] as? Double) ?? 3)
+            while true {
+                if try signature(app) != served { return ["changed": true] }
+                if Date() >= deadline { break }
+                RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(Self.pollInterval)))
+            }
+            return ["changed": false]
         case "/idle":
             // XCUITest's own idle wait only sees UIKit; Flutter and web views draw their own
-            // animations. So: return once two consecutive screen reads are identical.
+            // animations. Idle = the screen has not changed for a quiet window (like Android's
+            // UiAutomation.waitForIdle), so a UI that has not started reacting yet is not "idle".
             let deadline = Date().addingTimeInterval((body["timeout"] as? Double) ?? 3)
             var last = try signature(app)
-            while Date() < deadline {
+            var stableSince = Date()
+            let quiet = (body["quiet"] as? Double) ?? Self.quiet
+            while Date() < deadline, Date().timeIntervalSince(stableSince) < quiet {
+                RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(Self.pollInterval)))
                 let now = try signature(app)
-                if now == last { break }
-                last = now
+                if now != last {
+                    last = now
+                    stableSince = Date()
+                }
             }
         case "/key":
             let keys: [String: String] = [
@@ -188,44 +211,69 @@ final class JevAgentUITests: XCTestCase {
         return ["ok": true]
     }
 
+    /// What is on screen: the app, plus a system alert on top of it (permission prompts belong
+    /// to SpringBoard, not the app, so the app's own snapshot never contains them).
+    private func snapshots(_ app: XCUIApplication) throws -> [XCUIElementSnapshot] {
+        var roots = [try app.snapshot()]
+        let alert = springboard.alerts.firstMatch
+        if alert.exists, let snap = try? alert.snapshot() {
+            roots.append(snap)
+        }
+        return roots
+    }
+
+    /// A line per element: identical for identical screens. Used to detect change and idleness.
+    private static func line(_ s: XCUIElementSnapshot) -> String {
+        "\(s.elementType.rawValue)|\(s.label)|\(s.value ?? "")|\(s.frame)|\(s.hasFocus)"
+    }
+
     private func signature(_ app: XCUIApplication) throws -> String {
         var parts: [String] = []
         func walk(_ s: XCUIElementSnapshot) {
-            parts.append("\(s.elementType.rawValue)|\(s.label)|\(s.value ?? "")|\(s.frame)|\(s.hasFocus)")
+            parts.append(Self.line(s))
             s.children.forEach(walk)
         }
-        walk(try app.snapshot())
+        try snapshots(app).forEach(walk)
         return parts.joined(separator: "\n")
     }
 
-    private func tree(_ app: XCUIApplication) throws -> [String: Any] {
-        let running = app.state == .runningForeground || app.state == .runningBackground
+    /// The screen for the client, and its signature, from one snapshot pass.
+    private func tree(_ app: XCUIApplication) throws -> ([String: Any], String) {
         guard app.state == .runningForeground else {
-            return ["elements": [], "width": 0, "height": 0, "keyboard": false, "running": running]
+            return (["elements": [], "width": 0, "height": 0, "keyboard": false], "")
         }
-        let snap = try app.snapshot()
         var out: [[String: Any]] = []
-        func walk(_ s: XCUIElementSnapshot) {
-            if s.elementType == .keyboard { return }  // keys are noise for Jev
-            let f = s.frame
-            var d: [String: Any] = [
-                "type": Self.typeName(s.elementType),
-                "identifier": s.identifier,
-                "label": s.label,
-                "x": f.origin.x, "y": f.origin.y, "w": f.size.width, "h": f.size.height,
-                "enabled": s.isEnabled, "selected": s.isSelected, "focused": s.hasFocus,
-            ]
-            if let v = s.value { d["value"] = "\(v)" }
-            if let p = s.placeholderValue { d["placeholder"] = p }
-            out.append(d)
-            s.children.forEach(walk)
+        var parts: [String] = []
+        func hasKeyboard(_ s: XCUIElementSnapshot) -> Bool {
+            s.elementType == .keyboard || s.children.contains(where: hasKeyboard)
         }
-        walk(snap)
-        return [
+        func walk(_ s: XCUIElementSnapshot, keyboardWindow: Bool) {
+            parts.append(Self.line(s))
+            // The keyboard's window (keys, suggestion strip, emoji and dictation buttons) is not
+            // the app's UI: noise for Jev. Whether it is up is reported as "keyboard" below.
+            let skip = keyboardWindow || s.elementType == .keyboard || (s.elementType == .window && hasKeyboard(s))
+            if !skip {
+                let f = s.frame
+                var d: [String: Any] = [
+                    "type": Self.typeName(s.elementType),
+                    "identifier": s.identifier,
+                    "label": s.label,
+                    "x": f.origin.x, "y": f.origin.y, "w": f.size.width, "h": f.size.height,
+                    "enabled": s.isEnabled, "selected": s.isSelected, "focused": s.hasFocus,
+                ]
+                if let v = s.value { d["value"] = "\(v)" }
+                if let p = s.placeholderValue { d["placeholder"] = p }
+                out.append(d)
+            }
+            s.children.forEach { walk($0, keyboardWindow: skip) }
+        }
+        try snapshots(app).forEach { walk($0, keyboardWindow: false) }
+        let reply: [String: Any] = [
             "elements": out,
             "width": app.frame.size.width, "height": app.frame.size.height,
-            "keyboard": app.keyboards.count > 0, "running": true,
+            "keyboard": app.keyboards.count > 0,
         ]
+        return (reply, parts.joined(separator: "\n"))
     }
 
     private static func typeName(_ t: XCUIElement.ElementType) -> String {

@@ -98,3 +98,41 @@ tests:
         see: Terms accepted
       - tap: Show more
         expect: The page shows more content from the web page
+
+  # Native (non-Flutter) screen: Android Views / iOS UIKit.
+  - name: Native screen
+    steps:
+      - use: Sign in
+      - scroll_to: Open native screen
+      - tap: Open native screen
+        see: Native screen
+      - clear: Nickname
+      - type: { text: "Bret", into: Nickname }
+      - tap: Save nickname
+        see: "Saved: Bret"
+      - tap: Dark theme
+        see: Theme is dark
+      - tap: Delete account
+        expect: A dialog asks to confirm deleting the account
+      - tap: Delete
+        see: Account deleted
+
+  # A system permission prompt (owned by the OS, not the app).
+  - name: Camera permission prompt
+    steps:
+      - use: Sign in
+      - scroll_to: Open native screen
+      - tap: Open native screen
+        see: Native screen
+      - tap: Ask for camera
+        expect: The system is asking whether to allow camera access
+      - do: Allow camera access
+        see: "Camera: allowed"
+
+  # Content that arrives later (like a network response): checks wait for it, no sleeps needed.
+  - name: Slow loading
+    steps:
+      - use: Sign in
+      - scroll_to: Load data
+      - tap: Load data
+        see: Data loaded

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 // jevtest demo app: a small app that exercises every action the harness
@@ -90,6 +91,13 @@ class _HomePageState extends State<HomePage> {
   int _taps = 0;
   int _doubleTaps = 0;
   bool _notifications = false;
+  String _data = 'No data yet';
+
+  Future<void> _loadData() async {  // like a network call: the result arrives a second later
+    setState(() => _data = 'Loading...');
+    await Future<void>.delayed(const Duration(seconds: 1));
+    if (mounted) setState(() => _data = 'Data loaded');
+  }
 
   void _showHeldDialog() {
     showDialog<void>(
@@ -159,6 +167,9 @@ class _HomePageState extends State<HomePage> {
           ),
           Text(_notifications ? 'Notifications are on' : 'Notifications are off'),
           const SizedBox(height: 16),
+          OutlinedButton(onPressed: _loadData, child: const Text('Load data')),
+          Text(_data),
+          const SizedBox(height: 16),
           OutlinedButton(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ItemsPage()),
@@ -171,6 +182,11 @@ class _HomePageState extends State<HomePage> {
               MaterialPageRoute(builder: (_) => const WebPage()),
             ),
             child: const Text('Open web page'),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: () => const MethodChannel('jevtest/native').invokeMethod('open'),
+            child: const Text('Open native screen'),
           ),
           const SizedBox(height: 16),
           TextButton(

@@ -184,8 +184,8 @@ class FakeDriver(Driver):
     def network(self, on):
         self._rec("network", on)
 
-    def wait_idle(self, timeout):
-        self._rec("wait_idle", timeout)
+    def wait_idle(self, timeout, quiet=None):
+        self._rec("wait_idle", timeout) if quiet is None else self._rec("wait_idle", timeout, quiet)
 
     def wait_change(self, timeout):
         self._rec("wait_change")

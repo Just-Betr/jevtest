@@ -36,7 +36,12 @@ EDITABLE = {"EditText", "AutoCompleteTextView"}
 # Always report on/off for these: WebView checkboxes come through with checkable="false".
 TOGGLES = {"CheckBox", "Switch", "RadioButton", "ToggleButton", "SwitchCompat", "SwitchMaterial"}
 DOUBLE_TAP_GAP = 0.1      # Android and Flutter ignore taps < 40 ms apart and > 300 ms apart
-WEBVIEW_LOAD = 3.0        # most seconds to wait for an empty WebView's content to arrive
+AGENT_START_TIMEOUT = 30
+# System animations off for the run, as Espresso and Appium recommend: a tap during a window's
+# entrance animation is dropped, and window animations send no accessibility events to wait on.
+ANIMATION_SETTINGS = ("window_animation_scale", "transition_animation_scale", "animator_duration_scale")
+TOP_ACTIVITY = re.compile(r"topResumedActivity=ActivityRecord\{\S+ \S+ ([\w.]+)/")
+PERMISSION_PROMPT = re.compile(r"com\.(google\.)?android\.permissioncontroller")
 AGENT_SRC = Path(__file__).resolve().parent.parent / "android_agent"
 AGENT_ID = "dev.jevtest.agent"
 AGENT_PORT = 7912         # on the device; adb forwards a free local port to it
@@ -195,12 +200,13 @@ def parse_hierarchy(xml: str, width: int, height: int) -> list[Element]:
             kind = cls.lower()
         if editable and a.get("password") == "true":
             kind = "password_field"
+        value = text if editable else ""
         elements.append(Element(
             kind=kind, text=" ".join(label.split()), hint=a.get("hint", ""), resource_id=rid,
             bounds=(x1, y1, x2, y2), enabled=a.get("enabled", "true") == "true", editable=editable,
             clickable=clickable, scrollable=scrollable, focused=a.get("focused") == "true",
             checked=(a.get("checked") == "true") if checkable else None,
-            selected=a.get("selected") == "true",
+            selected=a.get("selected") == "true", value=value,
         ))
     return elements
 
@@ -218,7 +224,16 @@ class AndroidDriver(Driver):
         self.activity = ""
         self._size: tuple[int, int] | None = None
         self.agent: subprocess.Popen | None = None
+        self._animations = self._disable_animations()
         self._start_agent()
+
+    def _disable_animations(self) -> dict[str, str]:
+        """Turn system animations off; return the user's values so close() can restore them."""
+        before = {}
+        for name in ANIMATION_SETTINGS:
+            before[name] = self.sh(f"settings get global {name}", check=False).strip()
+            self.sh(f"settings put global {name} 0")
+        return before
 
     # --- agent -------------------------------------------------------------------
     def _start_agent(self):
@@ -232,10 +247,10 @@ class AndroidDriver(Driver):
         self.agent = start_process(
             [self.adb, "-s", self.serial, "shell", "am", "instrument", "-r", "-w", "-e", "port", str(AGENT_PORT),
              f"{AGENT_ID}/.Agent"],
-            ready="ready=1", log=cache_dir() / f"android-agent-{self.serial}.log", timeout=30)
+            ready="ready=1", log=cache_dir() / f"android-agent-{self.serial}.log", timeout=AGENT_START_TIMEOUT)
 
-    def _agent(self, path: str, wait_ms: int = 0) -> str:
-        url = f"http://127.0.0.1:{self.port}{path}" + (f"?ms={wait_ms}" if wait_ms else "")
+    def _agent(self, path: str, wait_ms: int = 0, extra: str = "") -> str:
+        url = f"http://127.0.0.1:{self.port}{path}" + (f"?ms={wait_ms}{extra}" if wait_ms else "")
         try:
             return http_get(url, timeout=wait_ms / 1000 + 10)
         except OSError as e:
@@ -247,9 +262,15 @@ class AndroidDriver(Driver):
                 self._agent("/quit")
         stop_process(self.agent)
         run([self.adb, "-s", self.serial, "forward", "--remove", f"tcp:{self.port}"], check=False)
+        for name, value in self._animations.items():
+            if value in ("", "null"):
+                self.sh(f"settings delete global {name}", check=False)
+            else:
+                self.sh(f"settings put global {name} {value}", check=False)
 
-    def wait_idle(self, timeout: float):
-        self._agent("/idle", int(timeout * 1000))
+    def wait_idle(self, timeout: float, quiet: float | None = None):
+        extra = f"&quiet={int(quiet * 1000)}" if quiet is not None else ""
+        self._agent("/idle", int(timeout * 1000), extra)
 
     def wait_change(self, timeout: float):
         self._agent("/change", int(timeout * 1000))
@@ -273,7 +294,8 @@ class AndroidDriver(Driver):
         suffix = app_path.suffix.lower()
         if suffix == ".apk":
             self.app_id = run([aapt2_path(), "dump", "packagename", str(app_path)]).strip()
-            run([self.adb, "-s", self.serial, "install", "-r", "-g", "-t", str(app_path)], timeout=300)
+            # No -g: permissions start ungranted, like a real install. Use a `grant:` step to pre-grant.
+            run([self.adb, "-s", self.serial, "install", "-r", "-t", str(app_path)], timeout=300)
         elif suffix == ".aab":
             self._install_bundle(app_path)
         else:
@@ -320,13 +342,18 @@ class AndroidDriver(Driver):
                       check=False)
         if not re.match(r"\d+", out.strip()):
             return "not_running"
-        return "foreground" if f" {self.app_id}/" in out else "background"
+        top = TOP_ACTIVITY.search(out)
+        # The app has left only when another app is on top. No top activity = mid-transition;
+        # a permission prompt the app asked for sits on top of it but belongs to it.
+        if not top or top.group(1) == self.app_id or PERMISSION_PROMPT.fullmatch(top.group(1)):
+            return "foreground"
+        return "background"
 
     # --- observe ---------------------------------------------------------------
-    def _wait_for_typing(self, at: tuple[int, int], timeout: float = 3.0):
+    def _wait_for_typing(self, at: tuple[int, int]):
         """Keys sent before the keyboard is connected are dropped, so wait (event-driven) for
         a focused text field under `at` and a visible keyboard."""
-        deadline = time.monotonic() + timeout
+        deadline = time.monotonic() + self.settle
         while True:
             xml = self._agent("/tree")
             root = ET.fromstring(xml)
@@ -343,7 +370,7 @@ class AndroidDriver(Driver):
         """The UI hierarchy XML. A WebView's content arrives a moment after the WebView itself,
         so while a WebView is still empty, wait for the screen to change (event-driven)."""
         xml = self._agent("/tree")
-        deadline = time.monotonic() + WEBVIEW_LOAD
+        deadline = time.monotonic() + self.settle
         while has_empty_webview(xml) and time.monotonic() < deadline:
             self.wait_change(deadline - time.monotonic())
             xml = self._agent("/tree")
@@ -387,8 +414,10 @@ class AndroidDriver(Driver):
                 self.sh("input text " + shlex.quote(line.replace("%", r"\%").replace(" ", "%s")))
 
     def clear_text(self, el):
-        self.tap(*el.center)
-        self.sh("input keyevent 123 " + " ".join(["67"] * (len(el.text) + 10)))  # end, then deletes
+        self.tap(*el.end)  # cursor after the text
+        self._wait_for_typing(el.end)
+        if el.value:  # move to the end, then delete exactly what is there
+            self.sh("input keyevent 123 " + " ".join(["67"] * len(el.value)))
 
     def key(self, name):
         code = KEYCODES.get(name.lower())

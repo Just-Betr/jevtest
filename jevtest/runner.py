@@ -15,6 +15,7 @@ from .jev import JevError
 from .screen import Element, Screen
 from .spec import Spec, Step, Test
 
+LAUNCH_QUIET = 0.5  # seconds without a UI change that count as "the app has finished starting"
 # Actions after which the app is allowed to be closed or in the background.
 APP_MAY_LEAVE = {"stop", "clear_data", "reinstall", "home", "open_url"}
 # Actions that do their own waiting, or change nothing on screen.
@@ -146,7 +147,9 @@ class Runner:
             self.driver.clear_data()
         if fresh or self.driver.app_state() != "foreground":
             self.driver.launch()
-            self.settle()
+            # Startup pauses longer than a tap does (a Flutter app adds its accessibility tree
+            # in bursts ~0.4 s apart), so require a longer quiet window once, here.
+            self.driver.wait_idle(self.s.settle, quiet=LAUNCH_QUIET)
         self.expect_running = True
 
     def run_steps(self, steps: list[Step], results: list, pad: str) -> str:

@@ -118,7 +118,8 @@ def test_wait_and_background_use_the_clock(tmp_path, clock, out):
 
 def test_settle_waits_for_idle_not_a_fixed_time(tmp_path, clock, out):
     _, d, _ = run1(tmp_path, clock, out, "back", settle=0.7)
-    assert d.calls.count(("wait_idle", 0.7)) == 2  # after launch, after back
+    assert ("wait_idle", 0.7, 0.5) in d.calls  # after launch: a longer quiet window
+    assert d.calls.count(("wait_idle", 0.7)) == 1  # after back
     assert clock.slept == []  # no fixed sleeps
 
 

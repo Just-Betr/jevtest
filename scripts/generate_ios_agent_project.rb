@@ -15,7 +15,8 @@ tests = project.new_target(:ui_test_bundle, 'JevAgentUITests', :ios, '17.0', nil
 tests.add_dependency(host)
 
 host.add_file_references([project.main_group.new_group('AgentHost', 'AgentHost').new_file('AppDelegate.swift')])
-tests.add_file_references([project.main_group.new_group('AgentUITests', 'AgentUITests').new_file('JevAgentUITests.swift')])
+ui_tests = project.main_group.new_group('AgentUITests', 'AgentUITests')
+tests.add_file_references(Dir.children(File.join(root, 'AgentUITests')).grep(/\.swift\z/).sort.map { |f| ui_tests.new_file(f) })
 
 project.targets.each do |t|
   t.build_configurations.each do |c|

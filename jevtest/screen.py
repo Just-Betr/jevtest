@@ -20,12 +20,19 @@ class Element:
     focused: bool = False
     checked: bool | None = None   # None = not a checkable element
     selected: bool = False
+    value: str = ""           # a text field's current contents (what clearing must delete)
     id: str = ""              # e1, e2, ... assigned by Screen
 
     @property
     def center(self) -> tuple[int, int]:
         x1, y1, x2, y2 = self.bounds
         return (x1 + x2) // 2, (y1 + y2) // 2
+
+    @property
+    def end(self) -> tuple[int, int]:
+        """A point just inside the right edge: tapping there puts the text cursor after the text."""
+        x1, y1, x2, y2 = self.bounds
+        return x2 - max(1, min(8, (x2 - x1) // 4)), (y1 + y2) // 2
 
     def label(self) -> str:
         """Short human description, used in option criteria and logs."""

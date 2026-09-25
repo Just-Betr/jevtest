@@ -27,8 +27,11 @@ import java.util.concurrent.TimeoutException;
  * it keeps one UiAutomation connection open and answers on 127.0.0.1:port:
  *   GET /tree        -> the active window as uiautomator-style XML, plus
  *                       ime="true|false" and package="..." on the root element
- *   GET /idle?ms=N   -> returns once the UI has had no accessibility events for 150 ms (max N ms)
- *   GET /change?ms=N -> returns as soon as the screen content changes (max N ms)
+ *   GET /idle?ms=N&quiet=Q -> returns once the UI has had no accessibility events for Q ms
+ *                       (default 150; max N ms)
+ *   GET /change?ms=N -> returns as soon as the tree differs from the last one /tree served (max N ms):
+ *                       comparing with what the client last saw means a change that lands between
+ *                       its /tree and its /change is not missed
  *   GET /quit        -> stops the agent
  * When it is listening it reports status "ready=1" (visible with `am instrument -r`).
  * Reading the tree this way takes milliseconds instead of the ~2 s that a fresh
@@ -39,6 +42,7 @@ public class Agent extends Instrumentation {
     private int port = 7912;
     private final Object changed = new Object();
     private long changes = 0;
+    private String served = "";  // the tree the client last received
 
     @Override
     public void onCreate(Bundle arguments) {
@@ -76,19 +80,20 @@ public class Agent extends Instrumentation {
                 try (Socket client = server.accept()) {
                     BufferedReader in = new BufferedReader(
                             new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
-                    // Request line: "GET /path?ms=N HTTP/1.1"
+                    // Request line: "GET /path?ms=N&quiet=Q HTTP/1.1"
                     String[] parts = String.valueOf(in.readLine()).split(" ");
                     String target = parts.length > 1 ? parts[1] : "";
-                    int q = target.indexOf("?ms=");
+                    int q = target.indexOf('?');
                     String path = q < 0 ? target : target.substring(0, q);
-                    long ms = q < 0 ? 0 : Long.parseLong(target.substring(q + 4));
+                    long ms = param(target, "ms", 0);
+                    long quiet = param(target, "quiet", QUIET_MS);
                     String body;
                     if (path.equals("/tree")) {
-                        body = tree(ui);
+                        body = served = tree(ui);
                     } else if (path.equals("/idle")) {
-                        body = idle(ui, ms);
+                        body = idle(ui, quiet, ms);
                     } else if (path.equals("/change")) {
-                        body = change(ms);
+                        body = change(ui, ms);
                     } else if (path.equals("/quit")) {
                         reply(client, "bye");
                         break;
@@ -109,28 +114,47 @@ public class Agent extends Instrumentation {
         finish(0, new Bundle());
     }
 
-    private static String idle(UiAutomation ui, long ms) {
+    private static long param(String target, String name, long fallback) {
+        for (String pair : target.substring(target.indexOf('?') + 1).split("&")) {
+            if (pair.startsWith(name + "=")) {
+                return Long.parseLong(pair.substring(name.length() + 1));
+            }
+        }
+        return fallback;
+    }
+
+    private static String idle(UiAutomation ui, long quiet, long ms) {
         try {
-            ui.waitForIdle(QUIET_MS, ms);
+            ui.waitForIdle(quiet, ms);
             return "idle";
         } catch (TimeoutException e) {
             return "busy";
         }
     }
 
-    private String change(long ms) throws InterruptedException {
+    /** Sleeps until an accessibility event arrives, then compares the tree: events also fire for
+     *  things that change nothing on screen (a blinking cursor), so an event alone is not a change. */
+    private String change(UiAutomation ui, long ms) throws InterruptedException {
         long deadline = System.currentTimeMillis() + ms;
+        if (!tree(ui).equals(served)) {
+            return "changed";  // it already changed since the client looked
+        }
         synchronized (changed) {
-            long start = changes;
-            while (changes == start) {
-                long left = deadline - System.currentTimeMillis();
-                if (left <= 0) {
-                    return "unchanged";
+            long seen = changes;
+            while (true) {
+                while (changes == seen) {
+                    long left = deadline - System.currentTimeMillis();
+                    if (left <= 0) {
+                        return "unchanged";
+                    }
+                    changed.wait(left);
                 }
-                changed.wait(left);
+                seen = changes;
+                if (!tree(ui).equals(served)) {
+                    return "changed";
+                }
             }
         }
-        return "changed";
     }
 
     private static void reply(Socket client, String body) throws Exception {

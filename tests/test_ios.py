@@ -129,6 +129,7 @@ def test_parse_rules():
     go = s.elements[6]
     assert go.bounds == (0, 190, 40, 200) and go.enabled is False and go.clickable and go.resource_id == "go"
     assert s.elements[2].focused and s.elements[5].checked is True
+    assert [e.value for e in s.elements if e.editable] == ["a@b.c", "typed", "•••"]
     assert s.keyboard_visible
 
 
@@ -344,7 +345,7 @@ def test_screen_and_screenshot(drv, env, tmp_path):
 # --- touch, keys, device ---------------------------------------------------------------------------
 
 def test_agent_commands(drv, env):
-    field = Element("text_field", "abc", bounds=(0, 0, 10, 10))
+    field = Element("text_field", "abc", value="abc", bounds=(0, 0, 10, 10))
     drv.tap(1, 2)
     drv.double_tap(1, 2)
     drv.long_press(1, 2, seconds=2)
@@ -358,14 +359,17 @@ def test_agent_commands(drv, env):
     drv.hide_keyboard()
     drv.rotate("landscape")
     drv.wait_idle(2)
+    drv.wait_idle(2, quiet=0.5)
+    drv.wait_change(1.5)
     sent = [(p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in env[1].calls]
     assert sent == [
         ("/tap", {"x": 1, "y": 2}), ("/double_tap", {"x": 1, "y": 2}), ("/long_press", {"x": 1, "y": 2, "seconds": 2}),
         ("/drag", {"x1": 1, "y1": 2, "x2": 3, "y2": 4}), ("/type", {"text": "hi"}),
-        ("/tap", {"x": 5, "y": 6}), ("/idle", {"timeout": 3}), ("/type", {"text": "hi"}),
-        ("/tap", {"x": 5, "y": 5}), ("/idle", {"timeout": 3}), ("/key", {"key": "delete", "count": 13}),
+        ("/tap", {"x": 5, "y": 6}), ("/idle", {"timeout": 3.0}), ("/type", {"text": "hi"}),
+        ("/tap", {"x": 8, "y": 5}), ("/idle", {"timeout": 3}), ("/key", {"key": "delete", "count": 3}),
         ("/key", {"key": "enter"}), ("/back", {}), ("/home", {}), ("/hide_keyboard", {}),
-        ("/rotate", {"orientation": "landscape"}), ("/idle", {"timeout": 2})]
+        ("/rotate", {"orientation": "landscape"}), ("/idle", {"timeout": 2}),
+        ("/idle", {"timeout": 2, "quiet": 0.5}), ("/change", {"timeout": 1.5})]
     assert all(b["bundle_id"] == "dev.demo" for _, b in env[1].calls)
 
 
@@ -378,6 +382,20 @@ def test_simctl_device_commands(drv, env):
     tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
     assert tails == ["location A set 1.5,-2.5", "openurl A app://x", "ui A appearance dark",
                      "ui A appearance light", "privacy A grant photos dev.demo"]
+
+
+def test_clear_empty_field_only_focuses(drv, env):
+    drv.clear_text(Element("text_field", hint="Name", bounds=(0, 0, 100, 10)))
+    assert [p for p, _ in env[1].calls] == ["/tap", "/idle"]
+
+
+def test_timeouts_follow_settings(drv, env):
+    drv.settle, drv.timeout = 0.5, 20
+    drv.launch()
+    drv.resume()
+    drv.type_text("x", at=(1, 1))
+    sent = {p: b.get("timeout") for p, b in env[1].calls}
+    assert sent["/wait_foreground"] == 20 and sent["/activate"] == 20 and sent["/idle"] == 0.5
 
 
 def test_network_is_not_supported(drv):

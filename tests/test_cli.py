@@ -60,6 +60,7 @@ def test_run_writes_report_junit_and_lockfile(project, monkeypatch, capsys):
     assert "1/2 passed" in out and "FAILED Broken: see: Nothing like this — not on screen" in out
     assert "Jev: 2 decisions, 0 from lockfile, 2 asked live" in out and "$0.0002" in out
     assert drivers[0].calls[0][0] == "install" and made[0].model == "typesafe/jev-1.13"
+    assert (drivers[0].settle, drivers[0].timeout) == (0.0, 0.0)  # the test file's settings reach the driver
 
     [run_dir] = (tmp / "res").iterdir()
     report = json.loads((run_dir / "report.json").read_text())

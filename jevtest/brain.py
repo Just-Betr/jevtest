@@ -144,6 +144,8 @@ class Brain:
         t = target.strip().lower()
         exact = [el for el in candidates
                  if t in (el.text.lower(), el.hint.lower(), el.resource_id.lower())]
+        if len(exact) > 1:  # e.g. a label and the switch beside it: the one you can act on
+            exact = [el for el in exact if el.clickable or el.editable] or exact
         if len(exact) == 1:
             return exact[0]
         if not candidates:

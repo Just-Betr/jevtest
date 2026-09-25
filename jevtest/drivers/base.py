@@ -81,6 +81,8 @@ def stop_process(proc: subprocess.Popen | None):
 class Driver(ABC):
     platform: str
     app_id: str = ""
+    settle: float = 3.0    # most seconds for the UI to settle (focus, load, animations); from settings
+    timeout: float = 10.0  # most seconds for the app itself (launch, foreground); from settings
 
     # --- app lifecycle -------------------------------------------------
     @abstractmethod
@@ -169,8 +171,8 @@ class Driver(ABC):
     def close(self):  # noqa: B027 - optional hook
         """Release anything the driver started (its on-device agent)."""
 
-    def wait_idle(self, timeout: float):  # noqa: B027 - optional hook
-        """Return once the UI has stopped changing (at most `timeout` s).
+    def wait_idle(self, timeout: float, quiet: float | None = None):  # noqa: B027 - optional hook
+        """Return once the UI has not changed for `quiet` s (agent default 0.15), at most `timeout` s.
 
         The default does nothing: iOS XCUITest already waits for the app to be idle
         inside every action and screen read.

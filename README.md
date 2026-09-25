@@ -50,7 +50,14 @@ export OPENROUTER_API_KEY=sk-or-...        # https://openrouter.ai/keys
 - **Android:** the Android SDK (platform-tools, build-tools, one platform) and a JDK. `bundletool` is needed for `.aab`. Uses the connected device or emulator, or boots your first AVD. The first run builds a 12 KB on-device agent (a few seconds, then cached in `~/.cache/jevtest`).
 - **iOS:** Xcode. Uses the booted simulator, or boots an iPhone. The first run builds a small XCUITest agent (about a minute, then cached).
 
-Both agents stay running for the whole test run and answer "what's on screen?" in milliseconds (Android: ~3 ms instead of ~2 s for a fresh `uiautomator dump`). jevtest never sleeps for a fixed time: after each action it waits until the UI reports it's idle, and when a check or element isn't there yet it waits for the screen to change, then looks again. Jev is only asked again when the screen actually changed.
+Both agents stay running for the whole run and answer "what's on screen?" in milliseconds (Android ~3 ms, iOS ~40 ms). The iOS agent uses only public XCTest API.
+
+**How jevtest waits.** There are no fixed sleeps:
+- **After an action**, it waits until the screen has not changed for 150 ms (0.5 s after launching the app, because startup pauses longer). Android gets this from accessibility events; iOS has no such events (WebDriverAgent and Maestro poll too), so its agent compares screen snapshots.
+- **When a check or element isn't there yet**, it waits for the screen to differ from the one it last looked at, then looks again. Jev is only asked again when the screen actually changed.
+- **On Android, system animations are turned off for the run** (as Espresso and Appium recommend, because a tap during a window's entrance animation is dropped), and restored afterwards.
+
+**System prompts.** Permission dialogs are part of the screen on both platforms (on iOS they belong to SpringBoard, and the agent merges them in), so a test can `expect:` a prompt and `do: Allow camera access`. Android installs do not auto-grant permissions; use `grant:` to pre-grant one.
 
 ## Test file
 
@@ -161,7 +168,7 @@ Each run writes to `jevtest-results/<timestamp>/`:
 
 ## Demo app
 
-`demo_app/` is a small Flutter app that exercises every action: login, counter, double tap, long press dialog, switch, long list, swipe to delete, detail page, and an in-app **WebView** with plain HTML (input, button, checkbox, link). The login password is `hunter22`.
+`demo_app/` is a small Flutter app that exercises every action: login, counter, double tap, long press dialog, switch, content that loads a second later, long list, swipe to delete, detail page, an in-app **WebView** with plain HTML (input, button, checkbox, link), and a **native screen** (Android Views / iOS UIKit, not Flutter) with a text field, switch, native confirm dialog and a real **camera permission prompt**. The login password is `hunter22`.
 
 ```bash
 cd demo_app
@@ -179,7 +186,10 @@ cd .. && jevtest run examples/demo.yaml --platform android
 - iOS runs on the **simulator** only. A device `.ipa` can't be installed there; build with `-sdk iphonesimulator`.
 - Jev is text-only, so anything with no accessibility label (canvas, games, unlabeled images) is invisible to it.
 - `input text` on Android is ASCII only (non-ASCII text fails the step clearly).
-- WebViews work on both platforms: their HTML elements show up like native ones.
+- WebViews work on both platforms: their HTML elements show up like native ones. Clearing a web text field relies on its reported value, which may not always match the page.
+- iOS runs are slower than Android (about 10 s vs 4 s per test on the demo app): an XCUITest tap costs ~0.55 s, and apps animate longer on iOS. Android can turn system animations off for the run; iOS offers no equivalent.
+- Very large screens are snapshotted in full on iOS (no depth limit yet).
+- Tested on the Flutter demo app with native and web screens, on the Android emulator (API 37) and iOS 26 simulators.
 
 ## Development
 
@@ -191,5 +201,12 @@ ruby scripts/generate_ios_agent_project.rb   # only if you change the iOS agent'
 ```
 
 The unit tests need no device and no network: devices, the clock and Jev are faked, and the driver tests parse real screen captures from `tests/fixtures/`.
+
+The on-device agents (Java and Swift) are tested against a real emulator or simulator with the demo app built:
+
+```bash
+JEVTEST_DEVICE=android pytest tests/test_devices.py
+JEVTEST_DEVICE=ios pytest tests/test_devices.py
+```
 
 MIT licensed.

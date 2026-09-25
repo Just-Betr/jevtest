@@ -8,3 +8,5 @@ jevtest-results/
 xcuserdata/
 .coverage
 .ruff_cache/
+/build/
+/dist/

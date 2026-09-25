@@ -38,6 +38,8 @@ def test_regions(bounds, region):
 
 def test_element_label_and_center():
     assert Element("button", "OK", bounds=(0, 0, 10, 20)).center == (5, 10)
+    assert Element("text_field", bounds=(0, 0, 100, 20)).end == (92, 10)  # just inside the right edge
+    assert Element("text_field", bounds=(0, 0, 4, 20)).end == (3, 10)     # tiny fields stay inside
     assert Element("button", "OK").label() == "button 'OK'"
     assert Element("text_field", hint="Email").label() == "text_field 'Email'"
     assert Element("image", resource_id="logo").label() == "image 'logo'"
@@ -142,6 +144,13 @@ def test_locate_exact_unique_match_skips_jev():
 def test_locate_by_resource_id():
     s = Screen(width=10, height=10, elements=[el("image", resource_id="logo", bounds=(0, 0, 10, 10))])
     assert Brain(FakeJev()).locate("logo", s).resource_id == "logo"
+
+
+def test_locate_prefers_the_one_actionable_exact_match():
+    s = Screen(width=10, height=10, elements=[el("text", "Dark theme", bounds=(0, 0, 10, 10)),
+                                              el("switch", "Dark theme", clickable=True, bounds=(0, 0, 10, 10))])
+    jev = FakeJev()
+    assert Brain(jev).locate("Dark theme", s).kind == "switch" and not jev.asked
 
 
 def test_locate_ambiguous_exact_match_asks_jev():

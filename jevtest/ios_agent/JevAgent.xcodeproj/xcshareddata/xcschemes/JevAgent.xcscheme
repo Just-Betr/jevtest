@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "5369E58939E07A33347DE3CB"
+               BlueprintIdentifier = "97307D665142810FA3A16BD9"
                BuildableName = "JevAgentHost.app"
                BlueprintName = "JevAgentHost"
                ReferencedContainer = "container:JevAgent.xcodeproj">
@@ -28,7 +28,7 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "3EC374E24CB6E7C26540448D"
+               BlueprintIdentifier = "2A78361389C56FE69F76ED53"
                BuildableName = "JevAgentUITests.xctest"
                BlueprintName = "JevAgentUITests"
                ReferencedContainer = "container:JevAgent.xcodeproj">
@@ -44,7 +44,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "5369E58939E07A33347DE3CB"
+            BlueprintIdentifier = "97307D665142810FA3A16BD9"
             BuildableName = "JevAgentHost.app"
             BlueprintName = "JevAgentHost"
             ReferencedContainer = "container:JevAgent.xcodeproj">
@@ -55,7 +55,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "3EC374E24CB6E7C26540448D"
+               BlueprintIdentifier = "2A78361389C56FE69F76ED53"
                BuildableName = "JevAgentUITests.xctest"
                BlueprintName = "JevAgentUITests"
                ReferencedContainer = "container:JevAgent.xcodeproj">
@@ -77,7 +77,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "5369E58939E07A33347DE3CB"
+            BlueprintIdentifier = "97307D665142810FA3A16BD9"
             BuildableName = "JevAgentHost.app"
             BlueprintName = "JevAgentHost"
             ReferencedContainer = "container:JevAgent.xcodeproj">
@@ -94,7 +94,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "5369E58939E07A33347DE3CB"
+            BlueprintIdentifier = "97307D665142810FA3A16BD9"
             BuildableName = "JevAgentHost.app"
             BlueprintName = "JevAgentHost"
             ReferencedContainer = "container:JevAgent.xcodeproj">

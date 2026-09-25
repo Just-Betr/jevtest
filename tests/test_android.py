@@ -108,6 +108,7 @@ def test_parse_login_screen():
         ("button", "Sign in", "")]
     email = els[1]
     assert email.editable and email.enabled and email.bounds == (63, 352, 1017, 499)
+    assert email.value == ""
 
 
 def test_parse_webview_content():
@@ -265,7 +266,7 @@ def test_install_apk(adb):
     d = AndroidDriver()
     assert d.install(Path("app.apk")) == "dev.demo"
     assert d.activity == "dev.demo/.MainActivity"
-    assert any("install -r -g -t app.apk" in c for c in adb.cmds)
+    assert any(c.endswith("install -r -t app.apk") for c in adb.cmds)  # no -g: permissions start ungranted
 
 
 def test_install_aab(adb, monkeypatch):
@@ -316,6 +317,10 @@ def test_reinstall(drv, adb):
 @pytest.mark.parametrize("reply,state", [
     ("1234\n  topResumedActivity=ActivityRecord{1 u0 dev.demo/.MainActivity t9}\n", "foreground"),
     ("1234\n  topResumedActivity=ActivityRecord{1 u0 com.launcher/.Home t1}\n", "background"),
+    ("1234\n  topResumedActivity=ActivityRecord{2 u0 com.google.android.permissioncontroller/"
+     "com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t9}\n", "foreground"),
+    ("1234\n  topResumedActivity=ActivityRecord{2 u0 com.android.permissioncontroller/.Grant t9}\n", "foreground"),
+    ("1234\n", "foreground"),  # between screens: nobody on top yet, the app has not left
     ("\n", "not_running")])
 def test_app_state(drv, adb, reply, state):
     adb.rules["pidof"] = reply
@@ -354,6 +359,14 @@ def test_empty_webview_waits_for_its_content(drv, agent):
     assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/change", "/tree", "/change", "/tree"]
 
 
+def test_webview_wait_follows_the_settle_setting(drv, agent, monkeypatch):
+    drv.settle = 0.5
+    monkeypatch.setattr(android.time, "monotonic", lambda: 100.0)
+    agent.replies["/tree"] = [EMPTY_WEB, WEB]
+    drv.tree()
+    assert agent.paths()[1] == "/change?ms=500"
+
+
 def test_really_blank_webview_is_accepted(drv, agent, monkeypatch):
     agent.replies["/tree"] = EMPTY_WEB
     ticks = iter([0, 1, 2, 5])
@@ -369,8 +382,9 @@ def test_lost_agent(drv, agent):
 
 def test_waits_are_forwarded_to_the_agent(drv, agent):
     drv.wait_idle(1.5)
+    drv.wait_idle(1.5, quiet=0.5)
     drv.wait_change(2)
-    assert agent.paths() == ["/idle?ms=1500", "/change?ms=2000"]
+    assert agent.paths() == ["/idle?ms=1500", "/idle?ms=1500&quiet=500", "/change?ms=2000"]
 
 
 def test_screenshot(drv, adb, tmp_path):
@@ -427,10 +441,18 @@ def test_type_text_rejects_non_ascii(drv):
         drv.type_text("café")
 
 
-def test_clear_text(drv, adb):
-    drv.clear_text(Element("text_field", "abc", bounds=(0, 0, 10, 10)))
-    assert adb.shell()[0] == "input tap 5 5"
-    assert adb.shell()[1] == "input keyevent 123 " + " ".join(["67"] * 13)
+def test_clear_text_deletes_exactly_the_value(drv, adb, agent):
+    agent.replies["/tree"] = FOCUSED
+    field = Element("text_field", "abc", value="abc", bounds=(63, 352, 1017, 499))
+    drv.clear_text(field)
+    inputs = [c for c in adb.shell() if c.startswith("input")]
+    assert inputs == ["input tap 1009 425", "input keyevent 123 67 67 67"]  # tap at the end, End, 3 deletes
+
+
+def test_clear_empty_field_only_focuses(drv, adb, agent):
+    agent.replies["/tree"] = FOCUSED
+    drv.clear_text(Element("text_field", hint="Email", bounds=(63, 352, 1017, 499)))
+    assert [c for c in adb.shell() if c.startswith("input")] == ["input tap 1009 425"]
 
 
 def test_keys(drv, adb):
@@ -515,11 +537,25 @@ def test_agent_reinstalled_when_version_differs(adb, agent):
     assert any(c.endswith("install /cache/android-agent-abc123.apk") for c in adb.cmds)
 
 
+def test_animations_off_for_the_run_and_restored_after(adb, agent):
+    adb.rules["settings get global window_animation_scale"] = "1.0\n"
+    adb.rules["settings get global transition_animation_scale"] = "null\n"
+    adb.rules["settings get global animator_duration_scale"] = "0.5\n"
+    d = AndroidDriver()
+    assert "settings put global window_animation_scale 0" in adb.shell()
+    assert "settings put global animator_duration_scale 0" in adb.shell()
+    adb.cmds.clear()
+    d.close()
+    assert adb.shell()[-3:] == ["settings put global window_animation_scale 1.0",
+                                "settings delete global transition_animation_scale",
+                                "settings put global animator_duration_scale 0.5"]
+
+
 def test_close_quits_agent_and_removes_forward(drv, adb, agent):
     drv.close()
     assert agent.paths()[-1] == "/quit"
     assert agent.started[-1] == ("stopped",)
-    assert adb.cmds[-1].endswith("forward --remove tcp:7000")
+    assert any(c.endswith("forward --remove tcp:7000") for c in adb.cmds)
 
 
 def test_close_when_agent_already_gone(drv, adb, agent):

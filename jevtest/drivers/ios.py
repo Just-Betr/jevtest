@@ -91,22 +91,24 @@ def parse_tree(data: dict) -> Screen:
     elements, seen = [], set()
     for d in data["elements"]:
         kind = d["type"]
-        label, value = d.get("label", ""), d.get("value") or ""
+        label, value, placeholder = d.get("label", ""), d.get("value") or "", d.get("placeholder", "")
         if kind == "application" or SCROLL_INDICATOR.match(label):
             continue
         x1, y1 = max(int(d["x"]), 0), max(int(d["y"]), 0)
         x2, y2 = min(int(d["x"] + d["w"]), w), min(int(d["y"] + d["h"]), h)
         if x2 - x1 < 2 or y2 - y1 < 2:
             continue
+        if kind in EDITABLE and value == placeholder:
+            value = ""  # an empty field reports its placeholder as its value
         text = label
-        if kind in VALUE_KINDS and value and value != label:  # secure fields are excluded: bullets
+        if kind in VALUE_KINDS and value and value != label:  # secure fields are not in VALUE_KINDS: bullets
             text = f"{label}: {value}" if label else value
         text = " ".join(text.split())
         if kind in CONTAINERS and not (text or d.get("identifier")):
             continue
         el = Element(
-            kind="text" if kind == "other" else kind, text=text, hint=d.get("placeholder", ""),
-            resource_id=d.get("identifier", ""), bounds=(x1, y1, x2, y2),
+            kind="text" if kind == "other" else kind, text=text, hint=placeholder,
+            value=value if kind in EDITABLE else "", resource_id=d.get("identifier", ""), bounds=(x1, y1, x2, y2),
             enabled=d.get("enabled", True), editable=kind in EDITABLE, clickable=kind in TOUCHABLE,
             focused=kind in EDITABLE and d.get("focused", False),  # web views mark everything focused
             selected=d.get("selected", False),
@@ -202,10 +204,10 @@ class IOSDriver(Driver):
 
     def launch(self):
         simctl("launch", self.udid, self.app_id)
-        self._call("/wait_foreground")
+        self._call("/wait_foreground", timeout=self.timeout)
 
     def resume(self):
-        self._call("/activate")
+        self._call("/activate", timeout=self.timeout)
 
     def app_state(self) -> str:
         return APP_STATES.get(self._call("/state")["state"], "background")
@@ -241,19 +243,26 @@ class IOSDriver(Driver):
     def drag(self, x1, y1, x2, y2, seconds=0.3):
         self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2)
 
-    def wait_idle(self, timeout):
-        self._call("/idle", timeout=timeout)
+    def wait_idle(self, timeout, quiet=None):
+        if quiet is None:
+            self._call("/idle", timeout=timeout)
+        else:
+            self._call("/idle", timeout=timeout, quiet=quiet)
+
+    def wait_change(self, timeout):
+        self._call("/change", timeout=timeout)
 
     def type_text(self, text, at=None):
         if at:  # focus the field and let the focus change finish
             self.tap(*at)
-            self.wait_idle(3)
+            self.wait_idle(self.settle)
         self._call("/type", text=text)
 
     def clear_text(self, el):
-        self.tap(*el.center)
-        self.wait_idle(3)
-        self._call("/key", key="delete", count=len(el.text) + 10)
+        self.tap(*el.end)  # cursor after the text
+        self.wait_idle(self.settle)
+        if el.value:  # delete exactly what is there
+            self._call("/key", key="delete", count=len(el.value))
 
     def key(self, name):
         self._call("/key", key=name)

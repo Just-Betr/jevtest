@@ -72,6 +72,7 @@ def cmd_run(args) -> int:
     out = Path(args.out) / time.strftime("%Y%m%d-%H%M%S")
     out.mkdir(parents=True, exist_ok=True)
     driver = make_driver(platform, args.device)
+    driver.settle, driver.timeout = spec.settings.settle, spec.settings.timeout
     try:
         app_id = driver.install(app)
         print(f"jevtest {__version__} · {platform} · {app_id} · {model} · lockfile: {jev.mode}")
@@ -114,7 +115,7 @@ def cmd_screen(args) -> int:
         if app:
             driver.install(app)
             driver.launch()
-            driver.wait_idle(5)
+            driver.wait_idle(driver.settle)
         s = driver.screen()
         print(json.dumps({"screen": s.to_state(), "keyboard_visible": s.keyboard_visible}, indent=2))
     finally:

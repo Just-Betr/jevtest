@@ -7,131 +7,131 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A325C65467EE0AE25ED618DB /* JevAgentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BD3B553215B991094605E34 /* JevAgentUITests.swift */; };
-		DF913A20D30FC6082412AF7B /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 759CB4197A79C7D69418C0E6 /* Foundation.framework */; };
-		EACCCABC67D975FE086AE101 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6285EA3E3369E0E5361A54EE /* AppDelegate.swift */; };
-		FAF7FF3EE915F90136910BBE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 759CB4197A79C7D69418C0E6 /* Foundation.framework */; };
+		45FA7CC43870A84316639EAB /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D953363399B56100B44D73 /* AppDelegate.swift */; };
+		5CEF1E02F4CAB4AE0CD1F20C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A485E4E154A4749801226A4 /* Foundation.framework */; };
+		EDBF0C4FE0AF2B130042571E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A485E4E154A4749801226A4 /* Foundation.framework */; };
+		F03FD1E0F2BF0E087FDD49B9 /* JevAgentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6DD777955FB2007E0CF80E3 /* JevAgentUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		DFDB8EDF328E83BC24AB6224 /* PBXContainerItemProxy */ = {
+		A44787670E215D6FD7945A89 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = A8BB767764817187E0DD315A /* Project object */;
+			containerPortal = C7F5125F033C4267A449A419 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 5369E58939E07A33347DE3CB;
+			remoteGlobalIDString = 97307D665142810FA3A16BD9;
 			remoteInfo = JevAgentHost;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		6285EA3E3369E0E5361A54EE /* AppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		6BD3B553215B991094605E34 /* JevAgentUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JevAgentUITests.swift; sourceTree = "<group>"; };
-		759CB4197A79C7D69418C0E6 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		9E7A3C0843A2E30B3478A702 /* JevAgentHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JevAgentHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		CB17281AFF22F179EFA82DB2 /* JevAgentUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = JevAgentUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A485E4E154A4749801226A4 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		28D953363399B56100B44D73 /* AppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		684AE4280BD3C09C58FDEF08 /* JevAgentUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = JevAgentUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		76169E4525A828C84550715E /* JevAgentHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JevAgentHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B6DD777955FB2007E0CF80E3 /* JevAgentUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JevAgentUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		490870545A0033085FB25480 /* Frameworks */ = {
+		E15387FDC8E0D692EBC12AD5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DF913A20D30FC6082412AF7B /* Foundation.framework in Frameworks */,
+				5CEF1E02F4CAB4AE0CD1F20C /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		870143D20078E67182B58048 /* Frameworks */ = {
+		F7503989E834711C08649728 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FAF7FF3EE915F90136910BBE /* Foundation.framework in Frameworks */,
+				EDBF0C4FE0AF2B130042571E /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		15801D90094A9BA5F1EE4EE5 /* Frameworks */ = {
+		3176F020509626DE1FA60B97 /* AgentHost */ = {
 			isa = PBXGroup;
 			children = (
-				AC1170DC0E08B43D287ED107 /* iOS */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		20A606D6B1C5F18068D95913 /* AgentUITests */ = {
-			isa = PBXGroup;
-			children = (
-				6BD3B553215B991094605E34 /* JevAgentUITests.swift */,
-			);
-			name = AgentUITests;
-			path = AgentUITests;
-			sourceTree = "<group>";
-		};
-		220443FD1116A256DAACF0E8 /* AgentHost */ = {
-			isa = PBXGroup;
-			children = (
-				6285EA3E3369E0E5361A54EE /* AppDelegate.swift */,
+				28D953363399B56100B44D73 /* AppDelegate.swift */,
 			);
 			name = AgentHost;
 			path = AgentHost;
 			sourceTree = "<group>";
 		};
-		8C528305C93028A01E415E79 /* Products */ = {
+		432D11D652261E1FD923FF79 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				9E7A3C0843A2E30B3478A702 /* JevAgentHost.app */,
-				CB17281AFF22F179EFA82DB2 /* JevAgentUITests.xctest */,
+				76169E4525A828C84550715E /* JevAgentHost.app */,
+				684AE4280BD3C09C58FDEF08 /* JevAgentUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		AC1170DC0E08B43D287ED107 /* iOS */ = {
+		A22302A29474D1B5012C500E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				759CB4197A79C7D69418C0E6 /* Foundation.framework */,
+				B894346656365CABB92CC6D0 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B27A2B87D844D2108F2F841C = {
+			isa = PBXGroup;
+			children = (
+				432D11D652261E1FD923FF79 /* Products */,
+				A22302A29474D1B5012C500E /* Frameworks */,
+				3176F020509626DE1FA60B97 /* AgentHost */,
+				C8778741C9C082C8DD967474 /* AgentUITests */,
+			);
+			sourceTree = "<group>";
+		};
+		B894346656365CABB92CC6D0 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				0A485E4E154A4749801226A4 /* Foundation.framework */,
 			);
 			name = iOS;
 			sourceTree = "<group>";
 		};
-		C4B05A326004084B25496667 = {
+		C8778741C9C082C8DD967474 /* AgentUITests */ = {
 			isa = PBXGroup;
 			children = (
-				8C528305C93028A01E415E79 /* Products */,
-				15801D90094A9BA5F1EE4EE5 /* Frameworks */,
-				220443FD1116A256DAACF0E8 /* AgentHost */,
-				20A606D6B1C5F18068D95913 /* AgentUITests */,
+				B6DD777955FB2007E0CF80E3 /* JevAgentUITests.swift */,
 			);
+			name = AgentUITests;
+			path = AgentUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3EC374E24CB6E7C26540448D /* JevAgentUITests */ = {
+		2A78361389C56FE69F76ED53 /* JevAgentUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BDEBB13DA4FFEB88FFCE3DBA /* Build configuration list for PBXNativeTarget "JevAgentUITests" */;
+			buildConfigurationList = 0AF73F3283B0F72EB568389A /* Build configuration list for PBXNativeTarget "JevAgentUITests" */;
 			buildPhases = (
-				B9CA4480B93E3FED239E3266 /* Sources */,
-				490870545A0033085FB25480 /* Frameworks */,
-				42BE082D342C8FE654ADDBB3 /* Resources */,
+				41A7DF6A93BF637F8D88C988 /* Sources */,
+				E15387FDC8E0D692EBC12AD5 /* Frameworks */,
+				6984C0639AA9821064F4453B /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				473B24DD7FE080B5CFDD19BE /* PBXTargetDependency */,
+				F22B77400131A76C80F43BD2 /* PBXTargetDependency */,
 			);
 			name = JevAgentUITests;
 			productName = JevAgentUITests;
-			productReference = CB17281AFF22F179EFA82DB2 /* JevAgentUITests.xctest */;
+			productReference = 684AE4280BD3C09C58FDEF08 /* JevAgentUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		5369E58939E07A33347DE3CB /* JevAgentHost */ = {
+		97307D665142810FA3A16BD9 /* JevAgentHost */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = B6BA976D77B7FC948CE8921E /* Build configuration list for PBXNativeTarget "JevAgentHost" */;
+			buildConfigurationList = 73B598D47F6AF0355A5E905C /* Build configuration list for PBXNativeTarget "JevAgentHost" */;
 			buildPhases = (
-				6D0BD7A3893E33EF93A213E6 /* Sources */,
-				870143D20078E67182B58048 /* Frameworks */,
-				4701CBB377BDCF3F6A9FBB69 /* Resources */,
+				749A3B00A392568DA0A0BDFB /* Sources */,
+				F7503989E834711C08649728 /* Frameworks */,
+				954C8EE0470FBEB6CB98F1E0 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -139,19 +139,19 @@
 			);
 			name = JevAgentHost;
 			productName = JevAgentHost;
-			productReference = 9E7A3C0843A2E30B3478A702 /* JevAgentHost.app */;
+			productReference = 76169E4525A828C84550715E /* JevAgentHost.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		A8BB767764817187E0DD315A /* Project object */ = {
+		C7F5125F033C4267A449A419 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
 			};
-			buildConfigurationList = A9C76A1AC88A851ED0378519 /* Build configuration list for PBXProject "JevAgent" */;
+			buildConfigurationList = 39AB5B1AE2A3E3DF49FAB752 /* Build configuration list for PBXProject "JevAgent" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -159,28 +159,28 @@
 				en,
 				Base,
 			);
-			mainGroup = C4B05A326004084B25496667;
+			mainGroup = B27A2B87D844D2108F2F841C;
 			minimizedProjectReferenceProxies = 0;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 8C528305C93028A01E415E79 /* Products */;
+			productRefGroup = 432D11D652261E1FD923FF79 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				5369E58939E07A33347DE3CB /* JevAgentHost */,
-				3EC374E24CB6E7C26540448D /* JevAgentUITests */,
+				97307D665142810FA3A16BD9 /* JevAgentHost */,
+				2A78361389C56FE69F76ED53 /* JevAgentUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		42BE082D342C8FE654ADDBB3 /* Resources */ = {
+		6984C0639AA9821064F4453B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4701CBB377BDCF3F6A9FBB69 /* Resources */ = {
+		954C8EE0470FBEB6CB98F1E0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -190,35 +190,105 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		6D0BD7A3893E33EF93A213E6 /* Sources */ = {
+		41A7DF6A93BF637F8D88C988 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EACCCABC67D975FE086AE101 /* AppDelegate.swift in Sources */,
+				F03FD1E0F2BF0E087FDD49B9 /* JevAgentUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		B9CA4480B93E3FED239E3266 /* Sources */ = {
+		749A3B00A392568DA0A0BDFB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A325C65467EE0AE25ED618DB /* JevAgentUITests.swift in Sources */,
+				45FA7CC43870A84316639EAB /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		473B24DD7FE080B5CFDD19BE /* PBXTargetDependency */ = {
+		F22B77400131A76C80F43BD2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = JevAgentHost;
-			target = 5369E58939E07A33347DE3CB /* JevAgentHost */;
-			targetProxy = DFDB8EDF328E83BC24AB6224 /* PBXContainerItemProxy */;
+			target = 97307D665142810FA3A16BD9 /* JevAgentHost */;
+			targetProxy = A44787670E215D6FD7945A89 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		59E6555ACDE20BAD9FA02D75 /* Release */ = {
+		62F6A535B6C949EA2EF06E1A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.jevtest.JevAgentUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = JevAgentHost;
+			};
+			name = Debug;
+		};
+		67ED883CB82BBF20C120E543 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		7253F3D36BA82FFA50039BA6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
@@ -235,7 +305,7 @@
 			};
 			name = Release;
 		};
-		7CB69A3B1C63DBE4848B21ED /* Debug */ = {
+		74F80E970DA427467A28A2EF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -255,7 +325,7 @@
 			};
 			name = Debug;
 		};
-		B47F2FBE3E31FC7A8E969E98 /* Debug */ = {
+		80D14B65E1D26456C6A0691E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -316,77 +386,7 @@
 			};
 			name = Debug;
 		};
-		DE88D01CAAB56153E6F51575 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGN_IDENTITY = "";
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.jevtest.JevAgentUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = JevAgentHost;
-			};
-			name = Debug;
-		};
-		DF96AC4B1FC6864B1CAF4371 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_VERSION = 5.0;
-			};
-			name = Release;
-		};
-		E8D75D426ECAD8D160A82959 /* Release */ = {
+		B16EE3C5FC542C6A25C29A28 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -410,34 +410,34 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A9C76A1AC88A851ED0378519 /* Build configuration list for PBXProject "JevAgent" */ = {
+		0AF73F3283B0F72EB568389A /* Build configuration list for PBXNativeTarget "JevAgentUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B47F2FBE3E31FC7A8E969E98 /* Debug */,
-				DF96AC4B1FC6864B1CAF4371 /* Release */,
+				7253F3D36BA82FFA50039BA6 /* Release */,
+				62F6A535B6C949EA2EF06E1A /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B6BA976D77B7FC948CE8921E /* Build configuration list for PBXNativeTarget "JevAgentHost" */ = {
+		39AB5B1AE2A3E3DF49FAB752 /* Build configuration list for PBXProject "JevAgent" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E8D75D426ECAD8D160A82959 /* Release */,
-				7CB69A3B1C63DBE4848B21ED /* Debug */,
+				80D14B65E1D26456C6A0691E /* Debug */,
+				67ED883CB82BBF20C120E543 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BDEBB13DA4FFEB88FFCE3DBA /* Build configuration list for PBXNativeTarget "JevAgentUITests" */ = {
+		73B598D47F6AF0355A5E905C /* Build configuration list for PBXNativeTarget "JevAgentHost" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				59E6555ACDE20BAD9FA02D75 /* Release */,
-				DE88D01CAAB56153E6F51575 /* Debug */,
+				B16EE3C5FC542C6A25C29A28 /* Release */,
+				74F80E970DA427467A28A2EF /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = A8BB767764817187E0DD315A /* Project object */;
+	rootObject = C7F5125F033C4267A449A419 /* Project object */;
 }
