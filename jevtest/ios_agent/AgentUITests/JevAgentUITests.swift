@@ -8,8 +8,16 @@ import XCTest
 
 final class JevAgentUITests: XCTestCase {
     private var app: XCUIApplication?
+    private var issues: [String] = []
+
+    // A failed XCUITest call (e.g. typing with no focus) would normally fail and end
+    // this long-running test, killing the agent. Record it and report it instead.
+    override func record(_ issue: XCTIssue) {
+        issues.append(issue.compactDescription)
+    }
 
     func testServe() throws {
+        continueAfterFailure = true
         let port = UInt16(ProcessInfo.processInfo.environment["JEVTEST_PORT"] ?? "") ?? 8123
         let listener = try NWListener(using: .tcp, on: NWEndpoint.Port(rawValue: port)!)
         listener.newConnectionHandler = { [weak self] conn in
@@ -68,11 +76,26 @@ final class JevAgentUITests: XCTestCase {
     // MARK: Commands
 
     private func handle(path: String, body: [String: Any]) -> [String: Any] {
+        issues = []
         do {
-            return try dispatch(path: path, body: body)
+            let reply = try dispatch(path: path, body: body)
+            if !issues.isEmpty { return ["error": issues.joined(separator: "; ")] }
+            return reply
         } catch {
             return ["error": "\(error)"]
         }
+    }
+
+    /// The text input whose frame contains the point (web inputs included), if any.
+    private func textInput(_ app: XCUIApplication, _ x: Any?, _ y: Any?) -> XCUIElement? {
+        guard let x = x as? Double, let y = y as? Double else { return nil }
+        let p = CGPoint(x: x, y: y)
+        for type in [XCUIElement.ElementType.textField, .secureTextField, .textView, .searchField] {
+            if let el = app.descendants(matching: type).allElementsBoundByIndex.first(where: { $0.frame.contains(p) }) {
+                return el
+            }
+        }
+        return nil
     }
 
     private func current(_ body: [String: Any]) -> XCUIApplication {
@@ -110,7 +133,13 @@ final class JevAgentUITests: XCTestCase {
             let end = point(app, body["x2"], body["y2"])
             start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0.05)
         case "/type":
-            app.typeText((body["text"] as? String) ?? "")
+            let text = (body["text"] as? String) ?? ""
+            if let field = textInput(app, body["x"], body["y"]) {
+                field.tap()
+                field.typeText(text)
+            } else {
+                app.typeText(text)
+            }
         case "/key":
             let keys: [String: String] = [
                 "enter": "\n", "return": "\n", "tab": "\t",
@@ -119,7 +148,12 @@ final class JevAgentUITests: XCTestCase {
             ]
             let name = (body["key"] as? String ?? "").lowercased()
             guard let k = keys[name] else { return ["error": "Unknown key '\(name)'. Known: \(keys.keys.sorted())"] }
-            app.typeText(String(repeating: k, count: (body["count"] as? Int) ?? 1))
+            let typed = String(repeating: k, count: (body["count"] as? Int) ?? 1)
+            if let field = textInput(app, body["x"], body["y"]) {
+                field.typeText(typed)
+            } else {
+                app.typeText(typed)
+            }
         case "/home":
             XCUIDevice.shared.press(.home)
         case "/rotate":
@@ -159,6 +193,7 @@ final class JevAgentUITests: XCTestCase {
         let snap = try app.snapshot()
         var out: [[String: Any]] = []
         func walk(_ s: XCUIElementSnapshot) {
+            if s.elementType == .keyboard { return }  // keys are noise for Jev
             let f = s.frame
             var d: [String: Any] = [
                 "type": Self.typeName(s.elementType),

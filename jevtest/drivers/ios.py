@@ -112,7 +112,8 @@ class IOSDriver(Driver):
     def _start_agent(self):
         xctestrun = self._build_agent()
         env = dict(os.environ, TEST_RUNNER_JEVTEST_PORT=str(self.port))
-        log = open(Path(self._tmp.name) / "agent.log", "w")
+        self.agent_log = CACHE / "ios-agent.log"
+        log = open(self.agent_log, "w")
         self.agent = subprocess.Popen(
             ["xcodebuild", "test-without-building", "-xctestrun", str(xctestrun),
              "-destination", f"id={self.udid}"],
@@ -120,7 +121,7 @@ class IOSDriver(Driver):
         deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
             if self.agent.poll() is not None:
-                raise DriverError("iOS agent exited: " + (Path(self._tmp.name) / "agent.log").read_text()[-1500:])
+                raise DriverError("iOS agent exited: " + self.agent_log.read_text()[-1500:])
             try:
                 if self._call("/status", timeout=2).get("ok"):
                     return
@@ -134,8 +135,14 @@ class IOSDriver(Driver):
         req = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", method="POST",
                                      data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read())
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read())
+        except OSError as e:
+            if path == "/status":
+                raise
+            tail = self.agent_log.read_text()[-1200:] if self.agent_log.exists() else ""
+            raise DriverError(f"Lost the iOS agent during {path} ({e}). Agent log tail:\n{tail}") from None
         if "error" in data:
             raise DriverError(f"iOS agent {path}: {data['error']}")
         return data
@@ -164,7 +171,14 @@ class IOSDriver(Driver):
 
     def launch(self):
         simctl("launch", self.udid, self.app_id)
-        self._call("/activate")
+        for attempt in range(5):  # right after a reinstall the app can take a moment to register
+            try:
+                self._call("/activate")
+                return
+            except DriverError:
+                if attempt == 4:
+                    raise
+                time.sleep(1)
 
     def resume(self):
         self._call("/activate")
@@ -244,12 +258,14 @@ class IOSDriver(Driver):
     def drag(self, x1, y1, x2, y2, seconds=0.3):
         self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2)
 
-    def type_text(self, text):
-        self._call("/type", text=text)
+    def type_text(self, text, at=None):
+        x, y = at if at else (None, None)
+        self._call("/type", text=text, x=x, y=y)
 
     def clear_text(self, el):
         self.tap(*el.center)
-        self._call("/key", key="delete", count=len(el.text) + 10)
+        x, y = el.center
+        self._call("/key", key="delete", count=len(el.text) + 10, x=x, y=y)
 
     def key(self, name):
         self._call("/key", key=name)

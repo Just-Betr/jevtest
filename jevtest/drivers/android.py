@@ -239,7 +239,7 @@ class AndroidDriver(Driver):
     def drag(self, x1, y1, x2, y2, seconds=0.3):
         self.sh(f"input swipe {x1} {y1} {x2} {y2} {int(seconds * 1000)}")
 
-    def type_text(self, text):
+    def type_text(self, text, at=None):
         # `input text` uses %s for spaces; send line by line with enter between.
         for i, line in enumerate(text.split("\n")):
             if i:

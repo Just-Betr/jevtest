@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 // jevtest demo app: a small app that exercises every action the harness
 // supports (tap, type, clear, double tap, long press, scroll, swipe, back,
@@ -165,6 +166,13 @@ class _HomePageState extends State<HomePage> {
             child: const Text('Open list'),
           ),
           const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const WebPage()),
+            ),
+            child: const Text('Open web page'),
+          ),
+          const SizedBox(height: 16),
           TextButton(
             onPressed: () => Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -225,6 +233,62 @@ class DetailPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(item)),
       body: Center(child: Text('Details for $item')),
+    );
+  }
+}
+
+// A plain HTML page inside an in-app WebView: input, button, checkbox, link.
+const _html = """
+<!doctype html>
+<html>
+<head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: -apple-system, Roboto, sans-serif; padding: 16px; }
+  input[type=text], button { font-size: 18px; padding: 10px; width: 100%; box-sizing: border-box; margin: 8px 0; }
+  label { font-size: 18px; }
+</style></head>
+<body>
+  <h1>Web Greeter</h1>
+  <label for="name">Your name</label>
+  <input id="name" type="text" placeholder="Your name">
+  <button onclick="greet()">Say hello</button>
+  <p id="out">Nobody greeted yet</p>
+  <label><input id="agree" type="checkbox" onchange="agreed()"> I agree to the terms</label>
+  <p id="terms">Terms not accepted</p>
+  <p><a href="#" onclick="more(); return false;">Show more</a></p>
+  <p id="more"></p>
+  <script>
+    function greet() {
+      var n = document.getElementById('name').value.trim();
+      document.getElementById('out').textContent = n ? 'Hello, ' + n + '!' : 'Please enter a name';
+    }
+    function agreed() {
+      document.getElementById('terms').textContent =
+        document.getElementById('agree').checked ? 'Terms accepted' : 'Terms not accepted';
+    }
+    function more() { document.getElementById('more').textContent = 'Here is more content from the web page.'; }
+  </script>
+</body>
+</html>
+""";
+
+class WebPage extends StatefulWidget {
+  const WebPage({super.key});
+
+  @override
+  State<WebPage> createState() => _WebPageState();
+}
+
+class _WebPageState extends State<WebPage> {
+  late final WebViewController _controller = WebViewController()
+    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    ..loadHtmlString(_html);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Web page')),
+      body: WebViewWidget(controller: _controller),
     );
   }
 }

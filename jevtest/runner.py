@@ -39,10 +39,27 @@ class Runner:
         self.verbose = verbose
         self.expect_running = False
         self.shot_n = 0
+        self.lines: list[str] = []
 
     # --- helpers ------------------------------------------------------------
     def log(self, msg: str):
         print(msg, flush=True)
+        self.lines.append(msg)
+
+    def log_jev(self, pad: str, since: int):
+        """-v: print every Jev call made since index `since` (question, answer, time)."""
+        if not self.verbose:
+            return
+        for call in self.brain.jev.calls[since:]:
+            for qid, ans in (call.get("answers") or {}).items():
+                if ans.get("type") == "noul":
+                    got = f"yes={ans['noul']:.2f}"
+                else:
+                    top = sorted(ans.get("probabilities", {}).items(), key=lambda kv: -kv[1])[:3]
+                    got = f"{ans.get('choice')}  [" + ", ".join(f"{k} {v:.2f}" for k, v in top) + "]"
+                self.log(f"{pad}    jev {qid}: {got}")
+            self.log(f"{pad}    jev call {call['ms']} ms, {len(call['questions'])} question(s), "
+                     f"{(call.get('usage') or {}).get('input_tokens', '?')} tokens")
 
     def settle(self):
         time.sleep(self.s.settle)
@@ -81,6 +98,7 @@ class Runner:
         return {"passed": passed, "failed": len(results) - passed, "tests": results}
 
     def run_test(self, test: Test) -> dict:
+        self.lines = []
         self.log(f"\n▶ {test.name}")
         started = time.monotonic()
         steps, status = [], "pass"
@@ -105,7 +123,23 @@ class Runner:
                 steps[-1]["screenshot"] = self.screenshot(f"FAIL_{test.name}")
         took = round(time.monotonic() - started, 1)
         self.log(f"  {'PASS' if status == 'pass' else 'FAIL'} {test.name} ({took}s)")
-        return {"name": test.name, "status": status, "seconds": took, "steps": steps}
+        failure = self.failure_of(steps) if status != "pass" else None
+        return {"name": test.name, "status": status, "seconds": took, "failure": failure,
+                "steps": steps, "log": list(self.lines)}
+
+    @staticmethod
+    def failure_of(steps: list) -> str:
+        """Plain-English reason for the first failure (for CI)."""
+        for s in steps:
+            if s.get("status") == "pass":
+                continue
+            if "steps" in s:
+                return Runner.failure_of(s["steps"])
+            for c in s.get("checks", []):
+                if c["status"] != "pass":
+                    return f"{c['check']}: {c['text']} — {c.get('detail', '')}"
+            return f"{s['step']} — {s.get('detail', '')}"
+        return "failed"
 
     def run_steps(self, steps: list[Step], results: list, pad: str) -> str:
         for step in steps:
@@ -118,6 +152,7 @@ class Runner:
     def run_step(self, step: Step, pad: str) -> dict:
         started = time.monotonic()
         result = {"step": step.raw, "status": "pass"}
+        jev_mark = len(self.brain.jev.calls)
         if step.kind == "use":
             self.log(f"{pad}▸ use: {step.used.name}")
             inner = []
@@ -141,11 +176,13 @@ class Runner:
             self.log(f"{pad}{mark} {step.title()} ({secs}s){extra}")
             for d in decisions:
                 self.log(f"{pad}    → {d['did']}  (confidence {d['confidence']:.2f})")
+            self.log_jev(pad, jev_mark)
 
         # Checks run after the action, indented under it.
         check_pad = pad + "    " if step.kind is not None else pad
         result["checks"] = []
         for kind, text in step.checks if result["status"] == "pass" else []:
+            jev_mark = len(self.brain.jev.calls)
             c = {"check": kind, "text": text, "status": "pass"}
             try:
                 c["detail"] = self.check(kind, text, float(step.opts.get("timeout", self.s.timeout)))
@@ -155,6 +192,7 @@ class Runner:
             mark = "✓" if c["status"] == "pass" else "✗"
             extra = f" — {c['detail']}" if c.get("detail") else ""
             self.log(f"{check_pad}{mark} {kind}: {text}{extra}")
+            self.log_jev(check_pad, jev_mark)
             if c["status"] != "pass":
                 result["status"] = "fail"
                 break
@@ -256,7 +294,9 @@ class Runner:
                     raise StepFailed(f"Could not find text field '{o['into']}'")
                 d.tap(*el.center)
                 time.sleep(0.4)
-            d.type_text(text)
+                d.type_text(text, at=el.center)
+            else:
+                d.type_text(text)
         elif k == "rotate":
             d.rotate(str(v))
         elif k == "location":
@@ -315,7 +355,7 @@ class Runner:
             if not el.focused:
                 d.tap(*el.center)
                 time.sleep(0.4)
-            d.type_text(dec.text)
+            d.type_text(dec.text, at=el.center)
         elif a == "clear":
             d.clear_text(el)
         elif a.startswith("scroll_"):
@@ -328,6 +368,24 @@ class Runner:
             d.hide_keyboard()
         elif a == "wait":
             time.sleep(1.0)
+
+
+def write_junit(path: Path, suite: str, results: dict):
+    """JUnit XML: the format CI systems (GitHub Actions, GitLab, Jenkins, ...) display."""
+    from xml.etree import ElementTree as ET
+    tests = results["tests"]
+    root = ET.Element("testsuites")
+    ts = ET.SubElement(root, "testsuite", name=suite, tests=str(len(tests)),
+                       failures=str(results["failed"]), errors="0",
+                       time=f"{sum(t['seconds'] for t in tests):.1f}")
+    for t in tests:
+        tc = ET.SubElement(ts, "testcase", classname=suite, name=t["name"], time=f"{t['seconds']:.1f}")
+        if t["status"] != "pass":
+            ET.SubElement(tc, "failure", message=t.get("failure") or "failed").text = "\n".join(t["log"])
+        ET.SubElement(tc, "system-out").text = "\n".join(t["log"])
+    ET.indent(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 
 def write_report(out_dir: Path, meta: dict, results: dict, jev_calls: list):

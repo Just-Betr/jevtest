@@ -18,7 +18,7 @@ from . import __version__
 from .brain import Brain
 from .drivers.base import DriverError
 from .jev import Jev, JevError
-from .runner import Runner, write_report
+from .runner import Runner, write_junit, write_report
 from .spec import SpecError, load, platform_of
 
 
@@ -62,14 +62,24 @@ def cmd_run(args) -> int:
     try:
         app_id = driver.install(app)
         print(f"jevtest {__version__} · {platform} · {app_id} · {spec.settings.model}")
-        runner = Runner(spec, driver, Brain(jev, spec.settings.threshold), out)
+        runner = Runner(spec, driver, Brain(jev, spec.settings.threshold), out, verbose=args.verbose)
         results = runner.run()
     finally:
         driver.close()
     write_report(out, {"file": str(spec.path), "platform": platform, "app": str(app),
                        "app_id": app_id, "model": spec.settings.model}, results, jev.calls)
+    junit = Path(args.junit) if args.junit else out / "junit.xml"
+    write_junit(junit, f"jevtest.{platform}", results)
     total = results["passed"] + results["failed"]
-    print(f"\n{results['passed']}/{total} passed · {len(jev.calls)} Jev calls · report: {out / 'report.json'}")
+    run_s = sum(t["seconds"] for t in results["tests"]) or 1
+    jev_s = sum(c["ms"] for c in jev.calls) / 1000
+    cost = sum((c.get("usage") or {}).get("cost", 0) for c in jev.calls)
+    print(f"\n{results['passed']}/{total} passed in {run_s:.0f}s")
+    for t in results["tests"]:
+        if t["status"] != "pass":
+            print(f"  FAILED {t['name']}: {t['failure']}")
+    print(f"Jev: {len(jev.calls)} calls, {jev_s:.1f}s ({jev_s / run_s:.0%} of run time), ${cost:.4f}")
+    print(f"Report: {out / 'report.json'} · JUnit: {junit}")
     return 0 if results["failed"] == 0 else 1
 
 
@@ -119,6 +129,8 @@ def main(argv=None) -> int:
     r.add_argument("--device", help="adb serial or simulator name/UDID")
     r.add_argument("--test", action="append", help="only run this test (repeatable)")
     r.add_argument("--out", default="jevtest-results", help="results folder")
+    r.add_argument("--junit", help="also write JUnit XML here (default: <results>/junit.xml)")
+    r.add_argument("-v", "--verbose", action="store_true", help="print every Jev question and answer")
     r.set_defaults(fn=cmd_run)
 
     s = sub.add_parser("screen", help="print the current screen as Jev sees it")

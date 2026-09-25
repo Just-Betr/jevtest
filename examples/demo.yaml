@@ -76,3 +76,25 @@ tests:
         see: Welcome, demo@jevtest.dev
       - restart:
         expect: The sign in screen is showing
+
+  # In-app WebView: plain HTML (input, button, checkbox, link) inside the app.
+  - name: Open the web page
+    steps:
+      - use: Sign in
+      - scroll_to: Open web page
+      - tap: Open web page
+        see: Web Greeter
+
+  - name: Web page greets by name
+    steps:
+      - use: Open the web page
+      - do: Type "Bret" into the name box on the web page and press Say hello
+        see: Hello, Bret!
+
+  - name: Web page checkbox and link
+    steps:
+      - use: Open the web page
+      - tap: I agree to the terms
+        see: Terms accepted
+      - tap: Show more
+        expect: The page shows more content from the web page

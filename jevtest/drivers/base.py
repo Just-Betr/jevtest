@@ -70,7 +70,8 @@ class Driver(ABC):
     def drag(self, x1: int, y1: int, x2: int, y2: int, seconds: float = 0.3): ...
 
     @abstractmethod
-    def type_text(self, text: str): ...
+    def type_text(self, text: str, at: tuple[int, int] | None = None):
+        """Type into the focused field (`at`: the field's center, if known)."""
 
     @abstractmethod
     def clear_text(self, el: Element): ...
