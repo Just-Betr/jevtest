@@ -44,7 +44,7 @@ class Settings:
     model: str = "typesafe/jev-1.13"
     max_actions: int = 8       # Jev actions allowed per `do:` step
     timeout: float = 10.0      # seconds a check / element lookup keeps retrying
-    settle: float = 1.0        # seconds to let the UI settle after each action
+    settle: float = 3.0        # most seconds to wait for the UI to go idle after an action
     threshold: float = 0.5     # Jev yes-probability an `expect:` needs to pass
 
 

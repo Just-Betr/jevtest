@@ -114,10 +114,9 @@ def cmd_screen(args) -> int:
         if app:
             driver.install(app)
             driver.launch()
-            time.sleep(2)
+            driver.wait_idle(5)
         s = driver.screen()
-        print(json.dumps({"screen": s.to_state(), "keyboard_visible": s.keyboard_visible,
-                          "app_running": s.app_running}, indent=2))
+        print(json.dumps({"screen": s.to_state(), "keyboard_visible": s.keyboard_visible}, indent=2))
     finally:
         driver.close()
     return 0

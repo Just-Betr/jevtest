@@ -1,7 +1,8 @@
-"""Android driver: plain adb. uiautomator dump for the screen, `input` for touch and keys."""
+"""Android driver: adb for the app and input, a small on-device agent for reading the screen."""
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import shlex
@@ -9,11 +10,13 @@ import shutil
 import subprocess
 import tempfile
 import time
+import urllib.request
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 from ..screen import Element, Screen
-from .base import Driver, DriverError, run
+from .base import Driver, DriverError, cache_dir, digest, run, start_process, stop_process
 
 KEYCODES = {
     "enter": 66, "delete": 67, "backspace": 67, "tab": 61, "escape": 111, "space": 62,
@@ -32,8 +35,11 @@ KINDS = {
 EDITABLE = {"EditText", "AutoCompleteTextView"}
 # Always report on/off for these: WebView checkboxes come through with checkable="false".
 TOGGLES = {"CheckBox", "Switch", "RadioButton", "ToggleButton", "SwitchCompat", "SwitchMaterial"}
-DUMP_RETRIES = 4          # uiautomator fails while the UI animates
 DOUBLE_TAP_GAP = 0.1      # Android and Flutter ignore taps < 40 ms apart and > 300 ms apart
+WEBVIEW_LOAD = 3.0        # most seconds to wait for an empty WebView's content to arrive
+AGENT_SRC = Path(__file__).resolve().parent.parent / "android_agent"
+AGENT_ID = "dev.jevtest.agent"
+AGENT_PORT = 7912         # on the device; adb forwards a free local port to it
 
 
 def sdk_root() -> Path | None:
@@ -98,14 +104,55 @@ def start_emulator(timeout: float = 180) -> str:
     env = dict(os.environ, ANDROID_SDK_ROOT=str(root))
     subprocess.Popen([emulator, "-avd", avds[0], "-no-snapshot-save", "-no-boot-anim"], env=env,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        for serial in devices():
-            if run([adb_path(), "-s", serial, "shell", "getprop", "sys.boot_completed"],
-                   check=False, timeout=10).strip() == "1":
-                return serial
-        time.sleep(2)
-    raise DriverError(f"Emulator {avds[0]} did not boot within {timeout:g}s")
+    # Boot has no completion event: adb waits for the device, then the device checks its own boot flag.
+    run([adb_path(), "wait-for-device", "shell",
+         'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 1; done'], timeout=timeout)
+    return devices()[0]
+
+
+def http_get(url: str, timeout: float) -> str:
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
+        return resp.read().decode()
+
+
+def build_agent() -> Path:
+    """Compile the on-device agent with the SDK's own tools (no Gradle). Cached by source hash."""
+    version = digest(AGENT_SRC)
+    apk = cache_dir() / f"android-agent-{version}.apk"
+    if apk.exists():
+        return apk
+    root = sdk_root()
+    tools = sorted(root.glob("build-tools/*")) if root else []
+    jars = sorted(root.glob("platforms/android-*/android.jar")) if root else []
+    if not tools or not jars:
+        raise DriverError("Android SDK build-tools and a platform are needed to build the jevtest agent")
+    bt, jar = tools[-1], str(jars[-1])
+    print("  building Android agent (one time, a few seconds)...", flush=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        t = Path(tmp)
+        run(["javac", "--release", "11", "-cp", jar, "-d", str(t / "classes"),
+             *map(str, sorted(AGENT_SRC.rglob("*.java")))])
+        run([str(bt / "d8"), "--min-api", "24", "--lib", jar, "--output", tmp,
+             *map(str, sorted((t / "classes").rglob("*.class")))])
+        run([str(bt / "aapt2"), "link", "--manifest", str(AGENT_SRC / "AndroidManifest.xml"), "-I", jar,
+             "--version-name", version, "-o", str(t / "base.apk")])
+        with zipfile.ZipFile(t / "base.apk", "a") as z:
+            z.write(t / "classes.dex", "classes.dex")
+        run([str(bt / "zipalign"), "-f", "4", str(t / "base.apk"), str(t / "aligned.apk")])
+        apk.parent.mkdir(parents=True, exist_ok=True)
+        keystore = cache_dir() / "jevtest-debug.keystore"
+        if not keystore.exists():
+            run(["keytool", "-genkeypair", "-keystore", str(keystore), "-storepass", "android",
+                 "-alias", "jevtest", "-keypass", "android", "-keyalg", "RSA", "-validity", "10000",
+                 "-dname", "CN=jevtest"])
+        run([str(bt / "apksigner"), "sign", "--ks", str(keystore), "--ks-pass", "pass:android",
+             "--out", str(apk), str(t / "aligned.apk")])
+    return apk
+
+
+def _contains(bounds: tuple[int, int, int, int], point: tuple[int, int]) -> bool:
+    x1, y1, x2, y2 = bounds
+    return x1 <= point[0] <= x2 and y1 <= point[1] <= y2
 
 
 def has_empty_webview(xml: str) -> bool:
@@ -136,7 +183,8 @@ def parse_hierarchy(xml: str, width: int, height: int) -> list[Element]:
         clickable = a.get("clickable") == "true" or a.get("long-clickable") == "true"
         checkable = a.get("checkable") == "true" or cls in TOGGLES
         scrollable = a.get("scrollable") == "true"
-        rid = a.get("resource-id", "").split("/")[-1]
+        full_id = a.get("resource-id", "")
+        rid = "" if full_id.startswith("android:id/") else full_id.split("/")[-1]  # framework ids are structure
         if not (label or editable or clickable or checkable or scrollable or rid):
             continue
         if cls in KINDS:
@@ -169,6 +217,42 @@ class AndroidDriver(Driver):
         self.app_path: Path | None = None
         self.activity = ""
         self._size: tuple[int, int] | None = None
+        self.agent: subprocess.Popen | None = None
+        self._start_agent()
+
+    # --- agent -------------------------------------------------------------------
+    def _start_agent(self):
+        apk = build_agent()
+        version = apk.stem.rsplit("-", 1)[1]
+        if f"versionName={version}" not in self.sh(f"dumpsys package {AGENT_ID} | grep versionName", check=False):
+            self.sh(f"pm uninstall {AGENT_ID}", check=False)  # any older copy, whatever key signed it
+            run([self.adb, "-s", self.serial, "install", str(apk)], timeout=120)
+        self.sh(f"am force-stop {AGENT_ID}")  # a previous run's agent would hold the port
+        self.port = int(run([self.adb, "-s", self.serial, "forward", "tcp:0", f"tcp:{AGENT_PORT}"]).strip())
+        self.agent = start_process(
+            [self.adb, "-s", self.serial, "shell", "am", "instrument", "-r", "-w", "-e", "port", str(AGENT_PORT),
+             f"{AGENT_ID}/.Agent"],
+            ready="ready=1", log=cache_dir() / f"android-agent-{self.serial}.log", timeout=30)
+
+    def _agent(self, path: str, wait_ms: int = 0) -> str:
+        url = f"http://127.0.0.1:{self.port}{path}" + (f"?ms={wait_ms}" if wait_ms else "")
+        try:
+            return http_get(url, timeout=wait_ms / 1000 + 10)
+        except OSError as e:
+            raise DriverError(f"Lost the Android agent during {path} ({e})") from None
+
+    def close(self):
+        if self.agent and self.agent.poll() is None:
+            with contextlib.suppress(DriverError):  # it may already be gone
+                self._agent("/quit")
+        stop_process(self.agent)
+        run([self.adb, "-s", self.serial, "forward", "--remove", f"tcp:{self.port}"], check=False)
+
+    def wait_idle(self, timeout: float):
+        self._agent("/idle", int(timeout * 1000))
+
+    def wait_change(self, timeout: float):
+        self._agent("/change", int(timeout * 1000))
 
     # --- plumbing ------------------------------------------------------------
     def sh(self, cmd: str, timeout: float = 60, check: bool = True) -> str:
@@ -238,37 +322,39 @@ class AndroidDriver(Driver):
             return "not_running"
         return "foreground" if f" {self.app_id}/" in out else "background"
 
-    def keyboard_shown(self) -> bool:
-        return "mInputShown=true" in self.sh("dumpsys input_method | grep mInputShown", check=False)
-
     # --- observe ---------------------------------------------------------------
-    def dump(self) -> str:
-        """The UI hierarchy XML, once it is complete.
+    def _wait_for_typing(self, at: tuple[int, int], timeout: float = 3.0):
+        """Keys sent before the keyboard is connected are dropped, so wait (event-driven) for
+        a focused text field under `at` and a visible keyboard."""
+        deadline = time.monotonic() + timeout
+        while True:
+            xml = self._agent("/tree")
+            root = ET.fromstring(xml)
+            w, h = self.size(int(root.get("rotation", "0")))
+            focused = any(el.editable and el.focused and _contains(el.bounds, at) for el in parse_hierarchy(xml, w, h))
+            if focused and root.get("ime") == "true":
+                return
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise DriverError("The text field did not get keyboard focus")
+            self.wait_change(left)
 
-        uiautomator fails while the UI animates, and a WebView's content arrives a
-        moment after the WebView itself, so an empty WebView means "not loaded yet".
-        """
-        xml = ""
-        for attempt in range(DUMP_RETRIES):
-            out = self.sh("uiautomator dump --compressed /sdcard/jevtest.xml >/dev/null 2>&1; "
-                          "cat /sdcard/jevtest.xml", check=False)
-            if "<hierarchy" in out:
-                xml = out[out.index("<hierarchy"):]
-                if not has_empty_webview(xml):
-                    return xml
-            if attempt < DUMP_RETRIES - 1:
-                time.sleep(0.5)
-        if xml:
-            return xml  # a WebView that really is blank
-        raise DriverError("uiautomator dump failed (is the screen locked?)")
+    def tree(self) -> str:
+        """The UI hierarchy XML. A WebView's content arrives a moment after the WebView itself,
+        so while a WebView is still empty, wait for the screen to change (event-driven)."""
+        xml = self._agent("/tree")
+        deadline = time.monotonic() + WEBVIEW_LOAD
+        while has_empty_webview(xml) and time.monotonic() < deadline:
+            self.wait_change(deadline - time.monotonic())
+            xml = self._agent("/tree")
+        return xml
 
     def screen(self) -> Screen:
-        xml = self.dump()
-        rot = re.search(r'<hierarchy rotation="(\d)"', xml)
-        w, h = self.size(int(rot.group(1)) if rot else 0)
+        xml = self.tree()
+        root = ET.fromstring(xml)
+        w, h = self.size(int(root.get("rotation", "0")))
         return Screen(width=w, height=h, elements=parse_hierarchy(xml, w, h),
-                      keyboard_visible=self.keyboard_shown(),
-                      app_running=self.app_state() != "not_running")
+                      keyboard_visible=root.get("ime") == "true")
 
     def screenshot(self, path: Path):
         path.write_bytes(run([self.adb, "-s", self.serial, "exec-out", "screencap", "-p"], binary=True))
@@ -290,6 +376,9 @@ class AndroidDriver(Driver):
     def type_text(self, text, at=None):
         if not text.isascii():
             raise DriverError("Android `input text` only supports ASCII characters")
+        if at:  # focus the field, then wait until it has focus and the keyboard is up
+            self.tap(*at)
+            self._wait_for_typing(at)
         # `input text` needs %s for spaces; newlines become Enter presses.
         for i, line in enumerate(text.split("\n")):
             if i:
@@ -315,7 +404,7 @@ class AndroidDriver(Driver):
 
     def hide_keyboard(self):
         # Back closes the keyboard, but with no keyboard it leaves the screen: check right before.
-        if self.keyboard_shown():
+        if ET.fromstring(self._agent("/tree")).get("ime") == "true":
             self.key("back")
 
     # --- device ------------------------------------------------------------------

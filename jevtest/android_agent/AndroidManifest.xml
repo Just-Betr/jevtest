@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- jevtest Android agent: an instrumentation that serves the screen's accessibility tree over HTTP. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="dev.jevtest.agent"
+    android:versionCode="1"
+    android:versionName="1">
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:label="jevtest agent" android:hasCode="true" />
+    <instrumentation
+        android:name=".Agent"
+        android:targetPackage="dev.jevtest.agent"
+        android:label="jevtest agent" />
+</manifest>

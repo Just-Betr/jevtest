@@ -36,15 +36,58 @@ class Adb:
         return [c.split(" shell ", 1)[1] for c in self.cmds if " shell " in c]
 
 
+class AgentHttp:
+    """Stands in for the on-device agent: replies by path, records every request."""
+
+    def __init__(self):
+        self.replies: dict[str, object] = {"/tree": LOGIN, "/idle": "idle", "/change": "changed", "/quit": "bye"}
+        self.urls: list[str] = []
+
+    def __call__(self, url, timeout):
+        self.urls.append(url)
+        reply = self.replies[url.split("7000", 1)[1].split("?")[0]]
+        reply = reply.pop(0) if isinstance(reply, list) else reply
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    def paths(self):
+        return [u.split("7000", 1)[1] for u in self.urls]
+
+
+class Proc:
+    def __init__(self):
+        self.running = True
+
+    def poll(self):
+        return None if self.running else 0
+
+
 @pytest.fixture
-def adb(monkeypatch):
+def agent(monkeypatch):
+    fake = AgentHttp()
+    fake.started = []
+    monkeypatch.setattr(android, "http_get", fake)
+    monkeypatch.setattr(android, "build_agent", lambda: Path("/cache/android-agent-abc123.apk"))
+
+    def start_process(cmd, ready, log, timeout):
+        fake.started.append((cmd, ready))
+        return Proc()
+    monkeypatch.setattr(android, "start_process", start_process)
+    monkeypatch.setattr(android, "stop_process", lambda proc: fake.started.append(("stopped",)))
+    return fake
+
+
+@pytest.fixture
+def adb(monkeypatch, agent):
     fake = Adb({"adb devices": "List of devices attached\nemulator-5554\tdevice\nR58N\tunauthorized\n",
                 "wm size": "Physical size: 1080x2424\n",
                 "aapt2": "dev.demo\n",
-                "resolve-activity": "priority=0\ndev.demo/.MainActivity\n"})
+                "resolve-activity": "priority=0\ndev.demo/.MainActivity\n",
+                "forward tcp:0": "7000\n",
+                "dumpsys package dev.jevtest.agent": "    versionName=abc123\n"})
     monkeypatch.setattr(android, "run", fake)
     monkeypatch.setattr(android.shutil, "which", lambda name: f"/bin/{name}")
-    monkeypatch.setattr(android.time, "sleep", lambda s: None)
     return fake
 
 
@@ -154,7 +197,7 @@ def test_bootable_avds(tmp_path):
     assert android.bootable_avds(["Missing", "NoConfig", "Good"], root, home) == ["Good"]
 
 
-def emulator_env(monkeypatch, tmp_path, avds="Good\n", boot=("0", "1")):
+def emulator_env(monkeypatch, tmp_path, avds="Good\n"):
     root = tmp_path / "sdk"
     (root / "emulator").mkdir(parents=True)
     (root / "emulator/emulator").write_text("")
@@ -167,18 +210,17 @@ def emulator_env(monkeypatch, tmp_path, avds="Good\n", boot=("0", "1")):
     monkeypatch.setattr(android.shutil, "which", lambda n: "/bin/adb" if n == "adb" else None)
     started = []
     monkeypatch.setattr(android.subprocess, "Popen", lambda cmd, **kw: started.append((cmd, kw)))
-    fake = Adb({"-list-avds": avds, "adb devices": "List\nemulator-5554\tdevice\n",
-                "sys.boot_completed": list(boot)})
+    fake = Adb({"-list-avds": avds, "adb devices": "List\nemulator-5554\tdevice\n"})
     monkeypatch.setattr(android, "run", fake)
-    monkeypatch.setattr(android.time, "sleep", lambda s: None)
-    return started, root
+    return started, root, fake
 
 
 def test_start_emulator_boots_first_good_avd(monkeypatch, tmp_path):
-    started, root = emulator_env(monkeypatch, tmp_path)
+    started, root, fake = emulator_env(monkeypatch, tmp_path)
     assert android.start_emulator() == "emulator-5554"
     cmd, kw = started[0]
     assert cmd[1:3] == ["-avd", "Good"] and kw["env"]["ANDROID_SDK_ROOT"] == str(root)
+    assert any("wait-for-device shell" in c and "sys.boot_completed" in c for c in fake.cmds)
 
 
 def test_start_emulator_no_avds(monkeypatch, tmp_path):
@@ -188,10 +230,9 @@ def test_start_emulator_no_avds(monkeypatch, tmp_path):
 
 
 def test_start_emulator_timeout(monkeypatch, tmp_path):
-    emulator_env(monkeypatch, tmp_path, boot=["0"] * 50)
-    ticks = iter(range(0, 1000, 100))
-    monkeypatch.setattr(android.time, "monotonic", lambda: next(ticks))
-    with pytest.raises(DriverError, match="did not boot within 180s"):
+    _, _, fake = emulator_env(monkeypatch, tmp_path)
+    fake.rules["wait-for-device"] = DriverError("Timed out after 180s")
+    with pytest.raises(DriverError, match="Timed out"):
         android.start_emulator()
 
 
@@ -283,17 +324,16 @@ def test_app_state(drv, adb, reply, state):
 
 # --- observe ------------------------------------------------------------------------------------
 
-def test_screen(drv, adb):
-    adb.rules["uiautomator"] = "noise " + LOGIN
-    adb.rules["mInputShown"] = "  mInputShown=true\n"
-    adb.rules["pidof"] = "1\n dev.demo/.M\n"
+def test_screen_reads_the_agent_tree(drv, agent):
+    agent.replies["/tree"] = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"')
     s = drv.screen()
-    assert (s.width, s.height, s.keyboard_visible, s.app_running) == (1080, 2424, True, True)
+    assert (s.width, s.height, s.keyboard_visible) == (1080, 2424, True)
     assert len(s.elements) == 4
+    assert agent.paths() == ["/tree"]
 
 
-def test_screen_in_landscape_swaps_size(drv, adb):
-    adb.rules["uiautomator"] = LOGIN.replace('rotation="0"', 'rotation="1"')
+def test_screen_in_landscape_swaps_size(drv, agent):
+    agent.replies["/tree"] = LOGIN.replace('rotation="0"', 'rotation="1"')
     s = drv.screen()
     assert (s.width, s.height) == (2424, 1080)
 
@@ -308,20 +348,29 @@ def test_size_is_cached_and_validated(drv, adb):
         drv.size()
 
 
-def test_dump_retries_until_ready(drv, adb):
-    adb.rules["uiautomator"] = ["ERROR: could not get idle state", EMPTY_WEB, WEB]
-    assert drv.dump() == WEB
+def test_empty_webview_waits_for_its_content(drv, agent):
+    agent.replies["/tree"] = [EMPTY_WEB, EMPTY_WEB, WEB]
+    assert drv.tree() == WEB
+    assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/change", "/tree", "/change", "/tree"]
 
 
-def test_dump_accepts_a_blank_webview_eventually(drv, adb):
-    adb.rules["uiautomator"] = [EMPTY_WEB] * 4
-    assert drv.dump() == EMPTY_WEB
+def test_really_blank_webview_is_accepted(drv, agent, monkeypatch):
+    agent.replies["/tree"] = EMPTY_WEB
+    ticks = iter([0, 1, 2, 5])
+    monkeypatch.setattr(android.time, "monotonic", lambda: next(ticks))
+    assert drv.tree() == EMPTY_WEB
 
 
-def test_dump_fails(drv, adb):
-    adb.rules["uiautomator"] = "ERROR"
-    with pytest.raises(DriverError, match="dump failed"):
-        drv.dump()
+def test_lost_agent(drv, agent):
+    agent.replies["/tree"] = OSError("refused")
+    with pytest.raises(DriverError, match="Lost the Android agent during /tree"):
+        drv.screen()
+
+
+def test_waits_are_forwarded_to_the_agent(drv, agent):
+    drv.wait_idle(1.5)
+    drv.wait_change(2)
+    assert agent.paths() == ["/idle?ms=1500", "/change?ms=2000"]
 
 
 def test_screenshot(drv, adb, tmp_path):
@@ -339,6 +388,28 @@ def test_touch_commands(drv, adb):
     drv.drag(1, 2, 3, 4)
     assert adb.shell() == ["input tap 1 2", "input tap 3 4; sleep 0.1; input tap 3 4", "input swipe 5 6 5 6 1500",
                            "input swipe 1 2 3 4 300"]
+
+
+FOCUSED = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"').replace(
+    'focused="false" scrollable="false" long-clickable="false" password="false" selected="false" '
+    'bounds="[63,352][1017,499]"',
+    'focused="true" scrollable="false" long-clickable="false" password="false" selected="false" '
+    'bounds="[63,352][1017,499]"')
+
+
+def test_type_into_field_waits_for_focus_and_keyboard(drv, adb, agent):
+    assert FOCUSED != LOGIN
+    agent.replies["/tree"] = [LOGIN, FOCUSED]  # right after the tap: not yet focused; then ready
+    drv.type_text("hi", at=(540, 425))
+    assert [c for c in adb.shell() if c.startswith("input")] == ["input tap 540 425", "input text hi"]
+    assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/change", "/tree"]
+
+
+def test_type_into_field_that_never_focuses(drv, adb, agent, monkeypatch):
+    ticks = iter([0, 1, 4])
+    monkeypatch.setattr(android.time, "monotonic", lambda: next(ticks))
+    with pytest.raises(DriverError, match="did not get keyboard focus"):
+        drv.type_text("hi", at=(540, 425))
 
 
 def test_type_text_escapes(drv, adb):
@@ -372,9 +443,9 @@ def test_keys(drv, adb):
         drv.key("hyper")
 
 
-@pytest.mark.parametrize("shown,pressed", [("mInputShown=true", True), ("mInputShown=false", False)])
-def test_hide_keyboard_only_presses_back_when_open(drv, adb, shown, pressed):
-    adb.rules["mInputShown"] = shown
+@pytest.mark.parametrize("ime,pressed", [("true", True), ("false", False)])
+def test_hide_keyboard_only_presses_back_when_open(drv, adb, agent, ime, pressed):
+    agent.replies["/tree"] = LOGIN.replace('<hierarchy rotation="0"', f'<hierarchy rotation="0" ime="{ime}"')
     drv.hide_keyboard()
     assert ("input keyevent 4" in adb.shell()) is pressed
 
@@ -413,7 +484,6 @@ def test_location_on_emulator_only(drv, adb):
 # --- shared helpers from the base class --------------------------------------------------------------
 
 def test_swipe_and_scroll_geometry(drv, adb):
-    adb.rules["uiautomator"] = LOGIN
     drv.swipe("left", el=Element("text", bounds=(0, 0, 100, 100)))
     drv.scroll("down")
     assert adb.shell()[0] == "input swipe 85 50 15 50 300"
@@ -425,3 +495,105 @@ def test_bad_directions(drv):
         drv.swipe("diagonal", el=Element("text", bounds=(0, 0, 1, 1)))
     with pytest.raises(DriverError):
         drv.scroll("inward")
+
+
+# --- agent -----------------------------------------------------------------------------------------
+
+def test_agent_started_on_the_forwarded_port(adb, agent):
+    d = AndroidDriver()
+    assert d.port == 7000
+    [(cmd, ready)] = agent.started
+    assert ready == "ready=1" and cmd[-1] == "dev.jevtest.agent/.Agent" and "7912" in cmd
+    assert "am force-stop dev.jevtest.agent" in adb.shell()
+    assert not any(" install " in c for c in adb.cmds)  # the right version is already on the device
+
+
+def test_agent_reinstalled_when_version_differs(adb, agent):
+    adb.rules["dumpsys package dev.jevtest.agent"] = "    versionName=old\n"
+    AndroidDriver()
+    assert "pm uninstall dev.jevtest.agent" in adb.shell()
+    assert any(c.endswith("install /cache/android-agent-abc123.apk") for c in adb.cmds)
+
+
+def test_close_quits_agent_and_removes_forward(drv, adb, agent):
+    drv.close()
+    assert agent.paths()[-1] == "/quit"
+    assert agent.started[-1] == ("stopped",)
+    assert adb.cmds[-1].endswith("forward --remove tcp:7000")
+
+
+def test_close_when_agent_already_gone(drv, adb, agent):
+    drv.agent.running = False
+    drv.close()
+    assert "/quit" not in agent.paths()
+
+
+def test_close_tolerates_agent_error(drv, agent):
+    agent.replies["/quit"] = OSError("gone")
+    drv.close()
+
+
+def test_build_agent_is_cached(monkeypatch, tmp_path):
+    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
+    apk = tmp_path / f"android-agent-{android.digest(android.AGENT_SRC)}.apk"
+    apk.write_text("")
+    assert android.build_agent() == apk
+
+
+def test_build_agent_with_sdk_tools(monkeypatch, tmp_path):
+    import zipfile
+    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "cache"))
+    sdk = tmp_path / "sdk"
+    (sdk / "build-tools/37.0.0").mkdir(parents=True)
+    (sdk / "platforms/android-37").mkdir(parents=True)
+    (sdk / "platforms/android-37/android.jar").write_text("")
+    monkeypatch.setattr(android, "sdk_root", lambda: sdk)
+    seen = []
+
+    def fake_run(cmd, **kw):
+        seen.append(Path(cmd[0]).name)
+        if cmd[0] == "javac":
+            out = Path(cmd[cmd.index("-d") + 1])
+            out.mkdir(parents=True)
+            (out / "Agent.class").write_text("")
+        elif cmd[0].endswith("d8"):
+            (Path(cmd[cmd.index("--output") + 1]) / "classes.dex").write_text("dex")
+        elif cmd[0].endswith("aapt2"):
+            with zipfile.ZipFile(cmd[cmd.index("-o") + 1], "w") as z:
+                z.writestr("AndroidManifest.xml", "m")
+        elif cmd[0].endswith("zipalign"):
+            Path(cmd[-1]).write_bytes(Path(cmd[-2]).read_bytes())
+        elif cmd[0] == "keytool":
+            Path(cmd[cmd.index("-keystore") + 1]).write_text("ks")
+        elif cmd[0].endswith("apksigner"):
+            Path(cmd[cmd.index("--out") + 1]).write_bytes(Path(cmd[-1]).read_bytes())
+        return ""
+    monkeypatch.setattr(android, "run", fake_run)
+    apk = android.build_agent()
+    assert seen == ["javac", "d8", "aapt2", "zipalign", "keytool", "apksigner"]
+    assert "classes.dex" in zipfile.ZipFile(apk).namelist()
+    seen.clear()
+    apk.unlink()
+    android.build_agent()
+    assert "keytool" not in seen  # the keystore is reused
+
+
+def test_build_agent_needs_sdk(monkeypatch, tmp_path):
+    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
+    monkeypatch.setattr(android, "sdk_root", lambda: None)
+    with pytest.raises(DriverError, match="build-tools and a platform"):
+        android.build_agent()
+
+
+def test_http_get(monkeypatch):
+    class R:
+        def read(self):
+            return b"ok"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+    monkeypatch.setattr(android.urllib.request, "urlopen", lambda url, timeout: R())
+    assert android.http_get("http://x", timeout=1) == "ok"

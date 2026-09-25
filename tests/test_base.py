@@ -1,8 +1,9 @@
+import subprocess
 import sys
 
 import pytest
 
-from jevtest.drivers.base import DriverError, run
+from jevtest.drivers.base import DriverError, cache_dir, digest, run, start_process, stop_process
 
 
 def py(code):
@@ -37,3 +38,78 @@ def test_missing_command():
 def test_timeout():
     with pytest.raises(DriverError, match="Timed out after 0.2s"):
         run(py("import time; time.sleep(5)"), timeout=0.2)
+
+
+# --- agents: start on their ready signal, stop cleanly ------------------------------------------
+
+def test_start_process_returns_when_ready(tmp_path):
+    log = tmp_path / "logs" / "agent.log"
+    proc = start_process(py("import time; print('booting'); print('READY now', flush=True); time.sleep(30)"),
+                         ready="READY", log=log, timeout=10)
+    try:
+        assert proc.poll() is None
+        assert "booting" in log.read_text()
+    finally:
+        stop_process(proc)
+    assert proc.poll() is not None
+
+
+def test_start_process_reports_an_early_exit(tmp_path):
+    with pytest.raises(DriverError, match="exited: .*boom"):
+        start_process(py("print('boom')"), ready="READY", log=tmp_path / "a.log", timeout=10)
+
+
+def test_start_process_times_out(tmp_path):
+    with pytest.raises(DriverError, match="did not report ready within 0.3s"):
+        start_process(py("import time; time.sleep(30)"), ready="READY", log=tmp_path / "a.log", timeout=0.3)
+
+
+def test_stop_process_kills_what_ignores_terminate():
+    proc = subprocess.Popen(py("import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+                               "print('x', flush=True); time.sleep(60)"), stdout=subprocess.PIPE)
+    proc.stdout.readline()  # handler installed
+
+    class Impatient:  # same process, shorter wait so the test is fast
+        def __getattr__(self, name):
+            return getattr(proc, name)
+
+        def wait(self, timeout):
+            return proc.wait(0.2)
+    stop_process(Impatient())
+    assert proc.wait(5) is not None
+
+
+def test_stop_process_ignores_none_and_finished():
+    stop_process(None)
+    done = subprocess.Popen(py("pass"))
+    done.wait()
+    stop_process(done)
+
+
+def test_digest_tracks_source_changes(tmp_path):
+    (tmp_path / "a.swift").write_text("1")
+    first = digest(tmp_path)
+    (tmp_path / "xcuserdata").mkdir()
+    (tmp_path / "xcuserdata" / "x").write_text("ignored")
+    assert digest(tmp_path) == first
+    (tmp_path / "a.swift").write_text("2")
+    assert digest(tmp_path) != first
+
+
+def test_cache_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
+    assert cache_dir() == tmp_path
+    monkeypatch.delenv("JEVTEST_CACHE")
+    assert cache_dir().name == "jevtest"
+
+
+def test_default_wait_hooks_do_nothing():
+    from jevtest.drivers.base import Driver
+
+    class Minimal(Driver):
+        pass
+    for name in list(Minimal.__abstractmethods__):
+        setattr(Minimal, name, lambda self, *a, **k: None)
+    Minimal.__abstractmethods__ = frozenset()
+    d = Minimal()
+    assert d.wait_idle(1) is None and d.wait_change(1) is None and d.close() is None

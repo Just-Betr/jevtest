@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import plistlib
@@ -11,17 +10,15 @@ import shutil
 import socket
 import subprocess
 import tempfile
-import time
 import urllib.request
 import zipfile
 from pathlib import Path
 
 from ..screen import Element, Screen
-from .base import Driver, DriverError, run
+from .base import Driver, DriverError, cache_dir, digest, run, start_process, stop_process
 
 AGENT_SRC = Path(__file__).resolve().parent.parent / "ios_agent"
-AGENT_START_TIMEOUT = 180
-LAUNCH_ATTEMPTS = 5        # right after a reinstall the app can take a moment to register
+AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator
 # Container types that only matter when they carry a label or identifier.
 CONTAINERS = {"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"}
 # Kinds whose accessibility value means something (for plain text it repeats the label or is a heading level).
@@ -31,10 +28,6 @@ TOUCHABLE = {"button", "cell", "link", "switch", "tab", "menu_item", "segmented_
 EDITABLE = {"text_field", "password_field", "text_area"}
 # XCUIApplication.State raw values.
 APP_STATES = {0: "not_running", 1: "not_running", 2: "background", 3: "background", 4: "foreground"}
-
-
-def cache_dir() -> Path:
-    return Path(os.environ.get("JEVTEST_CACHE", Path.home() / ".cache" / "jevtest"))
 
 
 def simctl(*args, timeout=120, check=True) -> str:
@@ -92,16 +85,6 @@ def app_bundle(app_path: Path, workdir: Path) -> Path:
     raise DriverError(f"iOS needs a simulator .app (or a .zip/.ipa containing one), got {app_path.name}")
 
 
-def agent_digest(src: Path = AGENT_SRC) -> str:
-    """Hash of the agent sources, so a changed agent is rebuilt."""
-    h = hashlib.sha256()
-    for f in sorted(src.rglob("*")):
-        if f.is_file() and "xcuserdata" not in f.parts:
-            h.update(str(f.relative_to(src)).encode())
-            h.update(f.read_bytes())
-    return h.hexdigest()[:12]
-
-
 def parse_tree(data: dict) -> Screen:
     """The agent's /tree reply -> the elements a tester cares about, duplicates removed."""
     w, h = int(data["width"]), int(data["height"])
@@ -125,15 +108,15 @@ def parse_tree(data: dict) -> Screen:
             kind="text" if kind == "other" else kind, text=text, hint=d.get("placeholder", ""),
             resource_id=d.get("identifier", ""), bounds=(x1, y1, x2, y2),
             enabled=d.get("enabled", True), editable=kind in EDITABLE, clickable=kind in TOUCHABLE,
-            focused=d.get("focused", False), selected=d.get("selected", False),
+            focused=kind in EDITABLE and d.get("focused", False),  # web views mark everything focused
+            selected=d.get("selected", False),
             checked=value in ("1", "true") if kind == "switch" else None,
         )
         key = (el.kind, el.text, el.bounds)  # XCUITest often reports a wrapper and its child
         if key not in seen:
             seen.add(key)
             elements.append(el)
-    return Screen(width=w, height=h, elements=elements, keyboard_visible=data.get("keyboard", False),
-                  app_running=data.get("running", False))
+    return Screen(width=w, height=h, elements=elements, keyboard_visible=data.get("keyboard", False))
 
 
 def http_post(url: str, body: dict, timeout: float) -> dict:
@@ -159,7 +142,7 @@ class IOSDriver(Driver):
 
     # --- agent ------------------------------------------------------------------
     def _build_agent(self) -> Path:
-        out = cache_dir() / f"ios-agent-{agent_digest()}"
+        out = cache_dir() / f"ios-agent-{digest(AGENT_SRC)}"
         runs = sorted((out / "Build/Products").glob("*.xctestrun"))
         if not runs:
             print("  building iOS agent (one time, ~1 min)...", flush=True)
@@ -172,25 +155,11 @@ class IOSDriver(Driver):
         return runs[0]
 
     def _start_agent(self):
-        xctestrun = self._build_agent()
-        self.agent_log.parent.mkdir(parents=True, exist_ok=True)
         env = dict(os.environ, TEST_RUNNER_JEVTEST_PORT=str(self.port))
-        with open(self.agent_log, "w") as log:
-            self.agent = subprocess.Popen(
-                ["xcodebuild", "test-without-building", "-xctestrun", str(xctestrun),
-                 "-destination", f"id={self.udid}"],
-                stdout=log, stderr=subprocess.STDOUT, env=env, start_new_session=True)
-        deadline = time.monotonic() + AGENT_START_TIMEOUT
-        while time.monotonic() < deadline:
-            if self.agent.poll() is not None:
-                raise DriverError("iOS agent exited: " + self._log_tail())
-            try:
-                if http_post(self._url("/status"), {}, timeout=2).get("ok"):
-                    return
-            except OSError:
-                pass
-            time.sleep(1)
-        raise DriverError(f"iOS agent did not start within {AGENT_START_TIMEOUT}s")
+        self.agent = start_process(
+            ["xcodebuild", "test-without-building", "-xctestrun", str(self._build_agent()),
+             "-destination", f"id={self.udid}"],
+            ready="JEVTEST_AGENT_READY", log=self.agent_log, timeout=AGENT_START_TIMEOUT, env=env)
 
     def _url(self, path: str) -> str:
         return f"http://127.0.0.1:{self.port}{path}"
@@ -210,12 +179,7 @@ class IOSDriver(Driver):
         return data
 
     def close(self):
-        if self.agent and self.agent.poll() is None:
-            self.agent.terminate()
-            try:
-                self.agent.wait(10)
-            except subprocess.TimeoutExpired:
-                self.agent.kill()
+        stop_process(self.agent)
         self._tmp.cleanup()
 
     # --- lifecycle ----------------------------------------------------------------
@@ -238,13 +202,7 @@ class IOSDriver(Driver):
 
     def launch(self):
         simctl("launch", self.udid, self.app_id)
-        for _ in range(LAUNCH_ATTEMPTS - 1):
-            try:
-                self._call("/activate")
-                return
-            except DriverError:
-                time.sleep(1)
-        self._call("/activate")  # last attempt: let its error through
+        self._call("/wait_foreground")
 
     def resume(self):
         self._call("/activate")
@@ -283,14 +241,19 @@ class IOSDriver(Driver):
     def drag(self, x1, y1, x2, y2, seconds=0.3):
         self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2)
 
+    def wait_idle(self, timeout):
+        self._call("/idle", timeout=timeout)
+
     def type_text(self, text, at=None):
-        x, y = at if at else (None, None)
-        self._call("/type", text=text, x=x, y=y)
+        if at:  # focus the field and let the focus change finish
+            self.tap(*at)
+            self.wait_idle(3)
+        self._call("/type", text=text)
 
     def clear_text(self, el):
         self.tap(*el.center)
-        x, y = el.center
-        self._call("/key", key="delete", count=len(el.text) + 10, x=x, y=y)
+        self.wait_idle(3)
+        self._call("/key", key="delete", count=len(el.text) + 10)
 
     def key(self, name):
         self._call("/key", key=name)

@@ -87,12 +87,15 @@ class FakeDriver(Driver):
 
     platform = "fake"
 
+    CHANGE_AFTER = 0.5  # fake seconds until "the screen changed" when waiting for a change
+
     def __init__(self, *screens: Screen, state="foreground"):
         self.screens = list(screens) or [login_screen()]
         self.calls: list[tuple] = []
         self.state = state
         self.fail: dict[str, Exception] = {}
         self.app_id = "dev.fake"
+        self.clock: FakeClock | None = None  # set by the runner tests
 
     def _rec(self, name, *args):
         self.calls.append((name, *args))
@@ -180,6 +183,14 @@ class FakeDriver(Driver):
 
     def network(self, on):
         self._rec("network", on)
+
+    def wait_idle(self, timeout):
+        self._rec("wait_idle", timeout)
+
+    def wait_change(self, timeout):
+        self._rec("wait_change")
+        if self.clock:
+            self.clock.sleep(min(timeout, self.CHANGE_AFTER))
 
 
 @pytest.fixture

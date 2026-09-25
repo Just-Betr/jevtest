@@ -47,8 +47,10 @@ pip install -e .
 export OPENROUTER_API_KEY=sk-or-...        # https://openrouter.ai/keys
 ```
 
-- **Android:** `adb` plus Android SDK build-tools (for `aapt2`). `bundletool` is needed for `.aab`. Uses the connected device or emulator, or boots your first AVD.
-- **iOS:** Xcode. Uses the booted simulator, or boots an iPhone. The first run builds a small XCUITest agent (about a minute, then cached in `~/.cache/jevtest`).
+- **Android:** the Android SDK (platform-tools, build-tools, one platform) and a JDK. `bundletool` is needed for `.aab`. Uses the connected device or emulator, or boots your first AVD. The first run builds a 12 KB on-device agent (a few seconds, then cached in `~/.cache/jevtest`).
+- **iOS:** Xcode. Uses the booted simulator, or boots an iPhone. The first run builds a small XCUITest agent (about a minute, then cached).
+
+Both agents stay running for the whole test run and answer "what's on screen?" in milliseconds (Android: ~3 ms instead of ~2 s for a fresh `uiautomator dump`). jevtest never sleeps for a fixed time: after each action it waits until the UI reports it's idle, and when a check or element isn't there yet it waits for the screen to change, then looks again. Jev is only asked again when the screen actually changed.
 
 ## Test file
 
@@ -60,7 +62,7 @@ settings:                     # all optional
   model: typesafe/jev-1.13     # pinned; the lockfile is per model
   max_actions: 8              # Jev actions allowed per plain-English step
   timeout: 10                 # seconds to wait for expect / see / element lookups
-  settle: 1.0                 # pause after each action
+  settle: 3.0                 # most seconds to wait for the UI to go idle after an action
   threshold: 0.5              # Jev yes-probability needed for expect to pass
 
 tests:                        # run in this order

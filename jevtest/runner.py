@@ -15,8 +15,6 @@ from .jev import JevError
 from .screen import Element, Screen
 from .spec import Spec, Step, Test
 
-POLL = 0.5          # seconds between retries while waiting for a check or element
-FOCUS_DELAY = 0.4   # seconds after tapping a text field before typing
 # Actions after which the app is allowed to be closed or in the background.
 APP_MAY_LEAVE = {"stop", "clear_data", "reinstall", "home", "open_url"}
 # Actions that do their own waiting, or change nothing on screen.
@@ -74,7 +72,8 @@ class Runner:
 
     # --- helpers ---------------------------------------------------------------
     def settle(self):
-        self.clock.sleep(self.s.settle)
+        """Wait until the UI stops changing (the driver reacts to the device; no fixed sleep)."""
+        self.driver.wait_idle(self.s.settle)
 
     def screen(self) -> Screen:
         return self.driver.screen()
@@ -90,19 +89,27 @@ class Runner:
         return path.name
 
     def poll(self, attempt, timeout: float, failure: str):
-        """Call `attempt()` until it returns something other than None, or time runs out."""
+        """Call `attempt(screen)` until it returns something other than None, or time runs out.
+
+        `attempt` only runs again when the screen has changed, so an unchanged screen is never
+        re-judged (no repeated Jev calls). Between reads it waits for the next change.
+        """
         deadline = self.clock.now() + timeout
+        last = None
         while True:
-            result = attempt()
-            if result is not None:
-                return result
-            if self.clock.now() >= deadline:
+            screen = self.screen()
+            if screen.signature() != last:
+                last = screen.signature()
+                result = attempt(screen)
+                if result is not None:
+                    return result
+            left = deadline - self.clock.now()
+            if left <= 0:
                 raise StepFailed(failure)
-            self.clock.sleep(POLL)
+            self.driver.wait_change(left)
 
     def locate(self, target: str, timeout: float, editable: bool = False) -> Element:
-        def attempt():
-            screen = self.screen()
+        def attempt(screen):
             return self.brain.locate(target, screen, screen.editable if editable else None)
         what = "text field" if editable else "element"
         return self.poll(attempt, timeout, f"Could not find {what} '{target}' on screen")
@@ -219,11 +226,11 @@ class Runner:
         """expect: Jev judges the statement. see / not_see: exact text. Retries until timeout."""
         last = {}
 
-        def attempt():
+        def attempt(screen):
             if kind == "expect":
-                p = last["p"] = self.brain.check(text, self.screen())
+                p = last["p"] = self.brain.check(text, screen)
                 return f"Jev {p:.2f}" if p > self.s.threshold else None
-            found = any(text.lower() in t.lower() for t in self.screen().texts())
+            found = any(text.lower() in t.lower() for t in screen.texts())
             return "" if found == (kind == "see") else None
 
         failure = {"see": "not on screen", "not_see": "still on screen"}.get(kind, "")
@@ -315,9 +322,7 @@ class Runner:
             self.driver.type_text(step.value)
             return None
         el = self.locate(step.opts["into"], step.opts.get("timeout", self.s.timeout), editable=True)
-        self.driver.tap(*el.center)
-        self.clock.sleep(FOCUS_DELAY)
-        self.driver.type_text(step.value, at=el.center)
+        self.driver.type_text(step.value, at=el.center)  # the driver focuses the field
         return f"into {el.label()}"
 
     def act_rotate(self, step, _):
@@ -376,11 +381,9 @@ class Runner:
             getattr(d, a)(*el.center)
         elif a in ("swipe_left_on", "swipe_right_on"):
             d.swipe(a.split("_")[1], el=el)
-        elif a == "type":
-            if not el.focused:
-                d.tap(*el.center)
-                self.clock.sleep(FOCUS_DELAY)
-            d.type_text(dec.text, at=el.center)
+        elif a == "type":  # a field that has focus with the keyboard up is ready; tapping would move the caret
+            ready = el.focused and screen.keyboard_visible
+            d.type_text(dec.text, at=None if ready else el.center)
         elif a == "clear":
             d.clear_text(el)
         elif a.startswith("scroll_"):
@@ -391,8 +394,8 @@ class Runner:
             d.key("enter")
         elif a == "hide_keyboard":
             d.hide_keyboard()
-        else:  # wait
-            self.clock.sleep(1.0)
+        else:  # wait: the screen is still loading
+            d.wait_change(self.s.settle)
 
 
 # --- results -------------------------------------------------------------------------

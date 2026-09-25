@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
 import subprocess
+import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -25,6 +28,54 @@ def run(cmd: list[str], timeout: float = 120, check: bool = True, binary: bool =
         detail = (p.stderr or p.stdout).decode(errors="replace").strip()[:800]
         raise DriverError(f"{' '.join(map(str, cmd))} failed ({p.returncode}): {detail}")
     return p.stdout if binary else p.stdout.decode(errors="replace")
+
+
+def cache_dir() -> Path:
+    return Path(os.environ.get("JEVTEST_CACHE", Path.home() / ".cache" / "jevtest"))
+
+
+def digest(src: Path) -> str:
+    """Hash of a source tree, so a changed on-device agent gets rebuilt."""
+    h = hashlib.sha256()
+    for f in sorted(src.rglob("*")):
+        if f.is_file() and "xcuserdata" not in f.parts:
+            h.update(str(f.relative_to(src)).encode())
+            h.update(f.read_bytes())
+    return h.hexdigest()[:12]
+
+
+def start_process(cmd: list[str], ready: str, log: Path, timeout: float, env: dict | None = None):
+    """Start a long-running helper; return as soon as it prints `ready`. Its output goes to `log`."""
+    log.parent.mkdir(parents=True, exist_ok=True)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
+                            start_new_session=True)
+    seen = threading.Event()
+
+    def pump():
+        with open(log, "w") as f:
+            for line in proc.stdout:
+                f.write(line)
+                f.flush()
+                if ready in line:
+                    seen.set()
+        seen.set()  # the process ended
+
+    threading.Thread(target=pump, daemon=True).start()
+    if not seen.wait(timeout):
+        proc.kill()
+        raise DriverError(f"{cmd[0]} did not report ready within {timeout:g}s (log: {log})")
+    if proc.poll() is not None:
+        raise DriverError(f"{cmd[0]} exited: {log.read_text()[-1500:]}")
+    return proc
+
+
+def stop_process(proc: subprocess.Popen | None):
+    if proc and proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
 
 
 class Driver(ABC):
@@ -115,8 +166,21 @@ class Driver(ABC):
     def resume(self):
         """Bring the app back to the foreground without restarting it."""
 
-    def close(self):  # noqa: B027 - optional hook, most drivers hold nothing to release
-        """Release anything the driver started (the iOS agent)."""
+    def close(self):  # noqa: B027 - optional hook
+        """Release anything the driver started (its on-device agent)."""
+
+    def wait_idle(self, timeout: float):  # noqa: B027 - optional hook
+        """Return once the UI has stopped changing (at most `timeout` s).
+
+        The default does nothing: iOS XCUITest already waits for the app to be idle
+        inside every action and screen read.
+        """
+
+    def wait_change(self, timeout: float):  # noqa: B027 - optional hook
+        """Return as soon as the screen may have changed (at most `timeout` s).
+
+        The default returns at once, so callers simply read the screen again.
+        """
 
     # --- shared helpers --------------------------------------------------
     def swipe(self, direction: str, el: Element | None = None, screen: Screen | None = None):

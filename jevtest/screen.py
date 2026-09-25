@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 
 
@@ -38,7 +39,6 @@ class Screen:
     height: int
     elements: list[Element] = field(default_factory=list)
     keyboard_visible: bool = False
-    app_running: bool = True
 
     def __post_init__(self):
         for i, el in enumerate(self.elements, 1):
@@ -53,6 +53,10 @@ class Screen:
 
     def texts(self) -> list[str]:
         return [t for el in self.elements for t in (el.text, el.hint) if t]
+
+    def signature(self) -> str:
+        """Identical for identical screens: lets callers skip re-asking Jev about an unchanged screen."""
+        return json.dumps([self.to_state(), self.keyboard_visible])
 
     def region(self, el: Element) -> str:
         # Jev is weak with raw numbers, so give it words.

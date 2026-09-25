@@ -1,6 +1,5 @@
 import json
 import plistlib
-import subprocess
 import zipfile
 from pathlib import Path
 
@@ -44,29 +43,10 @@ class Agent:
         return [p for p, _ in self.calls]
 
 
-class Proc:
-    def __init__(self, exit_code=None, hang=False):
-        self.exit_code, self.hang = exit_code, hang
-        self.terminated = self.killed = False
-
-    def poll(self):
-        return self.exit_code
-
-    def terminate(self):
-        self.terminated = True
-
-    def wait(self, timeout):
-        if self.hang:
-            raise subprocess.TimeoutExpired("x", timeout)
-
-    def kill(self):
-        self.killed = True
-
-
 @pytest.fixture
 def env(monkeypatch, tmp_path):
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "cache"))
-    xctestrun = tmp_path / "cache" / f"ios-agent-{ios.agent_digest()}" / "Build/Products/a.xctestrun"
+    xctestrun = tmp_path / "cache" / f"ios-agent-{ios.digest(ios.AGENT_SRC)}" / "Build/Products/a.xctestrun"
     xctestrun.parent.mkdir(parents=True)
     xctestrun.write_text("")
     sim = Adb({"list devices": json.dumps(SIMS)})
@@ -75,12 +55,12 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setattr(ios, "http_post", agent)
     monkeypatch.setattr(ios, "free_port", lambda: 8123)
     monkeypatch.setattr(ios.shutil, "which", lambda n: "/usr/bin/xcrun")
-    monkeypatch.setattr(ios.time, "sleep", lambda s: None)
 
-    def popen(cmd, **kw):
-        procs.append((cmd, kw, Proc()))
-        return procs[-1][2]
-    monkeypatch.setattr(ios.subprocess, "Popen", popen)
+    def start_process(cmd, ready, log, timeout, env):
+        procs.append((cmd, ready, env))
+        return "proc"
+    monkeypatch.setattr(ios, "start_process", start_process)
+    monkeypatch.setattr(ios, "stop_process", lambda proc: procs.append(("stopped", proc)))
     return sim, agent, procs
 
 
@@ -119,6 +99,8 @@ def test_parse_webview_tree():
     assert {"Web Greeter", "Say hello", "Nobody greeted yet", "I agree to the terms", "Show more"} <= set(texts)
     assert not any("scroll bar" in t for t in texts)
     assert next(e for e in s.elements if e.kind == "switch").checked is False
+    # WebKit marks every element "focused"; only a text field's focus means anything
+    assert [e.kind for e in s.elements if e.focused] == ["text_field"]
     assert next(e for e in s.elements if e.kind == "text_field").editable
 
 
@@ -147,7 +129,7 @@ def test_parse_rules():
     go = s.elements[6]
     assert go.bounds == (0, 190, 40, 200) and go.enabled is False and go.clickable and go.resource_id == "go"
     assert s.elements[2].focused and s.elements[5].checked is True
-    assert s.keyboard_visible and s.app_running
+    assert s.keyboard_visible
 
 
 # --- simulators -------------------------------------------------------------------------------------
@@ -213,14 +195,6 @@ def test_app_bundle_rejects_bad_input(tmp_path):
             app_bundle(path, tmp_path / "w")
 
 
-def test_agent_digest_changes_with_sources(tmp_path):
-    (tmp_path / "a.swift").write_text("1")
-    first = ios.agent_digest(tmp_path)
-    (tmp_path / "xcuserdata").mkdir()
-    (tmp_path / "xcuserdata" / "x").write_text("ignored")
-    assert ios.agent_digest(tmp_path) == first
-    (tmp_path / "a.swift").write_text("2")
-    assert ios.agent_digest(tmp_path) != first
 
 
 # --- agent lifecycle --------------------------------------------------------------------------------
@@ -228,10 +202,10 @@ def test_agent_digest_changes_with_sources(tmp_path):
 def test_starts_agent_on_simulator(env):
     _, agent, procs = env
     d = IOSDriver()
-    cmd, kw, _ = procs[0]
+    cmd, ready, run_env = procs[0]
     assert cmd[:2] == ["xcodebuild", "test-without-building"] and cmd[-1] == "id=A"
-    assert kw["env"]["TEST_RUNNER_JEVTEST_PORT"] == "8123"
-    assert agent.paths() == ["/status"]
+    assert ready == "JEVTEST_AGENT_READY"  # returns the moment the agent says so, no polling
+    assert run_env["TEST_RUNNER_JEVTEST_PORT"] == "8123"
     assert d.agent_log.name == "ios-agent-8123.log"
 
 
@@ -256,24 +230,10 @@ def test_agent_build_without_output_fails(env, monkeypatch, tmp_path):
         IOSDriver()
 
 
-def test_agent_that_exits_reports_its_log(env, monkeypatch):
-    monkeypatch.setattr(ios.subprocess, "Popen", lambda cmd, **kw: Proc(exit_code=65))
-    with pytest.raises(DriverError, match="iOS agent exited"):
-        IOSDriver()
 
 
-def test_agent_that_never_answers_times_out(env, monkeypatch):
-    env[1].replies["/status"] = OSError("refused")
-    ticks = iter(range(0, 10000, 60))
-    monkeypatch.setattr(ios.time, "monotonic", lambda: next(ticks))
-    with pytest.raises(DriverError, match="did not start within 180s"):
-        IOSDriver()
 
 
-def test_agent_answers_after_a_few_tries(env):
-    env[1].replies["/status"] = [OSError("refused"), {"ok": False}, {"ok": True}]
-    IOSDriver()
-    assert env[1].paths().count("/status") == 3
 
 
 def test_requires_xcode(env, monkeypatch):
@@ -283,22 +243,10 @@ def test_requires_xcode(env, monkeypatch):
 
 
 def test_close_stops_agent(env):
-    d = IOSDriver()
-    proc = env[2][0][2]
-    d.close()
-    assert proc.terminated and not proc.killed
-    hung = IOSDriver()
-    stuck = env[2][1][2]
-    stuck.hang = True
-    hung.close()
-    assert stuck.killed
+    IOSDriver().close()
+    assert env[2][-1] == ("stopped", "proc")
 
 
-def test_close_when_agent_already_gone(env):
-    d = IOSDriver()
-    env[2][0][2].exit_code = 0
-    d.close()
-    assert not env[2][0][2].terminated
 
 
 def test_lost_agent_is_a_driver_error(drv, env):
@@ -358,18 +306,16 @@ def test_install_without_plist(env, tmp_path):
         IOSDriver().install(app)
 
 
-def test_launch_activates_with_retries(drv, env):
-    env[1].replies["/activate"] = [{"error": "not running"}, {"error": "not running"}, {"ok": True}]
+def test_launch_waits_for_the_app_in_front(drv, env):
     drv.launch()
-    assert env[1].paths() == ["/activate"] * 3
     assert any("simctl launch A dev.demo" in c for c in env[0].cmds)
+    assert env[1].paths() == ["/wait_foreground"]
 
 
-def test_launch_gives_up(drv, env):
-    env[1].replies["/activate"] = {"error": "not running"}
-    with pytest.raises(DriverError, match="not running"):
+def test_launch_reports_an_app_that_never_shows(drv, env):
+    env[1].replies["/wait_foreground"] = {"error": "did not come to the foreground"}
+    with pytest.raises(DriverError, match="did not come to the foreground"):
         drv.launch()
-    assert env[1].paths().count("/activate") == ios.LAUNCH_ATTEMPTS
 
 
 @pytest.mark.parametrize("raw,state", [(4, "foreground"), (3, "background"), (2, "background"),
@@ -411,13 +357,15 @@ def test_agent_commands(drv, env):
     drv.home()
     drv.hide_keyboard()
     drv.rotate("landscape")
+    drv.wait_idle(2)
     sent = [(p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in env[1].calls]
     assert sent == [
         ("/tap", {"x": 1, "y": 2}), ("/double_tap", {"x": 1, "y": 2}), ("/long_press", {"x": 1, "y": 2, "seconds": 2}),
-        ("/drag", {"x1": 1, "y1": 2, "x2": 3, "y2": 4}), ("/type", {"text": "hi", "x": None, "y": None}),
-        ("/type", {"text": "hi", "x": 5, "y": 6}), ("/tap", {"x": 5, "y": 5}),
-        ("/key", {"key": "delete", "count": 13, "x": 5, "y": 5}), ("/key", {"key": "enter"}), ("/back", {}),
-        ("/home", {}), ("/hide_keyboard", {}), ("/rotate", {"orientation": "landscape"})]
+        ("/drag", {"x1": 1, "y1": 2, "x2": 3, "y2": 4}), ("/type", {"text": "hi"}),
+        ("/tap", {"x": 5, "y": 6}), ("/idle", {"timeout": 3}), ("/type", {"text": "hi"}),
+        ("/tap", {"x": 5, "y": 5}), ("/idle", {"timeout": 3}), ("/key", {"key": "delete", "count": 13}),
+        ("/key", {"key": "enter"}), ("/back", {}), ("/home", {}), ("/hide_keyboard", {}),
+        ("/rotate", {"orientation": "landscape"}), ("/idle", {"timeout": 2})]
     assert all(b["bundle_id"] == "dev.demo" for _, b in env[1].calls)
 
 

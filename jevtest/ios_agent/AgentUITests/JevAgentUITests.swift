@@ -8,6 +8,7 @@ import XCTest
 
 final class JevAgentUITests: XCTestCase {
     private var app: XCUIApplication?
+    private var bundleId = ""
     private var issues: [String] = []
 
     // A failed XCUITest call (e.g. typing with no focus) would normally fail and end
@@ -86,21 +87,12 @@ final class JevAgentUITests: XCTestCase {
         }
     }
 
-    /// The text input whose frame contains the point (web inputs included), if any.
-    private func textInput(_ app: XCUIApplication, _ x: Any?, _ y: Any?) -> XCUIElement? {
-        guard let x = x as? Double, let y = y as? Double else { return nil }
-        let p = CGPoint(x: x, y: y)
-        for type in [XCUIElement.ElementType.textField, .secureTextField, .textView, .searchField] {
-            if let el = app.descendants(matching: type).allElementsBoundByIndex.first(where: { $0.frame.contains(p) }) {
-                return el
-            }
-        }
-        return nil
-    }
-
     private func current(_ body: [String: Any]) -> XCUIApplication {
         if let id = body["bundle_id"] as? String, !id.isEmpty {
-            if app == nil || app!.identifier != id { app = XCUIApplication(bundleIdentifier: id) }
+            if app == nil || bundleId != id {
+                app = XCUIApplication(bundleIdentifier: id)
+                bundleId = id
+            }
         }
         return app ?? XCUIApplication(bundleIdentifier: "com.apple.springboard")
     }
@@ -115,6 +107,14 @@ final class JevAgentUITests: XCTestCase {
         switch path {
         case "/status":
             return ["ok": true]
+        case "/wait_foreground":
+            // Called right after `simctl launch`. A fresh handle, because after a reinstall the old
+            // one points at the removed app; wait(for:) reacts as soon as the app is frontmost.
+            let fresh = XCUIApplication(bundleIdentifier: bundleId)
+            self.app = fresh
+            guard fresh.wait(for: .runningForeground, timeout: 30) else {
+                return ["error": "App '\(bundleId)' did not come to the foreground"]
+            }
         case "/activate":
             app.activate()
             return ["ok": app.wait(for: .runningForeground, timeout: 10)]
@@ -133,12 +133,16 @@ final class JevAgentUITests: XCTestCase {
             let end = point(app, body["x2"], body["y2"])
             start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0.05)
         case "/type":
-            let text = (body["text"] as? String) ?? ""
-            if let field = textInput(app, body["x"], body["y"]) {
-                field.tap()
-                field.typeText(text)
-            } else {
-                app.typeText(text)
+            app.typeText((body["text"] as? String) ?? "")
+        case "/idle":
+            // XCUITest's own idle wait only sees UIKit; Flutter and web views draw their own
+            // animations. So: return once two consecutive screen reads are identical.
+            let deadline = Date().addingTimeInterval((body["timeout"] as? Double) ?? 3)
+            var last = try signature(app)
+            while Date() < deadline {
+                let now = try signature(app)
+                if now == last { break }
+                last = now
             }
         case "/key":
             let keys: [String: String] = [
@@ -148,12 +152,7 @@ final class JevAgentUITests: XCTestCase {
             ]
             let name = (body["key"] as? String ?? "").lowercased()
             guard let k = keys[name] else { return ["error": "Unknown key '\(name)'. Known: \(keys.keys.sorted())"] }
-            let typed = String(repeating: k, count: (body["count"] as? Int) ?? 1)
-            if let field = textInput(app, body["x"], body["y"]) {
-                field.typeText(typed)
-            } else {
-                app.typeText(typed)
-            }
+            app.typeText(String(repeating: k, count: (body["count"] as? Int) ?? 1))
         case "/home":
             XCUIDevice.shared.press(.home)
         case "/rotate":
@@ -165,11 +164,15 @@ final class JevAgentUITests: XCTestCase {
             guard let value = map[o] else { return ["error": "Unknown orientation '\(o)'"] }
             XCUIDevice.shared.orientation = value
         case "/back":
-            let back = app.navigationBars.buttons.firstMatch
-            if back.exists && back.isHittable {
-                back.tap()
+            // What a person taps: a button labelled "Back" (Flutter, React Native, UIKit), then a
+            // native navigation bar's back button, and only then the edge-swipe gesture.
+            let labelled = app.buttons["Back"]
+            let navBack = app.navigationBars.buttons.firstMatch
+            if labelled.exists && labelled.isHittable {
+                labelled.tap()
+            } else if navBack.exists && navBack.isHittable {
+                navBack.tap()
             } else {
-                // Edge swipe: the system back gesture.
                 let f = app.frame
                 point(app, 2.0, Double(f.height / 2)).press(
                     forDuration: 0.05, thenDragTo: point(app, Double(f.width * 0.7), Double(f.height / 2)))
@@ -183,6 +186,16 @@ final class JevAgentUITests: XCTestCase {
             return ["error": "Unknown command \(path)"]
         }
         return ["ok": true]
+    }
+
+    private func signature(_ app: XCUIApplication) throws -> String {
+        var parts: [String] = []
+        func walk(_ s: XCUIElementSnapshot) {
+            parts.append("\(s.elementType.rawValue)|\(s.label)|\(s.value ?? "")|\(s.frame)|\(s.hasFocus)")
+            s.children.forEach(walk)
+        }
+        walk(try app.snapshot())
+        return parts.joined(separator: "\n")
     }
 
     private func tree(_ app: XCUIApplication) throws -> [String: Any] {

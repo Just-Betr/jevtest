@@ -117,6 +117,122 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "07ce58bcceaffb2b7d9202ae5c79ed3aaf784b3e7c9cabfacd74d0cfdf02e99e": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.93,
+     "probabilities": {
+      "back": 0,
+      "done": 0.9400000000000001,
+      "double_tap": 0,
+      "hide_keyboard": 0.01,
+      "impossible": 0.01,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0.01,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.01,
+      "wait": 0.01
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e11",
+     "confidence": 0.22,
+     "probabilities": {
+      "e1": 0.08,
+      "e10": 0,
+      "e11": 0.3,
+      "e2": 0.11,
+      "e3": 0.26,
+      "e4": 0,
+      "e5": 0.17,
+      "e6": 0,
+      "e7": 0.05,
+      "e8": 0,
+      "e9": 0.03
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "08a5590bd24e6c5b252a68840ef34b51707c28b0120348869704191ba889a030": {
+   "answers": {
+    "check": {
+     "noul": 0.93,
+     "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "093f9da8042b4bbdf70b722097fd1453f5820870a59ecdbbe4ba23aa44776b82": {
+   "answers": {
+    "element": {
+     "choice": "not_on_screen",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0,
+      "e2": 0,
+      "e3": 0,
+      "not_on_screen": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "0e6df1d07cd2fafdbe9235ac2150e3877ed922ce4c2ac0e19bec16ec65b6b164": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.99,
+     "probabilities": {
+      "back": 0,
+      "done": 0,
+      "double_tap": 0,
+      "hide_keyboard": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 1,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e9",
+     "confidence": 1,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0,
+      "e12": 0,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0,
+      "e7": 0,
+      "e8": 0,
+      "e9": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "11c76e44b76335d4841d47ad836bbfc914b68a37e3086f127ba756568df7997b": {
    "answers": {
     "action": {
@@ -155,6 +271,62 @@
       "e7": 0,
       "e8": 0,
       "e9": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "15a3407e2415e4a2e1566390034147333bba19b2843f249276a0af4f4e1ffeab": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.63,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 0,
+      "double_tap": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.34,
+      "type": 0.66,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e2",
+     "confidence": 1,
+     "probabilities": {
+      "e2": 1,
+      "e3": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 1,
+     "probabilities": {
+      "e1": 0,
+      "e2": 1,
+      "e3": 0,
+      "e4": 0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 0.99,
+     "probabilities": {
+      "v0": 1,
+      "v1": 0
      },
      "type": "choice"
     }
@@ -388,6 +560,110 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "30440a737bb8ebd92e84f8236deb5f3cdeea7b751401ab090dc064ae5c2a5ca7": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.99,
+     "probabilities": {
+      "back": 0,
+      "done": 0,
+      "double_tap": 0,
+      "hide_keyboard": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 1,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e9",
+     "confidence": 1,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0,
+      "e12": 0,
+      "e13": 0,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0,
+      "e7": 0,
+      "e8": 0,
+      "e9": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "30639fcddb2d2b8ff1baeab12ba261fa081f56a86e10e64af45e65b78824b867": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.84,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 0.86,
+      "double_tap": 0,
+      "hide_keyboard": 0.01,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0.02,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.11,
+      "type": 0,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.38,
+     "probabilities": {
+      "e2": 0.31,
+      "e3": 0.69
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e1",
+     "confidence": 0.96,
+     "probabilities": {
+      "e1": 0.98,
+      "e2": 0,
+      "e3": 0.02
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 0.17,
+     "probabilities": {
+      "v0": 0.59,
+      "v1": 0.41
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "349e85bbdbffaa35e85f54983f4b09035d4c356d6b83fa6801864f08482974d8": {
    "answers": {
     "action": {
@@ -557,6 +833,111 @@
     "check": {
      "noul": 0.91,
      "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "4881f4e0367a8ff70d4901efeb035591bb7477c44c9648abccb0089f3f1a5b19": {
+   "answers": {
+    "element": {
+     "choice": "not_on_screen",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0,
+      "e2": 0,
+      "not_on_screen": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "4978653273f35b112cfee7e95395577578a575ced5b160e6dc44156d8e324368": {
+   "answers": {
+    "element": {
+     "choice": "e10",
+     "confidence": 0.76,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0.78,
+      "e11": 0.22,
+      "e12": 0,
+      "e13": 0,
+      "e14": 0,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0,
+      "e7": 0,
+      "e8": 0,
+      "e9": 0,
+      "not_on_screen": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "4ea533070ea075dd739c33dafe70060952f2406fa8464d4dfbcf4fde0d2c5f1b": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 1,
+      "double_tap": 0,
+      "hide_keyboard": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0,
+      "type": 0,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e5",
+     "confidence": 1,
+     "probabilities": {
+      "e5": 1
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e6",
+     "confidence": 0.86,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0,
+      "e5": 0.07,
+      "e6": 0.88,
+      "e7": 0,
+      "e8": 0.05,
+      "e9": 0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1,
+     "probabilities": {
+      "v0": 1
+     },
+     "type": "choice"
     }
    },
    "served_by": "typesafe/jev-1.13-20260917"
@@ -734,6 +1115,73 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "59df604c8834a4e65c52af6f413661c7a785120a12212fdbc440ca1b6de05d66": {
+   "answers": {
+    "check": {
+     "noul": 0.98,
+     "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "5b0c90de9c4ef2ce7306e6196f32b4611f9ac9e20e14b5021282d8826e951b80": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.95,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 0.96,
+      "double_tap": 0,
+      "hide_keyboard": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0.01,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.02,
+      "type": 0,
+      "wait": 0.01
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e2",
+     "confidence": 0,
+     "probabilities": {
+      "e2": 0.5,
+      "e3": 0.5
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0,
+      "e2": 0,
+      "e3": 0.01,
+      "e4": 0.99
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 0.15,
+     "probabilities": {
+      "v0": 0.57,
+      "v1": 0.43
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "61fd19e48a7586fa2efdf7c7dcfa131795ea861f1e8c431b08090798b3a93e96": {
    "answers": {
     "check": {
@@ -869,11 +1317,99 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "6d18cf4a1b7f3ccc41dc5aa33bef90293c91a1b602b49aa06301d446663f5eea": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.97,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 0,
+      "double_tap": 0,
+      "impossible": 0.01,
+      "long_press": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.01,
+      "type": 0.98,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e7",
+     "confidence": 1,
+     "probabilities": {
+      "e7": 1
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e7",
+     "confidence": 0.67,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0.01,
+      "e11": 0,
+      "e12": 0,
+      "e13": 0,
+      "e14": 0,
+      "e2": 0,
+      "e3": 0.07,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0,
+      "e7": 0.7,
+      "e8": 0.22,
+      "e9": 0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1,
+     "probabilities": {
+      "v0": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "7111aa74c9b7552c8eb468802a9ebe68e4a1866774d958c23db1ec4978c65605": {
    "answers": {
     "check": {
      "noul": 0.9,
      "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "72933657f698ed20e67b6b48a69c19f222c3ff3c657e1a3efdfba560050cd2d3": {
+   "answers": {
+    "element": {
+     "choice": "not_on_screen",
+     "confidence": 0.84,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0.13,
+      "e2": 0.01,
+      "e3": 0,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0,
+      "e7": 0,
+      "e8": 0,
+      "e9": 0,
+      "not_on_screen": 0.86
+     },
+     "type": "choice"
     }
    },
    "served_by": "typesafe/jev-1.13-20260917"
@@ -922,6 +1458,70 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "75550ee101df0e0594f938a2e8e75c320dc25c67c214d74e28f53da369c9c7a0": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 1,
+      "double_tap": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0,
+      "type": 0,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e7",
+     "confidence": 1,
+     "probabilities": {
+      "e7": 1
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.89,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0.04,
+      "e11": 0,
+      "e12": 0,
+      "e13": 0,
+      "e14": 0,
+      "e2": 0,
+      "e3": 0.01,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0,
+      "e7": 0.04,
+      "e8": 0.91,
+      "e9": 0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1,
+     "probabilities": {
+      "v0": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "7779b3dc69c0005d531461b5aa4fa8cdd73e2480a0ee055589bce250db893aed": {
    "answers": {
     "element": {
@@ -934,6 +1534,33 @@
       "e12": 0,
       "e13": 0.97,
       "e14": 0.03,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0,
+      "e7": 0,
+      "e8": 0,
+      "e9": 0,
+      "not_on_screen": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "77f5fcb74b12075d4bcd10454b6bb88a2c539bcc24c5bcbb8fea6a51551f2390": {
+   "answers": {
+    "element": {
+     "choice": "e13",
+     "confidence": 0.95,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0,
+      "e12": 0,
+      "e13": 0.95,
+      "e14": 0.05,
       "e2": 0,
       "e3": 0,
       "e4": 0,
@@ -1125,6 +1752,53 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "7dacde2c1aff8c4e9d848a94d8e3f15c934b81b331db990ed9f2a434817c6a6e": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.8,
+     "probabilities": {
+      "back": 0,
+      "done": 0,
+      "double_tap": 0.17,
+      "hide_keyboard": 0.01,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.81,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e5",
+     "confidence": 1,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0,
+      "e12": 0,
+      "e13": 0,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0,
+      "e5": 1,
+      "e6": 0,
+      "e7": 0,
+      "e8": 0,
+      "e9": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "850ca253f083e0b534fda525c9673f9961b3c5b59115c37aaeb95ba4fc15a58a": {
    "answers": {
     "action": {
@@ -1191,6 +1865,66 @@
     "check": {
      "noul": 0.98,
      "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "88a6e1a5d918b856d838ad52f7fd9a085860b6f3edf6e2b05da5e26cedf24b55": {
+   "answers": {
+    "element": {
+     "choice": "not_on_screen",
+     "confidence": 0.74,
+     "probabilities": {
+      "e1": 0.13,
+      "not_on_screen": 0.87
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "8966c6e89723f859c0e1c77dc1aa670ddc667ebae47a8287a9675b5ae7943b14": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.7,
+     "probabilities": {
+      "back": 0,
+      "done": 0,
+      "double_tap": 0.27,
+      "hide_keyboard": 0.01,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.72,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0,
+      "e12": 0,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0.99,
+      "e5": 0,
+      "e6": 0.01,
+      "e7": 0,
+      "e8": 0,
+      "e9": 0
+     },
+     "type": "choice"
     }
    },
    "served_by": "typesafe/jev-1.13-20260917"
@@ -1300,6 +2034,46 @@
       "e7": 0,
       "e8": 1,
       "e9": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "90538a74fc19eadbe5248d34b11808de11d42071aecb60b4605253dcf2aa3a50": {
+   "answers": {
+    "check": {
+     "noul": 0.89,
+     "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "92f953933c7b7d1343169fbf465d43a08fff0df0f50a559d52e8e9d4073641c1": {
+   "answers": {
+    "check": {
+     "noul": 0.19,
+     "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "93460b123de3d3814cab13711402cd8c1ee8ae47902fbece3a5c0cb7a68691b0": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.93,
+     "probabilities": {
+      "back": 0,
+      "done": 0.95,
+      "hide_keyboard": 0,
+      "impossible": 0,
+      "press_enter": 0.01,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "wait": 0.04
      },
      "type": "choice"
     }
@@ -1601,6 +2375,65 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "af7ac692635edbe979c0b69e1eafa51ed57af66f9b4a5700b615fcf0a32f517f": {
+   "answers": {
+    "check": {
+     "noul": 0.94,
+     "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "b01bf1a994a34a4e7d2e2de330c4bd454d5331936cd284388c1a82df0e76adfa": {
+   "answers": {
+    "element": {
+     "choice": "not_on_screen",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0,
+      "e2": 0,
+      "e3": 0,
+      "not_on_screen": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "b681236d81c8eefc545db2e33705a676ef91ff4670f5ebee6a2c5a850dadb959": {
+   "answers": {
+    "check": {
+     "noul": 0.88,
+     "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "b69df3b201a172c6a834396598f6e91f4b11c13da37736a42adbe99247a63959": {
+   "answers": {
+    "element": {
+     "choice": "not_on_screen",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0,
+      "e2": 0,
+      "e3": 0,
+      "not_on_screen": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "b7d5775decc32cf6a6e05034e1b51d0f9ecd529ba678408b922b5c5c2deb7162": {
+   "answers": {
+    "check": {
+     "noul": 0.36,
+     "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "bac86f3b15ed28b9a50ab0cd6f71d3b0633e957a09c772317904f6e99fcb9749": {
    "answers": {
     "element": {
@@ -1741,6 +2574,78 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "c297cc477a6160a581ffe7a2865f49995bc278f7010f89bb5cc46df5e575704a": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.74,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 0,
+      "double_tap": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.24,
+      "type": 0.76,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e2",
+     "confidence": 1,
+     "probabilities": {
+      "e2": 1,
+      "e3": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 1,
+     "probabilities": {
+      "e1": 0,
+      "e2": 1,
+      "e3": 0,
+      "e4": 0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1,
+     "probabilities": {
+      "v0": 1,
+      "v1": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "c56e5a6bedf52076170d7ca9129b928fbd71f90fd21b75e1ccb24b94ba423b94": {
+   "answers": {
+    "element": {
+     "choice": "not_on_screen",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0,
+      "e2": 0,
+      "e3": 0,
+      "not_on_screen": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "c5eb606ef536a69788216d2d2d433f0a4c8c8118e7c01315fb022f7cd55e92fa": {
    "answers": {
     "element": {
@@ -1764,6 +2669,52 @@
       "e8": 0,
       "e9": 0,
       "not_on_screen": 1
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "c5fa27aeb8d69e56f782bb35557e4aab14f736cc680d86a02a4d797acbdea4cb": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.81,
+     "probabilities": {
+      "back": 0,
+      "done": 0,
+      "double_tap": 0.17,
+      "hide_keyboard": 0.01,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.82,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e5",
+     "confidence": 1,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0,
+      "e12": 0,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0,
+      "e5": 1,
+      "e6": 0,
+      "e7": 0,
+      "e8": 0,
+      "e9": 0
      },
      "type": "choice"
     }
@@ -1819,6 +2770,15 @@
       "e9": 0
      },
      "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "d112f26023a316c4f55fcf9194b65e33bb65686f23f20c4b002b526a2064d7b6": {
+   "answers": {
+    "check": {
+     "noul": 0.93,
+     "type": "noul"
     }
    },
    "served_by": "typesafe/jev-1.13-20260917"
@@ -1899,6 +2859,15 @@
       "e9": 0
      },
      "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "df0f43d59be79b0de1ec72eb8bf050017053bc8eff1a3fd4001862cb1e5fca24": {
+   "answers": {
+    "check": {
+     "noul": 0.68,
+     "type": "noul"
     }
    },
    "served_by": "typesafe/jev-1.13-20260917"
@@ -2049,6 +3018,105 @@
     "check": {
      "noul": 0.74,
      "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "f77cfe28127778a3b789058b96932b85ef661d83cbc39ef923705d3ded2bde68": {
+   "answers": {
+    "check": {
+     "noul": 0.94,
+     "type": "noul"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "f788baa7312fb5069f7a42c1461534e37de7d97f5c70a10252553cd07b060ea0": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.89,
+     "probabilities": {
+      "back": 0,
+      "done": 0.9,
+      "double_tap": 0,
+      "hide_keyboard": 0.02,
+      "impossible": 0.02,
+      "long_press": 0,
+      "press_enter": 0.01,
+      "scroll_down": 0.02,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.02,
+      "wait": 0.01
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e11",
+     "confidence": 0.21,
+     "probabilities": {
+      "e1": 0.05,
+      "e10": 0,
+      "e11": 0.28,
+      "e2": 0.17,
+      "e3": 0.27,
+      "e4": 0,
+      "e5": 0.15,
+      "e6": 0,
+      "e7": 0.05,
+      "e8": 0,
+      "e9": 0.02
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "f89ea1e7476b4ae86b06e492e414b0da6966ac11ab73e38c4f3aefd89e8330fa": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.99,
+     "probabilities": {
+      "back": 0,
+      "done": 0,
+      "double_tap": 0,
+      "hide_keyboard": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 1,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e9",
+     "confidence": 1,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0,
+      "e2": 0,
+      "e3": 0,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0,
+      "e7": 0,
+      "e8": 0,
+      "e9": 1
+     },
+     "type": "choice"
     }
    },
    "served_by": "typesafe/jev-1.13-20260917"

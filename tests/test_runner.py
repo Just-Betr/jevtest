@@ -5,7 +5,7 @@ import pytest
 
 from jevtest.brain import Brain
 from jevtest.jev import JevError
-from jevtest.runner import FOCUS_DELAY, POLL, Clock, Runner, failure_of, write_junit, write_report
+from jevtest.runner import Clock, Runner, failure_of, write_junit, write_report
 from jevtest.screen import Screen
 from jevtest.spec import Settings, Spec, Test, parse_step
 
@@ -16,6 +16,7 @@ def make(tmp_path, clock, out, *steps, driver=None, jev=None, verbose=False, tes
     tests = tests or [Test("T", [parse_step(s) for s in steps])]
     spec = Spec(path=tmp_path / "t.yaml", apps={}, tests=tests, settings=Settings(**settings))
     driver = driver or FakeDriver()
+    driver.clock = clock
     jev = jev or FakeJev()
     return Runner(spec, driver, Brain(jev), tmp_path, verbose=verbose, clock=clock, out=out), driver, jev
 
@@ -104,8 +105,9 @@ def test_simple_actions_call_the_driver(tmp_path, clock, out, step, call):
 def test_lifecycle_actions(tmp_path, clock, out):
     res, d, _ = run1(tmp_path, clock, out, "stop", "clear_data", "reinstall", "launch", "restart", "home")
     assert res["status"] == "pass"
-    assert d.names()[3:] == ["stop", "stop", "clear_data", "reinstall", "launch", "app_state",
-                             "stop", "launch", "app_state", "home"]
+    names = [n for n in d.names() if n != "wait_idle"]
+    assert names[3:] == ["stop", "stop", "clear_data", "reinstall", "launch", "app_state",
+                         "stop", "launch", "app_state", "home"]
 
 
 def test_wait_and_background_use_the_clock(tmp_path, clock, out):
@@ -114,9 +116,10 @@ def test_wait_and_background_use_the_clock(tmp_path, clock, out):
     assert [n for n in d.names() if n in ("home", "resume")] == ["home", "resume"]
 
 
-def test_settle_after_actions(tmp_path, clock, out):
-    run1(tmp_path, clock, out, "back", settle=0.7)
-    assert clock.slept.count(0.7) == 2  # after launch, after back
+def test_settle_waits_for_idle_not_a_fixed_time(tmp_path, clock, out):
+    _, d, _ = run1(tmp_path, clock, out, "back", settle=0.7)
+    assert d.calls.count(("wait_idle", 0.7)) == 2  # after launch, after back
+    assert clock.slept == []  # no fixed sleeps
 
 
 def test_screenshot_step(tmp_path, clock, out):
@@ -146,10 +149,10 @@ def test_tap_asks_jev_when_no_exact_match(tmp_path, clock, out):
 
 def test_tap_waits_for_the_element(tmp_path, clock, out):
     d = FakeDriver(screen_with("Loading"), screen_with("Loading"), login_screen())
-    jev = FakeJev(pick("not_on_screen"), pick("not_on_screen"))
-    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, driver=d, jev=jev)
+    jev = FakeJev(pick("not_on_screen"))  # the unchanged second screen is not re-asked
+    res, d, jev = run1(tmp_path, clock, out, {"tap": "Sign in"}, driver=d, jev=jev)
     assert res["status"] == "pass"
-    assert clock.slept.count(POLL) == 2
+    assert d.names().count("wait_change") == 2 and len(jev.asked) == 1
 
 
 def test_tap_gives_up_after_timeout(tmp_path, clock, out):
@@ -172,9 +175,8 @@ def test_clear_finds_a_text_field(tmp_path, clock, out):
 
 def test_type_into_field(tmp_path, clock, out):
     res, d, _ = run1(tmp_path, clock, out, {"type": {"text": "a@b.c", "into": "Email"}})
-    i = d.calls.index(("tap", 500, 150))
-    assert d.calls[i + 1] == ("type_text", "a@b.c", (500, 150))
-    assert FOCUS_DELAY in clock.slept
+    assert ("type_text", "a@b.c", (500, 150)) in d.calls  # the driver focuses the field itself
+    assert "tap" not in d.names()
     assert res["steps"][0]["detail"] == "into text_field 'Email'"
 
 
@@ -252,7 +254,8 @@ def test_not_see_fails_when_text_stays(tmp_path, clock, out):
 
 
 def test_expect_passes_above_threshold(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form"}, jev=FakeJev(yes(0.3), yes(0.8)))
+    d = FakeDriver(screen_with("Loading"), login_screen())
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form"}, driver=d, jev=FakeJev(yes(0.3), yes(0.8)))
     check = res["steps"][0]["checks"][0]
     assert check == {"check": "expect", "text": "Login form", "status": "pass", "detail": "Jev 0.80"}
 
@@ -317,14 +320,18 @@ def test_failure_inside_use_is_reported(tmp_path, clock, out):
 
 def test_do_types_and_taps_until_done(tmp_path, clock, out):
     email = login_screen()
-    focused = login_screen()
-    focused.elements[0].focused = True
-    jev = FakeJev(act("type", field="e1", value="v0"), act("type", field="e1", value="v0"), act("done"))
-    d = FakeDriver(email, focused)
-    res, d, _ = run1(tmp_path, clock, out, 'Type "me@x.dev" into email', driver=d, jev=jev)
-    assert res["status"] == "pass" and res["steps"][0]["detail"] == "2 action(s)"
-    assert d.names().count("type_text") == 2
-    assert d.calls.count(("tap", 500, 150)) == 1  # second time the field already had focus
+    ready = login_screen(keyboard_visible=True)
+    ready.elements[0].focused = True
+    focused_no_keyboard = login_screen()
+    focused_no_keyboard.elements[0].focused = True  # e.g. inside a web view, where everything reports focus
+    jev = FakeJev(act("type", field="e1", value="v0"), act("type", field="e1", value="v1"),
+                  act("type", field="e1", value="v0"), act("done"))
+    d = FakeDriver(email, ready, focused_no_keyboard)
+    res, d, _ = run1(tmp_path, clock, out, 'Type "a" then "b" into email', driver=d, jev=jev)
+    assert res["status"] == "pass" and res["steps"][0]["detail"] == "3 action(s)"
+    typed = [c for c in d.calls if c[0] == "type_text"]
+    # focused with the keyboard up: type without tapping (tapping would move the caret)
+    assert [(c[1], c[2]) for c in typed] == [("a", (500, 150)), ("b", None), ("a", (500, 150))]
     assert [x["did"] for x in res["steps"][0]["decisions"]][-1] == "done"
     assert "→ done  (confidence 0.90)" in out.getvalue()
 
@@ -343,11 +350,11 @@ def test_do_performs_each_action(tmp_path, clock, out, action, call):
     assert call in d.calls
 
 
-def test_do_wait_sleeps(tmp_path, clock, out):
+def test_do_wait_waits_for_a_change(tmp_path, clock, out):
     jev = FakeJev({"action": {"type": "choice", "choice": "wait", "confidence": 1, "probabilities": {}},
                    "target": {"type": "choice", "choice": "e1"}}, act("done"))
-    run1(tmp_path, clock, out, "Do it", jev=jev, settle=0)
-    assert 1.0 in clock.slept
+    _, d, _ = run1(tmp_path, clock, out, "Do it", jev=jev, settle=0)
+    assert "wait_change" in d.names()
 
 
 def test_do_impossible(tmp_path, clock, out):
@@ -463,3 +470,10 @@ def test_same_inputs_give_identical_runs(tmp_path):
     first, second = once(), once()
     assert first == second
     assert first[1]["passed"] == 1
+
+
+def test_unchanged_screen_is_not_rejudged(tmp_path, clock, out):
+    """Retrying an expect on an identical screen must not spend Jev calls."""
+    res, d, jev = run1(tmp_path, clock, out, {"expect": "x", "timeout": 5}, jev=FakeJev(yes(0.1)))
+    assert res["status"] == "fail" and len(jev.asked) == 1
+    assert d.names().count("wait_change") >= 5
