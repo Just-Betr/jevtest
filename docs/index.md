@@ -22,10 +22,10 @@ tests:
 
 ```console
 $ jevtest run login.yaml --lock frozen --out results
-jevtest 0.4.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
+jevtest 0.5.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
 
 ▶ Sign in
-  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.7s) — 3 action(s)
+  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.6s) — 3 action(s)
       → type "${DEMO_EMAIL}" into text_field 'Email'  (confidence 0.83)
       → type "${DEMO_PASSWORD}" into password_field 'Password'  (confidence 0.76)
       → tap button 'Sign in'  (confidence 0.93)

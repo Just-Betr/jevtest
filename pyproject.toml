@@ -4,25 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jevtest"
-version = "0.4.0"
+dynamic = ["version"]
 description = "Plain-English end-to-end tests for Android and iOS apps, driven by TypeSafe's Jev model"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Bret Hagen" }]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["pyyaml>=6"]
 keywords = ["testing", "e2e", "mobile", "android", "ios", "flutter", "react-native", "webview", "ai", "jev",
             "xcuitest", "uiautomator"]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "Typing :: Typed",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -40,27 +40,68 @@ Issues = "https://github.com/Just-Betr/jevtest/issues"
 Changelog = "https://github.com/Just-Betr/jevtest/blob/main/CHANGELOG.md"
 
 [project.scripts]
-jevtest = "jevtest.cli:main"
+jevtest = "jevtest.cli.main:main"
 
-[tool.setuptools]
-packages = ["jevtest", "jevtest.drivers"]
+[tool.setuptools.dynamic]
+version = { attr = "jevtest.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["jevtest*"]
 
 [tool.setuptools.package-data]
-jevtest = ["ios_agent/**/*", "android_agent/**/*"]
+jevtest = ["py.typed"]
+"jevtest.adapters.devices" = ["ios_agent/**/*", "android_agent/**/*"]
 
 [tool.setuptools.exclude-package-data]
-jevtest = ["ios_agent/**/xcuserdata/**"]
+"jevtest.adapters.devices" = ["ios_agent/**/xcuserdata/**"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6"]
-docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "mypy>=1.11", "types-PyYAML", "import-linter>=2.1", "build", "pre-commit"]
+docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5", "mkdocstrings[python]>=0.26"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "C90", "D", "N", "PL", "PERF", "PT", "RET", "RUF", "TRY"]
+ignore = [
+    "D105",    # magic methods explain themselves
+    "D107",    # __init__ arguments are documented on the class
+    "TRY003",  # messages say what to fix, and are written where the knowledge is
+    "PLR0913", # constructors take their collaborators explicitly
+    "N818",    # StepFailed is a test failure, not an error: the domain names the difference
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "PLR2004", "PLR0915", "PLR0917", "PT011", "C90", "PLC0415", "RUF043", "PT018"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+files = ["jevtest"]
+
+[tool.importlinter]
+root_package = "jevtest"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: dependencies point inward"
+type = "layers"
+layers = ["jevtest.cli", "jevtest.adapters | jevtest.application", "jevtest.domain"]
+
+[[tool.importlinter.contracts]]
+name = "The domain and the use cases import no I/O or third-party code"
+type = "forbidden"
+source_modules = ["jevtest.domain", "jevtest.application"]
+forbidden_modules = ["yaml", "urllib", "http", "subprocess", "socket", "xml", "json", "threading", "time", "os",
+                     "sys", "shutil", "tempfile", "plistlib", "zipfile"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

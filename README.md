@@ -34,10 +34,10 @@ tests:
 
 ```console
 $ jevtest run login.yaml --lock frozen --out results
-jevtest 0.4.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
+jevtest 0.5.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
 
 ▶ Sign in
-  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.7s) — 3 action(s)
+  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.6s) — 3 action(s)
       → type "${DEMO_EMAIL}" into text_field 'Email'  (confidence 0.83)
       → type "${DEMO_PASSWORD}" into password_field 'Password'  (confidence 0.76)
       → tap button 'Sign in'  (confidence 0.93)
@@ -80,7 +80,9 @@ A small agent on the device reads the accessibility tree in milliseconds. jevtes
 
 ## Status
 
-New, and tested end to end on a Flutter demo app with native and web screens: the Android emulator (API 37), a Pixel 4a (Android 13), iOS simulators (iOS 26) and an iPhone 17 (iOS 27). The unit tests cover 100% of lines and branches. Issues and pull requests are welcome; see [Contributing](https://just-betr.github.io/jevtest/contributing/).
+New, and tested end to end on a Flutter demo app with native and web screens: the Android emulator (API 37), a Pixel 4a (Android 13), iOS simulators (iOS 26) and an iPhone 17 (iOS 27).
+
+Built to a high bar: a [clean architecture](https://just-betr.github.io/jevtest/architecture/) whose layer rules are checked on every commit, `mypy --strict` with no exceptions, a docstring on every public object, and unit tests covering 100% of lines and branches. Issues and pull requests are welcome; see [Contributing](https://just-betr.github.io/jevtest/contributing/).
 
 ## License
 

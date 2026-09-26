@@ -54,10 +54,28 @@ nav:
       - Steps and checks: reference/steps.md
       - Command line: reference/cli.md
       - Results and reports: reference/results.md
+      - Python API: reference/api.md
   - How it works: how-it-works.md
+  - Architecture: architecture.md
   - Troubleshooting: troubleshooting.md
   - Contributing: contributing.md
   - Changelog: changelog.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            filters: ["!^_"]
+            heading_level: 3
 
 markdown_extensions:
   - admonition

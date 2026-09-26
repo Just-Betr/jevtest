@@ -1,4 +1,4 @@
-"""Shared fakes: a scripted Jev, a scripted device, and a clock that never really sleeps."""
+"""Shared fakes: a scripted decision model, a scripted device, and a clock that never really sleeps."""
 
 from __future__ import annotations
 
@@ -7,35 +7,45 @@ from pathlib import Path
 
 import pytest
 
-from jevtest.drivers.base import Driver, DriverError
-from jevtest.screen import Element, Screen
+from jevtest.adapters.devices.common import BaseDevice
+from jevtest.adapters.jev.wire import answer_from_wire, questions_to_wire
+from jevtest.cli.console import ConsoleListener, Printer
+from jevtest.domain.failures import DeviceError
+from jevtest.domain.kinds import AppState
+from jevtest.domain.model import ModelCall
+from jevtest.domain.screen import Element, Screen
 
 
-class FakeJev:
-    """Returns scripted answers in order. Each entry is a dict of answers or an exception."""
+class FakeModel:
+    """Answers with scripted answers, in order. Each entry is a dict of Jev-format answers, or an exception.
+
+    Only the scripted answers to questions actually asked are returned; `asked` keeps each request in Jev's
+    format, so tests can read what was asked.
+    """
 
     def __init__(self, *answers, model="typesafe/jev-1.13"):
         self.answers = list(answers)
         self.asked: list[tuple] = []
-        self.calls: list[dict] = []
+        self.calls: list[ModelCall] = []
         self.model = model
 
     def ask(self, state, questions):
-        self.asked.append((state, questions))
+        self.asked.append((state, questions_to_wire(questions)))
         if not self.answers:
-            raise AssertionError(f"FakeJev ran out of answers; asked {list(questions)}")
-        answer = self.answers.pop(0)
-        if isinstance(answer, Exception):
-            raise answer
-        self.calls.append({"ms": 7, "model": "typesafe/jev-1.13-test", "state": state, "questions": questions,
-                           "answers": answer, "usage": {"cost": 0.0001, "input_tokens": 10}})
-        return answer
+            raise AssertionError(f"FakeModel ran out of answers; asked {list(questions)}")
+        scripted = self.answers.pop(0)
+        if isinstance(scripted, Exception):
+            raise scripted
+        answers = {qid: answer_from_wire(qid, raw, questions[qid]) for qid, raw in scripted.items() if qid in questions}
+        self.calls.append(ModelCall(state, questions, answers, recorded=False, ms=7, cost=0.0001,
+                                    served_by="typesafe/jev-1.13-test"))
+        return answers
 
 
 def act(action, target=None, field=None, value=None, confidence=0.9):
-    """Jev answer for Brain.next_action."""
+    """Jev's answers for Brain.next_action."""
     out = {"action": {"type": "choice", "choice": action, "confidence": confidence,
-                      "probabilities": {action: confidence, "other": 1 - confidence}},
+                      "probabilities": {action: confidence, "other": round(1 - confidence, 2)}},
            "target": {"type": "choice", "choice": target or "e1", "confidence": 1, "probabilities": {}}}
     if field or value:
         out["field"] = {"type": "choice", "choice": field or "e1", "confidence": 1, "probabilities": {}}
@@ -75,32 +85,31 @@ def el(kind="button", text="", **kw) -> Element:
 
 
 def login_screen(**kw) -> Screen:
-    return Screen(width=1000, height=2000, elements=[
+    return Screen(1000, 2000, (
         el("text_field", hint="Email", editable=True, bounds=(0, 100, 1000, 200)),
         el("password_field", hint="Password", editable=True, bounds=(0, 250, 1000, 350)),
         el("button", "Sign in", clickable=True, bounds=(0, 400, 1000, 500)),
-    ], **kw)
+    ), **kw)
 
 
 def screen_with(*texts, **kw) -> Screen:
-    return Screen(width=1000, height=2000, elements=[
-        el("text", t, bounds=(0, 100 * i, 1000, 100 * i + 80)) for i, t in enumerate(texts, 1)], **kw)
+    return Screen(1000, 2000, tuple(el("text", t, bounds=(0, 100 * i, 1000, 100 * i + 80))
+                                    for i, t in enumerate(texts, 1)), **kw)
 
 
-class FakeDriver(Driver):
+class FakeDevice(BaseDevice):
     """Records every call. `screens` is consumed one per screen() call; the last one repeats."""
-
-    platform = "fake"
 
     CHANGE_AFTER = 0.5  # fake seconds until "the screen changed" when waiting for a change
 
-    def __init__(self, *screens: Screen, state="foreground"):
+    def __init__(self, *screens: Screen, state=AppState.FOREGROUND):
         self.screens = list(screens) or [login_screen()]
         self.calls: list[tuple] = []
-        self.state = state
+        self.state = AppState(state)
         self.fail: dict[str, Exception] = {}
         self.app_id = "dev.fake"
         self.clock: FakeClock | None = None  # set by the runner tests
+        self.closed = False
 
     def _rec(self, name, *args):
         self.calls.append((name, *args))
@@ -110,8 +119,8 @@ class FakeDriver(Driver):
     def names(self):
         return [c[0] for c in self.calls]
 
-    def install(self, app_path):
-        self._rec("install", app_path)
+    def install(self, app):
+        self._rec("install", app)
         return self.app_id
 
     def launch(self):
@@ -147,10 +156,10 @@ class FakeDriver(Driver):
     def double_tap(self, x, y):
         self._rec("double_tap", x, y)
 
-    def long_press(self, x, y, seconds=1.2):
+    def long_press(self, x, y):
         self._rec("long_press", x, y)
 
-    def drag(self, x1, y1, x2, y2, seconds=0.3):
+    def drag(self, x1, y1, x2, y2):
         self._rec("drag", x1, y1, x2, y2)
 
     def type_text(self, text, at=None):
@@ -174,8 +183,8 @@ class FakeDriver(Driver):
     def rotate(self, orientation):
         self._rec("rotate", orientation)
 
-    def set_location(self, lat, lon):
-        self._rec("set_location", lat, lon)
+    def set_location(self, latitude, longitude):
+        self._rec("set_location", latitude, longitude)
 
     def open_url(self, url):
         self._rec("open_url", url)
@@ -201,9 +210,28 @@ class FakeDriver(Driver):
         if self.clock:
             self.clock.sleep(min(timeout, self.CHANGE_AFTER))
 
+    def restore(self):
+        self._rec("restore")
 
-# The iOS driver's fixtures (env, drv) are shared by test_ios.py and test_ios_device.py.
-pytest_plugins = ["tests.test_ios"]
+    def close(self):
+        self.closed = True
+
+
+PROGRESS_MESSAGES: list[str] = []
+
+
+def PROGRESS(message: str) -> None:  # noqa: N802 - a constant-like callback the device tests pass
+    """Collects the devices' progress messages (building an agent, ...)."""
+    PROGRESS_MESSAGES.append(message)
+
+
+def console(out: io.StringIO, *, verbose: bool = False) -> ConsoleListener:
+    """A listener that renders to `out`, like the command line does for a single device."""
+    return ConsoleListener(Printer(parallel=False, out=out), "device", verbose=verbose)
+
+
+# The iOS device's fixtures (env, drv) are shared by test_ios.py and test_ios_device.py.
+pytest_plugins = ["tests.adapters.devices.test_ios"]
 
 
 @pytest.fixture
@@ -216,5 +244,6 @@ def out():
     return io.StringIO()
 
 
-__all__ = ["FakeJev", "FakeDriver", "FakeClock", "DriverError", "act", "pick", "yes", "confirm", "el",
-           "login_screen", "screen_with"]
+__all__ = ["PROGRESS", "PROGRESS_MESSAGES", "DeviceError", "FakeClock", "FakeDevice", "FakeModel", "act", "confirm",
+           "console", "el", "login_screen",
+           "pick", "screen_with", "yes"]

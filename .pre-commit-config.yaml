@@ -1,0 +1,27 @@
+# pre-commit install  — runs the same checks as CI before each commit.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: ruff check --fix
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy --strict
+        entry: mypy
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: import-linter
+        name: dependencies point inward
+        entry: lint-imports
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: pytest
+        name: tests at 100% coverage
+        entry: pytest --cov -q
+        language: system
+        pass_filenames: false
+        types: [python]

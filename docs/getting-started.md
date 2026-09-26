@@ -82,16 +82,16 @@ jevtest run tests.yaml --lock record --out results
 Both flags are required, so every run says how it treats the lockfile and where its results go.
 
 ```console
-jevtest 0.4.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: record
+jevtest 0.5.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: record
 
 ▶ App opens on the sign-in screen
   ✓ expect: The sign in screen is showing — Jev 0.98
   ✓ see: Sign in
-  PASS App opens on the sign-in screen (4.4s)
+  PASS App opens on the sign-in screen (2.5s)
 
-1/1 passed in 4s
-Jev: 1 decision, 0 from lockfile, 1 asked live in 0.2s (4% of run time), $0.0000
-Results: results/20260925-220819/android/emulator-5554
+1/1 passed in 2s
+Jev: 1 decision, 0 from lockfile, 1 asked live in 0.3s (11% of run time), $0.0000
+Results: results/20260926-115141/android/emulator-5554
 ```
 
 Commit `tests.yaml` and `tests.lock.json`. Every recorded screen now gets the same decision on every run.

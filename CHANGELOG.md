@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.0
+
+**Rebuilt on a clean architecture.** Test files, commands and output are unchanged, and recorded lockfiles still
+match.
+
+- Four layers with dependencies pointing inward: `domain` (types and ports, standard library only),
+  `application` (the runner), `adapters` (devices, Jev, files, reports) and `cli` (the composition root). The rule
+  is checked on every commit by import-linter.
+- Steps, decisions, results and screens are frozen, typed values: one class per action and per move, so a step or
+  a move can only carry what it needs.
+- The package is fully typed (`mypy --strict`, `py.typed`), and every public class and function is documented; the
+  docs have a generated [Python API](https://just-betr.github.io/jevtest/reference/api/) page and an
+  [Architecture](https://just-betr.github.io/jevtest/architecture/) page.
+- Tools' exceptions stop at the adapters; the rest of jevtest sees four failure types.
+- A `fresh: true` test now also puts back device changes an earlier test made (`rotate:`, `dark_mode:`,
+  `network:`, location), so one failing test can't leave the device rotated for the rest.
+- An iOS app state XCUITest doesn't define is an error, not a guess.
+- Requires Python 3.11 or newer.
+
 ## 0.4.0
 
 **No settings.** A test file is just `app`, `device`, `include` and `tests`.
