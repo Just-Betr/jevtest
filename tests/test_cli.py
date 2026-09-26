@@ -170,45 +170,12 @@ def test_load_env(tmp_path, monkeypatch):
 
 # --- other commands ---------------------------------------------------------------------------------
 
-def test_screen_command(tmp_path, monkeypatch, capsys):
-    (tmp_path / "app.apk").write_text("")
-    d = FakeDriver()
-    monkeypatch.setattr(cli, "make_driver", lambda p, dev: d)
-    monkeypatch.setattr(cli.time, "sleep", lambda s: None)
-    assert cli.main(["screen", "--app", str(tmp_path / "app.apk")]) == 0
-    data = json.loads(capsys.readouterr().out)
-    assert data["screen"][0]["hint"] == "Email" and d.names()[:2] == ["install", "launch"]
-    assert cli.main(["screen", "--platform", "ios"]) == 0
 
 
-def test_screen_needs_app_or_platform(capsys):
-    assert cli.main(["screen"]) == 2
-    assert "Pass --app or --platform" in capsys.readouterr().err
 
 
-def test_devices_command(monkeypatch, capsys):
-    from jevtest.drivers import android, ios
-    monkeypatch.setattr(android, "devices", lambda: ["emulator-5554"])
-    monkeypatch.setattr(ios, "simulators", lambda: [{"name": "iPhone 17", "runtime": "iOS-26-5", "udid": "U",
-                                                     "state": "Booted"}])
-    assert cli.main(["devices"]) == 0
-    out = capsys.readouterr().out
-    assert "Android: emulator-5554" in out and "iOS: iPhone 17 (iOS-26-5)  U  Booted" in out
 
 
-def test_devices_command_reports_errors(monkeypatch, capsys):
-    from jevtest.drivers import android, ios
-
-    def broken():
-        raise DriverError("tool missing")
-    monkeypatch.setattr(android, "devices", lambda: [])
-    monkeypatch.setattr(ios, "simulators", broken)
-    cli.main(["devices"])
-    out = capsys.readouterr().out
-    assert "Android: (none connected)" in out and "iOS: tool missing" in out
-    monkeypatch.setattr(android, "devices", broken)
-    cli.main(["devices"])
-    assert "Android: tool missing" in capsys.readouterr().out
 
 
 def test_make_driver_picks_platform(monkeypatch):
@@ -227,7 +194,7 @@ def test_version(capsys):
 
 def test_module_entry_point(monkeypatch):
     import runpy
-    monkeypatch.setattr("sys.argv", ["jevtest", "screen"])
+    monkeypatch.setattr("sys.argv", ["jevtest", "run", "missing.yaml"])
     with pytest.raises(SystemExit) as exit_info:
         runpy.run_module("jevtest", run_name="__main__")
     assert exit_info.value.code == 2

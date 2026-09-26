@@ -187,61 +187,16 @@ def test_devices_only_lists_ready_ones(adb):
     assert android.devices() == ["emulator-5554"]
 
 
-def test_bootable_avds(tmp_path):
-    root, home = tmp_path / "sdk", tmp_path / "avd"
-    (root / "system-images/android-37/x").mkdir(parents=True)
-    for name, sysdir in (("Good", "system-images/android-37/x/"), ("Missing", "system-images/nope/"),
-                         ("NoConfig", None)):
-        (home / f"{name}.avd").mkdir(parents=True)
-        if sysdir:
-            (home / f"{name}.avd/config.ini").write_text(f"hw.keyboard=yes\nimage.sysdir.1={sysdir}\n")
-    assert android.bootable_avds(["Missing", "NoConfig", "Good"], root, home) == ["Good"]
 
 
-def emulator_env(monkeypatch, tmp_path, avds="Good\n"):
-    root = tmp_path / "sdk"
-    (root / "emulator").mkdir(parents=True)
-    (root / "emulator/emulator").write_text("")
-    (root / "img").mkdir()
-    home = tmp_path / "avd"
-    (home / "Good.avd").mkdir(parents=True)
-    (home / "Good.avd/config.ini").write_text("image.sysdir.1=img\n")
-    monkeypatch.setenv("ANDROID_HOME", str(root))
-    monkeypatch.setenv("ANDROID_AVD_HOME", str(home))
-    monkeypatch.setattr(android.shutil, "which", lambda n: "/bin/adb" if n == "adb" else None)
-    started = []
-    monkeypatch.setattr(android.subprocess, "Popen", lambda cmd, **kw: started.append((cmd, kw)))
-    fake = Adb({"-list-avds": avds, "adb devices": "List\nemulator-5554\tdevice\n"})
-    monkeypatch.setattr(android, "run", fake)
-    return started, root, fake
 
 
-def test_start_emulator_boots_first_good_avd(monkeypatch, tmp_path):
-    started, root, fake = emulator_env(monkeypatch, tmp_path)
-    assert android.start_emulator() == "emulator-5554"
-    cmd, kw = started[0]
-    assert cmd[1:3] == ["-avd", "Good"] and kw["env"]["ANDROID_SDK_ROOT"] == str(root)
-    assert any("wait-for-device shell" in c and "sys.boot_completed" in c for c in fake.cmds)
 
 
-def test_start_emulator_no_avds(monkeypatch, tmp_path):
-    emulator_env(monkeypatch, tmp_path, avds="")
-    with pytest.raises(DriverError, match="no bootable AVD"):
-        android.start_emulator()
 
 
-def test_start_emulator_timeout(monkeypatch, tmp_path):
-    _, _, fake = emulator_env(monkeypatch, tmp_path)
-    fake.rules["wait-for-device"] = DriverError("Timed out after 180s")
-    with pytest.raises(DriverError, match="Timed out"):
-        android.start_emulator()
 
 
-def test_start_emulator_without_sdk(monkeypatch):
-    monkeypatch.setattr(android, "sdk_root", lambda: None)
-    monkeypatch.setattr(android.shutil, "which", lambda n: None)
-    with pytest.raises(DriverError, match="no emulator found"):
-        android.start_emulator()
 
 
 # --- driver setup ---------------------------------------------------------------------------
@@ -256,10 +211,11 @@ def test_named_device_must_be_connected(adb):
     assert AndroidDriver("emulator-5554").serial == "emulator-5554"
 
 
-def test_no_device_boots_emulator(adb, monkeypatch):
+def test_no_device_is_an_error_not_a_boot(adb):
     adb.rules["adb devices"] = "List of devices attached\n"
-    monkeypatch.setattr(android, "start_emulator", lambda: "emulator-5556")
-    assert AndroidDriver().serial == "emulator-5556"
+    with pytest.raises(DriverError, match="No Android device connected"):
+        AndroidDriver()
+    assert not any("emulator" in c and "-avd" in c for c in adb.cmds)
 
 
 def test_install_apk(adb):

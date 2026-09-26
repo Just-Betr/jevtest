@@ -80,40 +80,6 @@ def devices() -> list[str]:
     return [line.split()[0] for line in out.splitlines()[1:] if line.strip().endswith("\tdevice")]
 
 
-def bootable_avds(avd_names: list[str], root: Path, avd_home: Path) -> list[str]:
-    """AVDs whose system image is actually installed, in name order."""
-    ok = []
-    for name in sorted(avd_names):
-        config = avd_home / f"{name}.avd" / "config.ini"
-        sysdir = ""
-        if config.is_file():
-            for line in config.read_text().splitlines():
-                if line.startswith("image.sysdir.1="):
-                    sysdir = line.split("=", 1)[1].strip()
-        if sysdir and (root / sysdir).is_dir():
-            ok.append(name)
-    return ok
-
-
-def start_emulator(timeout: float = 180) -> str:
-    """Boot the first AVD with an installed system image and wait until it's ready."""
-    root = sdk_root()
-    emulator = shutil.which("emulator") or (str(root / "emulator/emulator") if root else "")
-    if not root or not Path(emulator).exists():
-        raise DriverError("No Android device connected and no emulator found. Set ANDROID_HOME.")
-    avd_home = Path(os.environ.get("ANDROID_AVD_HOME", Path.home() / ".android/avd"))
-    avds = bootable_avds(run([emulator, "-list-avds"], timeout=30).split(), root, avd_home)
-    if not avds:
-        raise DriverError("No Android device connected and no bootable AVD. Create one in Android Studio.")
-    env = dict(os.environ, ANDROID_SDK_ROOT=str(root))
-    subprocess.Popen([emulator, "-avd", avds[0], "-no-snapshot-save", "-no-boot-anim"], env=env,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    # Boot has no completion event: adb waits for the device, then the device checks its own boot flag.
-    run([adb_path(), "wait-for-device", "shell",
-         'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 1; done'], timeout=timeout)
-    return devices()[0]
-
-
 def http_get(url: str, timeout: float) -> str:
     with urllib.request.urlopen(url, timeout=timeout) as resp:
         return resp.read().decode()
@@ -218,7 +184,9 @@ class AndroidDriver(Driver):
         found = devices()
         if serial and serial not in found:
             raise DriverError(f"Android device {serial} not connected (connected: {', '.join(found) or 'none'})")
-        self.serial = serial or (found[0] if found else start_emulator())
+        if not found:
+            raise DriverError("No Android device connected. Start an emulator or connect a device (see `adb devices`).")
+        self.serial = serial or found[0]
         self.app_path: Path | None = None
         self.activity = ""
         self._size: tuple[int, int] | None = None

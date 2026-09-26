@@ -47,23 +47,14 @@ def simulators() -> list[dict]:
 
 
 def pick_simulator(wanted: str | None) -> str:
-    sims = simulators()
+    """A booted simulator (the one named, or the first). jevtest never boots or opens one itself."""
+    booted = [d for d in simulators() if d["state"] == "Booted"]
     if wanted:
-        match = [d for d in sims if wanted in (d["udid"], d["name"])]
-        if not match:
-            raise DriverError(f"No iOS simulator named or with UDID '{wanted}'")
-        dev = match[0]
-    else:
-        booted = [d for d in sims if d["state"] == "Booted"]
-        phones = [d for d in sims if d["name"].startswith("iPhone")]
-        if not (booted or phones):
-            raise DriverError("No iOS simulators available. Install one in Xcode > Settings > Components.")
-        dev = (booted or phones)[0]
-    if dev["state"] != "Booted":
-        simctl("boot", dev["udid"])
-    simctl("bootstatus", dev["udid"], "-b", timeout=300)
-    run(["open", "-a", "Simulator"], check=False)
-    return dev["udid"]
+        booted = [d for d in booted if wanted in (d["udid"], d["name"])]
+    if not booted:
+        which = f"named or with UDID '{wanted}' " if wanted else ""
+        raise DriverError(f"No booted iOS simulator {which}found. Boot one first (Xcode, or `xcrun simctl boot`).")
+    return booted[0]["udid"]
 
 
 def free_port() -> int:

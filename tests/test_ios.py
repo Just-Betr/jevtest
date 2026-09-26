@@ -145,31 +145,24 @@ def test_simulators_sorted_newest_first(env):
         ("iPad Air", "iOS-26-5"), ("iPhone 17", "iOS-26-5"), ("iPhone 16", "iOS-18-0")]
 
 
-def test_pick_prefers_booted(env):
+def test_uses_the_booted_simulator_and_never_boots_or_opens_one(env):
     sim = env[0]
     assert ios.pick_simulator(None) == "A"
-    assert not any(" boot A" in c for c in sim.cmds)
+    assert not any(" boot " in c or "open -a" in c for c in sim.cmds)
 
 
-def test_pick_boots_newest_iphone_when_none_booted(env):
-    sim = env[0]
-    data = json.loads(json.dumps(SIMS))
-    data["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-18-0"][0]["state"] = "Shutdown"
-    sim.rules["list devices"] = json.dumps(data)
-    assert ios.pick_simulator(None) == "B"
-    assert any("simctl boot B" in c for c in sim.cmds)
 
 
-def test_pick_by_name_or_udid(env):
-    assert ios.pick_simulator("iPad Air") == "C"
-    assert ios.pick_simulator("B") == "B"
-    with pytest.raises(DriverError, match="No iOS simulator named"):
-        ios.pick_simulator("Nokia")
+def test_pick_by_name_or_udid_must_be_booted(env):
+    assert ios.pick_simulator("iPhone 16") == "A"
+    assert ios.pick_simulator("A") == "A"
+    with pytest.raises(DriverError, match="No booted iOS simulator named or with UDID 'iPad Air'"):
+        ios.pick_simulator("iPad Air")  # exists, but is not booted
 
 
-def test_pick_with_no_simulators(env):
+def test_pick_with_nothing_booted(env):
     env[0].rules["list devices"] = json.dumps({"devices": {}})
-    with pytest.raises(DriverError, match="No iOS simulators available"):
+    with pytest.raises(DriverError, match="No booted iOS simulator found"):
         ios.pick_simulator(None)
 
 

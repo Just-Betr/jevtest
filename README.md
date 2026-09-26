@@ -47,8 +47,10 @@ pip install -e .
 export OPENROUTER_API_KEY=sk-or-...        # https://openrouter.ai/keys
 ```
 
-- **Android:** the Android SDK (platform-tools, build-tools, one platform) and a JDK. `bundletool` is needed for `.aab`. Uses the connected device or emulator, or boots your first AVD. The first run builds a 12 KB on-device agent (a few seconds, then cached in `~/.cache/jevtest`).
-- **iOS:** Xcode. Uses the booted simulator, or boots an iPhone. The first run builds a small XCUITest agent (about a minute, then cached).
+- **Android:** the Android SDK (platform-tools, build-tools, one platform) and a JDK. `bundletool` is needed for `.aab`. Tests on a device that is already connected or running (`adb devices`). The first run builds a 12 KB on-device agent (a few seconds, then cached in `~/.cache/jevtest`).
+- **iOS:** Xcode and a **booted** simulator. The first run builds a small XCUITest agent (about a minute, then cached).
+
+jevtest only tests. It does not start, stop or manage devices: start the emulator or boot the simulator yourself (or in CI), then run. It installs the build your test file names, uses its small on-device agent, and writes results.
 
 Both agents stay running for the whole run and answer "what's on screen?" in milliseconds (Android ~3 ms, iOS ~40 ms). The iOS agent uses only public XCTest API.
 
@@ -135,8 +137,6 @@ After every action the harness also fails the step if the app crashed or left th
 ```bash
 jevtest run tests.yaml [--platform android|ios] [--device SERIAL|UDID|NAME] [--test NAME]...
                        [-v] [--junit PATH] [--out DIR] [--frozen | --refresh-lock | --no-lock]
-jevtest screen --app app.apk      # print the current screen exactly as Jev receives it
-jevtest devices
 ```
 
 | Exit code | Meaning |

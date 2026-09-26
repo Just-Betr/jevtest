@@ -1,8 +1,9 @@
 """jevtest command line.
 
   jevtest run tests.yaml [--platform android|ios] [--device ID] [--test NAME] [-v]
-  jevtest screen --app app.apk      print the screen exactly as Jev receives it
-  jevtest devices                   list Android devices and iOS simulators
+
+It tests on a device that is already running (an Android emulator or phone, a booted iOS
+simulator); it does not start, stop or manage devices.
 
 Exit codes: 0 all tests passed, 1 a test failed, 2 setup error, 130 interrupted.
 """
@@ -10,7 +11,6 @@ Exit codes: 0 all tests passed, 1 a test failed, 2 setup error, 130 interrupted.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 import time
@@ -22,7 +22,7 @@ from .drivers.base import DriverError
 from .jev import Jev, JevError
 from .lock import LockedJev
 from .runner import Runner, write_junit, write_report
-from .spec import SpecError, load, platform_of
+from .spec import SpecError, load
 
 
 def load_env(*dirs: Path):
@@ -105,39 +105,6 @@ def summary(results: dict, jev: LockedJev, out: Path, junit: Path) -> str:
     return "\n".join(lines)
 
 
-def cmd_screen(args) -> int:
-    app = Path(args.app).resolve() if args.app else None
-    platform = args.platform or (platform_of(app) if app else None)
-    if not platform:
-        raise SpecError("Pass --app or --platform")
-    driver = make_driver(platform, args.device)
-    try:
-        if app:
-            driver.install(app)
-            driver.launch()
-            driver.wait_idle(driver.settle)
-        s = driver.screen()
-        print(json.dumps({"screen": s.to_state(), "keyboard_visible": s.keyboard_visible}, indent=2))
-    finally:
-        driver.close()
-    return 0
-
-
-def cmd_devices(args) -> int:
-    from .drivers.android import devices
-    from .drivers.ios import simulators
-    try:
-        print("Android:", ", ".join(devices()) or "(none connected)")
-    except DriverError as e:
-        print("Android:", e)
-    try:
-        for d in simulators():
-            print(f"iOS: {d['name']} ({d['runtime']})  {d['udid']}  {d['state']}")
-    except DriverError as e:
-        print("iOS:", e)
-    return 0
-
-
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="jevtest", description="Mobile app tests driven by Jev.")
     p.add_argument("--version", action="version", version=__version__)
@@ -157,14 +124,6 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("--no-lock", action="store_true", help="don't read or write the lockfile")
     r.set_defaults(fn=cmd_run)
 
-    s = sub.add_parser("screen", help="print the current screen as Jev sees it")
-    s.add_argument("--app", help="install and launch this build first")
-    s.add_argument("--platform", choices=["android", "ios"])
-    s.add_argument("--device")
-    s.set_defaults(fn=cmd_screen)
-
-    d = sub.add_parser("devices", help="list devices")
-    d.set_defaults(fn=cmd_devices)
     return p
 
 
