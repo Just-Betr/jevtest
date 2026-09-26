@@ -30,7 +30,7 @@ def project(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     drivers = []
 
-    def make_driver(platform, device):
+    def make_driver(platform, device, ios_team=""):
         drivers.append(FakeDriver())
         return drivers[-1]
     monkeypatch.setattr(cli, "make_driver", make_driver)
@@ -118,7 +118,7 @@ def test_the_file_chooses_platforms_and_devices(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     asked = []
 
-    def make_driver(platform, device):
+    def make_driver(platform, device, ios_team=""):
         asked.append((platform, device))
         return FakeDriver()
     monkeypatch.setattr(cli, "make_driver", make_driver)
@@ -138,7 +138,7 @@ def test_a_failure_on_any_platform_fails_the_run(tmp_path, monkeypatch):
                                      "tests:\n  - name: T\n    steps: [{see: Welcome}]\n")
     monkeypatch.chdir(tmp_path)
     screens = iter([screen_with("Welcome"), screen_with("Nope")])
-    monkeypatch.setattr(cli, "make_driver", lambda platform, device: FakeDriver(next(screens)))
+    monkeypatch.setattr(cli, "make_driver", lambda platform, device, ios_team="": FakeDriver(next(screens)))
     fake_jev(monkeypatch)
     assert run_cli() == 1
 
@@ -171,13 +171,13 @@ def test_driver_closed_and_lock_saved_even_on_crash(project, monkeypatch):
         def install(self, app_path):
             raise DriverError("install failed")
     boom = Boom()
-    monkeypatch.setattr(cli, "make_driver", lambda p, d: boom)
+    monkeypatch.setattr(cli, "make_driver", lambda p, d, t="": boom)
     assert run_cli() == 2
     assert boom.closed
 
 
 def test_interrupt_exits_130(project, monkeypatch):
-    def interrupted(p, d):
+    def interrupted(p, d, t=""):
         raise KeyboardInterrupt
     monkeypatch.setattr(cli, "make_driver", interrupted)
     fake_jev(monkeypatch)
@@ -215,9 +215,9 @@ def test_load_env(tmp_path, monkeypatch):
 def test_make_driver_picks_platform(monkeypatch):
     from jevtest.drivers import android, ios
     monkeypatch.setattr(android, "AndroidDriver", lambda d: ("android", d))
-    monkeypatch.setattr(ios, "IOSDriver", lambda d: ("ios", d))
+    monkeypatch.setattr(ios, "IOSDriver", lambda d, team="": ("ios", d, team))
     assert cli.make_driver("android", "x") == ("android", "x")
-    assert cli.make_driver("ios", None) == ("ios", None)
+    assert cli.make_driver("ios", "BH", "TEAM1") == ("ios", "BH", "TEAM1")
 
 
 def test_version(capsys):

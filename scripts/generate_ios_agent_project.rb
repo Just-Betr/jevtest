@@ -27,7 +27,9 @@ project.targets.each do |t|
     s['CODE_SIGN_IDENTITY'] = ''
     s['IPHONEOS_DEPLOYMENT_TARGET'] = '17.0'
     s['PRODUCT_NAME'] = '$(TARGET_NAME)'
-    s['PRODUCT_BUNDLE_IDENTIFIER'] = "dev.jevtest.#{t.name}"
+    # Bundle ids must be unique across all Apple developers, so a device build passes its team:
+    # JEVTEST_TEAM_SUFFIX=.TEAMID (empty for the simulator, which needs no signing).
+    s['PRODUCT_BUNDLE_IDENTIFIER'] = "dev.jevtest.agent$(JEVTEST_TEAM_SUFFIX).#{t.name}"
   end
 end
 host.build_configurations.each { |c| c.build_settings['INFOPLIST_KEY_UILaunchScreen_Generation'] = 'YES' }

@@ -3,24 +3,40 @@ import Flutter
 import UIKit
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-    let root = window?.rootViewController as! FlutterViewController
-    FlutterMethodChannel(name: "jevtest/native", binaryMessenger: root.binaryMessenger).setMethodCallHandler { call, result in
-      if call.method == "open" {
-        let screen = UINavigationController(rootViewController: NativeViewController())
-        screen.modalPresentationStyle = .fullScreen
-        root.present(screen, animated: true)
-        result(nil)
-      } else {
-        result(FlutterMethodNotImplemented)
-      }
-    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // iOS 27 requires the scene lifecycle (Info.plist: FlutterSceneDelegate). With it, plugins and
+  // channels are registered once Flutter's engine exists, not at launch.
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    let messenger = engineBridge.applicationRegistrar.messenger()
+    FlutterMethodChannel(name: "jevtest/native", binaryMessenger: messenger).setMethodCallHandler { call, result in
+      guard call.method == "open", let root = AppDelegate.topViewController() else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let screen = UINavigationController(rootViewController: NativeViewController())
+      screen.modalPresentationStyle = .fullScreen
+      root.present(screen, animated: true)
+      result(nil)
+    }
+  }
+}
+
+extension AppDelegate {
+  static func topViewController() -> UIViewController? {
+    let window = UIApplication.shared.connectedScenes
+      .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+      .first
+    var top = window?.rootViewController
+    while let presented = top?.presentedViewController { top = presented }
+    return top
   }
 }
 

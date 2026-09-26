@@ -202,6 +202,10 @@ class FakeDriver(Driver):
             self.clock.sleep(min(timeout, self.CHANGE_AFTER))
 
 
+# The iOS driver's fixtures (env, drv) are shared by test_ios.py and test_ios_device.py.
+pytest_plugins = ["tests.test_ios"]
+
+
 @pytest.fixture
 def clock():
     return FakeClock()

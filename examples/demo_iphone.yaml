@@ -1,0 +1,189 @@
+# jevtest example: runs against the bundled demo app.
+#   jevtest run examples/demo.yaml      (runs on Android, then iOS)
+#
+# Every step is: an action, then what should be true after it.
+#
+#   - do: <what to do, in plain English>     Jev works out the taps and typing
+#     expect: <what should now be true>      Jev judges it against the screen
+#     see: <exact text on screen>            plain text check, no model
+#
+# `use: <test name>` runs another test's steps first, so tests build on each other.
+
+# Which device each platform runs on. Leave it out to use whatever is running; name one to choose:
+# device:
+#   android: Pixel 4a        # a phone's model, an emulator's AVD name, or a serial
+#   ios: iPhone 17 Pro       # a booted simulator's name or UDID
+
+# The same tests on a real iPhone: see "Testing on a real iPhone" in the README.
+device:
+  ios: My iPhone     # your iPhone's name (Settings > General > About > Name)
+
+app:
+  ios: ../demo_app/build/ios_device/Build/Products/Release-iphoneos/Runner.app
+
+tests:
+  - name: Sign in
+    steps:
+      - do: Sign in with email "demo@jevtest.dev" and password "hunter22"
+        expect: The home screen is showing
+        see: Welcome, demo@jevtest.dev
+
+  - name: Wrong password is rejected
+    steps:
+      - do: Sign in with email "demo@jevtest.dev" and password "nope"
+        expect: An error says the email or password is invalid
+
+  - name: Counter buttons
+    steps:
+      - use: Sign in
+      - do: Tap the Add one button two times
+        see: "Taps: 2"
+      - double_tap: Double tap me
+        see: "Double taps: 1"
+
+  - name: Press and hold opens a dialog
+    steps:
+      - use: Sign in
+      - long_press: Press and hold me
+        expect: A dialog says the item was held
+      - tap: Close
+        not_see: You held it
+
+  - name: Notifications switch
+    steps:
+      - use: Sign in
+      - do: Turn notifications on
+        see: Notifications are on
+
+  - name: Open an item from the list
+    steps:
+      - use: Sign in
+      - scroll_to: Open list
+      - tap: Open list
+        expect: A list of items is showing
+      - scroll_to: Item 25
+      - tap: Item 25
+        see: Details for Item 25
+      - back           # an action with no check is fine too
+
+  - name: Swipe to delete an item
+    steps:
+      - use: Open an item from the list
+      - swipe: left
+        target: Item 26
+        see: Item 26 deleted
+
+  - name: App survives rotation and backgrounding
+    steps:
+      - use: Sign in
+      - rotate: landscape
+        expect: The home screen is showing
+      - rotate: portrait
+      - background: 2
+        see: Welcome, demo@jevtest.dev
+      - restart:
+        expect: The sign in screen is showing
+
+  # In-app WebView: plain HTML (input, button, checkbox, link) inside the app.
+  - name: Open the web page
+    steps:
+      - use: Sign in
+      - scroll_to: Open web page
+      - tap: Open web page
+        see: Web Greeter
+
+  - name: Web page greets by name
+    steps:
+      - use: Open the web page
+      - do: Type "Bret" into the name box on the web page and press Say hello
+        see: Hello, Bret!
+
+  - name: Web page checkbox and link
+    steps:
+      - use: Open the web page
+      - tap: I agree to the terms
+        see: Terms accepted
+      - scroll_to: Show more
+      - tap: Show more
+      - scroll_to: Here is more content from the web page.
+        see: Here is more content
+
+  # Native (non-Flutter) screen: Android Views / iOS UIKit.
+  - name: Native screen
+    steps:
+      - use: Sign in
+      - scroll_to: Open native screen
+      - tap: Open native screen
+        see: Native screen
+      - clear: Nickname
+      - type: { text: "Bret", into: Nickname }
+      - tap: Save nickname
+        see: "Saved: Bret"
+      - tap: Dark theme
+        see: Theme is dark
+      - tap: Delete account
+        expect: A dialog asks to confirm deleting the account
+      - tap: Delete
+        see: Account deleted
+
+  # A system permission prompt (owned by the OS, not the app).
+  - name: Camera permission prompt
+    steps:
+      - use: Sign in
+      - scroll_to: Open native screen
+      - tap: Open native screen
+        see: Native screen
+      - tap: Ask for camera
+        expect: The system is asking whether to allow camera access
+      - do: Allow camera access
+        see: "Camera: allowed"
+
+  # Content that arrives later (like a network response): checks wait for it, no sleeps needed.
+  - name: Slow loading
+    steps:
+      - use: Sign in
+      - scroll_to: Load data
+      - tap: Load data
+        see: Data loaded
+
+  # In-app web: a full form, a dropdown, radio buttons, clearing, a JavaScript alert,
+  # navigation between web pages, and scrolling a long page.
+  - name: Web form
+    steps:
+      - use: Open the web page
+      - type: { text: "Bert", into: Your name }
+      - clear: Your name
+      - type: { text: "Bret", into: Your name }
+      - tap: Say hello
+        see: Hello, Bret!
+      - type: { text: "secret1", into: Web password }
+      - do: Choose Canada in the Country dropdown
+        expect: Canada is the selected country
+      - scroll_to: Submit form
+      - tap: Pro plan
+      - tap: I agree to the terms
+        see: Terms accepted
+      - tap: Submit form
+        see: "Submitted: Canada, Pro plan, with a password"
+
+  - name: Web alert and navigation
+    steps:
+      - use: Open the web page
+      - scroll_to: Show web alert
+      - tap: Show web alert
+        see: Hello from the web page
+      - tap: OK
+        not_see: Hello from the web page
+      - scroll_to: Open settings page
+      - tap: Open settings page
+        see: Web settings
+      - tap: Back to the form
+        expect: The web form with the name field is showing again
+
+  - name: Long web page
+    steps:
+      - use: Open the web page
+      - scroll_to: Back to top
+        see: End of the page
+      - tap: Back to top
+        see: Web Greeter

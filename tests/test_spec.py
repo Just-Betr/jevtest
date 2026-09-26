@@ -142,8 +142,9 @@ def test_devices(tmp_path):
 
 def test_settings(tmp_path):
     spec = load(write(tmp_path, minimal(extra="settings: {model: m, max_actions: 3, timeout: 2, "
-                                              "settle: 0, threshold: 0.7}\n")))
-    assert spec.settings == Settings(model="m", max_actions=3, timeout=2.0, settle=0.0, threshold=0.7)
+                                              "settle: 0, threshold: 0.7, ios_team: ABC123}\n")))
+    assert spec.settings == Settings(model="m", max_actions=3, timeout=2.0, settle=0.0, threshold=0.7,
+                                     ios_team="ABC123")
 
 
 @pytest.mark.parametrize("body,message", [

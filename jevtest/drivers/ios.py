@@ -1,4 +1,10 @@
-"""iOS Simulator driver: simctl for the app and device, the XCUITest agent for screen and touch."""
+"""iOS driver: a simulator (simctl) or a real iPhone (devicectl), with the XCUITest agent for screen and touch.
+
+The agent is the same on both. What differs is how jevtest gets to it:
+- simulator: an unsigned agent, reached at 127.0.0.1 (the simulator shares the Mac's network);
+- iPhone: an agent signed with your Xcode team, reached through the USB tunnel Xcode keeps to the
+  phone (its address changes when the phone relocks, so it is read fresh when needed).
+"""
 
 from __future__ import annotations
 
@@ -12,13 +18,15 @@ import subprocess
 import tempfile
 import urllib.request
 import zipfile
+from base64 import b64decode
+from dataclasses import dataclass
 from pathlib import Path
 
 from ..screen import Element, Screen
 from .base import Driver, DriverError, cache_dir, digest, run, start_process, stop_process
 
 AGENT_SRC = Path(__file__).resolve().parent.parent / "ios_agent"
-AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator
+AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator or phone
 # Container types that only matter when they carry a label or identifier.
 CONTAINERS = {"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"}
 # Kinds whose value is shown some other way: a switch's as on/off, a secure field's is bullets.
@@ -34,6 +42,14 @@ def simctl(*args, timeout=120, check=True) -> str:
     return run(["xcrun", "simctl", *args], timeout=timeout, check=check)
 
 
+def devicectl(*args, timeout=300) -> dict:
+    """Run `xcrun devicectl ...` and return its JSON result."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "out.json"
+        run(["xcrun", "devicectl", *args, "--json-output", str(out)], timeout=timeout)
+        return json.loads(out.read_text()).get("result", {})
+
+
 def _runtime_version(runtime: str) -> tuple[int, ...]:
     return tuple(int(n) for n in runtime.rsplit("iOS-", 1)[-1].split("-") if n.isdigit())
 
@@ -46,15 +62,69 @@ def simulators() -> list[dict]:
             for r in runtimes for d in sorted(data["devices"][r], key=lambda d: (d["name"], d["udid"]))]
 
 
-def pick_simulator(wanted: str | None) -> str:
-    """A booted simulator (the one named, or the first). jevtest never boots or opens one itself."""
-    booted = [d for d in simulators() if d["state"] == "Booted"]
+def phones() -> list[dict]:
+    """Real iPhones connected to this Mac (paired, with a live connection)."""
+    found = []
+    for d in devicectl("list", "devices").get("devices", []):
+        hw, props = d.get("hardwareProperties", {}), d.get("deviceProperties", {})
+        conn = d.get("connectionProperties", {})
+        if hw.get("reality") == "physical" and hw.get("platform") == "iOS" and conn.get("tunnelState") == "connected":
+            found.append({"udid": hw.get("udid", ""), "name": props.get("name", "")})
+    return found
+
+
+@dataclass
+class Target:
+    udid: str
+    name: str
+    physical: bool
+
+
+def find_target(wanted: str | None) -> Target:
+    """The device a test file names (a booted simulator or a connected iPhone), or the only one running.
+    jevtest never boots, opens or unlocks a device."""
+    sims = [Target(d["udid"], d["name"], False) for d in simulators() if d["state"] == "Booted"]
+    real = [Target(d["udid"], d["name"], True) for d in phones()]
     if wanted:
-        booted = [d for d in booted if wanted in (d["udid"], d["name"])]
-    if not booted:
-        which = f"named or with UDID '{wanted}' " if wanted else ""
-        raise DriverError(f"No booted iOS simulator {which}found. Boot one first (Xcode, or `xcrun simctl boot`).")
-    return booted[0]["udid"]
+        for t in sims + real:
+            if wanted.lower() in (t.udid.lower(), t.name.lower()):
+                return t
+        running = ", ".join(t.name for t in sims + real) or "none"
+        raise DriverError(f"No booted simulator or connected iPhone called '{wanted}' (running: {running})")
+    if sims or real:
+        return (sims + real)[0]
+    raise DriverError("No booted iOS simulator or connected iPhone. Boot a simulator or plug in an iPhone.")
+
+
+def xcode_team(wanted: str = "") -> str:
+    """The Apple developer team signed into Xcode (Settings > Accounts)."""
+    raw = run(["defaults", "export", "com.apple.dt.Xcode", "-"], check=False)
+    prefs = plistlib.loads(raw.encode()) if raw.strip() else {}
+    teams = [t for account in prefs.get("IDEProvisioningTeamByIdentifier", {}).values() for t in account]
+    ids = sorted({t["teamID"] for t in teams if "teamID" in t})
+    if wanted:
+        if wanted not in ids:
+            raise DriverError(f"Team {wanted} is not signed into Xcode (signed in: {', '.join(ids) or 'none'})")
+        return wanted
+    if not ids:
+        raise DriverError("Testing on a real iPhone needs signing: in Xcode, Settings > Accounts > + > Apple Account")
+    paid = sorted({t["teamID"] for t in teams if not t.get("isFreeProvisioningTeam")})
+    choices = paid or ids
+    if len(choices) > 1:
+        raise DriverError(f"Several Xcode teams ({', '.join(choices)}): choose one with `ios_team:` in settings")
+    return choices[0]
+
+
+def provisioned_devices(app: Path) -> set[str]:
+    """The device UDIDs an app's embedded provisioning profile allows."""
+    profile = app / "embedded.mobileprovision"
+    if not profile.exists():
+        return set()
+    raw = run(["security", "cms", "-D", "-i", str(profile)], binary=True, check=False)
+    try:
+        return set(plistlib.loads(raw).get("ProvisionedDevices", []))
+    except plistlib.InvalidFileException:
+        return set()
 
 
 def free_port() -> int:
@@ -64,7 +134,7 @@ def free_port() -> int:
 
 
 def app_bundle(app_path: Path, workdir: Path) -> Path:
-    """A simulator .app directory from a .app, or a .zip / .ipa containing one."""
+    """An .app directory from a .app, or a .zip / .ipa containing one."""
     if app_path.suffix.lower() == ".app" and app_path.is_dir():
         return app_path
     if app_path.suffix.lower() in (".zip", ".ipa") and zipfile.is_zipfile(app_path):
@@ -73,7 +143,7 @@ def app_bundle(app_path: Path, workdir: Path) -> Path:
         found = sorted(workdir.rglob("*.app"), key=lambda p: (len(p.parts), str(p)))
         if found:
             return found[0]
-    raise DriverError(f"iOS needs a simulator .app (or a .zip/.ipa containing one), got {app_path.name}")
+    raise DriverError(f"iOS needs an .app (or a .zip/.ipa containing one), got {app_path.name}")
 
 
 def parse_tree(data: dict) -> Screen:
@@ -124,11 +194,14 @@ def http_post(url: str, body: dict, timeout: float) -> dict:
 class IOSDriver(Driver):
     platform = "ios"
 
-    def __init__(self, udid: str | None = None):
+    def __init__(self, device: str | None = None, team: str = ""):
         if shutil.which("xcrun") is None:
             raise DriverError("Xcode command line tools are required for iOS")
-        self.udid = pick_simulator(udid)
+        target = find_target(device)
+        self.udid, self.name, self.physical = target.udid, target.name, target.physical
+        self.team = xcode_team(team) if self.physical else ""
         self.port = free_port()
+        self.host = "127.0.0.1"
         self.agent: subprocess.Popen | None = None
         self.agent_log = cache_dir() / f"ios-agent-{self.port}.log"
         self.app_path: Path | None = None
@@ -136,17 +209,37 @@ class IOSDriver(Driver):
         self._start_agent()
 
     # --- agent ------------------------------------------------------------------
+    def _xcodebuild(self, out: Path, destination: str, signing: list[str]):
+        run(["xcodebuild", "build-for-testing", "-project", str(AGENT_SRC / "JevAgent.xcodeproj"),
+             "-scheme", "JevAgent", "-destination", destination, "-derivedDataPath", str(out), "-quiet", *signing],
+            timeout=900)
+
     def _build_agent(self) -> Path:
-        out = cache_dir() / f"ios-agent-{digest(AGENT_SRC)}"
+        if not self.physical:
+            out = cache_dir() / f"ios-agent-{digest(AGENT_SRC)}"
+        else:
+            out = cache_dir() / f"ios-agent-{digest(AGENT_SRC)}-{self.team}"
+        runner = out / "Build/Products/Debug-iphoneos/JevAgentUITests-Runner.app"
+        runs = sorted((out / "Build/Products").glob("*.xctestrun"))
+        if runs and (not self.physical or self.udid in provisioned_devices(runner)):
+            return runs[0]
+        if not self.physical:
+            print("  building iOS agent (one time, ~1 min)...", flush=True)
+            self._xcodebuild(out, "generic/platform=iOS Simulator", [])
+        else:
+            # Built for this phone, so Xcode registers it with the team and puts it in the profile.
+            print(f"  building and signing the iOS agent for {self.name} (team {self.team})...", flush=True)
+            signing = ["-allowProvisioningUpdates", "-allowProvisioningDeviceRegistration",
+                       f"DEVELOPMENT_TEAM={self.team}", "CODE_SIGN_STYLE=Automatic", "CODE_SIGNING_ALLOWED=YES",
+                       "CODE_SIGNING_REQUIRED=YES", "CODE_SIGN_IDENTITY=Apple Development",
+                       f"JEVTEST_TEAM_SUFFIX=.{self.team}"]
+            try:
+                self._xcodebuild(out, f"id={self.udid}", signing)
+            except DriverError:  # a first build can race Xcode replacing the provisioning profile
+                self._xcodebuild(out, f"id={self.udid}", signing)
         runs = sorted((out / "Build/Products").glob("*.xctestrun"))
         if not runs:
-            print("  building iOS agent (one time, ~1 min)...", flush=True)
-            run(["xcodebuild", "build-for-testing", "-project", str(AGENT_SRC / "JevAgent.xcodeproj"),
-                 "-scheme", "JevAgent", "-destination", "generic/platform=iOS Simulator",
-                 "-derivedDataPath", str(out), "-quiet"], timeout=900)
-            runs = sorted((out / "Build/Products").glob("*.xctestrun"))
-            if not runs:
-                raise DriverError("iOS agent build produced no .xctestrun")
+            raise DriverError("iOS agent build produced no .xctestrun")
         return runs[0]
 
     def _start_agent(self):
@@ -155,9 +248,19 @@ class IOSDriver(Driver):
             ["xcodebuild", "test-without-building", "-xctestrun", str(self._build_agent()),
              "-destination", f"id={self.udid}"],
             ready="JEVTEST_AGENT_READY", log=self.agent_log, timeout=AGENT_START_TIMEOUT, env=env)
+        if self.physical:
+            self.host = self._tunnel_host()
+
+    def _tunnel_host(self) -> str:
+        """The phone's address on the USB tunnel Xcode keeps to it. Changes when the phone relocks."""
+        conn = devicectl("device", "info", "details", "--device", self.udid).get("connectionProperties", {})
+        address = conn.get("tunnelIPAddress")
+        if not address:
+            raise DriverError(f"No connection to {self.name}: unlock it and keep it plugged in")
+        return f"[{address}]" if ":" in address else address
 
     def _url(self, path: str) -> str:
-        return f"http://127.0.0.1:{self.port}{path}"
+        return f"http://{self.host}:{self.port}{path}"
 
     def _log_tail(self) -> str:
         return self.agent_log.read_text()[-1500:] if self.agent_log.exists() else "(no log)"
@@ -167,8 +270,15 @@ class IOSDriver(Driver):
         try:
             data = http_post(self._url(path), body, timeout=60)
         except OSError as e:
-            raise DriverError(f"Lost the iOS agent during {path} ({e}). Agent log tail:\n{self._log_tail()}") \
-                from None
+            if not self.physical:
+                raise DriverError(f"Lost the iOS agent during {path} ({e}). Agent log tail:\n{self._log_tail()}") \
+                    from None
+            try:  # the phone's tunnel address changes when it relocks: look it up again, once
+                self.host = self._tunnel_host()
+                data = http_post(self._url(path), body, timeout=60)
+            except (OSError, DriverError) as again:
+                raise DriverError(f"Lost the agent on {self.name} during {path} ({again}). "
+                                  f"Is it unlocked and plugged in? Agent log tail:\n{self._log_tail()}") from None
         if "error" in data:
             raise DriverError(f"iOS agent {path}: {data['error']}")
         return data
@@ -176,6 +286,10 @@ class IOSDriver(Driver):
     def close(self):
         stop_process(self.agent)
         self._tmp.cleanup()
+
+    def check_ready(self):
+        if self.physical and devicectl("device", "info", "lockState", "--device", self.udid).get("passcodeRequired"):
+            raise DriverError(f"{self.name} is locked: unlock it and keep it unlocked during the run")
 
     # --- lifecycle ----------------------------------------------------------------
     def install(self, app_path: Path) -> str:
@@ -185,18 +299,29 @@ class IOSDriver(Driver):
         except (OSError, plistlib.InvalidFileException) as e:
             raise DriverError(f"{app_path.name} has no readable Info.plist ({e})") from None
         platforms = info.get("CFBundleSupportedPlatforms", [])
-        if platforms and "iPhoneSimulator" not in platforms:
-            raise DriverError(f"{app_path.name} is built for {', '.join(platforms)}, not the iOS Simulator. "
-                              "Build with `-sdk iphonesimulator` (physical devices are not supported yet).")
+        needed = "iPhoneOS" if self.physical else "iPhoneSimulator"
+        if platforms and needed not in platforms:
+            where = f"a real iPhone ({self.name})" if self.physical else "the iOS Simulator"
+            how = "a device build signed with your team" if self.physical else "a build with `-sdk iphonesimulator`"
+            raise DriverError(f"{app_path.name} is built for {', '.join(platforms)}, not {where}. Use {how}.")
         if "CFBundleIdentifier" not in info:
             raise DriverError(f"{app_path.name} Info.plist has no CFBundleIdentifier")
         self.app_path = bundle
         self.app_id = info["CFBundleIdentifier"]
-        simctl("install", self.udid, str(bundle), timeout=300)
+        self._install_bundle()
         return self.app_id
 
+    def _install_bundle(self):
+        if self.physical:
+            devicectl("device", "install", "app", "--device", self.udid, str(self.app_path))
+        else:
+            simctl("install", self.udid, str(self.app_path), timeout=300)
+
     def launch(self):
-        simctl("launch", self.udid, self.app_id)
+        if self.physical:
+            devicectl("device", "process", "launch", "--device", self.udid, "--terminate-existing", self.app_id)
+        else:
+            simctl("launch", self.udid, self.app_id)
         self._call("/wait_foreground", timeout=self.timeout)
 
     def resume(self):
@@ -206,22 +331,31 @@ class IOSDriver(Driver):
         return APP_STATES.get(self._call("/state")["state"], "background")
 
     def stop(self):
-        simctl("terminate", self.udid, self.app_id, check=False)
+        if self.physical:
+            self._call("/terminate")
+        else:
+            simctl("terminate", self.udid, self.app_id, check=False)
 
     def clear_data(self):
-        self.reinstall()  # the simulator has no "clear data"; a reinstall is the equivalent
+        self.reinstall()  # iOS has no "clear data"; Apple's supported equivalent is a reinstall
 
     def reinstall(self):
         self.stop()
-        simctl("uninstall", self.udid, self.app_id, check=False)
-        simctl("install", self.udid, str(self.app_path), timeout=300)
+        if self.physical:
+            devicectl("device", "uninstall", "app", "--device", self.udid, self.app_id)
+        else:
+            simctl("uninstall", self.udid, self.app_id, check=False)
+        self._install_bundle()
 
     # --- observe --------------------------------------------------------------------
     def screen(self) -> Screen:
         return parse_tree(self._call("/tree"))
 
     def screenshot(self, path: Path):
-        simctl("io", self.udid, "screenshot", str(path))
+        if self.physical:
+            path.write_bytes(b64decode(self._call("/screenshot")["png"]))
+        else:
+            simctl("io", self.udid, "screenshot", str(path))
 
     # --- touch & keys -----------------------------------------------------------------
     def tap(self, x, y):
@@ -274,17 +408,28 @@ class IOSDriver(Driver):
         self._call("/rotate", orientation=orientation)
 
     def set_location(self, lat, lon):
-        simctl("location", self.udid, "set", f"{lat},{lon}")
+        if self.physical:
+            self._call("/location", lat=lat, lon=lon)
+        else:
+            simctl("location", self.udid, "set", f"{lat},{lon}")
 
     def open_url(self, url):
-        simctl("openurl", self.udid, url)
+        if self.physical:
+            self._call("/open_url", url=url)
+        else:
+            simctl("openurl", self.udid, url)
 
     def dark_mode(self, on):
-        simctl("ui", self.udid, "appearance", "dark" if on else "light")
+        if self.physical:
+            self._call("/appearance", dark=on)
+        else:
+            simctl("ui", self.udid, "appearance", "dark" if on else "light")
 
     def grant(self, permission):
+        if self.physical:
+            raise DriverError("A real iPhone can't pre-grant permissions: let the test tap the permission prompt")
         # simctl services: all, calendar, contacts, location, location-always, photos, microphone, ...
         simctl("privacy", self.udid, "grant", permission, self.app_id)
 
     def network(self, on):
-        raise DriverError("The iOS Simulator shares the Mac's network; it can't be turned off per device")
+        raise DriverError("jevtest can't turn an iPhone's or simulator's network off")

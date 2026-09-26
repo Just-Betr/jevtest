@@ -43,6 +43,31 @@ class Agent:
         return [p for p, _ in self.calls]
 
 
+class DeviceCtl:
+    """Stands in for `xcrun devicectl`: replies by subcommand, records every call."""
+
+    def __init__(self):
+        self.phones: list[dict] = []
+        self.replies: dict[str, object] = {
+            "info details": {"connectionProperties": {"tunnelIPAddress": "fd00::1"}},
+            "info lockState": {"passcodeRequired": False, "unlockedSinceBoot": True},
+        }
+        self.calls: list[tuple] = []
+
+    def __call__(self, *args, timeout=300):
+        self.calls.append(args)
+        line = " ".join(args)
+        if line.startswith("list devices"):
+            return {"devices": self.phones}
+        for key, reply in self.replies.items():
+            if key in line:
+                reply = reply.pop(0) if isinstance(reply, list) else reply
+                if isinstance(reply, Exception):
+                    raise reply
+                return reply
+        return {}
+
+
 @pytest.fixture
 def env(monkeypatch, tmp_path):
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "cache"))
@@ -61,6 +86,7 @@ def env(monkeypatch, tmp_path):
         return "proc"
     monkeypatch.setattr(ios, "start_process", start_process)
     monkeypatch.setattr(ios, "stop_process", lambda proc: procs.append(("stopped", proc)))
+    monkeypatch.setattr(ios, "devicectl", DeviceCtl())
     return sim, agent, procs
 
 
@@ -147,23 +173,21 @@ def test_simulators_sorted_newest_first(env):
 
 def test_uses_the_booted_simulator_and_never_boots_or_opens_one(env):
     sim = env[0]
-    assert ios.pick_simulator(None) == "A"
+    assert ios.find_target(None) == ios.Target("A", "iPhone 16", False)
     assert not any(" boot " in c or "open -a" in c for c in sim.cmds)
 
 
+def test_find_by_name_or_udid_must_be_booted(env):
+    assert ios.find_target("iphone 16").udid == "A"
+    assert ios.find_target("A").udid == "A"
+    with pytest.raises(DriverError, match="No booted simulator or connected iPhone called 'iPad Air'"):
+        ios.find_target("iPad Air")  # exists, but is not booted
 
 
-def test_pick_by_name_or_udid_must_be_booted(env):
-    assert ios.pick_simulator("iPhone 16") == "A"
-    assert ios.pick_simulator("A") == "A"
-    with pytest.raises(DriverError, match="No booted iOS simulator named or with UDID 'iPad Air'"):
-        ios.pick_simulator("iPad Air")  # exists, but is not booted
-
-
-def test_pick_with_nothing_booted(env):
+def test_find_with_nothing_running(env):
     env[0].rules["list devices"] = json.dumps({"devices": {}})
-    with pytest.raises(DriverError, match="No booted iOS simulator found"):
-        ios.pick_simulator(None)
+    with pytest.raises(DriverError, match="No booted iOS simulator or connected iPhone"):
+        ios.find_target(None)
 
 
 def test_free_port_is_usable():
@@ -189,7 +213,7 @@ def test_app_bundle_rejects_bad_input(tmp_path):
     with zipfile.ZipFile(empty, "w") as z:
         z.writestr("readme.txt", "x")
     for path in (tmp_path / "empty.zip", empty, tmp_path / "missing.app", tmp_path / "x.apk"):
-        with pytest.raises(DriverError, match="simulator .app"):
+        with pytest.raises(DriverError, match="needs an .app"):
             app_bundle(path, tmp_path / "w")
 
 
@@ -396,5 +420,5 @@ def test_timeouts_follow_settings(drv, env):
 
 
 def test_network_is_not_supported(drv):
-    with pytest.raises(DriverError, match="shares the Mac's network"):
+    with pytest.raises(DriverError, match="can.t turn an iPhone.s or simulator.s network off"):
         drv.network(False)

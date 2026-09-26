@@ -40,12 +40,12 @@ def load_env(*dirs: Path):
             os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 
-def make_driver(platform: str, device: str | None):
+def make_driver(platform: str, device: str | None, ios_team: str = ""):
     if platform == "android":
         from .drivers.android import AndroidDriver
         return AndroidDriver(device)
     from .drivers.ios import IOSDriver
-    return IOSDriver(device)
+    return IOSDriver(device, team=ios_team)
 
 
 def lock_mode(args) -> str:
@@ -82,7 +82,7 @@ def cmd_run(args) -> int:
 def run_platform(spec, platform: str, app: Path, jev: LockedJev, out: Path, verbose: bool) -> int:
     """Run every test on this platform's device; return how many failed."""
     out.mkdir(parents=True, exist_ok=True)
-    driver = make_driver(platform, spec.devices.get(platform))
+    driver = make_driver(platform, spec.devices.get(platform), spec.settings.ios_team)
     driver.settle, driver.timeout = spec.settings.settle, spec.settings.timeout
     calls_before = len(jev.calls)
     try:

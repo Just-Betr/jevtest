@@ -69,7 +69,7 @@ app: build/app.apk            # .apk / .aab (Android), .app / .zip / .ipa with a
 
 device:                       # optional; leave it out to use the device that is running
   android: Pixel 4a           # a phone's model, an emulator's AVD name, or a serial
-  ios: iPhone 17 Pro          # a booted simulator's name or UDID
+  ios: iPhone 17 Pro          # a booted simulator's name, or a real iPhone's name, or a UDID
 
 settings:                     # all optional
   model: typesafe/jev-1.13     # pinned; the lockfile is per model
@@ -136,6 +136,20 @@ A bare word like `- back` is fine alone. To put checks under it, add a colon: `-
 
 After every action the harness also fails the step if the app crashed or left the foreground.
 
+## Testing on a real phone
+
+**Android phone:** turn on Developer options > USB debugging, plug it in, tap **Allow**. That's all. Name it in `device:` (for example `android: Pixel 4a`) and keep it unlocked while tests run.
+
+**iPhone:** Apple only runs code on an iPhone when it is signed by a developer account the phone trusts, so each person does this once:
+
+1. **Xcode > Settings > Accounts > + > Apple Account**: sign in (a free Apple ID works; a paid account avoids 7-day expiry).
+2. **On the iPhone:** Settings > Privacy & Security > **Developer Mode** on; then Settings > Developer > **Enable UI Automation**.
+3. **Plug it in**, tap **Trust**, and keep it unlocked while tests run.
+4. **Your app must be a device build signed with your team** (an `.app`, or an `.ipa` containing one; Release, or any build that runs without a debugger attached).
+5. Put the iPhone's name in the test file: `device: { ios: My iPhone }`.
+
+The first run builds jevtest's agent, signs it with your Xcode team and registers the phone with that team (about a minute); later runs reuse it. jevtest reaches the phone through the USB connection Xcode already keeps to it, so nothing else needs installing. Every step works on a real iPhone except `grant:` (iOS doesn't allow pre-granting permissions; let the test tap the permission prompt instead). If several teams are signed into Xcode, choose one with `settings: { ios_team: ABCDE12345 }`.
+
 ## Commands
 
 ```bash
@@ -181,18 +195,23 @@ flutter build ios --simulator --debug --config-only
 LANG=en_US.UTF-8 pod install --project-directory=ios
 xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Debug -sdk iphonesimulator \
   -derivedDataPath build/ios_sim ARCHS=arm64 ONLY_ACTIVE_ARCH=YES -quiet
-cd .. && jevtest run examples/demo.yaml --platform android
+cd .. && jevtest run examples/demo.yaml
+
+# iOS device build (for examples/demo_iphone.yaml), signed with your team:
+cd demo_app && flutter build ios --release --config-only
+xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+  -destination 'id=<iPhone UDID>' -derivedDataPath build/ios_device \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=<your team id> CODE_SIGN_STYLE=Automatic
 ```
 
 ## Limits
 
-- iOS runs on the **simulator** only. A device `.ipa` can't be installed there; build with `-sdk iphonesimulator`.
 - Jev is text-only, so anything with no accessibility label (canvas, games, unlabeled images) is invisible to it.
 - `input text` on Android is ASCII only (non-ASCII text fails the step clearly).
 - **In-app WebViews are fully supported** on both platforms: their HTML elements appear like native ones and are driven the same way. The example suite covers typing, clearing and retyping, password fields, a `<select>` dropdown, radio buttons, checkboxes, form submission, links, JavaScript `alert()` shown as an app dialog, navigation between pages of a web app, and scrolling a long page.
 - iOS runs are slower than Android on the demo app: an XCUITest tap costs ~0.55 s. Animations are never turned off: jevtest tests the app as users see it, and waits for it.
 - Very large screens are snapshotted in full on iOS (no depth limit yet).
-- Tested on the Flutter demo app with native and web screens, on the Android emulator (API 37) and iOS 26 simulators.
+- Tested on the Flutter demo app with native and web screens, on the Android emulator (API 37), a Pixel 4a (Android 13), iOS 26 simulators and an iPhone 17 (iOS 27).
 
 ## Development
 

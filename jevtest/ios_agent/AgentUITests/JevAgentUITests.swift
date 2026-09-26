@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import Network
 import XCTest
@@ -176,6 +177,19 @@ final class JevAgentUITests: XCTestCase {
             let name = (body["key"] as? String ?? "").lowercased()
             guard let k = keys[name] else { return ["error": "Unknown key '\(name)'. Known: \(keys.keys.sorted())"] }
             app.typeText(String(repeating: k, count: (body["count"] as? Int) ?? 1))
+        // Device-level operations that also work on a real iPhone (the simulator can use simctl).
+        case "/terminate":
+            app.terminate()
+        case "/screenshot":
+            return ["png": XCUIScreen.main.screenshot().pngRepresentation.base64EncodedString()]
+        case "/location":
+            let lat = (body["lat"] as? Double) ?? 0, lon = (body["lon"] as? Double) ?? 0
+            XCUIDevice.shared.location = XCUILocation(location: CLLocation(latitude: lat, longitude: lon))
+        case "/open_url":
+            guard let url = URL(string: (body["url"] as? String) ?? "") else { return ["error": "Not a URL"] }
+            XCUIDevice.shared.system.open(url)
+        case "/appearance":
+            XCUIDevice.shared.appearance = (body["dark"] as? Bool) == true ? .dark : .light
         case "/home":
             XCUIDevice.shared.press(.home)
         case "/rotate":

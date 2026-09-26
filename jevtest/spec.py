@@ -46,6 +46,7 @@ class Settings:
     timeout: float = 10.0      # seconds a check / element lookup keeps retrying
     settle: float = 3.0        # most seconds to wait for the UI to go idle after an action
     threshold: float = 0.5     # Jev yes-probability an `expect:` needs to pass
+    ios_team: str = ""         # Apple team to sign with on a real iPhone; only needed with several teams
 
 
 @dataclass
@@ -253,6 +254,8 @@ def _settings(raw) -> Settings:
     s = Settings()
     if "model" in raw:
         s.model = _text(raw["model"], "settings.model")
+    if "ios_team" in raw:
+        s.ios_team = _text(raw["ios_team"], "settings.ios_team")
     if "max_actions" in raw:
         s.max_actions = _count(raw["max_actions"], "settings.max_actions")
     for name in ("timeout", "settle"):
