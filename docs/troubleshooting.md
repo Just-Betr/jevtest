@@ -37,7 +37,7 @@ error: t.yaml has 3 problems:
 | `No booted simulator or connected iPhone called 'iPhone 16' (names are exact). Running: …` | Boot it (`xcrun simctl boot "iPhone 16"`), or use a listed name. |
 | `Several devices are called 'iPhone 17 Pro' (X, Y): name one by its UDID` | Use the UDID. |
 | `… is asleep or locked: unlock it` / `BH is locked: unlock it and keep it unlocked during the run` | Unlock the phone; consider a longer screen timeout while testing. |
-| `Testing on a real iPhone needs ios_team: in settings … Signed into Xcode: AMSU8R7N92` | Add `ios_team:` to `settings`. |
+| `Testing on a real iPhone needs ios_team: in settings … Signed into Xcode: ABCDE12345` | Add `ios_team:` to `settings`. |
 | `Testing on a real iPhone needs signing: in Xcode, Settings > Accounts > + > Apple Account` | Sign into Xcode ([Real phones](guides/real-devices.md#iphone)). |
 | `Runner.app is built for iPhoneSimulator, not a real iPhone (BH)…` | Build for the device, signed with your team. |
 | `Setting location is only supported on the Android emulator` | Android phones can't take a simulated location. |
