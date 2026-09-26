@@ -36,6 +36,13 @@ def test_regions(bounds, region):
     assert s.region(s.elements[0]) == region
 
 
+def test_content_height_excludes_the_keyboard():
+    assert Screen(width=10, height=2000).content_height == 2000
+    assert Screen(width=10, height=2000, keyboard_visible=True, keyboard_top=1200).content_height == 1200
+    assert Screen(width=10, height=2000, keyboard_visible=True, keyboard_top=0).content_height == 2000  # unknown
+    assert Screen(width=10, height=2000, keyboard_visible=False, keyboard_top=1200).content_height == 2000
+
+
 def test_element_label_and_center():
     assert Element("button", "OK", bounds=(0, 0, 10, 20)).center == (5, 10)
     assert Element("text_field", bounds=(0, 0, 100, 20)).end == (92, 10)  # just inside the right edge

@@ -189,9 +189,9 @@ class Driver(ABC):
         """Finger swipe in `direction` (up/down/left/right), across an element or the screen."""
         if el is not None:
             x1, y1, x2, y2 = el.bounds
-        else:
+        else:  # the whole page, but not the keyboard: a drag that starts on the keyboard moves nothing
             s = screen or self.screen()
-            x1, y1, x2, y2 = 0, 0, s.width, s.height
+            x1, y1, x2, y2 = 0, 0, s.width, s.content_height
         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
         w, h = x2 - x1, y2 - y1
         dx, dy = int(w * 0.35), int(h * 0.3)

@@ -120,11 +120,6 @@ def build_agent() -> Path:
     return apk
 
 
-def _contains(bounds: tuple[int, int, int, int], point: tuple[int, int]) -> bool:
-    x1, y1, x2, y2 = bounds
-    return x1 <= point[0] <= x2 and y1 <= point[1] <= y2
-
-
 def has_empty_webview(xml: str) -> bool:
     for node in ET.fromstring(xml).iter("node"):
         if node.get("class") == "android.webkit.WebView" and len(node.findall(".//node")) == 0:
@@ -305,15 +300,16 @@ class AndroidDriver(Driver):
         return "background"
 
     # --- observe ---------------------------------------------------------------
-    def _wait_for_typing(self, at: tuple[int, int]):
-        """Keys sent before the keyboard is connected are dropped, so wait (event-driven) for
-        a focused text field under `at` and a visible keyboard."""
+    def _wait_for_typing(self):
+        """Keys sent before the keyboard is connected are dropped, so wait (event-driven) until a
+        text field has focus and the keyboard is up. Not "the field under the tap": on a real phone
+        the keyboard slides up and the app scrolls the focused field out from under it."""
         deadline = time.monotonic() + self.settle
         while True:
             xml = self._agent("/tree")
             root = ET.fromstring(xml)
             w, h = self.size(int(root.get("rotation", "0")))
-            focused = any(el.editable and el.focused and _contains(el.bounds, at) for el in parse_hierarchy(xml, w, h))
+            focused = any(el.editable and el.focused for el in parse_hierarchy(xml, w, h))
             if focused and root.get("ime") == "true":
                 return
             left = deadline - time.monotonic()
@@ -336,7 +332,7 @@ class AndroidDriver(Driver):
         root = ET.fromstring(xml)
         w, h = self.size(int(root.get("rotation", "0")))
         return Screen(width=w, height=h, elements=parse_hierarchy(xml, w, h),
-                      keyboard_visible=root.get("ime") == "true")
+                      keyboard_visible=root.get("ime") == "true", keyboard_top=int(root.get("ime-top", "0")))
 
     def screenshot(self, path: Path):
         path.write_bytes(run([self.adb, "-s", self.serial, "exec-out", "screencap", "-p"], binary=True))
@@ -364,7 +360,7 @@ class AndroidDriver(Driver):
             raise DriverError("Android `input text` only supports ASCII characters")
         if at:  # focus the field, then wait until it has focus and the keyboard is up
             self.tap(*at)
-            self._wait_for_typing(at)
+            self._wait_for_typing()
         # `input text` needs %s for spaces; newlines become Enter presses.
         for i, line in enumerate(text.split("\n")):
             if i:
@@ -374,7 +370,7 @@ class AndroidDriver(Driver):
 
     def clear_text(self, el):
         self.tap(*el.end)  # cursor after the text
-        self._wait_for_typing(el.end)
+        self._wait_for_typing()
         if el.value:  # move to the end, then delete exactly what is there
             self.sh("input keyevent 123 " + " ".join(["67"] * len(el.value)))
 

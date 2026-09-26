@@ -25,8 +25,8 @@ import java.util.List;
  * jevtest Android agent. Started with
  *   am instrument -w -e port 7912 dev.jevtest.agent/.Agent
  * it keeps one UiAutomation connection open and answers on 127.0.0.1:port:
- *   GET /tree        -> the active window as uiautomator-style XML, plus
- *                       ime="true|false" and package="..." on the root element
+ *   GET /tree        -> the active window as uiautomator-style XML, plus ime="true|false",
+ *                       ime-top="<y where the keyboard starts>" and package="..." on the root element
  *   GET /idle?ms=N&quiet=Q -> returns once the tree has not changed for Q ms (default 150; max N ms);
  *                       while windows differ from what the client last saw, the pixels too
  *   GET /change?ms=N -> returns as soon as the tree differs from the last one /tree served (max N ms):
@@ -209,10 +209,14 @@ public class Agent extends Instrumentation {
 
     private String tree(UiAutomation ui) {
         boolean ime = false;
+        int imeTop = 0;  // where the keyboard starts: gestures on the page must stay above it
         List<AccessibilityWindowInfo> windows = ui.getWindows();
         for (AccessibilityWindowInfo w : windows) {
             if (w.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
                 ime = true;
+                Rect r = new Rect();
+                w.getBoundsInScreen(r);
+                imeTop = r.top;
             }
         }
         // The accessibility cache can miss a WebView's change events; never serve a stale tree.
@@ -223,6 +227,7 @@ public class Agent extends Instrumentation {
         StringBuilder sb = new StringBuilder();
         sb.append("<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>");
         sb.append("<hierarchy rotation=\"").append(rotation()).append("\" ime=\"").append(ime)
+                .append("\" ime-top=\"").append(imeTop)
                 .append("\" package=\"").append(root == null ? "" : esc(root.getPackageName())).append("\">");
         if (root != null) {
             node(root, 0, sb);

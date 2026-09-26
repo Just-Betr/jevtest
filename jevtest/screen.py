@@ -46,6 +46,12 @@ class Screen:
     height: int
     elements: list[Element] = field(default_factory=list)
     keyboard_visible: bool = False
+    keyboard_top: int = 0  # y where the on-screen keyboard starts (0 = none)
+
+    @property
+    def content_height(self) -> int:
+        """The part of the screen not covered by the keyboard: where page gestures belong."""
+        return self.keyboard_top if self.keyboard_visible and 0 < self.keyboard_top < self.height else self.height
 
     def __post_init__(self):
         for i, el in enumerate(self.elements, 1):

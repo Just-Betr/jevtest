@@ -27,16 +27,18 @@ ACTIONS = {
     "swipe_right_on": "Swipe right on one element.",
     "type": "Type one of the goal's quoted values into a text field.",
     "clear": "Erase the existing text in a text field.",
-    "scroll_down": "Scroll down: the element the goal needs is not on screen and may be further down.",
+    "scroll_down": "Scroll down: the element the goal needs is not in `screen` and may be further down "
+                   "(or under the keyboard).",
     "scroll_up": "Scroll up: the element the goal needs is not on screen and may be further up.",
     "scroll_left": "Scroll left to reveal content to the left.",
     "scroll_right": "Scroll right to reveal content to the right.",
     "back": "Go back to the previous screen, or dismiss the current dialog or menu.",
     "press_enter": "Press the Enter / Return key to submit what was typed.",
-    "hide_keyboard": "Close the on-screen keyboard because it covers something the goal needs.",
+    "hide_keyboard": "Close the on-screen keyboard. It covers the lower part of the screen, so an element the goal "
+                     "needs that is not in `screen` may be hidden under it.",
     "wait": "Wait: the screen is still loading or animating.",
-    "impossible": "The goal cannot be achieved: nothing on this screen moves toward it and "
-                  "scrolling or going back will not help.",
+    "impossible": "The goal cannot be achieved at all: the keyboard is closed, and neither scrolling nor going "
+                  "back could reveal what the goal needs.",
 }
 TOUCH = {"tap", "double_tap", "long_press", "swipe_left_on", "swipe_right_on"}
 

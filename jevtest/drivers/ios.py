@@ -110,7 +110,8 @@ def parse_tree(data: dict) -> Screen:
         if key not in seen:
             seen.add(key)
             elements.append(el)
-    return Screen(width=w, height=h, elements=elements, keyboard_visible=data.get("keyboard", False))
+    return Screen(width=w, height=h, elements=elements, keyboard_visible=data.get("keyboard", False),
+                  keyboard_top=int(data.get("keyboard_top", 0)))
 
 
 def http_post(url: str, body: dict, timeout: float) -> dict:

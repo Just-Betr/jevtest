@@ -105,7 +105,7 @@ def test_parse_webview_tree():
 
 
 def test_parse_rules():
-    data = {"width": 100, "height": 200, "keyboard": True, "running": True, "elements": [
+    data = {"width": 100, "height": 200, "keyboard": True, "keyboard_top": 150, "elements": [
         {"type": "application", "label": "App", "x": 0, "y": 0, "w": 100, "h": 200},
         {"type": "other", "label": "", "x": 0, "y": 0, "w": 100, "h": 200},
         {"type": "other", "label": "Card", "x": 0, "y": 0, "w": 50, "h": 50},
@@ -134,7 +134,7 @@ def test_parse_rules():
     assert go.bounds == (0, 190, 40, 200) and go.enabled is False and go.clickable and go.resource_id == "go"
     assert s.elements[2].focused and s.elements[5].checked is True
     assert [e.value for e in s.elements if e.editable] == ["a@b.c", "typed", "•••"]
-    assert s.keyboard_visible
+    assert s.keyboard_visible and s.keyboard_top == 150
 
 
 # --- simulators -------------------------------------------------------------------------------------

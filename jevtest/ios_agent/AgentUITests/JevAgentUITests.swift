@@ -272,6 +272,7 @@ final class JevAgentUITests: XCTestCase {
             "elements": out,
             "width": app.frame.size.width, "height": app.frame.size.height,
             "keyboard": app.keyboards.count > 0,
+            "keyboard_top": app.keyboards.count > 0 ? app.keyboards.firstMatch.frame.minY : 0,
         ]
         return (reply, parts.joined(separator: "\n"))
     }

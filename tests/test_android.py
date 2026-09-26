@@ -294,6 +294,16 @@ def test_screen_reads_the_agent_tree(drv, agent):
     assert agent.paths() == ["/tree"]
 
 
+def test_page_scrolls_stay_above_the_keyboard(drv, adb, agent):
+    keyboard_up = '<hierarchy rotation="0" ime="true" ime-top="1400"'
+    agent.replies["/tree"] = LOGIN.replace('<hierarchy rotation="0"', keyboard_up)
+    s = drv.screen()
+    assert s.keyboard_top == 1400
+    drv.scroll("down", screen=s)
+    drag = adb.shell()[-1]
+    assert drag.startswith("input motionevent DOWN 540 1120;") and drag.endswith("UP 540 280")  # all above y=1400
+
+
 def test_screen_in_landscape_swaps_size(drv, agent):
     agent.replies["/tree"] = LOGIN.replace('rotation="0"', 'rotation="1"')
     s = drv.screen()
