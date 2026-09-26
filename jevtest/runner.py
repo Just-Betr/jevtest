@@ -308,9 +308,9 @@ class Runner:
     def act_scroll_to(self, step, _):
         """Scroll until the text is on screen: matched in code, like `see:` (a model asked whether
         absent text is there tends to pick something similar)."""
-        direction = step.opts.get("direction", "down")
+        direction = step.opts["direction"]
         wanted = self.value(step.value).lower()
-        for _i in range(step.opts.get("max_scrolls", 15)):
+        for _i in range(step.opts.get("max_scrolls", self.s.max_scrolls)):
             screen = self.screen()
             if any(wanted in t.lower() for t in screen.texts()):
                 return None

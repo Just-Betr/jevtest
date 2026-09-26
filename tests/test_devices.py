@@ -1,7 +1,8 @@
 """Agent contract tests on a real emulator / simulator (the Swift and Java agents can't be faked).
 
-Skipped unless JEVTEST_DEVICE=android or JEVTEST_DEVICE=ios, with the demo app built:
-    JEVTEST_DEVICE=android pytest tests/test_devices.py
+Skipped unless JEVTEST_DEVICE (android or ios) and JEVTEST_DEVICE_NAME (the exact device name) are set,
+with the demo app built:
+    JEVTEST_DEVICE=android JEVTEST_DEVICE_NAME=emulator-5554 pytest tests/test_devices.py
 """
 
 import os
@@ -11,17 +12,19 @@ from pathlib import Path
 import pytest
 
 PLATFORM = os.environ.get("JEVTEST_DEVICE")
+NAME = os.environ.get("JEVTEST_DEVICE_NAME")
 DEMO = Path(__file__).parent.parent / "demo_app/build"
 APPS = {"android": DEMO / "app/outputs/flutter-apk/app-debug.apk",
         "ios": DEMO / "ios_sim/Build/Products/Debug-iphonesimulator/Runner.app"}
 
-pytestmark = pytest.mark.skipif(PLATFORM not in APPS, reason="set JEVTEST_DEVICE=android|ios to run on a device")
+pytestmark = pytest.mark.skipif(PLATFORM not in APPS or not NAME,
+                                reason="set JEVTEST_DEVICE=android|ios and JEVTEST_DEVICE_NAME to run on a device")
 
 
 @pytest.fixture(scope="module")
 def device():
     from jevtest.cli import make_driver
-    d = make_driver(PLATFORM, None)
+    d = make_driver(PLATFORM, NAME, "")  # a simulator or emulator: no signing team
     d.install(APPS[PLATFORM])
     yield d
     d.close()

@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from jevtest.drivers.base import DriverError, cache_dir, digest, run, start_process, stop_process
+from jevtest.drivers.base import DriverError, cache_dir, digest, log_errors, run, start_process, stop_process
 
 
 def py(code):
@@ -55,8 +55,15 @@ def test_start_process_returns_when_ready(tmp_path):
 
 
 def test_start_process_reports_an_early_exit(tmp_path):
-    with pytest.raises(DriverError, match="exited: .*boom"):
+    with pytest.raises(DriverError, match=r"(?s)exited before it was ready. Its log says:\n  boom\nFull log: .*a.log"):
         start_process(py("print('boom')"), ready="READY", log=tmp_path / "a.log", timeout=10)
+
+
+def test_log_errors_shows_the_error_lines(tmp_path):
+    log = tmp_path / "a.log"
+    log.write_text("building\n    t = 1.0s Ignoring failure to get hierarchy\nTesting failed:\n\terror: no signing\n"
+                   "Testing failed:\nnoise\n")
+    assert log_errors(log) == f"Its log says:\n  Testing failed:\n  error: no signing\nFull log: {log}"
 
 
 def test_start_process_times_out(tmp_path):

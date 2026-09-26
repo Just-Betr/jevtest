@@ -4,7 +4,9 @@ import urllib.error
 
 import pytest
 
-from jevtest.jev import DEFAULT_MODEL, Jev, JevError, choice, noul
+from jevtest.jev import Jev, JevError, choice, noul
+
+MODEL = "typesafe/jev-1.13"
 
 Q = {"q": choice("pick", {"a": None, "b": None})}
 GOOD = {"model": "typesafe/jev-1.13-x", "answers": {"q": {"type": "choice", "choice": "a"}},
@@ -45,8 +47,11 @@ def http_error(code, body=b"nope"):
 
 def client(*outcomes, **kw):
     slept = []
-    j = Jev(api_key="k", sleep=slept.append, urlopen=opener(*outcomes), **kw)
+    j = Jev(MODEL, "k", sleep=slept.append, urlopen=opener(*outcomes), log=LOGGED.append, **kw)
     return j, slept
+
+
+LOGGED: list[str] = []
 
 
 def test_question_builders():
@@ -60,7 +65,7 @@ def test_success_records_call():
     req, timeout = j._urlopen.seen[0]
     assert req.full_url.endswith("/api/v1/systemone")
     assert req.get_header("Authorization") == "Bearer k"
-    assert json.loads(req.data) == {"model": DEFAULT_MODEL, "state": {"s": 1}, "questions": Q}
+    assert json.loads(req.data) == {"model": MODEL, "state": {"s": 1}, "questions": Q}
     assert timeout == 30 and not slept
     call = j.calls[0]
     assert call["model"] == "typesafe/jev-1.13-x" and call["usage"]["cost"] == 0.1 and call["ms"] >= 0
@@ -73,9 +78,12 @@ def test_missing_usage_is_empty_dict():
 
 
 def test_retries_rate_limits_then_succeeds():
+    LOGGED.clear()
     j, slept = client(http_error(429), http_error(529), GOOD)
     assert j.ask("s", Q) == GOOD["answers"]
     assert slept == [0.5, 1.0]
+    assert LOGGED == ["Jev HTTP 429: trying again in 0.5s (retry 1 of 4)",
+                      "Jev HTTP 529: trying again in 1s (retry 2 of 4)"]
 
 
 def test_retries_network_errors_then_succeeds():
@@ -118,12 +126,13 @@ def test_answers_must_match_questions(reply):
     assert not j.calls
 
 
-def test_key_from_environment(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")
-    assert Jev().api_key == "env-key"
+def test_missing_key_is_not_looked_up_elsewhere(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")  # only the key it is given counts
+    with pytest.raises(JevError, match="OPENROUTER_API_KEY is not set: put it in the .env next to the test file"):
+        Jev(MODEL, None)
 
 
-def test_missing_key(monkeypatch):
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    with pytest.raises(JevError, match="OPENROUTER_API_KEY"):
-        Jev()
+def test_retries_are_printed(capsys):
+    j = Jev(MODEL, "k", sleep=lambda s: None, urlopen=opener(http_error(503), GOOD))
+    j.ask("s", Q)
+    assert "Jev HTTP 503: trying again in 0.5s (retry 1 of 4)" in capsys.readouterr().err

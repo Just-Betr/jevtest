@@ -1,0 +1,127 @@
+# Getting started
+
+From nothing to a passing test in about ten minutes.
+
+## 1. Install
+
+jevtest needs Python 3.10 or newer.
+
+```bash
+pip install jevtest
+```
+
+Then the platform tools for the apps you test:
+
+=== "Android"
+
+    - The **Android SDK** with platform-tools, build-tools and one platform (Android Studio installs all three), and a **JDK** (`javac`).
+    - `bundletool` on your `PATH` if you test `.aab` bundles.
+    - A running emulator or a phone with USB debugging on. Check with `adb devices`.
+
+    The first run builds jevtest's 12 KB on-device agent with the SDK's own tools (a few seconds, then cached in `~/.cache/jevtest`).
+
+=== "iOS"
+
+    - **Xcode** with the iOS platform installed.
+    - A **booted simulator** (`xcrun simctl list devices booted`), or a connected iPhone ([Real phones](guides/real-devices.md)).
+
+    The first run builds jevtest's small XCUITest agent (about a minute, then cached in `~/.cache/jevtest`).
+
+jevtest only tests. It never boots, shuts down or reconfigures a device: start the emulator or simulator yourself (or in CI), then run.
+
+## 2. Get a Jev API key
+
+jevtest uses exactly one model: TypeSafe's **Jev**, through OpenRouter. Create a key at [openrouter.ai/keys](https://openrouter.ai/keys).
+
+Put it in a `.env` file **next to your test file** (and keep `.env` out of git):
+
+```bash title=".env"
+OPENROUTER_API_KEY=sk-or-...
+```
+
+Or set it in the environment, as you would for CI secrets. If both set it to different values, jevtest stops and tells you, rather than picking one.
+
+!!! tip "A recorded run needs no key"
+    Once a run is recorded in the lockfile, `--lock frozen` replays it with no key and no network. See [How it works](how-it-works.md#the-lockfile).
+
+## 3. Write a test file
+
+Find your device's exact name:
+
+```console
+$ adb devices
+List of devices attached
+emulator-5554   device
+```
+
+```yaml title="tests.yaml"
+app: build/app-debug.apk                  # your build, relative to this file
+
+device:
+  android: emulator-5554                  # exact serial, model or AVD name
+
+settings:                                 # every value is required: nothing is assumed
+  model: typesafe/jev-1.13
+  max_actions: 8                          # Jev actions allowed per `do:` step
+  max_scrolls: 15                         # scrolls a `scroll_to:` may make
+  timeout: 10                             # seconds checks and lookups keep trying
+  settle: 3                               # most seconds to wait for the screen to stop changing
+  threshold: 0.5                          # Jev's yes-probability an `expect:` needs
+
+tests:
+  - name: App opens on the sign-in screen
+    fresh: true                           # start from a clean install
+    steps:
+      - expect: The sign in screen is showing
+        see: Sign in
+```
+
+## 4. Run it
+
+```bash
+jevtest run tests.yaml --lock record --out results
+```
+
+- `--lock record` uses decisions already recorded in `tests.lock.json` and asks Jev for anything new, recording the answer.
+- `--out results` is where reports, JUnit XML and failure screenshots go (each run gets its own timestamped folder).
+
+Both flags are required, so every run says how it treats the lockfile and where its results go.
+
+```console
+jevtest 0.3.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: record
+
+▶ App opens on the sign-in screen
+  ✓ expect: The sign in screen is showing — Jev 0.98
+  ✓ see: Sign in
+  PASS App opens on the sign-in screen (2.5s)
+
+1/1 passed in 2s
+Jev: 1 decision, 0 from lockfile, 1 asked live in 0.2s (10% of run time), $0.0000
+Results: results/20260925-205537/android/emulator-5554
+```
+
+Commit `tests.yaml` and `tests.lock.json`. Every recorded screen now gets the same decision on every run.
+
+- **Everyday, and in CI:** `--lock record`. Recorded screens replay exactly; only screens the app hasn't shown before go to Jev.
+- **Exact replay:** `--lock frozen`. Every decision must come from the lockfile, so no key or network is needed, and a screen that isn't recorded fails the run. Good for release gates and reproducing a failure.
+
+See [Which lock mode in CI?](guides/ci.md#which-lock-mode-in-ci)
+
+## 5. Try the demo app
+
+The repository has a Flutter demo app with 17 tests covering every kind of step: sign-in, lists, swipes, dialogs, a native screen, a camera permission prompt and an in-app web app.
+
+```bash
+git clone https://github.com/Just-Betr/jevtest && cd jevtest
+cd demo_app && flutter build apk --debug && cd ..
+cp examples/.env.example examples/.env                  # then set your key and device names
+jevtest run examples/demo.yaml --lock frozen --out results
+```
+
+Building the iOS demo is in [Contributing](contributing.md#demo-app).
+
+## Next
+
+- [Writing tests](writing-tests.md): steps, checks, composing tests.
+- [Large suites](guides/large-suites.md): secrets, shared tests, folders, several devices at once.
+- [CI](guides/ci.md): GitHub Actions setup.

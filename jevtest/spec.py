@@ -3,6 +3,9 @@
 Everything is checked here, before any device work: a bad test file fails
 immediately with the step and the reason, never halfway through a run.
 
+Nothing is assumed. Every value a run uses is written in the file (or in the
+.env next to it); anything missing, misspelled or of the wrong type is an error.
+
 A step is one action, then optional checks on the result:
 
     - do: Sign in with email "a@b.c" and password "pw"     <- action (Jev works it out)
@@ -12,7 +15,6 @@ A step is one action, then optional checks on the result:
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -22,7 +24,7 @@ import yaml
 ANDROID_EXT = {".apk", ".aab"}
 IOS_EXT = {".app", ".zip", ".ipa"}
 
-# Actions with no value: a bare string ("- back") or a key ("- back:").
+# Actions with no value: written as a bare word ("- back") or a key ("- back:").
 BARE = {"launch", "stop", "restart", "clear_data", "reinstall", "back", "home", "hide_keyboard"}
 TEXT_ACTIONS = {"do", "use", "tap", "double_tap", "long_press", "clear", "scroll_to", "key",
                 "open_url", "grant", "screenshot"}
@@ -30,11 +32,13 @@ ACTIONS = TEXT_ACTIONS | {"wait", "background", "scroll", "swipe", "type", "rota
                           "dark_mode", "network"}
 CHECKS = {"expect", "see", "not_see"}
 OPTIONS = {"timeout", "max_actions", "max_scrolls", "target", "direction", "text", "into"}
+# Which actions each option belongs to. `timeout` is for steps that wait for something (below).
+OPTION_ACTIONS = {"max_actions": {"do"}, "max_scrolls": {"scroll_to"}, "direction": {"scroll_to"},
+                  "target": {"swipe"}, "into": {"type"}, "text": {"type"}}
+LOCATING = {"tap", "double_tap", "long_press", "clear"}  # find an element first, so they can time out
 
 DIRECTIONS = ("up", "down", "left", "right")
 ORIENTATIONS = ("portrait", "landscape", "landscape_right", "portrait_upside_down")
-ON = {"on", "true", "yes", "enable", "enabled", "dark"}
-OFF = {"off", "false", "no", "disable", "disabled", "light"}
 
 
 VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -51,12 +55,17 @@ def fill(text: str, variables: dict[str, str]) -> str:
 
 @dataclass
 class Settings:
-    model: str = "typesafe/jev-1.13"
-    max_actions: int = 8       # Jev actions allowed per `do:` step
-    timeout: float = 10.0      # seconds a check / element lookup keeps retrying
-    settle: float = 3.0        # most seconds to wait for the UI to go idle after an action
-    threshold: float = 0.5     # Jev yes-probability an `expect:` needs to pass
-    ios_team: str = ""         # Apple team to sign with on a real iPhone; only needed with several teams
+    """All required in the file, except ios_team, which only a real iPhone needs."""
+    model: str                 # the Jev model; the lockfile is per model
+    max_actions: int           # Jev actions allowed per `do:` step
+    max_scrolls: int           # scrolls a `scroll_to:` may make
+    timeout: float             # seconds a check / element lookup keeps retrying
+    settle: float              # most seconds to wait for the UI to go idle after an action
+    threshold: float           # Jev yes-probability an `expect:` needs to pass
+    ios_team: str = ""         # Apple team that signs jevtest's agent for a real iPhone ("" = not given)
+
+
+REQUIRED_SETTINGS = ("model", "max_actions", "max_scrolls", "timeout", "settle", "threshold")
 
 
 @dataclass
@@ -90,7 +99,7 @@ class Test:
 
     name: str
     steps: list[Step]
-    fresh: bool = True
+    fresh: bool  # start from a clean install (true) or carry on from the previous test (false)
 
 
 @dataclass
@@ -99,8 +108,9 @@ class Spec:
     apps: dict[str, Path]      # platform -> build, in the order the file lists them
     tests: list[Test]
     settings: Settings
-    devices: dict[str, list[str]] = field(default_factory=dict)  # platform -> device names; none = the running one
-    variables: dict[str, str] = field(default_factory=dict)      # ${NAME} -> value, from the environment / .env
+    devices: dict[str, list[str]]  # platform -> device names (every platform in apps has at least one)
+    variables: dict[str, str]      # ${NAME} -> value, from the .env next to the file / the environment
+    includes: list[Path] = field(default_factory=list)  # library files it includes, directly or not
 
 
 def platform_of(path: Path) -> str:
@@ -114,12 +124,25 @@ def platform_of(path: Path) -> str:
 
 # --- value parsing -------------------------------------------------------------
 
+def _kind(value) -> str:
+    if value is None:
+        return "nothing"
+    return {bool: "true/false", int: "a number", float: "a number", str: "text", list: "a list",
+            dict: "a mapping"}.get(type(value), type(value).__name__)
+
+
+def _looks_numeric(text: str) -> bool:
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
+
+
 def _number(value, what: str, minimum: float = 0) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        try:
-            value = float(str(value).strip())
-        except ValueError:
-            raise SpecError(f"{what} must be a number, got {value!r}") from None
+        hint = " (remove the quotes)" if isinstance(value, str) and _looks_numeric(value) else ""
+        raise SpecError(f"{what} must be a number, got {value!r}{hint}")
     if value != value or value in (float("inf"), float("-inf")):
         raise SpecError(f"{what} must be a finite number, got {value}")
     if value < minimum:
@@ -135,58 +158,53 @@ def _count(value, what: str) -> int:
 
 
 def _text(value, what: str) -> str:
-    if value is None or isinstance(value, (bool, dict, list)) or str(value).strip() == "":
-        raise SpecError(f"{what} needs a text value")
-    return str(value).strip()
+    if not isinstance(value, str):
+        hint = f" (to use {value!r} as text, put it in quotes)" if isinstance(value, (int, float, bool)) else ""
+        raise SpecError(f"{what} needs text, got {_kind(value)}{hint}")
+    if value.strip() == "" or value != value.strip():
+        raise SpecError(f"{what} needs text without leading or trailing spaces, got {value!r}")
+    return value
 
 
 def _choice(value, allowed: tuple, what: str) -> str:
-    v = str(value).strip().lower()
-    if v not in allowed:
+    if value not in allowed:
         raise SpecError(f"{what} must be one of {', '.join(allowed)}; got {value!r}")
-    return v
+    return value
 
 
 def _on_off(value, what: str) -> bool:
-    if isinstance(value, bool):
-        return value
-    v = str(value).strip().lower()
-    if v in ON:
-        return True
-    if v in OFF:
-        return False
-    raise SpecError(f"{what} must be on or off, got {value!r}")
+    if not isinstance(value, bool):
+        raise SpecError(f"{what} must be on or off (true or false), got {value!r}")
+    return value
 
 
 def _location(value) -> tuple[float, float]:
-    parts = value if isinstance(value, (list, tuple)) else str(value).split(",")
-    if len(parts) != 2:
-        raise SpecError(f"location must be 'lat,lon', got {value!r}")
-    lat, lon = (_number(p, "location", minimum=-180) for p in parts)
-    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+    if not isinstance(value, list) or len(value) != 2:
+        raise SpecError(f"location must be [latitude, longitude], e.g. [37.77, -122.41]; got {value!r}")
+    lat, lon = _number(value[0], "latitude", minimum=-90), _number(value[1], "longitude", minimum=-180)
+    if lat > 90 or lon > 180:
         raise SpecError(f"location {lat:g},{lon:g} is out of range")
     return lat, lon
 
 
-def _value(kind: str, value, opts: dict):
-    """Validate and normalize one action's value (and its options)."""
+def _value(kind: str, value):
+    """Validate and normalize one action's value."""
     what = f"'{kind}'"
     if kind in BARE:
+        if value is not None:
+            raise SpecError(f"{what} takes no value, got {value!r}")
         return None
     if kind in TEXT_ACTIONS:
         return _text(value, what)
     if kind in ("wait", "background"):
         return _number(value, what)
-    if kind == "scroll":
+    if kind in ("scroll", "swipe"):
         return _choice(value, DIRECTIONS, what)
-    if kind == "swipe":
-        direction = value if value is not None else opts.pop("direction", None)
-        return _choice(direction, DIRECTIONS, what)
     if kind == "type":
-        text = opts.pop("text", value)
-        if text is None or isinstance(text, (bool, dict, list)):
-            raise SpecError("'type' needs text: `type: hello` or `type: {text: hello, into: Email}`")
-        return str(text)
+        if not isinstance(value, str):
+            raise SpecError(f"'type' needs text (`type: hello` or `type: {{text: hello, into: Email}}`), "
+                            f"got {_kind(value)}")
+        return value  # typed exactly as written, spaces included
     if kind == "rotate":
         return _choice(value, ORIENTATIONS, what)
     if kind == "location":
@@ -194,7 +212,17 @@ def _value(kind: str, value, opts: dict):
     return _on_off(value, what)  # dark_mode, network
 
 
-def _options(opts: dict) -> dict:
+def _options(kind: str | None, opts: dict, has_checks: bool) -> dict:
+    """Check each option belongs to this action and has the right type."""
+    for k in opts:
+        if k == "timeout":
+            waits = has_checks or kind in LOCATING or (kind == "type" and "into" in opts) \
+                or (kind == "swipe" and "target" in opts)
+            if not waits:
+                raise SpecError("timeout only applies to a step that finds an element or has checks")
+        elif kind not in OPTION_ACTIONS[k]:
+            owners = " / ".join(sorted(OPTION_ACTIONS[k]))
+            raise SpecError(f"`{k}` belongs to {owners}, not to {kind or 'a checks-only step'}")
     out = dict(opts)
     if "timeout" in out:
         out["timeout"] = _number(out["timeout"], "timeout")
@@ -203,20 +231,24 @@ def _options(opts: dict) -> dict:
             out[k] = _count(out[k], k)
     if "direction" in out:
         out["direction"] = _choice(out["direction"], DIRECTIONS, "direction")
-    for k in ("target", "into", "text"):
+    for k in ("target", "into"):
         if k in out:
             out[k] = _text(out[k], k)
+    if kind == "scroll_to" and "direction" not in out:
+        raise SpecError("'scroll_to' needs `direction:` (up, down, left or right)")
     return out
 
 
 def parse_step(raw) -> Step:
     if isinstance(raw, str):
-        word = raw.strip()
-        if not word:
+        if not raw.strip():
             raise SpecError("Empty step")
-        return Step(word, raw=raw) if word in BARE else Step("do", word, raw=raw)
+        if raw not in BARE:
+            raise SpecError(f"Unknown step {raw!r}. A bare word must be one of {', '.join(sorted(BARE))}; "
+                            f"for a plain-English goal write `- do: {raw.strip()}`")
+        return Step(raw, raw=raw)
     if not isinstance(raw, dict):
-        raise SpecError(f"Step must be a string or a mapping, got {raw!r}")
+        raise SpecError(f"Step must be an action word or a mapping, got {raw!r}")
 
     unknown = set(raw) - BARE - ACTIONS - CHECKS - OPTIONS
     if unknown:
@@ -235,47 +267,54 @@ def parse_step(raw) -> Step:
             checks += [(k, _text(v, f"'{k}'")) for v in values]
 
     opts = {k: v for k, v in raw.items() if k in OPTIONS}
+    if "text" in opts:
+        raise SpecError("`text` goes inside type: `type: {text: hello, into: Email}`")
     if not actions:
         if not checks:
             raise SpecError(f"Step {raw!r} has no action or check")
-        return Step(None, opts=_options(opts), checks=checks, raw=raw)
+        return Step(None, opts=_options(None, opts, True), checks=checks, raw=raw)
 
     kind = actions[0]
     value = raw[kind]
-    if isinstance(value, dict):  # `type: {text: .., into: ..}` form
-        bad = set(value) - OPTIONS
+    if kind == "type" and isinstance(value, dict):  # `type: {text: .., into: ..}`
+        bad = set(value) - {"text", "into"}
         if bad:
-            raise SpecError(f"Step {raw!r} has unknown keys: {', '.join(sorted(map(str, bad)))}")
-        opts.update(value)
-        value = None
-    value = _value(kind, value, opts)
-    return Step(kind, value, _options(opts), checks, raw)
+            raise SpecError(f"type has unknown keys: {', '.join(sorted(map(str, bad)))} (it takes text and into)")
+        if "text" not in value:
+            raise SpecError("type needs `text:`: `type: {text: hello, into: Email}`")
+        if "into" in opts:
+            raise SpecError("`into` is given twice; put it inside type: {text: .., into: ..}")
+        value = dict(value)
+        opts.update({k: v for k, v in value.items() if k == "into"})
+        value = value["text"]
+    return Step(kind, _value(kind, value), _options(kind, opts, bool(checks)), checks, raw)
 
 
 # --- file ----------------------------------------------------------------------
 
 def _settings(raw) -> Settings:
+    example = "settings: {model: typesafe/jev-1.13, max_actions: 8, max_scrolls: 15, timeout: 10, settle: 3, " \
+              "threshold: 0.5}"
     if raw is None:
-        return Settings()
+        raise SpecError(f"Missing `settings:`. Every run's limits are written in the file, e.g. {example}")
     if not isinstance(raw, dict):
-        raise SpecError("`settings` must be a mapping")
+        raise SpecError(f"`settings` must be a mapping, e.g. {example}")
     unknown = set(raw) - {f.name for f in fields(Settings)}
     if unknown:
         raise SpecError(f"Unknown settings: {', '.join(sorted(map(str, unknown)))}")
-    s = Settings()
-    if "model" in raw:
-        s.model = _text(raw["model"], "settings.model")
+    missing = [k for k in REQUIRED_SETTINGS if k not in raw]
+    if missing:
+        raise SpecError(f"Missing settings: {', '.join(missing)} (all of {', '.join(REQUIRED_SETTINGS)} are required)")
+    s = Settings(model=_text(raw["model"], "settings.model"),
+                 max_actions=_count(raw["max_actions"], "settings.max_actions"),
+                 max_scrolls=_count(raw["max_scrolls"], "settings.max_scrolls"),
+                 timeout=_number(raw["timeout"], "settings.timeout"),
+                 settle=_number(raw["settle"], "settings.settle"),
+                 threshold=_number(raw["threshold"], "settings.threshold"))
+    if not 0 < s.threshold < 1:
+        raise SpecError("settings.threshold must be between 0 and 1")
     if "ios_team" in raw:
         s.ios_team = _text(raw["ios_team"], "settings.ios_team")
-    if "max_actions" in raw:
-        s.max_actions = _count(raw["max_actions"], "settings.max_actions")
-    for name in ("timeout", "settle"):
-        if name in raw:
-            setattr(s, name, _number(raw[name], f"settings.{name}"))
-    if "threshold" in raw:
-        s.threshold = _number(raw["threshold"], "settings.threshold")
-        if not 0 < s.threshold < 1:
-            raise SpecError("settings.threshold must be between 0 and 1")
     return s
 
 
@@ -297,23 +336,28 @@ def _apps(raw, base: Path) -> dict[str, Path]:
 
 def _devices(raw, apps: dict[str, Path], variables: dict[str, str]) -> dict[str, list[str]]:
     """Which device(s) each platform runs on. Several devices share the tests and run at the same time."""
+    example = "{android: Pixel 4a, ios: iPhone 17 Pro}"
     if raw is None:
-        return {}
+        raise SpecError(f"Missing `device:`. Name the device for each platform in `app:`, e.g. {example}")
     if not isinstance(raw, dict):
-        raise SpecError("`device` must name a device per platform, e.g. {android: Pixel 4a, ios: iPhone 17 Pro}")
+        raise SpecError(f"`device` must name a device per platform, e.g. {example}")
     unknown = set(raw) - {"android", "ios"}
     if unknown:
         raise SpecError(f"`device` keys must be android and/or ios, got {', '.join(sorted(map(str, unknown)))}")
     devices = {}
     for plat, names in raw.items():
         if plat not in apps:
-            raise SpecError(f"`device` names a {plat} device, but `app` has no {plat} build")
+            raise SpecError(f"`device` names an {plat} device, but `app` has no {plat} build")
         names = names if isinstance(names, list) else [names]
         if not names:
             raise SpecError(f"device.{plat} needs at least one device")
         devices[plat] = [fill(_text(n, f"device.{plat}"), variables) for n in names]
         if len(set(devices[plat])) != len(devices[plat]):
             raise SpecError(f"device.{plat} lists a device twice")
+    missing = [p for p in apps if p not in devices]
+    if missing:
+        raise SpecError(f"`device` has no {' or '.join(missing)} device, "
+                        f"but `app` has an {' and '.join(missing)} build")
     return devices
 
 
@@ -338,25 +382,37 @@ def _link_uses(tests: list[Test]):
         visit(t, [])
 
 
-def _tests(raw, where: str) -> list[Test]:
+def _tests(raw, where: str, problems: list[str]) -> list[Test]:
+    """The tests under `tests:`. Each bad test adds its problem to `problems`, so all are reported."""
     if not isinstance(raw, list) or not raw:
-        raise SpecError(f"No tests found under `tests:` in {where}")
+        problems.append(f"No tests found under `tests:` in {where}")
+        return []
     tests = []
     for i, t in enumerate(raw, 1):
-        if not isinstance(t, dict) or not t.get("name") or "steps" not in t:
-            raise SpecError(f"Test #{i} in {where} needs a `name` and `steps`")
-        name = str(t["name"])
-        unknown = set(t) - {"name", "steps", "fresh"}
-        if unknown:
-            raise SpecError(f"Test '{name}' has unknown keys: {', '.join(sorted(map(str, unknown)))}")
-        if not isinstance(t["steps"], list) or not t["steps"]:
-            raise SpecError(f"Test '{name}' needs at least one step")
         try:
-            steps = [parse_step(s) for s in t["steps"]]
+            tests.append(_test(t, i, where))
         except SpecError as e:
-            raise SpecError(f"Test '{name}': {e}") from None
-        tests.append(Test(name=name, steps=steps, fresh=_on_off(t.get("fresh", True), "fresh")))
+            problems.append(str(e))
     return tests
+
+
+def _test(t, i: int, where: str) -> Test:
+    if not isinstance(t, dict) or "name" not in t or "steps" not in t or "fresh" not in t:
+        raise SpecError(f"Test #{i} in {where} needs `name`, `fresh` (true: start from a clean install, "
+                        "false: carry on from the previous test) and `steps`")
+    name = _text(t["name"], f"Test #{i} in {where}: name")
+    unknown = set(t) - {"name", "steps", "fresh"}
+    if unknown:
+        raise SpecError(f"Test '{name}' has unknown keys: {', '.join(sorted(map(str, unknown)))}")
+    if not isinstance(t["steps"], list) or not t["steps"]:
+        raise SpecError(f"Test '{name}' needs at least one step")
+    steps = []
+    for n, raw in enumerate(t["steps"], 1):
+        try:
+            steps.append(parse_step(raw))
+        except SpecError as e:
+            raise SpecError(f"Test '{name}', step {n}: {e}") from None
+    return Test(name=name, steps=steps, fresh=_on_off(t["fresh"], f"Test '{name}': fresh"))
 
 
 def _read(path: Path) -> dict:
@@ -365,7 +421,11 @@ def _read(path: Path) -> dict:
     except FileNotFoundError:
         raise SpecError(f"Test file not found: {path}") from None
     except yaml.YAMLError as e:
-        raise SpecError(f"{path.name} is not valid YAML: {e}") from None
+        hint = ""
+        if "${" in str(e):
+            hint = ('\nA value starting with ${ must be quoted inside { } or [ ]: {android: "${PHONE}"}, '
+                    'not {android: ${PHONE}}')
+        raise SpecError(f"{path.name} is not valid YAML: {e}{hint}") from None
     if not isinstance(data, dict):
         raise SpecError(f"{path.name} must be a YAML mapping")
     return data
@@ -412,25 +472,43 @@ def _variables(documents: list[dict], env) -> dict[str, str]:
     return {n: env[n] for n in names}
 
 
-def load(path: str | Path, env=None) -> Spec:
-    """Load a test file, plus the library files it includes. `env` supplies ${NAME} values."""
+def load(path: str | Path, env: dict[str, str]) -> Spec:
+    """Load a test file, plus the library files it includes. `env` supplies ${NAME} values.
+    Every problem in the file is reported at once, in file order."""
     path = Path(path).resolve()
     data = _read(path)
     unknown = set(data) - {"app", "device", "settings", "tests", "include"}
     if unknown:
-        raise SpecError(f"Unknown top-level keys: {', '.join(sorted(map(str, unknown)))}")
+        raise SpecError(f"Unknown top-level keys: {', '.join(sorted(map(str, unknown)))} "
+                        "(a test file has app, device, settings, include and tests)")
     libraries = _included(data, path, (path,))
-    variables = _variables([data] + [d for _, d in libraries], os.environ if env is None else env)
-    apps = _apps(_fill_all(data.get("app"), variables), path.parent)
-    tests = _tests(data.get("tests"), path.name)
-    shared = [t for lib, d in libraries for t in _tests(d.get("tests"), lib.name)]
+    variables = _variables([data] + [d for _, d in libraries], env)
+    problems: list[str] = []
+
+    def section(parse, *args):
+        try:
+            return parse(*args)
+        except SpecError as e:
+            problems.append(str(e))
+            return None
+
+    apps = section(_apps, _fill_all(data.get("app"), variables), path.parent)
+    devices = section(_devices, data.get("device"), apps, variables) if apps else None
+    settings = section(_settings, _fill_all(data.get("settings"), variables))
+    tests = _tests(data.get("tests"), path.name, problems)
+    shared = [t for lib, d in libraries for t in _tests(d.get("tests"), lib.name, problems)]
     names = [t.name for t in tests + shared]
     dupes = sorted({n for n in names if names.count(n) > 1})
     if dupes:
-        raise SpecError(f"Test names must be unique (across included files too): {', '.join(dupes)}")
-    _link_uses(tests + shared)
-    return Spec(path=path, apps=apps, tests=tests, settings=_settings(_fill_all(data.get("settings"), variables)),
-                devices=_devices(data.get("device"), apps, variables), variables=variables)
+        problems.append(f"Test names must be unique (across included files too): {', '.join(dupes)}")
+    if not problems:
+        section(_link_uses, tests + shared)
+    if len(problems) == 1:
+        raise SpecError(problems[0])
+    if problems:
+        raise SpecError(f"{path.name} has {len(problems)} problems:\n" + "\n".join(f"  - {p}" for p in problems))
+    return Spec(path=path, apps=apps, tests=tests, settings=settings, devices=devices, variables=variables,
+                includes=[lib for lib, _ in libraries])
 
 
 def _fill_all(value, variables: dict[str, str]):

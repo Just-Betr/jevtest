@@ -6,6 +6,7 @@
 
 tests:
   - name: Sign in
+    fresh: true
     steps:
       - do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}"
         expect: The home screen is showing

@@ -1,12 +1,13 @@
 """jevtest command line.
 
-  jevtest run tests.yaml [more.yaml | a-folder ...] [--test NAME] [-v]
+  jevtest run PATH... --lock MODE --out DIR [--test NAME] [-v]
 
 A test file says which app to test on which device(s) (`app:` and `device:`); jevtest runs its
-tests on each platform it lists. A folder runs every test file in it (files without `app:` are
-libraries for `include:` and are skipped). Several devices for a platform share its tests and run
+tests on each platform it lists. A folder runs every test file in it; any other YAML in it must be
+a library that one of those files includes. Several devices for a platform share its tests and run
 at the same time, as do the platforms. It uses devices that are already running (a phone, an
-emulator, a booted simulator); it does not start, stop or manage devices.
+emulator, a booted simulator); it does not start, stop or manage devices. Nothing is assumed:
+anything missing or wrong is an error that says what to fix.
 
 Exit codes: 0 all tests passed, 1 a test failed, 2 setup error, 130 interrupted.
 """
@@ -35,30 +36,44 @@ from .spec import Spec, SpecError, Test, is_test_file, load
 API_KEY = "OPENROUTER_API_KEY"
 
 
-def read_env(*dirs: Path) -> dict[str, str]:
-    """KEY=value lines from the .env files in `dirs` (later ones win), under the real environment."""
-    env: dict[str, str] = {}
-    for d in dirs:
-        f = d / ".env"
-        if not f.is_file():
+ENV_LINE = re.compile(r"(?:export )?([A-Za-z_][A-Za-z0-9_]*)=(.*)")
+
+
+def read_env(folder: Path) -> dict[str, str]:
+    """The environment plus the KEY=value lines of `folder`/.env. A name set in both to different
+    values is an error: which one is meant is not guessed."""
+    f = folder / ".env"
+    env = dict(os.environ)
+    if not f.is_file():
+        return env
+    seen: dict[str, str] = {}
+    for n, line in enumerate(f.read_text().splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
             continue
-        for line in f.read_text().splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.removeprefix("export ").split("=", 1)
-            env[key.strip()] = value.strip().strip("'\"")
-    return {**env, **os.environ}
+        m = ENV_LINE.fullmatch(line.strip())
+        if not m:
+            raise SpecError(f"{f}:{n} is not a KEY=value line")
+        key, value = m.groups()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        if key in seen:
+            raise SpecError(f"{f}:{n} sets {key} a second time")
+        if key in os.environ and os.environ[key] != value:
+            raise SpecError(f"{key} is set in the environment and in {f} to different values: "
+                            "remove one of them")
+        seen[key] = env[key] = value
+    return env
 
 
-def test_files(paths: list[str]) -> list[Path]:
-    """The files to run: files as given, and each folder's test files (sorted, hidden folders skipped)."""
+def test_files(paths: list[str]) -> tuple[list[Path], list[Path]]:
+    """The test files to run (as given, or every YAML file with `app:` in a folder, by name), and the
+    other YAML files found in the folders, which must turn out to be included libraries."""
     files: list[Path] = []
+    others: list[Path] = []
     for p in map(Path, paths):
         if p.is_dir():
-            found = sorted(f for f in p.rglob("*") if f.suffix in (".yaml", ".yml") and f.is_file()
-                           and not any(part.startswith(".") for part in f.relative_to(p).parts))
-            files += [f for f in found if is_test_file(f)]
+            for f in sorted(f for f in p.rglob("*") if f.suffix in (".yaml", ".yml") and f.is_file()):
+                (files if is_test_file(f) else others).append(f)
         elif p.exists():
             files.append(p)
         else:
@@ -66,10 +81,10 @@ def test_files(paths: list[str]) -> list[Path]:
     unique = list(dict.fromkeys(f.resolve() for f in files))
     if not unique:
         raise SpecError(f"No test files (YAML with `app:`) in {', '.join(paths)}")
-    return unique
+    return unique, [f.resolve() for f in others]
 
 
-def make_driver(platform: str, device: str | None, ios_team: str = ""):
+def make_driver(platform: str, device: str, ios_team: str):
     if platform == "android":
         from .drivers.android import AndroidDriver
         return AndroidDriver(device)
@@ -77,20 +92,12 @@ def make_driver(platform: str, device: str | None, ios_team: str = ""):
     return IOSDriver(device, team=ios_team)
 
 
-def lock_mode(args) -> str:
-    chosen = [m for m, on in (("frozen", args.frozen), ("refresh", args.refresh_lock),
-                              ("off", args.no_lock)) if on]
-    if len(chosen) > 1:
-        raise SpecError("Use only one of --frozen, --refresh-lock, --no-lock")
-    return chosen[0] if chosen else "record"
-
-
 @dataclass
 class Job:
     """Some of a file's tests, on one device."""
     spec: Spec
     platform: str
-    device: str | None
+    device: str
     out: Path
     name: str  # e.g. "login · android · Pixel 4a"
 
@@ -121,13 +128,15 @@ def slug(text: str) -> str:
 def plan(spec: Spec, out: Path, label: str) -> list[Job]:
     jobs = []
     for platform in spec.apps:
-        devices = spec.devices.get(platform, [None])
+        devices = spec.devices[platform]
         for device, tests in zip(devices, shard(spec.tests, len(devices)), strict=True):
-            if not tests:
-                continue  # more devices than tests
-            where = out / platform / slug(device) if len(devices) > 1 or device else out / platform
             name = " · ".join(filter(None, (label, platform, device)))
-            jobs.append(Job(dataclasses.replace(spec, tests=tests), platform, device, where, name))
+            if not tests:
+                print(f"[{name}] no tests left for this device ({len(devices)} devices, fewer groups of tests)",
+                      flush=True)
+                continue
+            jobs.append(Job(dataclasses.replace(spec, tests=tests), platform, device,
+                            out / platform / slug(device), name))
     return jobs
 
 
@@ -197,12 +206,17 @@ def run_jobs(jobs: list[Job], jev: LockedJev, verbose: bool, printer: Printer) -
 
 
 def cmd_run(args) -> int:
-    files = test_files(args.file)
+    files, others = test_files(args.file)
     root = Path(os.path.commonpath([f.parent for f in files]))
     loaded = []
     for f in files:
-        env = read_env(Path.cwd(), f.parent)
+        env = read_env(f.parent)
         loaded.append((load(f, env), env))
+    included = {lib for spec, _ in loaded for lib in spec.includes}
+    stray = [f for f in others if f not in included]
+    if stray:
+        raise SpecError(f"{', '.join(str(f) for f in stray)}: no `app:` and not included by any test file. "
+                        "Add `app:` to run it, include it from a test file, or move it out of the folder")
     if args.test:
         names = {t.name for spec, _ in loaded for t in spec.tests}
         missing = [n for n in args.test if n not in names]
@@ -215,7 +229,9 @@ def cmd_run(args) -> int:
         for app in spec.apps.values():
             if not app.exists():
                 raise SpecError(f"App not found: {app}")
-    mode = lock_mode(args)
+    mode = args.lock
+    if args.prune_lock and (args.test or mode == "off"):
+        raise SpecError("--prune-lock needs every test to run (no --test) and a lockfile (not --lock off)")
     out = Path(args.out) / time.strftime("%Y%m%d-%H%M%S")
     suites: list[tuple[str, dict]] = []
     for spec, env in loaded:  # one file at a time; its devices at the same time
@@ -228,6 +244,11 @@ def cmd_run(args) -> int:
             print(f"\n=== {spec.path.name} ===", flush=True)
         try:
             results = run_jobs(jobs, jev, args.verbose, Printer(parallel=len(jobs) > 1))
+            if args.prune_lock:
+                if any(r["failed"] for r in results):
+                    print(f"{jev.path.name}: not pruned, because a test failed", flush=True)
+                else:
+                    print(f"{jev.path.name}: pruned {jev.prune()} unused decision(s)", flush=True)
         finally:
             jev.save()
         suites += [("jevtest." + job.name.replace(" · ", "."), r) for job, r in zip(jobs, results, strict=True)]
@@ -249,7 +270,8 @@ def summary(results: dict, calls: list[dict], out: Path) -> str:
     share = f" ({jev_s / run_s:.0%} of run time)" if run_s else ""
     lines = [f"\n{results['passed']}/{total} passed in {run_s:.0f}s"]
     lines += [f"  FAILED {t['name']}: {t['failure']}" for t in results["tests"] if t["status"] != "pass"]
-    lines.append(f"Jev: {len(calls)} decisions, {len(calls) - len(live)} from lockfile, {len(live)} asked live"
+    lines.append(f"Jev: {len(calls)} decision{'' if len(calls) == 1 else 's'}, {len(calls) - len(live)} from lockfile, "
+                 f"{len(live)} asked live"
                  f" in {jev_s:.1f}s{share}, ${cost:.4f}")
     lines.append(f"Results: {out}")
     return "\n".join(lines)
@@ -261,14 +283,17 @@ def parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     r = sub.add_parser("run", help="run test files, or every test file in a folder")
-    r.add_argument("file", nargs="+", help="test files and/or folders")
-    r.add_argument("--test", action="append", help="only run this test (repeatable)")
-    r.add_argument("--out", default="jevtest-results", help="results folder")
+    r.add_argument("file", nargs="+", metavar="PATH", help="test files and/or folders of them")
+    r.add_argument("--test", action="append", metavar="NAME", help="only run this test (repeatable)")
+    r.add_argument("--lock", required=True, choices=["record", "frozen", "refresh", "off"],
+                   help="record: use recorded Jev decisions, ask Jev about new screens and record the answers; "
+                        "frozen: only recorded decisions, a new screen fails the run (no key or network needed); "
+                        "refresh: ask Jev again about everything and re-record; off: no lockfile")
+    r.add_argument("--out", required=True, metavar="DIR",
+                   help="results folder (each run adds a timestamped folder in it)")
+    r.add_argument("--prune-lock", action="store_true",
+                   help="after a run where every test passed, drop recorded decisions it didn't use")
     r.add_argument("-v", "--verbose", action="store_true", help="print every Jev question and answer")
-    r.add_argument("--frozen", action="store_true",
-                   help="only use recorded Jev decisions; fail on anything new (for CI)")
-    r.add_argument("--refresh-lock", action="store_true", help="ask Jev again and re-record every decision")
-    r.add_argument("--no-lock", action="store_true", help="don't read or write the lockfile")
     r.set_defaults(fn=cmd_run)
 
     return p

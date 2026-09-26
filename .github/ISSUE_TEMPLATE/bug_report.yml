@@ -1,0 +1,31 @@
+name: Bug report
+description: Something jevtest did wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: The test file (or the smallest part that shows it)
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: jevtest's output (with -v if it's about Jev's decisions)
+      render: console
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "`jevtest --version`, the platform and device (e.g. Android 13 on a Pixel 4a, iOS 27 simulator), the app framework"
+    validations:
+      required: true

@@ -183,23 +183,36 @@ final class JevAgentUITests: XCTestCase {
         case "/screenshot":
             return ["png": XCUIScreen.main.screenshot().pngRepresentation.base64EncodedString()]
         case "/location":
-            let lat = (body["lat"] as? Double) ?? 0, lon = (body["lon"] as? Double) ?? 0
+            guard let lat = body["lat"] as? Double, let lon = body["lon"] as? Double else {
+                return ["error": "/location needs lat and lon"]
+            }
             XCUIDevice.shared.location = XCUILocation(location: CLLocation(latitude: lat, longitude: lon))
         case "/open_url":
             guard let url = URL(string: (body["url"] as? String) ?? "") else { return ["error": "Not a URL"] }
             XCUIDevice.shared.system.open(url)
         case "/appearance":
-            XCUIDevice.shared.appearance = (body["dark"] as? Bool) == true ? .dark : .light
+            // With `raw`, set that appearance (to put back what was there); with neither, just report it.
+            if let dark = body["dark"] as? Bool {
+                XCUIDevice.shared.appearance = dark ? .dark : .light
+            } else if let raw = body["raw"] as? Int, let value = XCUIDevice.Appearance(rawValue: raw) {
+                XCUIDevice.shared.appearance = value
+            }
+            return ["raw": XCUIDevice.shared.appearance.rawValue]
         case "/home":
             XCUIDevice.shared.press(.home)
         case "/rotate":
-            let o = body["orientation"] as? String ?? "portrait"
+            // With `orientation` or `raw`, rotate; with neither, just report the orientation.
             let map: [String: UIDeviceOrientation] = [
                 "portrait": .portrait, "landscape": .landscapeLeft,
                 "landscape_right": .landscapeRight, "portrait_upside_down": .portraitUpsideDown,
             ]
-            guard let value = map[o] else { return ["error": "Unknown orientation '\(o)'"] }
-            XCUIDevice.shared.orientation = value
+            if let o = body["orientation"] as? String {
+                guard let value = map[o] else { return ["error": "Unknown orientation '\(o)'"] }
+                XCUIDevice.shared.orientation = value
+            } else if let raw = body["raw"] as? Int, let value = UIDeviceOrientation(rawValue: raw) {
+                XCUIDevice.shared.orientation = value
+            }
+            return ["raw": XCUIDevice.shared.orientation.rawValue]
         case "/back":
             // What a person taps: a button labelled "Back" (Flutter, React Native, UIKit), then a
             // native navigation bar's back button, and only then the edge-swipe gesture.

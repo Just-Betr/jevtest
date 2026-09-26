@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://just-betr.github.io/jevtest/
+    about: Setup, the test file, every step, CI and troubleshooting.

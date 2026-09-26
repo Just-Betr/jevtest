@@ -26,7 +26,8 @@ class Agent:
     """Stands in for the XCUITest agent's HTTP API."""
 
     def __init__(self):
-        self.replies: dict[str, object] = {"/status": {"ok": True}, "/state": {"state": 4}}
+        self.replies: dict[str, object] = {"/status": {"ok": True}, "/state": {"state": 4},
+                                           "/rotate": {"raw": 1}, "/appearance": {"raw": 1}}
         self.calls: list[tuple[str, dict]] = []
 
     def __call__(self, url, body, timeout):
@@ -102,7 +103,7 @@ def make_app(tmp_path, bundle_id="dev.demo", platforms=("iPhoneSimulator",), nam
 
 @pytest.fixture
 def drv(env, tmp_path):
-    d = IOSDriver()
+    d = IOSDriver("A", "")
     d.install(make_app(tmp_path))
     env[0].cmds.clear()
     env[1].calls.clear()
@@ -171,23 +172,32 @@ def test_simulators_sorted_newest_first(env):
         ("iPad Air", "iOS-26-5"), ("iPhone 17", "iOS-26-5"), ("iPhone 16", "iOS-18-0")]
 
 
-def test_uses_the_booted_simulator_and_never_boots_or_opens_one(env):
+def test_uses_the_named_booted_simulator_and_never_boots_or_opens_one(env):
     sim = env[0]
-    assert ios.find_target(None) == ios.Target("A", "iPhone 16", False)
+    assert ios.find_target("iPhone 16") == ios.Target("A", "iPhone 16", False)
     assert not any(" boot " in c or "open -a" in c for c in sim.cmds)
 
 
-def test_find_by_name_or_udid_must_be_booted(env):
-    assert ios.find_target("iphone 16").udid == "A"
+def test_find_by_exact_name_or_udid_and_it_must_be_booted(env):
     assert ios.find_target("A").udid == "A"
+    with pytest.raises(DriverError, match=r"called 'iphone 16' \(names are exact\). Running: iPhone 16 \(A\)"):
+        ios.find_target("iphone 16")
     with pytest.raises(DriverError, match="No booted simulator or connected iPhone called 'iPad Air'"):
         ios.find_target("iPad Air")  # exists, but is not booted
 
 
+def test_a_name_two_devices_share_is_an_error(env):
+    env[0].rules["list devices"] = json.dumps({"devices": {"com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
+        {"name": "iPhone 17 Pro", "udid": "X", "state": "Booted"},
+        {"name": "iPhone 17 Pro", "udid": "Y", "state": "Booted"}]}})
+    with pytest.raises(DriverError, match=r"Several devices are called 'iPhone 17 Pro' \(X, Y\): name one by its UDID"):
+        ios.find_target("iPhone 17 Pro")
+
+
 def test_find_with_nothing_running(env):
     env[0].rules["list devices"] = json.dumps({"devices": {}})
-    with pytest.raises(DriverError, match="No booted iOS simulator or connected iPhone"):
-        ios.find_target(None)
+    with pytest.raises(DriverError, match="called 'A' .*Running: none"):
+        ios.find_target("A")
 
 
 def test_free_port_is_usable():
@@ -223,7 +233,7 @@ def test_app_bundle_rejects_bad_input(tmp_path):
 
 def test_starts_agent_on_simulator(env):
     _, agent, procs = env
-    d = IOSDriver()
+    d = IOSDriver("A", "")
     cmd, ready, run_env = procs[0]
     assert cmd[:2] == ["xcodebuild", "test-without-building"] and cmd[-1] == "id=A"
     assert ready == "JEVTEST_AGENT_READY"  # returns the moment the agent says so, no polling
@@ -242,14 +252,14 @@ def test_agent_is_built_when_missing(env, monkeypatch, tmp_path):
             (out / "x.xctestrun").write_text("")
         return sim(cmd, **kw)
     monkeypatch.setattr(ios, "run", build)
-    IOSDriver()
+    IOSDriver("A", "")
     assert any("build-for-testing" in c for c in sim.cmds)
 
 
 def test_agent_build_without_output_fails(env, monkeypatch, tmp_path):
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "fresh"))
     with pytest.raises(DriverError, match="no .xctestrun"):
-        IOSDriver()
+        IOSDriver("A", "")
 
 
 
@@ -261,11 +271,11 @@ def test_agent_build_without_output_fails(env, monkeypatch, tmp_path):
 def test_requires_xcode(env, monkeypatch):
     monkeypatch.setattr(ios.shutil, "which", lambda n: None)
     with pytest.raises(DriverError, match="Xcode"):
-        IOSDriver()
+        IOSDriver("A", "")
 
 
 def test_close_stops_agent(env):
-    IOSDriver().close()
+    IOSDriver("A", "").close()
     assert env[2][-1] == ("stopped", "proc")
 
 
@@ -308,7 +318,7 @@ def test_http_post_roundtrip(monkeypatch):
 
 def test_install(env, tmp_path):
     sim = env[0]
-    d = IOSDriver()
+    d = IOSDriver("A", "")
     assert d.install(make_app(tmp_path)) == "dev.demo"
     assert any("simctl install A" in c for c in sim.cmds)
 
@@ -318,14 +328,14 @@ def test_install(env, tmp_path):
     ({"bundle_id": None}, "no CFBundleIdentifier")])
 def test_install_rejects_bad_bundles(env, tmp_path, kwargs, message):
     with pytest.raises(DriverError, match=message):
-        IOSDriver().install(make_app(tmp_path, **kwargs))
+        IOSDriver("A", "").install(make_app(tmp_path, **kwargs))
 
 
 def test_install_without_plist(env, tmp_path):
     app = tmp_path / "Bad.app"
     app.mkdir()
     with pytest.raises(DriverError, match="no readable Info.plist"):
-        IOSDriver().install(app)
+        IOSDriver("A", "").install(app)
 
 
 def test_launch_waits_for_the_app_in_front(drv, env):
@@ -389,7 +399,7 @@ def test_agent_commands(drv, env):
         ("/tap", {"x": 5, "y": 6}), ("/idle", {"timeout": 3.0}), ("/type", {"text": "hi"}),
         ("/tap", {"x": 8, "y": 5}), ("/idle", {"timeout": 3}), ("/key", {"key": "delete", "count": 3}),
         ("/key", {"key": "enter"}), ("/back", {}), ("/home", {}), ("/hide_keyboard", {}),
-        ("/rotate", {"orientation": "landscape"}), ("/idle", {"timeout": 2}),
+        ("/rotate", {}), ("/rotate", {"orientation": "landscape"}), ("/idle", {"timeout": 2}),
         ("/idle", {"timeout": 2, "quiet": 0.5}), ("/change", {"timeout": 1.5})]
     assert all(b["bundle_id"] == "dev.demo" for _, b in env[1].calls)
 
@@ -397,12 +407,37 @@ def test_agent_commands(drv, env):
 def test_simctl_device_commands(drv, env):
     drv.set_location(1.5, -2.5)
     drv.open_url("app://x")
-    drv.dark_mode(True)
-    drv.dark_mode(False)
     drv.grant("photos")
     tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
-    assert tails == ["location A set 1.5,-2.5", "openurl A app://x", "ui A appearance dark",
-                     "ui A appearance light", "privacy A grant photos dev.demo"]
+    assert tails == ["location A set 1.5,-2.5", "openurl A app://x", "privacy A grant photos dev.demo"]
+
+
+def test_what_a_step_changed_is_put_back_on_close(drv, env):
+    sim, agent = env[0], env[1]
+    agent.replies["/appearance"] = {"raw": 1}   # light, before the test
+    agent.replies["/rotate"] = {"raw": 1}       # portrait
+    drv.dark_mode(True)
+    drv.dark_mode(False)
+    drv.rotate("landscape")
+    drv.set_location(1.0, 2.0)
+    agent.calls.clear()
+    drv.close()
+    sent = [(p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in agent.calls]
+    assert sent == [("/appearance", {"raw": 1}), ("/rotate", {"raw": 1})]  # remembered once, before the first change
+    assert sim.cmds[-1].endswith("simctl location A clear")
+
+
+def test_nothing_changed_nothing_put_back(drv, env):
+    env[1].calls.clear()
+    drv.close()
+    assert env[1].calls == [] and not any("location" in c for c in env[0].cmds)
+
+
+def test_a_lost_agent_does_not_stop_close(drv, env):
+    drv.dark_mode(True)
+    env[1].replies["/appearance"] = OSError("gone")
+    env[0].rules["list devices"] = json.dumps({"devices": {}})  # the simulator went away too
+    drv.close()
 
 
 def test_clear_empty_field_only_focuses(drv, env):

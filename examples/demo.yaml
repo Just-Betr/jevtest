@@ -1,39 +1,51 @@
-# jevtest example: runs against the bundled demo app.
-#   jevtest run examples/demo.yaml      (runs on Android, then iOS)
+# jevtest example: the bundled demo app (demo_app/), 17 tests.
 #
-# Every step is: an action, then what should be true after it.
+#   cp examples/.env.example examples/.env     # then fill in your devices
+#   jevtest run examples/demo.yaml --lock record --out jevtest-results
+#
+# Every step is an action, then what should be true after it:
 #
 #   - do: <what to do, in plain English>     Jev works out the taps and typing
 #     expect: <what should now be true>      Jev judges it against the screen
 #     see: <exact text on screen>            plain text check, no model
 #
 # `use: <test name>` runs another test's steps first, so tests build on each other.
-# Values like ${DEMO_PASSWORD} come from .env or the environment (see shared/auth.yaml).
-
-# Which device each platform runs on. Leave it out to use whatever is running; name one to choose:
-# device:
-#   android: Pixel 4a        # a phone's model, an emulator's AVD name, or a serial
-#   ios: iPhone 17 Pro       # a booted simulator's name or UDID
-# List several to split the tests across them and run them at the same time:
-#   android: [Pixel 4a, Pixel_10]
+# Every ${NAME} comes from examples/.env (or the environment): nothing here is assumed.
 
 app:
   android: ../demo_app/build/app/outputs/flutter-apk/app-debug.apk
-  ios: ../demo_app/build/ios_sim/Build/Products/Debug-iphonesimulator/Runner.app
+  ios: ${IOS_APP}                # the simulator build, or a device build for a real iPhone
 
-include: shared/auth.yaml   # the "Sign in" building block, with the login from .env
+device:
+  android: ${ANDROID_DEVICE}     # exact serial, model or AVD name (see `adb devices`)
+  ios: ${IOS_DEVICE}             # exact name or UDID of a booted simulator or a connected iPhone
+  # Several devices split the tests and run at the same time: android: [Pixel 4a, Pixel_10]
+
+settings:
+  model: typesafe/jev-1.13       # the Jev model (the lockfile is per model)
+  max_actions: 8                 # Jev actions allowed per `do:` step
+  max_scrolls: 15                # scrolls a `scroll_to:` may make
+  timeout: 10                    # seconds checks and element lookups keep trying
+  settle: 3                      # most seconds to wait for the screen to stop changing
+  threshold: 0.5                 # Jev's yes-probability an `expect:` needs
+  ios_team: ${IOS_TEAM}          # Apple team that signs jevtest's agent (used on a real iPhone)
+
+include: shared/auth.yaml        # the "Sign in" building block
 
 tests:
   - name: Sign in works
+    fresh: true
     steps:
       - use: Sign in
 
   - name: Wrong password is rejected
+    fresh: true
     steps:
       - do: Sign in with email "demo@jevtest.dev" and password "nope"
         expect: An error says the email or password is invalid
 
   - name: Counter buttons
+    fresh: true
     steps:
       - use: Sign in
       - do: Tap the Add one button two times
@@ -42,6 +54,7 @@ tests:
         see: "Double taps: 1"
 
   - name: Press and hold opens a dialog
+    fresh: true
     steps:
       - use: Sign in
       - long_press: Press and hold me
@@ -50,23 +63,28 @@ tests:
         not_see: You held it
 
   - name: Notifications switch
+    fresh: true
     steps:
       - use: Sign in
       - do: Turn notifications on
         see: Notifications are on
 
   - name: Open an item from the list
+    fresh: true
     steps:
       - use: Sign in
       - scroll_to: Open list
+        direction: down
       - tap: Open list
         expect: A list of items is showing
       - scroll_to: Item 25
+        direction: down
       - tap: Item 25
         see: Details for Item 25
       - back           # an action with no check is fine too
 
   - name: Swipe to delete an item
+    fresh: true
     steps:
       - use: Open an item from the list
       - swipe: left
@@ -74,6 +92,7 @@ tests:
         see: Item 26 deleted
 
   - name: App survives rotation and backgrounding
+    fresh: true
     steps:
       - use: Sign in
       - rotate: landscape
@@ -86,33 +105,41 @@ tests:
 
   # In-app WebView: plain HTML (input, button, checkbox, link) inside the app.
   - name: Open the web page
+    fresh: true
     steps:
       - use: Sign in
       - scroll_to: Open web page
+        direction: down
       - tap: Open web page
         see: Web Greeter
 
   - name: Web page greets by name
+    fresh: true
     steps:
       - use: Open the web page
       - do: Type "Bret" into the name box on the web page and press Say hello
         see: Hello, Bret!
 
   - name: Web page checkbox and link
+    fresh: true
     steps:
       - use: Open the web page
       - tap: I agree to the terms
         see: Terms accepted
       - scroll_to: Show more
+        direction: down
       - tap: Show more
       - scroll_to: Here is more content from the web page.
+        direction: down
         see: Here is more content
 
   # Native (non-Flutter) screen: Android Views / iOS UIKit.
   - name: Native screen
+    fresh: true
     steps:
       - use: Sign in
       - scroll_to: Open native screen
+        direction: down
       - tap: Open native screen
         see: Native screen
       - clear: Nickname
@@ -128,9 +155,11 @@ tests:
 
   # A system permission prompt (owned by the OS, not the app).
   - name: Camera permission prompt
+    fresh: true
     steps:
       - use: Sign in
       - scroll_to: Open native screen
+        direction: down
       - tap: Open native screen
         see: Native screen
       - tap: Ask for camera
@@ -140,15 +169,18 @@ tests:
 
   # Content that arrives later (like a network response): checks wait for it, no sleeps needed.
   - name: Slow loading
+    fresh: true
     steps:
       - use: Sign in
       - scroll_to: Load data
+        direction: down
       - tap: Load data
         see: Data loaded
 
   # In-app web: a full form, a dropdown, radio buttons, clearing, a JavaScript alert,
   # navigation between web pages, and scrolling a long page.
   - name: Web form
+    fresh: true
     steps:
       - use: Open the web page
       - type: { text: "Bert", into: Your name }
@@ -160,6 +192,7 @@ tests:
       - do: Choose Canada in the Country dropdown
         expect: Canada is the selected country
       - scroll_to: Submit form
+        direction: down
       - tap: Pro plan
       - tap: I agree to the terms
         see: Terms accepted
@@ -167,23 +200,28 @@ tests:
         see: "Submitted: Canada, Pro plan, with a password"
 
   - name: Web alert and navigation
+    fresh: true
     steps:
       - use: Open the web page
       - scroll_to: Show web alert
+        direction: down
       - tap: Show web alert
         see: Hello from the web page
       - tap: OK
         not_see: Hello from the web page
       - scroll_to: Open settings page
+        direction: down
       - tap: Open settings page
         see: Web settings
       - tap: Back to the form
         expect: The web form with the name field is showing again
 
   - name: Long web page
+    fresh: true
     steps:
       - use: Open the web page
       - scroll_to: Back to top
+        direction: down
         see: End of the page
       - tap: Back to top
         see: Web Greeter

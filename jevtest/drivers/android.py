@@ -44,6 +44,7 @@ TOP_ACTIVITY = re.compile(r"topResumedActivity=ActivityRecord\{\S+ \S+ ([\w.]+)/
 PERMISSION_PROMPT = re.compile(r"com\.(google\.)?android\.permissioncontroller")
 AGENT_SRC = Path(__file__).resolve().parent.parent / "android_agent"
 AGENT_ID = "dev.jevtest.agent"
+AGENT_STOP_TIMEOUT = 10  # seconds for the agent to finish after /quit
 AGENT_PORT = 7912         # on the device; adb forwards a free local port to it
 
 
@@ -90,12 +91,16 @@ def device_names(serial: str) -> list[str]:
 
 
 def pick_device(wanted: str, serials: list[str]) -> str:
+    """The one connected device with exactly this serial, model or AVD name."""
     named = {serial: device_names(serial) for serial in serials}
-    for serial, names in named.items():
-        if any(n.lower() == wanted.lower() for n in names):
-            return serial
-    listed = "; ".join(" / ".join(names) for names in named.values())
-    raise DriverError(f"No connected Android device called '{wanted}'. Connected: {listed}")
+    matches = [serial for serial, names in named.items() if wanted in names]
+    listed = "; ".join(" / ".join(names) for names in named.values()) or "none"
+    if not matches:
+        raise DriverError(f"No connected Android device called '{wanted}' (names are exact). Connected: {listed}")
+    if len(matches) > 1:
+        raise DriverError(f"Several connected Android devices are called '{wanted}' ({', '.join(matches)}): "
+                          "name one by its serial")
+    return matches[0]
 
 
 def http_get(url: str, timeout: float) -> str:
@@ -201,17 +206,17 @@ def parse_hierarchy(xml: str, width: int, height: int) -> list[Element]:
 class AndroidDriver(Driver):
     platform = "android"
 
-    def __init__(self, device: str | None = None):
+    def __init__(self, device: str):
         self.adb = adb_path()
         found = devices()
         if not found:
             raise DriverError("No Android device connected. Start an emulator or connect a phone (see `adb devices`).")
-        self.serial = pick_device(device, found) if device else found[0]
+        self.serial = pick_device(device, found)
         self.app_path: Path | None = None
         self.activity = ""
         self._size: tuple[int, int] | None = None
         self.agent: subprocess.Popen | None = None
-        self._auto_rotate: str | None = None  # the user's setting, if a rotate step changed it
+        self._restore: dict[str, str] = {}  # what -> shell command that puts back what a step changed
         self._start_agent()
 
     # --- agent -------------------------------------------------------------------
@@ -239,10 +244,14 @@ class AndroidDriver(Driver):
         if self.agent and self.agent.poll() is None:
             with contextlib.suppress(DriverError):  # it may already be gone
                 self._agent("/quit")
+                # `am instrument -w` exits once the device has finished tearing down UI automation,
+                # which resets rotation state; only after that can a restore stick.
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    self.agent.wait(AGENT_STOP_TIMEOUT)
         stop_process(self.agent)
         run([self.adb, "-s", self.serial, "forward", "--remove", f"tcp:{self.port}"], check=False)
-        if self._auto_rotate is not None:  # leave the device as the user had it
-            self.sh(f"settings put system accelerometer_rotation {self._auto_rotate}", check=False)
+        for command in self._restore.values():  # leave the device as the user had it
+            self.sh(command, check=False)
 
     def wait_idle(self, timeout: float, quiet: float | None = None):
         extra = f"&quiet={int(quiet * 1000)}" if quiet is not None else ""
@@ -408,7 +417,7 @@ class AndroidDriver(Driver):
             self.sh("input keyevent 123 " + " ".join(["67"] * len(el.value)))
 
     def key(self, name):
-        code = KEYCODES.get(name.lower())
+        code = KEYCODES.get(name)
         if code is None and not name.isdigit():
             raise DriverError(f"Unknown key '{name}'. Known: {', '.join(sorted(KEYCODES))}, or a keycode number")
         self.sh(f"input keyevent {code if code is not None else name}")
@@ -428,10 +437,18 @@ class AndroidDriver(Driver):
     def rotate(self, orientation):
         if orientation not in ROTATIONS:
             raise DriverError(f"Unknown orientation '{orientation}' (use {', '.join(ROTATIONS)})")
-        if self._auto_rotate is None:  # rotating needs auto-rotate off; close() puts it back
-            self._auto_rotate = self.sh("settings get system accelerometer_rotation", check=False).strip() or "1"
+        if "rotation" not in self._restore:  # rotating needs auto-rotate off; close() puts both back
+            self._restore["rotation"] = (f"{self._setting('system', 'user_rotation')}; "
+                                         f"{self._setting('system', 'accelerometer_rotation')}")
         self.sh("settings put system accelerometer_rotation 0")
         self.sh(f"settings put system user_rotation {ROTATIONS[orientation]}")
+
+    def _setting(self, namespace: str, key: str) -> str:
+        """The shell command that puts an Android setting back to its current value."""
+        value = self.sh(f"settings get {namespace} {key}", check=False).strip()
+        if value in ("", "null"):
+            return f"settings delete {namespace} {key}"
+        return f"settings put {namespace} {key} {value}"
 
     def set_location(self, lat, lon):
         if not self.serial.startswith("emulator-"):
@@ -442,13 +459,24 @@ class AndroidDriver(Driver):
         self.sh(f"am start -W -a android.intent.action.VIEW -d {shlex.quote(url)}")
 
     def dark_mode(self, on):
+        if "dark_mode" not in self._restore:
+            now = self.sh("cmd uimode night", check=False).strip().removeprefix("Night mode: ")
+            if now not in ("yes", "no", "auto"):
+                raise DriverError(f"Can't read the device's dark mode setting to restore it later (got {now!r})")
+            self._restore["dark_mode"] = f"cmd uimode night {now}"
         self.sh(f"cmd uimode night {'yes' if on else 'no'}")
 
     def grant(self, permission):
-        if "." not in permission:
-            permission = "android.permission." + permission.upper()
+        if not permission.startswith("android.permission."):
+            raise DriverError(f"'{permission}': give the full Android permission name, "
+                              f"e.g. android.permission.{permission.upper()}")
         self.sh(f"pm grant {self.app_id} {permission}")
 
     def network(self, on):
+        if "network" not in self._restore:
+            wifi = self.sh("settings get global wifi_on", check=False).strip() not in ("0", "")
+            data = self.sh("settings get global mobile_data", check=False).strip() == "1"
+            self._restore["network"] = (f"svc wifi {'enable' if wifi else 'disable'}; "
+                                        f"svc data {'enable' if data else 'disable'}")
         state = "enable" if on else "disable"
         self.sh(f"svc wifi {state}; svc data {state}")

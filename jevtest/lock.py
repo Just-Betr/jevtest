@@ -54,6 +54,7 @@ class LockedJev:
         self.entries: dict[str, dict] = {}
         self.dirty = False
         self.forks: list[LockedJev] = []
+        self.used: set[str] = set()  # keys this run asked for (shared with forks), for pruning
         if mode != "off" and path.exists():
             try:
                 data = json.loads(path.read_text())
@@ -71,6 +72,7 @@ class LockedJev:
 
     def ask(self, state, questions: dict) -> dict:
         key = request_key(self.model, state, questions)
+        self.used.add(key)
         if self.mode in ("record", "frozen") and key in self.entries:
             self.hits += 1
             entry = self.entries[key]
@@ -78,8 +80,8 @@ class LockedJev:
                                "questions": questions, "answers": entry["answers"], "usage": {}})
             return entry["answers"]
         if self.mode == "frozen":
-            raise JevError(f"A screen/question is not in {self.path.name} and --frozen is set. "
-                           "Run once without --frozen to record it.")
+            raise JevError(f"This screen and question are not in {self.path.name}, and --lock frozen only "
+                           "replays recorded decisions. Run with --lock record to record it, then commit the lockfile.")
         answers, call = self._ask_jev(state, questions)
         self.calls.append(call)
         if self.mode != "off":
@@ -89,13 +91,22 @@ class LockedJev:
 
     def fork(self) -> LockedJev:
         child = LockedJev(self.model, self.path, "off", self._make_jev)
-        child.mode, child.entries = self.mode, self.entries
+        child.mode, child.entries, child.used = self.mode, self.entries, self.used
         self.forks.append(child)
         return child
 
     @property
     def misses(self) -> int:
         return len(self.calls) - self.hits
+
+    def prune(self) -> int:
+        """Drop recorded decisions this run didn't use (screens that no longer exist). Only right
+        after a run of every test that passed: a failed test stops early and skips its later screens."""
+        stale = [k for k in self.entries if k not in self.used]
+        for k in stale:
+            del self.entries[k]
+        self.dirty = self.dirty or bool(stale)
+        return len(stale)
 
     def save(self):
         if not (self.dirty or any(f.dirty for f in self.forks)):

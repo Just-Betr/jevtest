@@ -8,7 +8,7 @@ from jevtest.brain import Brain
 from jevtest.jev import JevError
 from jevtest.runner import Clock, Runner, failure_of, write_junit, write_report
 from jevtest.screen import Screen
-from jevtest.spec import Settings, Spec, Test, parse_step
+from jevtest.spec import Spec, Test, parse_step
 
 from .conftest import (
     DriverError,
@@ -19,6 +19,7 @@ from .conftest import (
     confirm,
     el,
     login_screen,
+    make_settings,
     pick,
     screen_with,
     yes,
@@ -26,8 +27,9 @@ from .conftest import (
 
 
 def make(tmp_path, clock, out, *steps, driver=None, jev=None, verbose=False, tests=None, **settings):
-    tests = tests or [Test("T", [parse_step(s) for s in steps])]
-    spec = Spec(path=tmp_path / "t.yaml", apps={}, tests=tests, settings=Settings(**settings))
+    tests = tests or [Test("T", [parse_step(s) for s in steps], fresh=True)]
+    spec = Spec(path=tmp_path / "t.yaml", apps={}, tests=tests, settings=make_settings(**settings), devices={},
+                variables={})
     driver = driver or FakeDriver()
     driver.clock = clock
     jev = jev or FakeJev()
@@ -80,7 +82,7 @@ def test_app_that_cannot_start_fails_the_test(tmp_path, clock, out):
 
 
 def test_run_totals(tmp_path, clock, out):
-    tests = [Test("A", [parse_step("back")]), Test("B", [parse_step({"see": "missing"})])]
+    tests = [Test("A", [parse_step("back")], fresh=True), Test("B", [parse_step({"see": "missing"})], fresh=True)]
     r, _, _ = make(tmp_path, clock, out, tests=tests, timeout=0)
     results = r.run()
     assert (results["passed"], results["failed"]) == (1, 1)
@@ -109,11 +111,11 @@ def test_screenshot_failure_is_reported_not_raised(tmp_path, clock, out):
     ("hide_keyboard", ("hide_keyboard",)),
     ({"key": "enter"}, ("key", "enter")),
     ({"rotate": "landscape"}, ("rotate", "landscape")),
-    ({"location": "1,2"}, ("set_location", 1.0, 2.0)),
+    ({"location": [1, 2]}, ("set_location", 1.0, 2.0)),
     ({"open_url": "app://x"}, ("open_url", "app://x")),
-    ({"dark_mode": "on"}, ("dark_mode", True)),
+    ({"dark_mode": True}, ("dark_mode", True)),
     ({"grant": "CAMERA"}, ("grant", "CAMERA")),
-    ({"network": "off"}, ("network", False)),
+    ({"network": False}, ("network", False)),
     ({"swipe": "up"}, ("drag", 500, 1600, 500, 400)),
     ({"scroll": "down"}, ("drag", 500, 1600, 500, 400)),
 ])
@@ -215,7 +217,7 @@ def test_type_into_focused_field(tmp_path, clock, out):
 
 def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
     d = FakeDriver(screen_with("Item 1"), screen_with("Item 1"), screen_with("Item 30 is here"))
-    res, d, jev = run1(tmp_path, clock, out, {"scroll_to": "item 30"}, driver=d)
+    res, d, jev = run1(tmp_path, clock, out, {"scroll_to": "item 30", "direction": "down"}, driver=d)
     assert res["status"] == "pass"
     assert d.names().count("drag") == 2
     assert not jev.asked  # matched in code, never by the model
@@ -316,10 +318,10 @@ def test_output_nests_checks_under_actions(tmp_path, clock, out):
 # --- use -----------------------------------------------------------------------------------
 
 def test_use_runs_the_other_tests_steps(tmp_path, clock, out):
-    sign_in = Test("Sign in", [parse_step("back")])
+    sign_in = Test("Sign in", [parse_step("back")], fresh=True)
     use = parse_step({"use": "Sign in", "see": "Email"})
     use.used = sign_in
-    main = Test("Main", [use, parse_step("home")])
+    main = Test("Main", [use, parse_step("home")], fresh=True)
     r, d, _ = make(tmp_path, clock, out, tests=[main])
     res = r.run()["tests"][0]
     assert res["status"] == "pass"
@@ -328,10 +330,10 @@ def test_use_runs_the_other_tests_steps(tmp_path, clock, out):
 
 
 def test_failure_inside_use_is_reported(tmp_path, clock, out):
-    inner = Test("Inner", [parse_step({"see": "Nope"})])
+    inner = Test("Inner", [parse_step({"see": "Nope"})], fresh=True)
     use = parse_step({"use": "Inner"})
     use.used = inner
-    r, d, _ = make(tmp_path, clock, out, tests=[Test("Outer", [use, parse_step("home")])], timeout=0)
+    r, d, _ = make(tmp_path, clock, out, tests=[Test("Outer", [use, parse_step("home")], fresh=True)], timeout=0)
     res = r.run()["tests"][0]
     assert res["failure"] == "see: Nope — not on screen"
     assert "home" not in d.names()
@@ -348,7 +350,7 @@ def test_do_types_and_taps_until_done(tmp_path, clock, out):
     jev = FakeJev(act("type", field="e1", value="v0"), act("type", field="e1", value="v1"),
                   act("type", field="e1", value="v0"), act("done"))
     d = FakeDriver(email, ready, focused_no_keyboard)
-    res, d, _ = run1(tmp_path, clock, out, 'Type "a" then "b" into email', driver=d, jev=jev)
+    res, d, _ = run1(tmp_path, clock, out, {"do": 'Type "a" then "b" into email'}, driver=d, jev=jev)
     assert res["status"] == "pass" and res["steps"][0]["detail"] == "3 action(s)"
     typed = [c for c in d.calls if c[0] == "type_text"]
     # focused with the keyboard up: type without tapping (tapping would move the caret)
@@ -366,7 +368,8 @@ def test_do_types_and_taps_until_done(tmp_path, clock, out):
 def test_do_performs_each_action(tmp_path, clock, out, action, call):
     field = "e1" if action == "clear" else None
     jev = FakeJev(act(action, target="e3", field=field), act("done"))
-    res, d, _ = run1(tmp_path, clock, out, "Do it", jev=jev, driver=FakeDriver(login_screen(keyboard_visible=True)))
+    d = FakeDriver(login_screen(keyboard_visible=True))
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Do it"}, jev=jev, driver=d)
     assert res["status"] == "pass", res
     assert call in d.calls
 
@@ -374,12 +377,12 @@ def test_do_performs_each_action(tmp_path, clock, out, action, call):
 def test_do_wait_waits_for_a_change(tmp_path, clock, out):
     jev = FakeJev({"action": {"type": "choice", "choice": "wait", "confidence": 1, "probabilities": {}},
                    "target": {"type": "choice", "choice": "e1"}}, act("done"))
-    _, d, _ = run1(tmp_path, clock, out, "Do it", jev=jev, settle=0)
+    _, d, _ = run1(tmp_path, clock, out, {"do": "Do it"}, jev=jev, settle=0)
     assert "wait_change" in d.names()
 
 
 def test_do_impossible(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, "Fly", jev=FakeJev(act("impossible")))
+    res, _, _ = run1(tmp_path, clock, out, {"do": "Fly"}, jev=FakeJev(act("impossible")))
     assert "impossible" in res["failure"]
 
 
@@ -392,7 +395,7 @@ def test_do_gives_up_after_max_actions(tmp_path, clock, out):
 
 def test_do_detects_being_stuck(tmp_path, clock, out):
     jev = FakeJev(*[act("tap", target="e3")] * 3)
-    res, d, _ = run1(tmp_path, clock, out, "Loop", jev=jev)
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Loop"}, jev=jev)
     assert "Stuck repeating: tap button 'Sign in'" in res["failure"]
     assert d.names().count("tap") == 2
 
@@ -400,7 +403,7 @@ def test_do_detects_being_stuck(tmp_path, clock, out):
 # --- verbose -----------------------------------------------------------------------------------
 
 def test_verbose_prints_every_jev_answer(tmp_path, clock, out):
-    run1(tmp_path, clock, out, "Press sign in", {"expect": "x"}, verbose=True,
+    run1(tmp_path, clock, out, {"do": "Press sign in"}, {"expect": "x"}, verbose=True,
          jev=FakeJev(act("done"), yes(0.9)))
     text = out.getvalue()
     assert "jev action: done  [done 0.90, other 0.10]" in text
@@ -462,7 +465,8 @@ def test_real_clock():
 
 
 def test_default_output_is_stdout(tmp_path, capsys):
-    spec = Spec(path=Path("t"), apps={}, tests=[Test("T", [parse_step("back")])], settings=Settings(settle=0))
+    spec = Spec(path=Path("t"), apps={}, tests=[Test("T", [parse_step("back")], fresh=True)],
+                settings=make_settings(settle=0), devices={}, variables={})
     Runner(spec, FakeDriver(), Brain(FakeJev()), tmp_path).run()
     assert "PASS T" in capsys.readouterr().out
 
@@ -470,7 +474,7 @@ def test_default_output_is_stdout(tmp_path, capsys):
 def test_empty_screen_do(tmp_path, clock, out):
     d = FakeDriver(Screen(width=10, height=10))
     jev = FakeJev({"action": {"type": "choice", "choice": "done", "confidence": 1, "probabilities": {}}})
-    res, _, _ = run1(tmp_path, clock, out, "Nothing to do", driver=d, jev=jev)
+    res, _, _ = run1(tmp_path, clock, out, {"do": "Nothing to do"}, driver=d, jev=jev)
     assert res["status"] == "pass"
 
 
@@ -485,7 +489,7 @@ def test_same_inputs_give_identical_runs(tmp_path):
     def once():
         buf = io.StringIO()
         jev = FakeJev(act("type", field="e1", value="v0"), act("tap", target="e3"), act("done"), yes(0.9))
-        steps = ['Sign in as "me@x.dev"', {"expect": "Home"}, {"see": "Sign in"}, {"swipe": "up"}]
+        steps = [{"do": 'Sign in as "me@x.dev"'}, {"expect": "Home"}, {"see": "Sign in"}, {"swipe": "up"}]
         r, driver, _ = make(tmp_path, FakeClock(), buf, *steps, jev=jev, verbose=True)
         return buf.getvalue(), r.run(), driver.calls
 
@@ -506,7 +510,7 @@ def test_unchanged_screen_is_not_rejudged(tmp_path, clock, out):
 def test_variables_are_filled_only_where_the_app_sees_them(tmp_path, clock, out):
     steps = [{"type": {"text": "${PASS}", "into": "${FIELD}"}, "see": "${NAME}"},
              {"type": "${PASS}", "not_see": "${SECRET_ERR}", "expect": "Signed in as ${NAME}"},
-             {"open_url": "app://${HOST}/x"}, {"scroll_to": "${NAME}"}]
+             {"open_url": "app://${HOST}/x"}, {"scroll_to": "${NAME}", "direction": "down"}]
     d = FakeDriver(screen_with("Email", "Welcome Ann"))
     d.screens[0].elements[0].editable = True
     r, d, jev = make(tmp_path, clock, out, *steps, driver=d, jev=FakeJev(yes(0.9)))
@@ -523,7 +527,7 @@ def test_variables_are_filled_only_where_the_app_sees_them(tmp_path, clock, out)
 
 def test_jev_sees_the_placeholder_and_the_app_gets_the_value(tmp_path, clock, out):
     jev = FakeJev(act("type", field="e1", value="v0"), act("done"))
-    r, d, _ = make(tmp_path, clock, out, 'Type "${PASS}" into the password', jev=jev)
+    r, d, _ = make(tmp_path, clock, out, {"do": 'Type "${PASS}" into the password'}, jev=jev)
     r.spec.variables = {"PASS": "hunter2"}
     res = r.run()["tests"][0]
     assert res["status"] == "pass" and ("type_text", "hunter2", (500, 150)) in d.calls
@@ -538,7 +542,8 @@ def test_missing_target_is_reported_by_its_placeholder(tmp_path, clock, out):
 
 def test_on_test_gets_each_result_as_it_finishes(tmp_path, clock, out):
     done = []
-    r, _, _ = make(tmp_path, clock, out, tests=[Test("A", [parse_step("back")]), Test("B", [parse_step("back")])])
+    tests = [Test("A", [parse_step("back")], fresh=True), Test("B", [parse_step("back")], fresh=True)]
+    r, _, _ = make(tmp_path, clock, out, tests=tests)
     r.on_test = lambda res: done.append(res["name"])
     r.run()
     assert done == ["A", "B"]

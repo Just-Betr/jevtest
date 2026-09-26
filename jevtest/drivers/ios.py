@@ -8,6 +8,7 @@ The agent is the same on both. What differs is how jevtest gets to it:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import plistlib
@@ -81,39 +82,36 @@ class Target:
     physical: bool
 
 
-def find_target(wanted: str | None) -> Target:
-    """The device a test file names (a booted simulator or a connected iPhone), or the only one running.
+def find_target(wanted: str) -> Target:
+    """The one booted simulator or connected iPhone with exactly this name or UDID.
     jevtest never boots, opens or unlocks a device."""
     sims = [Target(d["udid"], d["name"], False) for d in simulators() if d["state"] == "Booted"]
     real = [Target(d["udid"], d["name"], True) for d in phones()]
-    if wanted:
-        for t in sims + real:
-            if wanted.lower() in (t.udid.lower(), t.name.lower()):
-                return t
-        running = ", ".join(t.name for t in sims + real) or "none"
-        raise DriverError(f"No booted simulator or connected iPhone called '{wanted}' (running: {running})")
-    if sims or real:
-        return (sims + real)[0]
-    raise DriverError("No booted iOS simulator or connected iPhone. Boot a simulator or plug in an iPhone.")
+    matches = [t for t in sims + real if wanted in (t.udid, t.name)]
+    if not matches:
+        running = ", ".join(f"{t.name} ({t.udid})" for t in sims + real) or "none"
+        raise DriverError(f"No booted simulator or connected iPhone called '{wanted}' (names are exact). "
+                          f"Running: {running}")
+    if len(matches) > 1:
+        raise DriverError(f"Several devices are called '{wanted}' ({', '.join(t.udid for t in matches)}): "
+                          "name one by its UDID")
+    return matches[0]
 
 
-def xcode_team(wanted: str = "") -> str:
-    """The Apple developer team signed into Xcode (Settings > Accounts)."""
+def xcode_team(wanted: str) -> str:
+    """Check the team the test file names is signed into Xcode (Settings > Accounts)."""
     raw = run(["defaults", "export", "com.apple.dt.Xcode", "-"], check=False)
     prefs = plistlib.loads(raw.encode()) if raw.strip() else {}
     teams = [t for account in prefs.get("IDEProvisioningTeamByIdentifier", {}).values() for t in account]
     ids = sorted({t["teamID"] for t in teams if "teamID" in t})
-    if wanted:
-        if wanted not in ids:
-            raise DriverError(f"Team {wanted} is not signed into Xcode (signed in: {', '.join(ids) or 'none'})")
-        return wanted
     if not ids:
         raise DriverError("Testing on a real iPhone needs signing: in Xcode, Settings > Accounts > + > Apple Account")
-    paid = sorted({t["teamID"] for t in teams if not t.get("isFreeProvisioningTeam")})
-    choices = paid or ids
-    if len(choices) > 1:
-        raise DriverError(f"Several Xcode teams ({', '.join(choices)}): choose one with `ios_team:` in settings")
-    return choices[0]
+    if not wanted:
+        raise DriverError(f"Testing on a real iPhone needs `ios_team:` in settings: the team that signs "
+                          f"jevtest's agent. Signed into Xcode: {', '.join(ids)}")
+    if wanted not in ids:
+        raise DriverError(f"Team {wanted} is not signed into Xcode (signed in: {', '.join(ids)})")
+    return wanted
 
 
 def provisioned_devices(app: Path) -> set[str]:
@@ -199,7 +197,7 @@ def http_post(url: str, body: dict, timeout: float) -> dict:
 class IOSDriver(Driver):
     platform = "ios"
 
-    def __init__(self, device: str | None = None, team: str = ""):
+    def __init__(self, device: str, team: str):
         if shutil.which("xcrun") is None:
             raise DriverError("Xcode command line tools are required for iOS")
         target = find_target(device)
@@ -210,6 +208,8 @@ class IOSDriver(Driver):
         self.agent: subprocess.Popen | None = None
         self.agent_log = cache_dir() / f"ios-agent-{self.port}.log"
         self.app_path: Path | None = None
+        self._restore: dict[str, dict] = {}  # agent call -> body that puts back what a step changed
+        self._location_set = False
         self._tmp = tempfile.TemporaryDirectory()
         self._start_agent()
 
@@ -250,10 +250,19 @@ class IOSDriver(Driver):
     def _start_agent(self):
         env = dict(os.environ, TEST_RUNNER_JEVTEST_PORT=str(self.port))
         with AGENT_LOCK:
-            self.agent = start_process(
-                ["xcodebuild", "test-without-building", "-xctestrun", str(self._build_agent()),
-                 "-destination", f"id={self.udid}"],
-                ready="JEVTEST_AGENT_READY", log=self.agent_log, timeout=AGENT_START_TIMEOUT, env=env)
+            xctestrun = self._build_agent()
+            try:
+                self.agent = start_process(
+                    ["xcodebuild", "test-without-building", "-xctestrun", str(xctestrun),
+                     "-destination", f"id={self.udid}"],
+                    ready="JEVTEST_AGENT_READY", log=self.agent_log, timeout=AGENT_START_TIMEOUT, env=env)
+            except DriverError as e:
+                if "enabling automation mode" in self.agent_log.read_text(errors="replace"):
+                    raise DriverError(
+                        f"{self.name} did not allow UI automation (\"Timed out while enabling automation mode\"). "
+                        "Unlock it and keep the screen on, check Settings > Developer > Enable UI Automation is on, "
+                        "and answer any prompt on its screen; then run again.") from e
+                raise
         if self.physical:
             self.host = self._tunnel_host()
 
@@ -290,8 +299,19 @@ class IOSDriver(Driver):
         return data
 
     def close(self):
+        """Put back anything a step changed (appearance, orientation, simulated location), then stop."""
+        for path, body in self._restore.items():
+            with contextlib.suppress(DriverError):
+                self._call(path, **body)
+        if self._location_set and not self.physical:
+            simctl("location", self.udid, "clear")
         stop_process(self.agent)
         self._tmp.cleanup()
+
+    def _remember(self, path: str):
+        """Before the first change through `path`, note the current value so close() can put it back."""
+        if path not in self._restore:
+            self._restore[path] = {"raw": self._call(path)["raw"]}
 
     def check_ready(self):
         if self.physical and devicectl("device", "info", "lockState", "--device", self.udid).get("passcodeRequired"):
@@ -411,9 +431,11 @@ class IOSDriver(Driver):
 
     # --- device -----------------------------------------------------------------------
     def rotate(self, orientation):
+        self._remember("/rotate")
         self._call("/rotate", orientation=orientation)
 
     def set_location(self, lat, lon):
+        self._location_set = True
         if self.physical:
             self._call("/location", lat=lat, lon=lon)
         else:
@@ -426,10 +448,8 @@ class IOSDriver(Driver):
             simctl("openurl", self.udid, url)
 
     def dark_mode(self, on):
-        if self.physical:
-            self._call("/appearance", dark=on)
-        else:
-            simctl("ui", self.udid, "appearance", "dark" if on else "light")
+        self._remember("/appearance")
+        self._call("/appearance", dark=on)
 
     def grant(self, permission):
         if self.physical:

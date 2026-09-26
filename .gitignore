@@ -10,3 +10,6 @@ xcuserdata/
 .ruff_cache/
 /build/
 /dist/
+/site/
+/docs/badges/
+coverage.json

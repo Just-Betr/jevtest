@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -58,9 +59,17 @@ class AgentHttp:
 class Proc:
     def __init__(self):
         self.running = True
+        self.exits_on_quit = True
+        self.waited = []
 
     def poll(self):
         return None if self.running else 0
+
+    def wait(self, timeout):
+        self.waited.append(timeout)
+        if not self.exits_on_quit:
+            raise subprocess.TimeoutExpired("am instrument", timeout)
+        self.running = False
 
 
 @pytest.fixture
@@ -93,7 +102,7 @@ def adb(monkeypatch, agent):
 
 @pytest.fixture
 def drv(adb):
-    d = AndroidDriver()
+    d = AndroidDriver("emulator-5554")
     d.install(Path("app.apk"))
     adb.cmds.clear()
     return d
@@ -201,8 +210,8 @@ def test_devices_only_lists_ready_ones(adb):
 
 # --- driver setup ---------------------------------------------------------------------------
 
-def test_picks_first_device(adb):
-    assert AndroidDriver().serial == "emulator-5554"
+def test_uses_the_named_device(adb):
+    assert AndroidDriver("emulator-5554").serial == "emulator-5554"
 
 
 def test_device_named_by_serial_model_or_avd(adb):
@@ -211,21 +220,30 @@ def test_device_named_by_serial_model_or_avd(adb):
     adb.rules["-s emulator-5554 shell getprop ro.product.model"] = "sdk_gphone64_arm64\n"
     adb.rules["emu avd name"] = "Pixel_10\nOK\n"
     assert AndroidDriver("15241JEC").serial == "15241JEC"
-    assert AndroidDriver("pixel 4a").serial == "15241JEC"
+    assert AndroidDriver("Pixel 4a").serial == "15241JEC"
     assert AndroidDriver("Pixel_10").serial == "emulator-5554"
-    with pytest.raises(DriverError, match="called 'Galaxy'. Connected: .*Pixel_10.*Pixel 4a"):
+    with pytest.raises(DriverError, match=r"called 'Galaxy' \(names are exact\). Connected: .*Pixel_10.*Pixel 4a"):
         AndroidDriver("Galaxy")
+    with pytest.raises(DriverError, match="called 'pixel 4a'"):
+        AndroidDriver("pixel 4a")
+
+
+def test_a_name_two_devices_share_is_an_error(adb):
+    adb.rules["adb devices"] = "List of devices attached\nA1\tdevice\nB2\tdevice\n"
+    adb.rules["getprop ro.product.model"] = "Pixel 4a\n"
+    with pytest.raises(DriverError, match=r"Several connected Android devices are called 'Pixel 4a' \(A1, B2\)"):
+        AndroidDriver("Pixel 4a")
 
 
 def test_no_device_is_an_error_not_a_boot(adb):
     adb.rules["adb devices"] = "List of devices attached\n"
     with pytest.raises(DriverError, match="No Android device connected"):
-        AndroidDriver()
+        AndroidDriver("emulator-5554")
     assert not any("emulator" in c and "-avd" in c for c in adb.cmds)
 
 
 def test_install_apk(adb):
-    d = AndroidDriver()
+    d = AndroidDriver("emulator-5554")
     assert d.install(Path("app.apk")) == "dev.demo"
     assert d.activity == "dev.demo/.MainActivity"
     assert any(c.endswith("install -r -t app.apk") for c in adb.cmds)  # no -g: permissions start ungranted
@@ -234,7 +252,7 @@ def test_install_apk(adb):
 def test_install_aab(adb, monkeypatch):
     adb.rules["dump manifest"] = "dev.bundle\n"
     adb.rules["resolve-activity"] = "dev.bundle/.Main\n"
-    d = AndroidDriver()
+    d = AndroidDriver("emulator-5554")
     assert d.install(Path("app.aab")) == "dev.bundle"
     assert any("build-apks" in c for c in adb.cmds) and any("install-apks" in c for c in adb.cmds)
 
@@ -249,14 +267,14 @@ def test_install_aab_needs_bundletool(adb, monkeypatch):
 
 def test_install_rejects_other_files(adb):
     with pytest.raises(DriverError, match="needs an .apk or .aab"):
-        AndroidDriver().install(Path("app.ipa"))
+        AndroidDriver("emulator-5554").install(Path("app.ipa"))
 
 
 @pytest.mark.parametrize("reply", ["No activity found\n", ""])
 def test_install_needs_launcher_activity(adb, reply):
     adb.rules["resolve-activity"] = reply
     with pytest.raises(DriverError, match="no launcher activity"):
-        AndroidDriver().install(Path("app.apk"))
+        AndroidDriver("emulator-5554").install(Path("app.apk"))
 
 
 # --- lifecycle ---------------------------------------------------------------------------------
@@ -446,13 +464,15 @@ def test_clear_empty_field_only_focuses(drv, adb, agent):
 
 
 def test_keys(drv, adb):
-    drv.key("Enter")
+    drv.key("enter")
     drv.key("82")
     drv.back()
     drv.home()
     assert adb.shell() == ["input keyevent 66", "input keyevent 82", "input keyevent 4", "input keyevent 3"]
     with pytest.raises(DriverError, match="Unknown key 'hyper'"):
         drv.key("hyper")
+    with pytest.raises(DriverError, match="Unknown key 'Enter'"):  # names are exact
+        drv.key("Enter")
 
 
 @pytest.mark.parametrize("ime,pressed", [("true", True), ("false", False)])
@@ -466,20 +486,42 @@ def test_hide_keyboard_only_presses_back_when_open(drv, adb, agent, ime, pressed
 
 def test_device_commands(drv, adb):
     adb.rules["settings get system accelerometer_rotation"] = "1\n"
+    adb.rules["settings get system user_rotation"] = "0\n"
+    adb.rules["cmd uimode night"] = "Night mode: auto\n"
+    adb.rules["settings get global wifi_on"] = "1\n"
+    adb.rules["settings get global mobile_data"] = "0\n"
     drv.rotate("landscape")
     drv.open_url("https://x.dev/a b")
     drv.dark_mode(True)
     drv.dark_mode(False)
-    drv.grant("camera")
-    drv.grant("com.custom.PERM")
+    drv.grant("android.permission.CAMERA")
     drv.network(False)
+    drv.network(True)
     assert adb.shell() == [
-        "settings get system accelerometer_rotation",
+        "settings get system user_rotation", "settings get system accelerometer_rotation",
         "settings put system accelerometer_rotation 0", "settings put system user_rotation 1",
         "am start -W -a android.intent.action.VIEW -d 'https://x.dev/a b'",
-        "cmd uimode night yes", "cmd uimode night no",
-        "pm grant dev.demo android.permission.CAMERA", "pm grant dev.demo com.custom.PERM",
-        "svc wifi disable; svc data disable"]
+        "cmd uimode night", "cmd uimode night yes", "cmd uimode night no",
+        "pm grant dev.demo android.permission.CAMERA",
+        "settings get global wifi_on", "settings get global mobile_data",
+        "svc wifi disable; svc data disable", "svc wifi enable; svc data enable"]
+    n = len(adb.shell())
+    drv.close()  # everything the steps changed goes back to how it was
+    assert adb.shell()[n:][-3:] == [
+        "settings put system user_rotation 0; settings put system accelerometer_rotation 1",
+        "cmd uimode night auto", "svc wifi enable; svc data disable"]
+
+
+def test_grant_needs_the_full_permission_name(drv):
+    with pytest.raises(DriverError, match="'camera': give the full Android permission name, "
+                                          "e.g. android.permission.CAMERA"):
+        drv.grant("camera")
+
+
+def test_unreadable_dark_mode_is_an_error_not_a_guess(drv, adb):
+    adb.rules["cmd uimode night"] = "\n"
+    with pytest.raises(DriverError, match="Can't read the device's dark mode setting"):
+        drv.dark_mode(True)
 
 
 def test_rotation_restores_the_users_auto_rotate(drv, adb, agent):
@@ -488,7 +530,7 @@ def test_rotation_restores_the_users_auto_rotate(drv, adb, agent):
     drv.rotate("portrait")
     assert adb.shell().count("settings get system accelerometer_rotation") == 1  # remembered once
     drv.close()
-    assert adb.shell()[-1] == "settings put system accelerometer_rotation 1"
+    assert adb.shell()[-1] == "settings delete system user_rotation; settings put system accelerometer_rotation 1"
 
 
 def test_rotate_rejects_unknown(drv):
@@ -523,7 +565,7 @@ def test_bad_directions(drv):
 # --- agent -----------------------------------------------------------------------------------------
 
 def test_agent_started_on_the_forwarded_port(adb, agent):
-    d = AndroidDriver()
+    d = AndroidDriver("emulator-5554")
     assert d.port == 7000
     [(cmd, ready)] = agent.started
     assert ready == "ready=1" and cmd[-1] == "dev.jevtest.agent/.Agent" and "7912" in cmd
@@ -533,14 +575,22 @@ def test_agent_started_on_the_forwarded_port(adb, agent):
 
 def test_agent_reinstalled_when_version_differs(adb, agent):
     adb.rules["dumpsys package dev.jevtest.agent"] = "    versionName=old\n"
-    AndroidDriver()
+    AndroidDriver("emulator-5554")
     assert "pm uninstall dev.jevtest.agent" in adb.shell()
     assert any(c.endswith("install /cache/android-agent-abc123.apk") for c in adb.cmds)
 
 
 def test_close_quits_agent_and_removes_forward(drv, adb, agent):
+    proc = drv.agent
     drv.close()
     assert agent.paths()[-1] == "/quit"
+    assert proc.waited == [android.AGENT_STOP_TIMEOUT]  # let the device finish before restoring anything
+    assert any(c.endswith("forward --remove tcp:7000") for c in adb.cmds)
+
+
+def test_close_stops_an_agent_that_does_not_finish(drv, adb, agent):
+    drv.agent.exits_on_quit = False
+    drv.close()
     assert agent.started[-1] == ("stopped",)
     assert any(c.endswith("forward --remove tcp:7000") for c in adb.cmds)
 

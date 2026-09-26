@@ -53,7 +53,7 @@ def test_new_screen_is_asked_live_and_added(tmp_path):
 
 def test_frozen_fails_on_new_screen(tmp_path):
     lock, made = locked(tmp_path, "frozen")
-    with pytest.raises(JevError, match="--frozen"):
+    with pytest.raises(JevError, match="--lock frozen only replays recorded decisions. Run with --lock record"):
         lock.ask("new", Q)
     assert not made
 
@@ -130,3 +130,17 @@ def test_forks_share_decisions_and_keep_their_own_calls(tmp_path):
 
 def test_fork_keeps_the_mode(tmp_path):
     assert LockedJev("m", tmp_path / "x.json", "frozen", None).fork().mode == "frozen"
+
+
+def test_prune_drops_what_this_run_did_not_use(tmp_path):
+    path = tmp_path / "t.lock.json"
+    first = LockedJev("m", path, "record", lambda: FakeJev(A1, A2))
+    first.ask({"s": "old"}, Q)
+    first.ask({"s": "kept"}, Q)
+    first.save()
+    second = LockedJev("m", path, "record", lambda: FakeJev())
+    second.fork().ask({"s": "kept"}, Q)  # uses through forks count
+    assert second.prune() == 1
+    second.save()
+    assert len(json.loads(path.read_text())["decisions"]) == 1
+    assert second.prune() == 0

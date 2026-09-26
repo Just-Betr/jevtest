@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import subprocess
 import threading
 from abc import ABC, abstractmethod
@@ -49,24 +50,38 @@ def start_process(cmd: list[str], ready: str, log: Path, timeout: float, env: di
     log.parent.mkdir(parents=True, exist_ok=True)
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
                             start_new_session=True)
-    seen = threading.Event()
+    done = threading.Event()
+    state = {"ready": False}
 
     def pump():
         with open(log, "w") as f:
             for line in proc.stdout:
                 f.write(line)
                 f.flush()
-                if ready in line:
-                    seen.set()
-        seen.set()  # the process ended
+                if ready in line and not state["ready"]:
+                    state["ready"] = True
+                    done.set()
+        done.set()  # the output ended: the process is exiting
 
     threading.Thread(target=pump, daemon=True).start()
-    if not seen.wait(timeout):
+    if not done.wait(timeout):
         proc.kill()
-        raise DriverError(f"{cmd[0]} did not report ready within {timeout:g}s (log: {log})")
-    if proc.poll() is not None:
-        raise DriverError(f"{cmd[0]} exited: {log.read_text()[-1500:]}")
+        raise DriverError(f"{cmd[0]} did not report ready within {timeout:g}s. {log_errors(log)}")
+    if not state["ready"]:
+        proc.wait()
+        raise DriverError(f"{cmd[0]} exited before it was ready. {log_errors(log)}")
     return proc
+
+
+ERROR_LINE = re.compile(r"(?i)\b(error|failed|failure|exception)\b")
+
+
+def log_errors(log: Path, keep: int = 6) -> str:
+    """The error lines of a helper's log (or its last lines, if none look like errors), and where it is."""
+    lines = [line.strip() for line in log.read_text(errors="replace").splitlines() if line.strip()]
+    errors = [line for line in lines if ERROR_LINE.search(line) and not line.startswith("t =")]
+    shown = list(dict.fromkeys(errors))[-keep:] or lines[-keep:]
+    return "\n".join(["Its log says:", *(f"  {line}" for line in shown), f"Full log: {log}"])
 
 
 def stop_process(proc: subprocess.Popen | None):

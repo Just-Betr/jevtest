@@ -9,6 +9,14 @@ import pytest
 
 from jevtest.drivers.base import Driver, DriverError
 from jevtest.screen import Element, Screen
+from jevtest.spec import Settings
+
+SETTINGS = dict(model="typesafe/jev-1.13", max_actions=8, max_scrolls=15, timeout=10.0, settle=3.0, threshold=0.5)
+
+
+def make_settings(**overrides) -> Settings:
+    """A complete Settings (the file requires every value), with some changed."""
+    return Settings(**{**SETTINGS, **overrides})
 
 
 class FakeJev:
