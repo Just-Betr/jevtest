@@ -1,11 +1,12 @@
 # Test file reference
 
-A test file is YAML with four top-level keys. Every key marked required must be there, and anything unknown, misspelled or of the wrong type is an error. jevtest checks the whole file before touching a device and reports **every** problem at once.
+A test file is YAML with five top-level keys. Every key marked required must be there, and anything unknown, misspelled or of the wrong type is an error. jevtest checks the whole file before touching a device and reports **every** problem at once.
 
 ```yaml
 app: build/app.apk                        # required
 device: { android: Pixel 8 }              # required
 include: shared/auth.yaml                 # optional
+settings: { timeout: 20 }                 # optional
 tests: [ ... ]                            # required
 ```
 
@@ -56,6 +57,41 @@ device:
 
 Library files whose tests this file can `use:`. A path, or a list of paths, relative to this file. [Details](../guides/large-suites.md#include-shared-tests).
 
+## `settings` (optional)
+
+Most test files need none: the defaults suit most apps. A `settings:` block changes a default for every step in the file, and a step can change one for itself.
+
+| Setting | Default | Limits | What it does | A step can set it on |
+|---|---|---|---|---|
+| `timeout` | `10` | 1–300 s | How long a step waits for what it looks for: an element to act on, or its checks to pass. It ends as soon as they're there. | steps with checks, and steps that find an element |
+| `settle` | `3` | 1–30 s | After an action, the longest wait for the screen to stop changing. It ends as soon as the screen is still. | any step whose action changes the screen |
+| `max_actions` | `10` | 1–50 | Actions a `do:` goal may take before it fails. | `do:` |
+| `max_scrolls` | `50` | 1–500 | Scrolls a `scroll_to:` may make. It also stops at the end of the content. | `scroll_to:` |
+| `confidence` | `0.5` | 0.5–0.99 | An `expect:` passes when Jev's probability that the statement is true is above this. `0.5` means "more likely true than false". | steps with an `expect:` |
+| `model` | `typesafe/jev-1.13` | a Jev model | The Jev version that decides and judges. Changing it re-asks Jev: it's part of every lockfile entry. | the whole file only |
+
+```yaml
+settings:
+  confidence: 0.8        # every expect: in this file needs Jev at least 80% sure
+
+tests:
+  - name: Upload
+    fresh: false
+    steps:
+      - tap: Upload
+      - see: Upload complete
+        timeout: 60      # this one step waits up to a minute
+```
+
+The limits are where a setting stops tuning a test and starts hiding a problem: a 10-minute wait, a 200-action goal or an `expect:` that passes when Jev thinks it's false would all let a broken app pass. Values outside them, and a setting on a step it means nothing for, are errors. Included files have no settings of their own: their tests run with the settings of the file being run.
+
+**When to change one:**
+
+- **`timeout`** on the one step that's slow for a reason (an upload, a payment). Raise it for the file only if the whole app is slow, e.g. a debug build.
+- **`settle`** when the screen keeps moving after an action for longer than 3 seconds. A screen that never stops (a spinner, a video) always costs the full `settle`, so don't raise it for those.
+- **`max_actions`**: lower it to hold a goal to a short path; raise it for a long form. A goal that needs more than 20 is usually two steps.
+- **`confidence`**: raise it (0.8 is a good strict value) when an `expect:` must not pass on a guess.
+
 ## `tests` (required)
 
 A list of tests, run in order.
@@ -72,20 +108,6 @@ Any text in the file can contain `${NAME}`. The value comes from the `.env` next
 
 !!! warning "Quote `${NAME}` inside `{ }` and `[ ]`"
     YAML reads `{` as the start of a mapping, so `{android: ${PHONE}}` is invalid. Write `{android: "${PHONE}"}`, or use the block style (`android: ${PHONE}` on its own line).
-
-## Fixed rules
-
-These are part of jevtest, not settings. They're the same for everyone, and a change to them is a new jevtest release.
-
-| Rule | |
-|---|---|
-| Waiting | A step waits up to **10 seconds** for what it looks for (a check, an element). A step can say `timeout: 30`. |
-| `do:` goals | At most **10 actions**. A bigger goal is two steps. |
-| `scroll_to:` | Scrolls until the text appears, stopping at the **end of the content** or after **50 scrolls**. |
-| `expect:` | Passes when Jev finds the statement **more likely true than false** (yes-probability above 0.5). |
-| After an action | jevtest waits until the screen stops changing, for at most **3 seconds**. |
-| Model | **`typesafe/jev-1.13`**, printed at the start of every run. |
-| iPhone signing | jevtest's agent is signed with **the team that signed your app**. |
 
 ## Types are exact
 

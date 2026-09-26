@@ -23,7 +23,7 @@ TWO_TESTS = """  - name: Sign in
     fresh: true
     steps:
       - see: Nothing like this
-        timeout: 0
+        timeout: 1
 """
 
 
@@ -63,6 +63,7 @@ class Fakes:
     def __init__(self):
         self.devices: list[FakeDevice] = []
         self.clients: list[FakeJevClient] = []
+        self.models: list[str] = []
         self.answers: list = []
         self.make_device = self.default_device
 
@@ -70,9 +71,10 @@ class Fakes:
         self.devices.append(FakeDevice())
         return self.devices[-1]
 
-    def client(self, api_key):
+    def client(self, model, api_key):
+        self.models.append(model)
         if not api_key:  # the real client's own check, and its message
-            return JevClient("m", api_key, print)
+            return JevClient(model, api_key, print)
         self.clients.append(FakeJevClient(api_key, self.answers))
         return self.clients[-1]
 
@@ -138,6 +140,18 @@ def test_second_run_replays_lockfile_without_jev(project, fakes, capsys):
     assert len(fakes.clients) == before  # Jev was never connected to
 
 
+def test_the_files_model_asks_jev_and_is_reported(tmp_path, monkeypatch, fakes, capsys):
+    spec_file(tmp_path, tests="  - {name: T, fresh: true, steps: [{expect: Home is showing}]}\n",
+              extra="settings: {model: typesafe/jev-2}\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    fakes.script(yes(0.95))
+    assert fakes.run() == 0
+    assert fakes.models == ["typesafe/jev-2"] and "· typesafe/jev-2 ·" in capsys.readouterr().out
+    report = json.loads((stamp_of(tmp_path) / "android" / "emulator-5554" / "report.json").read_text())
+    assert report["model"] == "typesafe/jev-2"
+
+
 def test_frozen_fails_on_unrecorded_screen(project, fakes, capsys):
     assert fakes.run("--test", "Sign in", lock="frozen") == 1
     assert "not in t.lock.json, and --lock frozen only replays" in capsys.readouterr().out
@@ -200,7 +214,7 @@ def test_progress_messages_are_shown(project, fakes, capsys):
 
 
 def test_a_failure_on_any_device_fails_the_run(tmp_path, monkeypatch, fakes):
-    test = "  - {name: %s, fresh: true, steps: [{see: Welcome, timeout: 0}]}\n"
+    test = "  - {name: %s, fresh: true, steps: [{see: Welcome, timeout: 1}]}\n"
     spec_file(tmp_path, tests=test % "T" + test % "U", device="device: {android: [A, B]}\n")
     monkeypatch.chdir(tmp_path)
     screens = iter([screen_with("Welcome"), screen_with("Nope")])
@@ -266,7 +280,7 @@ def test_running_a_folder(tmp_path, monkeypatch, fakes, capsys):
     (tmp_path / "suite" / "shared").mkdir()
     (tmp_path / "suite" / "shared" / "nav.yaml").write_text("tests: [{name: Home, fresh: true, steps: [home]}]\n")
     spec_file(tmp_path, "suite/cart/checkout.yaml",
-              tests="  - {name: Pay, fresh: true, steps: [{see: Nope, timeout: 0}]}\n")
+              tests="  - {name: Pay, fresh: true, steps: [{see: Nope, timeout: 1}]}\n")
     monkeypatch.chdir(tmp_path)
     assert fakes.run(files=("suite",)) == 1
     out = capsys.readouterr().out
@@ -398,7 +412,7 @@ def test_make_device_picks_the_platform(monkeypatch):
 
 
 def test_make_client_reports_retries_on_stderr(capsys):
-    client = cli.make_client("k")
+    client = cli.make_client("typesafe/jev-1.13", "k")
     assert client.api_key == "k" and client.model == "typesafe/jev-1.13"
     client._log("Jev HTTP 503: trying again")
     assert "Jev HTTP 503: trying again" in capsys.readouterr().err

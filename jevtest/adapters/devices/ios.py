@@ -28,15 +28,16 @@ from typing import Any
 
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
-from jevtest.domain.rules import SETTLE, TIMEOUT
 from jevtest.domain.screen import Element, Point, Screen
 
-from .common import BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
+from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
 
 AGENT_SRC = Path(__file__).resolve().parent / "ios_agent"
 AGENT_CALL_TIMEOUT = 150
-"""Seconds one agent call may take. XCUITest waits up to 60 s for SpringBoard to settle before touching while a
-system alert is up, and on a real iPhone it doesn't settle while a permission prompt is showing."""
+"""Seconds one agent call may take. Before touching while a system alert is up, XCUITest waits up to 60 s for
+SpringBoard to settle (normally well under a second; an iPhone that needs a restart can take the full 60 s)."""
+APP_WAIT = 10.0
+"""Seconds to wait for the app to come to the foreground after a launch or a resume."""
 AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator or phone
 # Container types that only matter when they carry a label or identifier.
 CONTAINERS = {"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"}
@@ -428,11 +429,11 @@ class IOSDevice(BaseDevice):
             devicectl("device", "process", "launch", "--device", self.udid, "--terminate-existing", self.app_id)
         else:
             simctl("launch", self.udid, self.app_id)
-        self._call("/wait_foreground", timeout=TIMEOUT)
+        self._call("/wait_foreground", timeout=APP_WAIT)
 
     def resume(self) -> None:
         """Bring the app back to the foreground without restarting it."""
-        self._call("/activate", timeout=TIMEOUT)
+        self._call("/activate", timeout=APP_WAIT)
 
     def app_state(self) -> AppState:
         """Where the app is, from XCUITest's state."""
@@ -505,13 +506,13 @@ class IOSDevice(BaseDevice):
         """Type into the focused field, or first focus the field at `at`."""
         if at:  # focus the field and let the focus change finish
             self.tap(*at)
-            self.wait_idle(SETTLE)
+            self.wait_idle(FOLLOW_UP)
         self._call("/type", text=text)
 
     def clear_text(self, element: Element) -> None:
         """Erase a text field: put the cursor after its text, then delete exactly what is there."""
         self.tap(*element.end)
-        self.wait_idle(SETTLE)
+        self.wait_idle(FOLLOW_UP)
         if element.value:
             self._call("/key", key="delete", count=len(element.value))
 

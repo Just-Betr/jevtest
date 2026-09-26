@@ -42,7 +42,7 @@ The package follows the [architecture](architecture.md): dependencies point inwa
 
 | Path | What |
 |---|---|
-| `jevtest/domain/` | What jevtest is: steps, screen, decisions, results, failures, fixed rules, and the ports. Standard library only. |
+| `jevtest/domain/` | What jevtest is: steps, screen, decisions, results, failures, settings, and the ports. Standard library only. |
 | `jevtest/application/` | How tests run: `runner.py` (the use case), `brain.py` (the questions for Jev), `planning.py` (sharding). |
 | `jevtest/adapters/devices/` | Android (`adb` + a Java agent) and iOS (Xcode tools + a Swift XCUITest agent). Regenerate the iOS agent's project with `ruby scripts/generate_ios_agent_project.rb` after adding targets. |
 | `jevtest/adapters/jev/` | The Jev HTTP client, its wire format, and the lockfile. |
@@ -56,7 +56,7 @@ The package follows the [architecture](architecture.md): dependencies point inwa
 
 Changes should keep these true:
 
-- **Nothing guessed.** No settings to get wrong, no silent fallbacks, exact names, exact types. A mistake is an error that says what to fix.
+- **Nothing guessed.** No silent fallbacks, exact names, exact types. A setting has a default that suits most apps and limits that keep tests honest. A mistake is an error that says what to fix.
 - **Deterministic.** The same app and lockfile give the same run.
 - **No fixed sleeps.** Wait for the device to reach a state, never for a time.
 - **Never change the app or the device** beyond what a step asks, and put those back.

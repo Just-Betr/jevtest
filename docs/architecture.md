@@ -6,7 +6,7 @@ jevtest follows one rule: **source-code dependencies point inward**, toward the 
 flowchart LR
     CLI["cli<br/>arguments · wiring · console"] --> APP["application<br/>runner · brain · planning"]
     CLI --> ADP["adapters<br/>devices · Jev + lockfile · test files · reports"]
-    APP --> DOM["domain<br/>steps · screen · results · failures · ports · rules"]
+    APP --> DOM["domain<br/>steps · screen · results · failures · ports · settings"]
     ADP --> DOM
 ```
 
@@ -16,7 +16,7 @@ The rule is checked on every commit by [import-linter](https://import-linter.rea
 
 | Layer | What it holds | May import | Must never |
 |---|---|---|---|
-| `domain` | What jevtest *is*: steps and checks, the screen, decisions, results, failures, fixed rules, and the **ports** (interfaces) for devices, the decision model and time | the standard library's pure parts only | import any other layer, I/O, or a third-party package |
+| `domain` | What jevtest *is*: steps and checks, the screen, decisions, results, failures, settings and their limits, and the **ports** (interfaces) for devices, the decision model and time | the standard library's pure parts only | import any other layer, I/O, or a third-party package |
 | `application` | How tests run: the test runner, the brain that asks the model questions, sharding tests across devices | `domain` | touch a device, the network, a file or the terminal except through a port |
 | `adapters` | Everything outside: Android and iOS devices, the Jev client and lockfile, YAML test files and `.env`, JUnit and JSON reports | `domain` | import `application` or `cli`; let a tool's exception escape |
 | `cli` | The command line: arguments, the console output, and the **composition root**, the one place that picks real implementations for the ports | everything | hold test logic |

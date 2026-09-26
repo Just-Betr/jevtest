@@ -18,7 +18,7 @@ jevtest is a command-line tool, and the command line is its supported interface.
 
 ::: jevtest.domain.ports
 
-::: jevtest.domain.rules
+::: jevtest.domain.settings
 
 ::: jevtest.domain.kinds
 

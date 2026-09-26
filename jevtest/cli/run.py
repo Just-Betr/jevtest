@@ -29,7 +29,6 @@ from jevtest.domain.failures import DeviceError, ModelError, TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 from jevtest.domain.results import RunResult
-from jevtest.domain.rules import MODEL
 from jevtest.domain.steps import Suite
 
 from .console import ConsoleListener, Printer, summary
@@ -39,8 +38,8 @@ API_KEY = "OPENROUTER_API_KEY"
 MakeDevice = Callable[[Platform, str, Path, Callable[[str], None]], Device]
 """Makes the device for a platform: (platform, device name, app build, progress) -> device."""
 
-MakeClient = Callable[[str | None], JevClient]
-"""Makes the Jev client from the API key (None when it isn't set)."""
+MakeClient = Callable[[str, str | None], JevClient]
+"""Makes the Jev client from the model and the API key (None when it isn't set)."""
 
 
 @dataclass(frozen=True)
@@ -138,14 +137,14 @@ class Runs:
         listener = ConsoleListener(printer, job.tag, verbose=self.verbose)
         try:
             app_id = device.install(job.app)
-            printer.block(job.tag, [f"jevtest {__version__} · {job.tag} · {app_id} · {MODEL} · "
+            printer.block(job.tag, [f"jevtest {__version__} · {job.tag} · {app_id} · {job.suite.settings.model} · "
                                     f"lockfile: {model.mode.value}"])
             result = TestRunner(job.suite, device, Brain(model), job.out, clock=self.clock, listener=listener).run()
         finally:
             device.close()
         write_report(job.out / "report.json", {"file": str(job.suite.path), "platform": job.platform.value,
                                                 "device": job.device, "app": str(job.app), "app_id": app_id,
-                                                "model": MODEL}, result, listener.logs, model.calls)
+                                                "model": job.suite.settings.model}, result, listener.logs, model.calls)
         printer.block(job.tag, summary(result, model.calls, job.out))
         return JobResult(job, result, listener.logs)
 
@@ -255,9 +254,9 @@ def _run_file(suite: Suite, env: dict[str, str], *, label: str, out: Path, runs:
     jobs = plan(suite, out, label, printer)
 
     def connect() -> JevClient:
-        return make_client(env.get(API_KEY))
+        return make_client(suite.settings.model, env.get(API_KEY))
 
-    model = LockedModel(MODEL, suite.path.with_suffix(".lock.json"), options.lock, connect)
+    model = LockedModel(suite.settings.model, suite.path.with_suffix(".lock.json"), options.lock, connect)
     try:
         done = runs.all(jobs, model, printer)
         if options.prune_lock:

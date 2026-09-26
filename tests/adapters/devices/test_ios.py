@@ -453,7 +453,7 @@ def test_clear_empty_field_only_focuses(drv, env):
     assert [p for p, _ in env[1].calls] == ["/tap", "/idle"]
 
 
-def test_timeouts_follow_the_fixed_rules(drv, env):
+def test_agent_waits(drv, env):
     drv.launch()
     drv.resume()
     drv.type_text("x", at=(1, 1))

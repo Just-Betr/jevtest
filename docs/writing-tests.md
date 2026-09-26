@@ -11,7 +11,7 @@
 ```
 
 - The **action** is what happens: a plain-English goal (`do:`) or an exact step (`tap:`, `type:`, `swipe:`, …). [All actions](reference/steps.md).
-- The **checks** are what must be true afterwards. They keep trying for up to 10 seconds (or the step's `timeout:`), so a screen that takes a moment still passes, and a screen that never gets there fails with the reason.
+- The **checks** are what must be true afterwards. They keep trying for up to 10 seconds (or the step's [`timeout:`](reference/test-file.md#settings-optional)), so a screen that takes a moment still passes, and a screen that never gets there fails with the reason.
 - A step can be checks only: `- see: Welcome`.
 - The first failing action or check stops the test, takes a screenshot, and the run moves on to the next test.
 
@@ -22,7 +22,7 @@
   see: Notifications are on
 ```
 
-Jev looks at the screen and picks the next action (tap, type, scroll, back, …) until it says the goal is done. A goal it judges impossible from the screen fails the step at once, and so does one that takes more than 10 actions or repeats itself. A bigger goal is two steps.
+Jev looks at the screen and picks the next action (tap, type, scroll, back, …) until it says the goal is done. A goal it judges impossible from the screen fails the step at once, and so does one that takes more than 10 actions (its `max_actions`) or repeats itself. A bigger goal is two steps.
 
 **Text to type goes in `"quotes"`.** Jev picks which quoted value goes in which field; it never makes up text. Anything you want typed must be in the goal:
 

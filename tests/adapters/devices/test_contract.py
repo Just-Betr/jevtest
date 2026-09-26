@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from jevtest.domain.kinds import Direction
-from jevtest.domain.rules import SETTLE
+from jevtest.domain.settings import DEFAULTS
 
 PLATFORM = os.environ.get("JEVTEST_DEVICE")
 NAME = os.environ.get("JEVTEST_DEVICE_NAME")
@@ -39,7 +39,7 @@ def fresh(device):
     device.stop()
     device.clear_data()
     device.launch()
-    device.wait_idle(SETTLE, quiet=0.5)
+    device.wait_idle(DEFAULTS.settle, quiet=0.5)
     return device
 
 
@@ -59,7 +59,7 @@ def find(driver, name, timeout=5, **match):
 
 
 def settle(driver):
-    driver.wait_idle(SETTLE)
+    driver.wait_idle(DEFAULTS.settle)
 
 
 def sign_in(d):

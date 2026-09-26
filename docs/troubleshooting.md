@@ -19,8 +19,8 @@ error: t.yaml has 2 problems:
 | `'tap' needs text, got a number (to use 42 as text, put it in quotes)` | `tap: "42"`. |
 | `'scroll_to' needs direction: (up, down, left or right)` | Add `direction: down` to the step. |
 | `` `direction` belongs to scroll_to, not to tap `` | Options only go on the actions they apply to ([table](reference/steps.md#options)). |
-| `` `settings` is not part of a test file `` | Remove it. Steps wait 10 seconds, or their own `timeout:`; everything else is a [fixed rule](reference/test-file.md#fixed-rules). |
-| `timeout only applies to a step that finds an element or has checks` | Remove it, or add the check it was meant for. |
+| `` `timeout` only applies to a step that finds an element or has checks `` (or `settle`, `max_actions`, `max_scrolls`, `confidence`) | The setting means nothing on that step: remove it, or move it to the step it was meant for ([settings](reference/test-file.md#settings-optional)). |
+| `` `timeout` must be from 1 to 300, got 1000 `` | Each setting has [limits](reference/test-file.md#settings-optional). A step that needs more is usually waiting on something the app should do faster, or is two steps. |
 | `t.yaml is not valid YAML: … A value starting with ${ must be quoted inside { } or [ ]` | `{android: "${PHONE}"}`. |
 | ``Not set: ${PASSWORD}. Add them to .env next to the test file, or to the environment`` | Define the value. Only the `.env` **next to the test file** is read. |
 | `PASSWORD is set in the environment and in …/.env to different values: remove one of them` | jevtest won't pick one. |
@@ -57,7 +57,7 @@ error: t.yaml has 2 problems:
 
 - **`Could not find element 'X' on screen`**: the text isn't on screen within `timeout`. Check the failure screenshot; maybe it's below the fold (`scroll_to:` first) or labelled differently.
 - **`Jev says the goal is impossible from this screen`**: the goal can't be done from where the app is. Often a previous step didn't land; add a `see:` after it.
-- **`Goal not reached after 10 actions`**: split the `do:` into smaller goals, one per step.
+- **`Goal not reached after 10 actions (max_actions)`**: split the `do:` into smaller goals, one per step, or give a long form a higher `max_actions:`.
 - **`Scrolled down to the end but never found 'X'`**: the text isn't in the list, or it's the other way (`direction: up`).
 - **`Stuck repeating: tap button 'Next'`**: the action has no effect. The element may be disabled or covered.
 - **`The app is no longer running (crashed or closed)`**: the app crashed. The log from `adb logcat` or the device's crash reports will say why.

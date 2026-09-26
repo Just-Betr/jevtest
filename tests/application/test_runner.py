@@ -10,6 +10,7 @@ from jevtest.application.runner import TestRunner
 from jevtest.domain.failures import DeviceError, ModelError
 from jevtest.domain.kinds import AppState, Status
 from jevtest.domain.screen import Screen
+from jevtest.domain.settings import Settings
 from jevtest.domain.steps import Expect, Suite, Test
 
 from ..conftest import (
@@ -89,13 +90,13 @@ def test_app_that_cannot_start_fails_the_test(tmp_path, clock, out):
 
 def test_run_totals(tmp_path, clock, out):
     runner, _, _ = make(tmp_path, clock, out, tests=[make_test("A", "back"),
-                                                      make_test("B", {"see": "missing", "timeout": 0})])
+                                                      make_test("B", {"see": "missing", "timeout": 1})])
     results = runner.run()
     assert (results.passed, results.failed) == (1, 1)
 
 
 def test_first_failure_stops_the_test_and_screenshots(tmp_path, clock, out):
-    res, d, _ = run1(tmp_path, clock, out, {"see": "Nope", "timeout": 0}, "back")
+    res, d, _ = run1(tmp_path, clock, out, {"see": "Nope", "timeout": 1}, "back")
     assert res.status is Status.FAIL
     assert "back" not in d.names()
     assert res.steps[-1].screenshot == "001_FAIL_T.png"
@@ -211,7 +212,7 @@ def test_type_into_field(tmp_path, clock, out):
 
 
 def test_type_into_missing_field(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"type": {"text": "a", "into": "Phone"}, "timeout": 0},
+    res, _, _ = run1(tmp_path, clock, out, {"type": {"text": "a", "into": "Phone"}, "timeout": 1},
                      model=FakeModel(pick("not_on_screen")))
     assert "Could not find text field 'Phone'" in res.failure
 
@@ -251,7 +252,7 @@ def test_scroll_to_keeps_going_after_one_scroll_that_moved_nothing(tmp_path, clo
 def test_scroll_to_gives_up_after_50_scrolls(tmp_path, clock, out):
     d = FakeDevice(*[screen_with(f"Item {i}") for i in range(60)])  # an endless feed
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "down"}, device=d)
-    assert res.failure.endswith("Scrolled down 50 times but never found 'Item 99'")
+    assert res.failure.endswith("Scrolled down 50 times (max_scrolls) but never found 'Item 99'")
     assert d.names().count("drag") == 50
 
 
@@ -322,12 +323,12 @@ def test_expect_passes_above_threshold(tmp_path, clock, out):
 
 @pytest.mark.parametrize(("p", "passes"), [(0.5, False), (0.51, True)])
 def test_expect_passes_when_more_likely_true_than_false(tmp_path, clock, out, p, passes):
-    res, _, _ = run1(tmp_path, clock, out, {"expect": "x", "timeout": 0}, model=FakeModel(yes(p)))
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "x", "timeout": 1}, model=FakeModel(yes(p)))
     assert (res.status is Status.PASS) is passes
 
 
 def test_checks_run_after_the_action_and_stop_at_first_failure(tmp_path, clock, out):
-    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in", "see": ["Nope", "Sign in"], "timeout": 0})
+    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in", "see": ["Nope", "Sign in"], "timeout": 1})
     step = res.steps[0]
     assert len(step.checks) == 1 and step.status is Status.FAIL
     assert d.names().index("tap") < len(d.names()) - 1
@@ -366,7 +367,7 @@ def test_use_runs_the_other_tests_steps(tmp_path, clock, out):
 
 
 def test_failure_inside_use_is_reported(tmp_path, clock, out):
-    inner = make_test("Inner", {"see": "Nope", "timeout": 0})
+    inner = make_test("Inner", {"see": "Nope", "timeout": 1})
     runner, d, _ = make(tmp_path, clock, out, tests=[make_test("Outer", {"use": "Inner"}, "home")], library=[inner])
     res = runner.run().tests[0]
     assert res.failure == "see: Nope — not on screen"
@@ -426,7 +427,7 @@ def test_do_impossible(tmp_path, clock, out):
 def test_do_gives_up_after_10_actions(tmp_path, clock, out):
     model = FakeModel(*[act("tap", target="e3") if i % 2 else act("back") for i in range(11)])
     res, _, _ = run1(tmp_path, clock, out, {"do": "Loop"}, model=model)
-    assert res.failure.endswith("Goal not reached after 10 actions")
+    assert res.failure.endswith("Goal not reached after 10 actions (max_actions)")
     assert len(res.steps[0].decisions) == 11
 
 
@@ -524,6 +525,41 @@ def test_the_model_sees_the_placeholder_and_the_app_gets_the_value(tmp_path, clo
 
 
 def test_missing_target_is_reported_by_its_placeholder(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"tap": "${WHO}", "timeout": 0}, model=FakeModel(pick("not_on_screen")),
+    res, _, _ = run1(tmp_path, clock, out, {"tap": "${WHO}", "timeout": 1}, model=FakeModel(pick("not_on_screen")),
                      variables={"WHO": "Bob"})
     assert "Could not find element '${WHO}'" in res.failure
+
+
+# --- settings ------------------------------------------------------------------------
+
+def test_a_files_settings_reach_launch_and_every_step(tmp_path, clock, out):
+    settings = Settings(settle=7)
+    test = Test("T", True, (parse_step("back", settings),))
+    suite = Suite(tmp_path / "t.yaml", {}, {}, (test,), {"T": test}, {}, settings=settings)
+    d = FakeDevice()
+    d.clock = clock
+    TestRunner(suite, d, Brain(FakeModel()), tmp_path, clock=clock, listener=console(out)).run()
+    assert ("wait_idle", 7, 0.5) in d.calls and ("wait_idle", 7) in d.calls
+
+
+def test_a_step_can_settle_longer(tmp_path, clock, out):
+    _, d, _ = run1(tmp_path, clock, out, {"back": None, "settle": 5})
+    assert ("wait_idle", 5) in d.calls
+
+
+@pytest.mark.parametrize(("p", "passes"), [(0.8, False), (0.81, True)])
+def test_expect_can_ask_for_more_confidence(tmp_path, clock, out, p, passes):
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "x", "confidence": 0.8, "timeout": 1}, model=FakeModel(yes(p)))
+    assert (res.status is Status.PASS) is passes
+
+
+def test_do_can_allow_fewer_actions(tmp_path, clock, out):
+    model = FakeModel(*[act("tap", target="e3") if i % 2 else act("back") for i in range(3)])
+    res, _, _ = run1(tmp_path, clock, out, {"do": "Loop", "max_actions": 2}, model=model)
+    assert res.failure.endswith("Goal not reached after 2 actions (max_actions)")
+
+
+def test_scroll_to_can_allow_fewer_scrolls(tmp_path, clock, out):
+    d = FakeDevice(*[screen_with(f"Item {i}") for i in range(10)])
+    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 9", "direction": "down", "max_scrolls": 3}, device=d)
+    assert res.failure.endswith("Scrolled down 3 times (max_scrolls) but never found 'Item 9'")

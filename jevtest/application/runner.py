@@ -33,8 +33,8 @@ from jevtest.domain.kinds import AppState, Direction, Gesture, Status
 from jevtest.domain.model import ModelCall
 from jevtest.domain.ports import Clock, Device, RunListener
 from jevtest.domain.results import CheckResult, RunResult, StepResult, TestResult
-from jevtest.domain.rules import LAUNCH_QUIET, MAX_ACTIONS, MAX_SCROLLS, SETTLE, THRESHOLD, TIMEOUT
 from jevtest.domain.screen import Element, Screen
+from jevtest.domain.settings import Settings
 from jevtest.domain.steps import (
     Action,
     Back,
@@ -79,6 +79,9 @@ APP_MAY_LEAVE = (Stop, ClearData, Reinstall, Home, OpenUrl)
 
 NO_SETTLE = (Stop, ClearData, Reinstall, Home, Wait, Screenshot, ScrollTo, Do, Use)
 """Actions that do their own waiting, or change nothing on screen."""
+
+LAUNCH_QUIET = 0.5
+"""Seconds without a change that count as "the app has finished starting" (apps pause longer while starting)."""
 
 END_OF_CONTENT = 2
 """Scrolls in a row that must move nothing before `scroll_to:` calls it the end. One isn't enough: a real
@@ -144,7 +147,7 @@ class TestRunner:
             self.device.clear_data()
         if fresh or self.device.app_state() is not AppState.FOREGROUND:
             self.device.launch()
-            self.device.wait_idle(SETTLE, quiet=LAUNCH_QUIET)
+            self.device.wait_idle(self.suite.settings.settle, quiet=LAUNCH_QUIET)
         self._app_should_run = True
 
     def _run_steps(self, steps: Sequence[Step], depth: int) -> tuple[tuple[StepResult, ...], Status]:
@@ -179,7 +182,7 @@ class TestRunner:
         try:
             detail = self._act(step, action, decisions)
             if not isinstance(action, NO_SETTLE):
-                self._settle()
+                self._settle(step.settings)
             self._check_app(action)
         except (StepFailed, DeviceError, ModelError) as e:
             status, detail = Status.FAIL, str(e)
@@ -190,7 +193,7 @@ class TestRunner:
         for check in step.checks:
             mark = len(self.brain.model.calls)
             try:
-                result = CheckResult(check, Status.PASS, self._check(check, self._timeout(step)))
+                result = CheckResult(check, Status.PASS, self._check(check, step.settings))
             except (StepFailed, DeviceError, ModelError) as e:
                 result = CheckResult(check, Status.FAIL, str(e))
             result = replace(result, model_calls=self._calls_since(mark))
@@ -207,18 +210,13 @@ class TestRunner:
     def _calls_since(self, mark: int) -> tuple[ModelCall, ...]:
         return tuple(self.brain.model.calls[mark:])
 
-    def _settle(self) -> None:
+    def _settle(self, settings: Settings) -> None:
         """Wait until the screen stops changing: the device reacts to itself, there's no fixed sleep."""
-        self.device.wait_idle(SETTLE)
+        self.device.wait_idle(settings.settle)
 
     def _value(self, text: str) -> str:
         """`text` with its ``${NAME}`` values filled in, for what the app sees only."""
         return fill(text, self.suite.variables)
-
-    @staticmethod
-    def _timeout(step: Step) -> float:
-        """How long a step waits for what it looks for: its own `timeout:`, or the fixed default."""
-        return TIMEOUT if step.timeout is None else step.timeout
 
     def _screenshot(self, name: str) -> str:
         self._shots += 1
@@ -269,15 +267,16 @@ class TestRunner:
         if state is AppState.BACKGROUND:
             raise StepFailed("The app left the foreground")
 
-    def _check(self, check: Check, timeout: float) -> str | None:
-        """`expect:` asks the model; `see:` and `not_see:` compare text. Retries until `timeout`."""
+    def _check(self, check: Check, settings: Settings) -> str | None:
+        """`expect:` asks the model; `see:` and `not_see:` compare text. Retries until the step's timeout."""
+        timeout = settings.timeout
         wanted = self._value(check.text)
         if isinstance(check, Expect):
             last: list[float] = []
 
             def judged(screen: Screen) -> str | None:
                 last.append(self.brain.check(wanted, screen))
-                return f"Jev {last[-1]:.2f}" if last[-1] > THRESHOLD else None
+                return f"Jev {last[-1]:.2f}" if last[-1] > settings.confidence else None
 
             try:
                 return self._poll(judged, timeout, "")
@@ -332,24 +331,24 @@ class TestRunner:
             case Scroll(direction):
                 d.scroll(direction)
             case Swipe(direction, target):
-                el = self._locate(target, self._timeout(step)) if target is not None else None
+                el = self._locate(target, step.settings.timeout) if target is not None else None
                 d.swipe(direction, element=el)
                 return f"on {el.label()}" if el else None
             case ScrollTo(text, direction):
-                return self._scroll_to(text, direction)
+                return self._scroll_to(text, direction, step.settings)
             case Touch(gesture, target):
-                el = self._locate(target, self._timeout(step))
+                el = self._locate(target, step.settings.timeout)
                 self._touch(gesture, el)
                 return f"on {el.label()}"
             case Clear(target):
-                el = self._locate(target, self._timeout(step), editable=True)
+                el = self._locate(target, step.settings.timeout, editable=True)
                 d.clear_text(el)
                 return f"on {el.label()}"
             case TypeText(text, into):
                 if into is None:
                     d.type_text(self._value(text))
                     return None
-                el = self._locate(into, self._timeout(step), editable=True)
+                el = self._locate(into, step.settings.timeout, editable=True)
                 d.type_text(self._value(text), at=el.center)  # the device focuses the field
                 return f"into {el.label()}"
             case Rotate(orientation):
@@ -367,7 +366,7 @@ class TestRunner:
             case Network(on):
                 d.network(on)
             case Do(goal):
-                return self._achieve(goal, decisions)
+                return self._achieve(goal, decisions, step.settings)
             case Use():  # pragma: no cover - `use:` steps are run by _run_step
                 raise AssertionError("use: steps are not actions")
             case _:  # pragma: no cover
@@ -386,8 +385,8 @@ class TestRunner:
             case _:  # pragma: no cover - every gesture is handled above
                 assert_never(gesture)
 
-    def _scroll_to(self, text: str, direction: Direction) -> str | None:
-        """Scroll until the text is on screen, or the content stops moving, or `MAX_SCROLLS` scrolls.
+    def _scroll_to(self, text: str, direction: Direction, settings: Settings) -> str | None:
+        """Scroll until the text is on screen, or the content stops moving, or `max_scrolls` scrolls.
 
         The text is matched in code, like `see:`: a model asked whether absent text is there tends to pick
         something similar.
@@ -395,13 +394,13 @@ class TestRunner:
         wanted = self._value(text)
         screen = self.device.screen()
         unmoved = 0  # scrolls in a row that moved nothing
-        for scrolls in range(MAX_SCROLLS + 1):
+        for scrolls in range(settings.max_scrolls + 1):
             if screen.shows(wanted):
                 return f"{scrolls} scroll(s)" if scrolls else None
-            if scrolls == MAX_SCROLLS:
-                raise StepFailed(f"Scrolled {direction} {MAX_SCROLLS} times but never found '{text}'")
+            if scrolls == settings.max_scrolls:
+                raise StepFailed(f"Scrolled {direction} {scrolls} times (max_scrolls) but never found '{text}'")
             self.device.scroll(direction, screen=screen)
-            self._settle()
+            self._settle(settings)
             before, screen = screen, self.device.screen()
             unmoved = unmoved + 1 if screen == before else 0
             if unmoved == END_OF_CONTENT:
@@ -409,7 +408,7 @@ class TestRunner:
         raise AssertionError("unreachable")  # pragma: no cover
 
     # --- the goal loop -----------------------------------------------------------------------------------------
-    def _achieve(self, goal: str, decisions: list[Decision]) -> str:
+    def _achieve(self, goal: str, decisions: list[Decision], settings: Settings) -> str:
         """Look at the screen, let the model pick the next move, make it; repeat until the goal is done."""
         taken: list[str] = []
         while True:
@@ -421,15 +420,15 @@ class TestRunner:
                 return f"{len(taken)} action(s)"
             if isinstance(move, Impossible):
                 raise StepFailed("Jev says the goal is impossible from this screen")
-            if len(taken) == MAX_ACTIONS:
-                raise StepFailed(f"Goal not reached after {MAX_ACTIONS} actions")
+            if len(taken) == settings.max_actions:
+                raise StepFailed(f"Goal not reached after {len(taken)} actions (max_actions)")
             if taken[-2:] == [move.describe()] * 2:
                 raise StepFailed(f"Stuck repeating: {move.describe()}")
-            self._make(move, screen)
+            self._make(move, screen, settings)
             taken.append(move.describe())
-            self._settle()
+            self._settle(settings)
 
-    def _make(self, move: Move, screen: Screen) -> None:
+    def _make(self, move: Move, screen: Screen, settings: Settings) -> None:
         """Make one of the model's moves on the device."""
         d = self.device
         match move:
@@ -452,7 +451,7 @@ class TestRunner:
             case CloseKeyboard():
                 d.hide_keyboard()
             case WaitForScreen():
-                d.wait_change(SETTLE)
+                d.wait_change(settings.settle)
             case Finished() | Impossible():  # pragma: no cover - _achieve ends before making these
                 raise AssertionError(f"{move} is not made on the device")
             case _:  # pragma: no cover - every move is handled above

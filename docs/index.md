@@ -57,7 +57,7 @@ Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.000
 
 -   :material-alert-octagon-outline: **Nothing assumed**
 
-    No settings file, no default device, no guessing what a typo meant. Anything missing or wrong fails before the run starts, and says exactly what to fix.
+    No default device, no guessing what a typo meant, and settings with good defaults and strict limits. Anything missing or wrong fails before the run starts, and says exactly what to fix.
 
 -   :material-cellphone-link: **Real apps, real phones**
 

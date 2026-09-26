@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterator, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -22,6 +23,7 @@ import yaml
 
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Direction, Gesture, Orientation, Platform
+from jevtest.domain.settings import DEFAULTS, JEV_MODELS, LIMITS, STEP_SETTINGS, WHOLE, Settings
 from jevtest.domain.steps import (
     Action,
     Back,
@@ -71,10 +73,11 @@ TEXT_ACTIONS = {"do", "use", "tap", "double_tap", "long_press", "clear", "scroll
 ACTIONS = TEXT_ACTIONS | {"wait", "background", "scroll", "swipe", "type", "rotate", "location", "dark_mode",
                           "network"}
 CHECKS: dict[str, Callable[[str], Check]] = {"expect": Expect, "see": See, "not_see": NotSee}
-OPTIONS = {"timeout", "target", "direction", "text", "into"}
-# Which actions each option belongs to. `timeout` is for steps that wait for something (below).
+OPTIONS = {"target", "direction", "text", "into"} | STEP_SETTINGS
+# Which actions each option belongs to. The step settings are checked in _step_settings.
 OPTION_ACTIONS = {"direction": {"scroll_to"}, "target": {"swipe"}, "into": {"type"}, "text": {"type"}}
 LOCATING = {"tap", "double_tap", "long_press", "clear"}  # find an element first, so they can time out
+STILL = {"stop", "clear_data", "reinstall", "home", "wait", "screenshot", "use"}  # never wait for the screen
 
 E = TypeVar("E", Direction, Orientation)
 MAX_LATITUDE, MAX_LONGITUDE = 90, 180
@@ -208,22 +211,80 @@ def _action(kind: str, value: object, opts: Mapping[str, Any]) -> Action:  # noq
             return Screenshot(text)
 
 
-def _check_options(kind: str | None, opts: Mapping[str, Any], has_checks: bool) -> float | None:
-    """Check each option belongs to this action; return the step's timeout, if it has one."""
+def _check_options(kind: str | None, opts: Mapping[str, Any]) -> None:
+    """Check each non-setting option belongs to this action."""
     for k in opts:
-        if k == "timeout":
-            waits = has_checks or kind in LOCATING or (kind == "type" and "into" in opts) \
-                or (kind == "swipe" and "target" in opts)
-            if not waits:
-                raise TestFileError("timeout only applies to a step that finds an element or has checks")
-        elif kind not in OPTION_ACTIONS[k]:
+        if k in OPTION_ACTIONS and kind not in OPTION_ACTIONS[k]:
             owners = " / ".join(sorted(OPTION_ACTIONS[k]))
             raise TestFileError(f"`{k}` belongs to {owners}, not to {kind or 'a checks-only step'}")
-    return _number(opts["timeout"], "timeout") if "timeout" in opts else None
 
 
-def parse_step(raw: object) -> Step:
-    """One step from the test file.
+def _step_settings(kind: str | None, opts: Mapping[str, Any], checks: tuple[Check, ...], base: Settings) -> Settings:
+    """The file's settings with the ones this step sets for itself; each must mean something for this step."""
+    uses = {
+        "timeout": bool(checks) or kind in LOCATING or (kind == "type" and "into" in opts)
+        or (kind == "swipe" and "target" in opts),
+        "settle": kind is not None and kind not in STILL,
+        "max_actions": kind == "do",
+        "max_scrolls": kind == "scroll_to",
+        "confidence": any(isinstance(c, Expect) for c in checks),
+    }
+    why = {
+        "timeout": "a step that finds an element or has checks",
+        "settle": "a step whose action changes the screen",
+        "max_actions": "a do: step",
+        "max_scrolls": "a scroll_to: step",
+        "confidence": "a step with an expect: check",
+    }
+    changes: dict[str, Any] = {}
+    for name in sorted(STEP_SETTINGS & set(opts)):
+        if not uses[name]:
+            raise TestFileError(f"`{name}` only applies to {why[name]}")
+        changes[name] = setting(name, opts[name])
+    return replace(base, **changes) if changes else base
+
+
+def setting(name: str, value: object) -> float | int:
+    """One numeric setting, checked against its limits.
+
+    Raises:
+        TestFileError: It isn't a number (a whole number for counts) or is outside its limits.
+    """
+    low, high = LIMITS[name]
+    if name in WHOLE:
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TestFileError(f"`{name}` must be a whole number from {low:g} to {high:g}, got {value!r}")
+        number: float | int = value
+    else:
+        number = _number(value, f"`{name}`", minimum=-math.inf)
+    if not low <= number <= high:
+        raise TestFileError(f"`{name}` must be from {low:g} to {high:g}, got {number:g}")
+    return number
+
+
+def _settings(raw: object) -> Settings:
+    """The file's `settings:` block; anything it leaves out keeps its default."""
+    if raw is None:
+        return DEFAULTS
+    allowed = ["model", *sorted(STEP_SETTINGS)]
+    if not isinstance(raw, dict) or not raw:
+        raise TestFileError(f"`settings` must be a mapping of {', '.join(allowed)}; got {raw!r} "
+                            "(leave it out to use the defaults)")
+    unknown = set(raw) - set(allowed)
+    if unknown:
+        raise TestFileError(f"`settings` has unknown keys: {', '.join(sorted(map(str, unknown)))} "
+                            f"(it takes {', '.join(allowed)})")
+    changes: dict[str, Any] = {n: setting(n, raw[n]) for n in STEP_SETTINGS & set(raw)}
+    if "model" in raw:
+        model = _text(raw["model"], "`model`")
+        if not model.startswith(JEV_MODELS):
+            raise TestFileError(f"`model` must be a Jev model ({JEV_MODELS}...), got {model!r}: jevtest uses Jev only")
+        changes["model"] = model
+    return replace(DEFAULTS, **changes)
+
+
+def parse_step(raw: object, settings: Settings = DEFAULTS) -> Step:
+    """One step from the test file, run with the file's `settings` and any the step sets for itself.
 
     Raises:
         TestFileError: The step is wrong; the message says how to fix it.
@@ -234,7 +295,7 @@ def parse_step(raw: object) -> Step:
         if raw not in BARE:
             raise TestFileError(f"Unknown step {raw!r}. A bare word must be one of {', '.join(sorted(BARE))}; "
                                 f"for a plain-English goal write `- do: {raw.strip()}`")
-        return Step(BARE[raw], source=raw)
+        return Step(BARE[raw], settings=settings, source=raw)
     if not isinstance(raw, dict):
         raise TestFileError(f"Step must be an action word or a mapping, got {raw!r}")
     unknown = set(raw) - set(BARE) - ACTIONS - set(CHECKS) - OPTIONS
@@ -250,11 +311,12 @@ def parse_step(raw: object) -> Step:
     if not actions:
         if not checks:
             raise TestFileError(f"Step {raw!r} has no action or check")
-        return Step(None, checks, _check_options(None, opts, True), raw)
+        _check_options(None, opts)
+        return Step(None, checks, _step_settings(None, opts, checks, settings), raw)
     kind = actions[0]
     value = _unpack_type(raw[kind], opts) if kind == "type" else raw[kind]
-    timeout = _check_options(kind, opts, bool(checks))
-    return Step(_action(kind, value, opts), checks, timeout, raw)
+    _check_options(kind, opts)
+    return Step(_action(kind, value, opts), checks, _step_settings(kind, opts, checks, settings), raw)
 
 
 def _checks(raw: Mapping[str, Any]) -> tuple[Check, ...]:
@@ -351,7 +413,7 @@ def _check_uses(tests: list[Test]) -> None:
         visit(t, [])
 
 
-def _tests(raw: object, where: str, problems: list[str]) -> list[Test]:
+def _tests(raw: object, where: str, settings: Settings, problems: list[str]) -> list[Test]:
     """The tests under `tests:`. Each bad test adds its problem to `problems`, so all are reported."""
     if not isinstance(raw, list) or not raw:
         problems.append(f"No tests found under `tests:` in {where}")
@@ -359,13 +421,13 @@ def _tests(raw: object, where: str, problems: list[str]) -> list[Test]:
     tests = []
     for i, t in enumerate(raw, 1):
         try:
-            tests.append(_test(t, i, where))
+            tests.append(_test(t, i, where, settings))
         except TestFileError as e:
             problems.append(str(e))
     return tests
 
 
-def _test(t: object, i: int, where: str) -> Test:
+def _test(t: object, i: int, where: str, settings: Settings) -> Test:
     if not isinstance(t, dict) or "name" not in t or "steps" not in t or "fresh" not in t:
         raise TestFileError(f"Test #{i} in {where} needs `name`, `fresh` (true: start from a clean install, "
                             "false: carry on from the previous test) and `steps`")
@@ -378,7 +440,7 @@ def _test(t: object, i: int, where: str) -> Test:
     steps = []
     for n, raw in enumerate(t["steps"], 1):
         try:
-            steps.append(parse_step(raw))
+            steps.append(parse_step(raw, settings))
         except TestFileError as e:
             raise TestFileError(f"Test '{name}', step {n}: {e}") from None
     return Test(name, _on_off(t["fresh"], f"Test '{name}': fresh"), tuple(steps))
@@ -418,7 +480,8 @@ def _included(data: Mapping[str, Any], path: Path, chain: tuple[Path, ...]) -> l
         unknown = set(lib_data) - {"include", "tests"}
         if unknown:
             raise TestFileError(f"{lib.name} is included, so it can only have `include` and `tests` "
-                                f"(found {', '.join(sorted(map(str, unknown)))})")
+                                f"(found {', '.join(sorted(map(str, unknown)))}); its tests run with the "
+                                "settings of the file being run")
         for nested in [*_included(lib_data, lib, (*chain, lib)), (lib, lib_data)]:
             if nested[0] not in (p for p, _ in found):
                 found.append(nested)
@@ -466,26 +529,28 @@ def load(path: str | Path, env: Mapping[str, str]) -> Suite:
     """
     path = Path(path).resolve()
     data = read_yaml(path)
-    if "settings" in data:
-        raise TestFileError("`settings` is not part of a test file: each step waits up to 10 seconds, or its own "
-                            "`timeout:`; everything else is a fixed rule (see the docs' Test file page)")
-    unknown = set(data) - {"app", "device", "tests", "include"}
+    unknown = set(data) - {"app", "device", "settings", "tests", "include"}
     if unknown:
         raise TestFileError(f"Unknown top-level keys: {', '.join(sorted(map(str, unknown)))} "
-                            "(a test file has app, device, include and tests)")
+                            "(a test file has app, device, settings, include and tests)")
     libraries = _included(data, path, (path,))
     variables = _variables([data] + [d for _, d in libraries], env)
     problems: list[str] = []
 
     apps: dict[Platform, Path] = {}
     devices: dict[Platform, tuple[str, ...]] = {}
+    settings = DEFAULTS
     try:
         apps = _apps(_fill_all(data.get("app"), variables), path.parent)
         devices = _devices(data.get("device"), apps, variables)
     except TestFileError as e:
         problems.append(str(e))
-    tests = _tests(data.get("tests"), path.name, problems)
-    shared = [t for lib, d in libraries for t in _tests(d.get("tests"), lib.name, problems)]
+    try:
+        settings = _settings(data.get("settings"))
+    except TestFileError as e:
+        problems.append(str(e))
+    tests = _tests(data.get("tests"), path.name, settings, problems)
+    shared = [t for lib, d in libraries for t in _tests(d.get("tests"), lib.name, settings, problems)]
     names = [t.name for t in tests + shared]
     dupes = sorted({n for n in names if names.count(n) > 1})
     if dupes:
@@ -500,7 +565,7 @@ def load(path: str | Path, env: Mapping[str, str]) -> Suite:
     if problems:
         raise TestFileError(f"{path.name} has {len(problems)} problems:\n" + "\n".join(f"  - {p}" for p in problems))
     return Suite(path, apps, devices, tuple(tests), {t.name: t for t in tests + shared}, variables,
-                 tuple(lib for lib, _ in libraries))
+                 tuple(lib for lib, _ in libraries), settings)
 
 
 def is_test_file(path: Path) -> bool:

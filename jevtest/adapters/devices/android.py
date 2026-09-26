@@ -18,10 +18,9 @@ from pathlib import Path
 
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
-from jevtest.domain.rules import SETTLE
 from jevtest.domain.screen import Element, Point, Screen
 
-from .common import BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
+from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
 
 KEYCODES = {
     "enter": 66, "delete": 67, "backspace": 67, "tab": 61, "escape": 111, "space": 62,
@@ -399,7 +398,7 @@ class AndroidDevice(BaseDevice):
         Keys sent before the keyboard is connected are dropped. Not "the field under the tap": on a real phone
         the keyboard slides up and the app scrolls the focused field out from under it.
         """
-        deadline = time.monotonic() + SETTLE
+        deadline = time.monotonic() + FOLLOW_UP
         while True:
             xml = self._agent("/tree")
             root = ET.fromstring(xml)
@@ -419,7 +418,7 @@ class AndroidDevice(BaseDevice):
         wait for the screen to change.
         """
         xml = self._agent("/tree")
-        deadline = time.monotonic() + SETTLE
+        deadline = time.monotonic() + FOLLOW_UP
         while has_empty_webview(xml) and time.monotonic() < deadline:
             self.wait_change(deadline - time.monotonic())
             xml = self._agent("/tree")

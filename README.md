@@ -54,7 +54,7 @@ Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.000
 
 - **Tests read like the spec.** One action, then what should be true. `do:` takes a plain-English goal; `tap:`, `type:`, `swipe:`, `scroll_to:` and 20 more give exact control.
 - **Deterministic.** Every Jev decision is recorded in a lockfile. The same screen always gets the same answer; `--lock frozen` replays a run exactly, with no network and no API key.
-- **Nothing assumed.** No settings file, no default device, no guessing what a typo meant. The whole test file is checked before a device is touched, and every problem is reported at once with what to fix.
+- **Nothing assumed.** No default device, no guessing what a typo meant, and settings with good defaults and strict limits. The whole test file is checked before a device is touched, and every problem is reported at once with what to fix.
 - **Real apps, real phones.** Android emulators and phones, iOS simulators and iPhones. Native, Flutter, React Native and **in-app WebViews**, driven the same way. Animations stay on, and anything a step changes on the device is put back.
 - **No sleeps.** It waits for the screen to stop changing, reacting to the device rather than a timer.
 - **Built for scale and CI.** `${SECRETS}` from `.env` or CI, shared test libraries, whole folders in one command, several devices at once, JUnit XML, JSON reports and failure screenshots.

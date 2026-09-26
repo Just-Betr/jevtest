@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+**Settings.** A test file can now tune how steps wait and how far they go, with defaults that suit most apps and
+limits that keep a test from hiding a broken app. A file without settings runs exactly as before.
+
+- A `settings:` block sets `timeout`, `settle`, `max_actions`, `max_scrolls`, `confidence` (how sure Jev must be
+  for an `expect:` to pass) and `model` for every step in the file.
+- A step can set `timeout`, `settle`, `max_actions` (on `do:`), `max_scrolls` (on `scroll_to:`) or `confidence`
+  (with `expect:`) for itself. A setting on a step it means nothing for is an error.
+- Every value has limits (for example `timeout` 1–300 s, `confidence` 0.5–0.99). `timeout: 0` is no longer
+  accepted.
+
 ## 0.5.0
 
 **Rebuilt on a clean architecture.** Test files, commands and output are unchanged, and recorded lockfiles still

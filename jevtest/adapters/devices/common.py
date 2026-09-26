@@ -15,6 +15,10 @@ from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction
 from jevtest.domain.screen import Element, Screen
 
+FOLLOW_UP = 3.0
+"""Seconds a device waits for its own follow-ups to an action: a tapped field taking keyboard focus, a web
+view's content arriving after the web view."""
+
 
 def run_bytes(cmd: list[str], *, timeout: float = 120, check: bool = True) -> bytes:
     """Run a command and return its output.

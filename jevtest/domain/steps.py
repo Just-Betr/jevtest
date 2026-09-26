@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from .kinds import Direction, Gesture, Orientation, Platform
+from .settings import DEFAULTS, Settings
 
 # --- actions ---------------------------------------------------------------------------------------------------
 
@@ -233,13 +234,13 @@ class Step:
     Attributes:
         action: What to do, or None for a step that only checks.
         checks: What must be true afterwards, in order.
-        timeout: How long this step waits for what it looks for; None means the fixed `TIMEOUT`.
+        settings: The settings this step runs with: the file's, with any the step sets for itself.
         source: The step as written in the test file, for reports.
     """
 
     action: Action | None
     checks: tuple[Check, ...] = ()
-    timeout: float | None = None
+    settings: Settings = DEFAULTS
     source: object = None
 
 
@@ -272,6 +273,7 @@ class Suite:
         library: Every test `use:` can name: this file's and those of the files it includes.
         variables: The ``${NAME}`` values the file uses.
         includes: The library files it includes, directly or not.
+        settings: The file's settings. Each step carries its own copy, with the step's own changes.
     """
 
     path: Path
@@ -281,3 +283,4 @@ class Suite:
     library: Mapping[str, Test]
     variables: Mapping[str, str]
     includes: tuple[Path, ...] = ()
+    settings: Settings = DEFAULTS

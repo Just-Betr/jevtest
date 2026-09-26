@@ -25,7 +25,6 @@ from jevtest.adapters.jev.lockfile import LockMode
 from jevtest.domain.failures import JevtestError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
-from jevtest.domain.rules import MODEL
 
 from .run import MakeClient, MakeDevice, RunOptions, run_command
 
@@ -39,9 +38,9 @@ def make_device(platform: Platform, device: str, app: Path, progress: Callable[[
     return IOSDevice(device, app, progress)
 
 
-def make_client(api_key: str | None) -> JevClient:
-    """The real Jev client; retries are reported on stderr."""
-    return JevClient(MODEL, api_key, log=lambda message: print(message, file=sys.stderr, flush=True))
+def make_client(model: str, api_key: str | None) -> JevClient:
+    """The real Jev client for `model`; retries are reported on stderr."""
+    return JevClient(model, api_key, log=lambda message: print(message, file=sys.stderr, flush=True))
 
 
 def parser() -> argparse.ArgumentParser:

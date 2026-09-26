@@ -1,4 +1,6 @@
+import dataclasses
 import datetime
+import re
 from pathlib import Path
 
 import pytest
@@ -6,6 +8,7 @@ import pytest
 from jevtest.adapters.testfile.loader import is_test_file, load, parse_step, platform_of
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Direction, Gesture, Orientation
+from jevtest.domain.settings import DEFAULTS, Settings
 from jevtest.domain.steps import (
     Back,
     Background,
@@ -65,7 +68,7 @@ def test_actions_parse(raw, action):
 
 def test_type_into_with_a_timeout():
     step = parse_step({"type": {"text": "a", "into": "Email"}, "timeout": 3})
-    assert (step.action, step.timeout) == (TypeText("a", "Email"), 3.0)
+    assert (step.action, step.settings.timeout) == (TypeText("a", "Email"), 3.0)
 
 
 def test_action_then_checks():
@@ -76,7 +79,7 @@ def test_action_then_checks():
 
 def test_checks_only_step():
     s = parse_step({"expect": "Home shows", "timeout": 2})
-    assert s.action is None and s.checks == (Expect("Home shows"),) and s.timeout == 2.0
+    assert s.action is None and s.checks == (Expect("Home shows"),) and s.settings.timeout == 2.0
 
 
 @pytest.mark.parametrize("raw", [
@@ -126,17 +129,26 @@ def test_options_where_they_apply(raw):
     ({"type": {"into": "E"}}, "type needs `text:`"),
     ({"type": {"text": "a", "into": "E"}, "into": "F"}, "`into` is given twice"),
     ({"type": "a", "text": "b"}, "`text` goes inside type"),
-    ({"do": "x", "max_actions": 3}, "unknown keys: max_actions"),
-    ({"scroll_to": "x", "direction": "up", "max_scrolls": 3}, "unknown keys: max_scrolls"),
+    ({"tap": "x", "max_actions": 3}, "`max_actions` only applies to a do: step"),
+    ({"do": "x", "max_scrolls": 3}, "`max_scrolls` only applies to a scroll_to: step"),
+    ({"do": "x", "see": "y", "confidence": 0.9}, "`confidence` only applies to a step with an expect: check"),
+    ({"wait": 1, "settle": 5}, "`settle` only applies to a step whose action changes the screen"),
+    ({"see": "x", "settle": 5}, "`settle` only applies to a step whose action changes the screen"),
+    ({"do": "x", "max_actions": 51}, "`max_actions` must be from 1 to 50, got 51"),
+    ({"do": "x", "max_actions": 2.5}, "`max_actions` must be a whole number from 1 to 50, got 2.5"),
+    ({"do": "x", "max_actions": True}, "`max_actions` must be a whole number"),
+    ({"expect": "x", "confidence": 0.3}, "`confidence` must be from 0.5 to 0.99, got 0.3"),
+    ({"tap": "x", "timeout": 0}, "`timeout` must be from 1 to 300, got 0"),
+    ({"back": None, "settle": 0.5}, "`settle` must be from 1 to 30, got 0.5"),
     ({"tap": "x", "direction": "up"}, "`direction` belongs to scroll_to, not to tap"),
     ({"see": "x", "direction": "up"}, "`direction` belongs to scroll_to, not to a checks-only step"),
     ({"scroll_to": "x"}, "'scroll_to' needs `direction:`"),
     ({"scroll_to": "x", "direction": "in"}, "direction must be one of"),
     ({"swipe": "left", "target": ""}, "target needs text without"),
     ({"type": "a", "into": 3}, "into needs text"),
-    ({"back": None, "timeout": 3}, "timeout only applies to a step that finds an element or has checks"),
-    ({"type": "a", "timeout": 3}, "timeout only applies"),
-    ({"tap": "x", "timeout": "long"}, "timeout must be a number"),
+    ({"back": None, "timeout": 3}, "`timeout` only applies to a step that finds an element or has checks"),
+    ({"type": "a", "timeout": 3}, "`timeout` only applies"),
+    ({"tap": "x", "timeout": "long"}, "`timeout` must be a number"),
     ({"expect": []}, "needs at least one value"),
     ({"see": ""}, "'see' needs text without"),
     ({"see": {"a": 1}}, "'see' needs text, got a mapping"),
@@ -184,9 +196,40 @@ def test_both_platforms_and_several_devices(tmp_path):
     assert spec.devices == {"android": ("Pixel 4a", "Pixel 8"), "ios": ("BH",)}
 
 
-def test_settings_are_not_part_of_a_test_file(tmp_path):
-    with pytest.raises(TestFileError, match=r"`settings` is not part of a test file: each step waits up to 10 seconds"):
-        load(write(tmp_path, minimal(extra="settings: {timeout: 5}\n")), {})
+def test_no_settings_means_the_defaults(tmp_path):
+    suite = load(write(tmp_path, minimal()), {})
+    assert suite.settings == DEFAULTS and suite.tests[0].steps[0].settings == DEFAULTS
+
+
+def test_a_files_settings_apply_to_every_step_and_a_step_can_change_its_own(tmp_path):
+    body = minimal(tests="  - {name: T, fresh: true, steps: [back, {tap: x, timeout: 30}]}\n",
+                   extra="settings: {model: typesafe/jev-2, timeout: 20, settle: 5, max_actions: 20, "
+                         "max_scrolls: 100, confidence: 0.8}\n")
+    suite = load(write(tmp_path, body), {})
+    expected = Settings("typesafe/jev-2", 20, 5, 20, 100, 0.8)
+    back, tap = suite.tests[0].steps
+    assert suite.settings == expected and back.settings == expected
+    assert tap.settings == dataclasses.replace(expected, timeout=30)
+
+
+def test_included_tests_run_with_the_settings_of_the_file_being_run(tmp_path):
+    (tmp_path / "lib.yaml").write_text("tests:\n  - {name: L, fresh: true, steps: [back]}\n")
+    body = minimal(extra="include: lib.yaml\nsettings: {settle: 9}\n")
+    assert load(write(tmp_path, body), {}).library["L"].steps[0].settings.settle == 9
+
+
+@pytest.mark.parametrize(("settings", "message"), [
+    ("settings: 5", "`settings` must be a mapping of model, confidence, max_actions, max_scrolls, settle, timeout"),
+    ("settings: {}", "`settings` must be a mapping"),
+    ("settings: {wait: 5}", "`settings` has unknown keys: wait"),
+    ("settings: {model: gpt-5}", "`model` must be a Jev model (typesafe/jev-...), got 'gpt-5'"),
+    ("settings: {model: 5}", "`model` needs text"),
+    ("settings: {timeout: 1000}", "`timeout` must be from 1 to 300, got 1000"),
+    ("settings: {timeout: '5'}", "`timeout` must be a number, got '5' (remove the quotes)"),
+])
+def test_bad_settings_are_rejected(tmp_path, settings, message):
+    with pytest.raises(TestFileError, match=re.escape(message)):
+        load(write(tmp_path, minimal(extra=settings + "\n")), {})
 
 
 @pytest.mark.parametrize(("body", "message"), [
