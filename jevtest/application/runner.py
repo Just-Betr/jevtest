@@ -90,6 +90,10 @@ phone's web view sometimes ignores a single scroll."""
 T = TypeVar("T")
 
 
+def _count(n: int, noun: str) -> str:
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
 class TestRunner:
     """Runs a suite's tests on one device.
 
@@ -398,7 +402,8 @@ class TestRunner:
             if screen.shows(wanted):
                 return f"{scrolls} scroll(s)" if scrolls else None
             if scrolls == settings.max_scrolls:
-                raise StepFailed(f"Scrolled {direction} {scrolls} times (max_scrolls) but never found '{text}'")
+                raise StepFailed(f"Scrolled {direction} {_count(scrolls, 'time')} (max_scrolls) "
+                                 f"but never found '{text}'")
             self.device.scroll(direction, screen=screen)
             self._settle(settings)
             before, screen = screen, self.device.screen()
@@ -421,7 +426,7 @@ class TestRunner:
             if isinstance(move, Impossible):
                 raise StepFailed("Jev says the goal is impossible from this screen")
             if len(taken) == settings.max_actions:
-                raise StepFailed(f"Goal not reached after {len(taken)} actions (max_actions)")
+                raise StepFailed(f"Goal not reached after {_count(len(taken), 'action')} (max_actions)")
             if taken[-2:] == [move.describe()] * 2:
                 raise StepFailed(f"Stuck repeating: {move.describe()}")
             self._make(move, screen, settings)

@@ -218,10 +218,25 @@ def test_included_tests_run_with_the_settings_of_the_file_being_run(tmp_path):
     assert load(write(tmp_path, body), {}).library["L"].steps[0].settings.settle == 9
 
 
+def test_every_bad_step_in_a_test_is_reported_at_once(tmp_path):
+    body = minimal(tests="  - {name: T, fresh: true, steps: [{tap: x, max_actions: 3}, back, {wait: 1, settle: 5}]}\n")
+    with pytest.raises(TestFileError, match="2 problems") as e:
+        load(write(tmp_path, body), {})
+    assert "Test 'T', step 1: `max_actions`" in str(e.value) and "Test 'T', step 3: `settle`" in str(e.value)
+
+
+def test_every_bad_setting_is_reported_at_once(tmp_path):
+    body = minimal(extra="settings: {timeout: 1000, confidence: 0.3, model: gpt-5}\n")
+    with pytest.raises(TestFileError, match="3 problems") as e:
+        load(write(tmp_path, body), {})
+    assert "`timeout` must be from 1 to 300" in str(e.value) and "`confidence` must be" in str(e.value)
+    assert "`model` must be a Jev model" in str(e.value)
+
+
 @pytest.mark.parametrize(("settings", "message"), [
     ("settings: 5", "`settings` must be a mapping of model, confidence, max_actions, max_scrolls, settle, timeout"),
     ("settings: {}", "`settings` must be a mapping"),
-    ("settings: {wait: 5}", "`settings` has unknown keys: wait"),
+    ("settings: {wait: 5}", "`settings` has an unknown key: wait (it takes model, confidence"),
     ("settings: {model: gpt-5}", "`model` must be a Jev model (typesafe/jev-...), got 'gpt-5'"),
     ("settings: {model: 5}", "`model` needs text"),
     ("settings: {timeout: 1000}", "`timeout` must be from 1 to 300, got 1000"),

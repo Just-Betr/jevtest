@@ -262,25 +262,35 @@ def setting(name: str, value: object) -> float | int:
     return number
 
 
-def _settings(raw: object) -> Settings:
-    """The file's `settings:` block; anything it leaves out keeps its default."""
+def _settings(raw: object, problems: list[str]) -> Settings:
+    """The file's `settings:` block; anything it leaves out keeps its default.
+
+    Each bad setting adds its problem to `problems`, so all are reported.
+    """
     if raw is None:
         return DEFAULTS
     allowed = ["model", *sorted(STEP_SETTINGS)]
     if not isinstance(raw, dict) or not raw:
-        raise TestFileError(f"`settings` must be a mapping of {', '.join(allowed)}; got {raw!r} "
-                            "(leave it out to use the defaults)")
-    unknown = set(raw) - set(allowed)
-    if unknown:
-        raise TestFileError(f"`settings` has unknown keys: {', '.join(sorted(map(str, unknown)))} "
-                            f"(it takes {', '.join(allowed)})")
-    changes: dict[str, Any] = {n: setting(n, raw[n]) for n in STEP_SETTINGS & set(raw)}
-    if "model" in raw:
-        model = _text(raw["model"], "`model`")
-        if not model.startswith(JEV_MODELS):
-            raise TestFileError(f"`model` must be a Jev model ({JEV_MODELS}...), got {model!r}: jevtest uses Jev only")
-        changes["model"] = model
+        problems.append(f"`settings` must be a mapping of {', '.join(allowed)}; got {raw!r} "
+                        "(leave it out to use the defaults)")
+        return DEFAULTS
+    changes: dict[str, Any] = {}
+    for name, value in raw.items():
+        if name not in allowed:
+            problems.append(f"`settings` has an unknown key: {name} (it takes {', '.join(allowed)})")
+            continue
+        try:
+            changes[name] = _model(value) if name == "model" else setting(name, value)
+        except TestFileError as e:
+            problems.append(str(e))
     return replace(DEFAULTS, **changes)
+
+
+def _model(value: object) -> str:
+    model = _text(value, "`model`")
+    if not model.startswith(JEV_MODELS):
+        raise TestFileError(f"`model` must be a Jev model ({JEV_MODELS}...), got {model!r}: jevtest uses Jev only")
+    return model
 
 
 def parse_step(raw: object, settings: Settings = DEFAULTS) -> Step:
@@ -421,13 +431,17 @@ def _tests(raw: object, where: str, settings: Settings, problems: list[str]) -> 
     tests = []
     for i, t in enumerate(raw, 1):
         try:
-            tests.append(_test(t, i, where, settings))
+            test = _test(t, i, where, settings, problems)
         except TestFileError as e:
             problems.append(str(e))
+            continue
+        if test is not None:
+            tests.append(test)
     return tests
 
 
-def _test(t: object, i: int, where: str, settings: Settings) -> Test:
+def _test(t: object, i: int, where: str, settings: Settings, problems: list[str]) -> Test | None:
+    """One test, or None when a step is bad: each bad step adds its problem to `problems`."""
     if not isinstance(t, dict) or "name" not in t or "steps" not in t or "fresh" not in t:
         raise TestFileError(f"Test #{i} in {where} needs `name`, `fresh` (true: start from a clean install, "
                             "false: carry on from the previous test) and `steps`")
@@ -437,12 +451,14 @@ def _test(t: object, i: int, where: str, settings: Settings) -> Test:
         raise TestFileError(f"Test '{name}' has unknown keys: {', '.join(sorted(map(str, unknown)))}")
     if not isinstance(t["steps"], list) or not t["steps"]:
         raise TestFileError(f"Test '{name}' needs at least one step")
-    steps = []
+    steps, bad = [], len(problems)
     for n, raw in enumerate(t["steps"], 1):
         try:
             steps.append(parse_step(raw, settings))
         except TestFileError as e:
-            raise TestFileError(f"Test '{name}', step {n}: {e}") from None
+            problems.append(f"Test '{name}', step {n}: {e}")
+    if len(problems) > bad:
+        return None
     return Test(name, _on_off(t["fresh"], f"Test '{name}': fresh"), tuple(steps))
 
 
@@ -539,16 +555,12 @@ def load(path: str | Path, env: Mapping[str, str]) -> Suite:
 
     apps: dict[Platform, Path] = {}
     devices: dict[Platform, tuple[str, ...]] = {}
-    settings = DEFAULTS
     try:
         apps = _apps(_fill_all(data.get("app"), variables), path.parent)
         devices = _devices(data.get("device"), apps, variables)
     except TestFileError as e:
         problems.append(str(e))
-    try:
-        settings = _settings(data.get("settings"))
-    except TestFileError as e:
-        problems.append(str(e))
+    settings = _settings(data.get("settings"), problems)
     tests = _tests(data.get("tests"), path.name, settings, problems)
     shared = [t for lib, d in libraries for t in _tests(d.get("tests"), lib.name, settings, problems)]
     names = [t.name for t in tests + shared]

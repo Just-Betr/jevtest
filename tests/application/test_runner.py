@@ -563,3 +563,12 @@ def test_scroll_to_can_allow_fewer_scrolls(tmp_path, clock, out):
     d = FakeDevice(*[screen_with(f"Item {i}") for i in range(10)])
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 9", "direction": "down", "max_scrolls": 3}, device=d)
     assert res.failure.endswith("Scrolled down 3 times (max_scrolls) but never found 'Item 9'")
+
+
+def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
+    res, _, _ = run1(tmp_path, clock, out, {"do": "Loop", "max_actions": 1},
+                     model=FakeModel(act("back"), act("tap", target="e3")))
+    assert res.failure.endswith("Goal not reached after 1 action (max_actions)")
+    d = FakeDevice(*[screen_with(f"Item {i}") for i in range(5)])
+    res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 4", "direction": "down", "max_scrolls": 1}, device=d)
+    assert res.failure.endswith("Scrolled down 1 time (max_scrolls) but never found 'Item 4'")
