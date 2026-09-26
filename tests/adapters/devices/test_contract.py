@@ -130,6 +130,11 @@ def test_a_change_before_the_wait_is_not_missed(fresh):
     assert fresh.screen() != before
 
 
+def is_deny(text):
+    """The prompt's deny button: "Don't allow" (Android) or "Don\u2019t Allow" (iOS, a curly apostrophe)."""
+    return text.lower().replace("\u2019", "'") == "don't allow"
+
+
 def test_system_permission_prompt_is_on_screen(fresh):
     sign_in(fresh)
     fresh.scroll(Direction.DOWN)
@@ -139,8 +144,12 @@ def test_system_permission_prompt_is_on_screen(fresh):
     fresh.tap(*find(fresh, "Ask for camera").center)
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
-        texts = " ".join(e.text for e in fresh.screen().elements).lower()
-        if "allow" in texts:  # Android: "While using the app" / "Don't allow"; iOS: "Allow" / "Don't Allow"
+        deny = [e for e in fresh.screen().elements if is_deny(e.text)]
+        if deny:  # Android: "Don't allow"; iOS: "Don't Allow"
+            # Answer it: a prompt left open outlives the app and would be on every screen of the next run.
+            fresh.tap(*deny[0].center)
+            settle(fresh)
+            assert not any(is_deny(e.text) for e in fresh.screen().elements)
             return
         fresh.wait_change(deadline - time.monotonic())
     raise AssertionError("the system permission prompt never appeared in the tree")

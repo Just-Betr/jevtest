@@ -32,6 +32,10 @@ jevtest signs its own agent with **the same team that signed your app**, read fr
 
 **First run:** jevtest builds its agent, signs it with your team and registers the phone with that team (about a minute). Later runs reuse it. jevtest reaches the phone through the USB connection Xcode already keeps to it, so nothing else needs installing.
 
+**Each run asks for your passcode.** When jevtest's agent starts, iOS asks the phone's owner to approve UI automation with the passcode. That's Apple's security rule and can't be skipped: be at the phone when a run starts.
+
+**Permission prompts take about a minute.** Before any touch while a system alert is up, Apple's XCUITest waits for SpringBoard (which owns the alert) to settle, and on a real iPhone it doesn't settle while a permission prompt is showing, so XCUITest waits its full 60 seconds first. The test still passes; it's just slow. The simulator doesn't have this delay, so it's the better place for tests that answer many prompts.
+
 **What's different on an iPhone:** everything works except `grant:` (iOS can't pre-grant permissions: have the test tap the prompt, e.g. `do: Allow camera access`) and `network:`.
 
 ## Leaving the phone as it was

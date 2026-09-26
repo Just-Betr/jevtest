@@ -102,6 +102,13 @@ final class JevAgentUITests: XCTestCase {
         return app ?? XCUIApplication(bundleIdentifier: "com.apple.springboard")
     }
 
+    /// Where touches go: SpringBoard while a system alert (a permission prompt) is up, since the alert is
+    /// SpringBoard's, not the app's. Touching "through" the app makes XCUITest run its interruption
+    /// handling first, which stalls on a real iPhone. Both apps fill the screen, so points are the same.
+    private func touched(_ app: XCUIApplication) -> XCUIApplication {
+        springboard.alerts.firstMatch.exists ? springboard : app
+    }
+
     private func point(_ app: XCUIApplication, _ x: Any?, _ y: Any?) -> XCUICoordinate {
         let dx = (x as? Double) ?? 0, dy = (y as? Double) ?? 0
         return app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: dx, dy: dy))
@@ -130,14 +137,15 @@ final class JevAgentUITests: XCTestCase {
             served = signature
             return reply
         case "/tap":
-            point(app, body["x"], body["y"]).tap()
+            point(touched(app), body["x"], body["y"]).tap()
         case "/double_tap":
-            point(app, body["x"], body["y"]).doubleTap()
+            point(touched(app), body["x"], body["y"]).doubleTap()
         case "/long_press":
-            point(app, body["x"], body["y"]).press(forDuration: (body["seconds"] as? Double) ?? 1.2)
+            point(touched(app), body["x"], body["y"]).press(forDuration: (body["seconds"] as? Double) ?? 1.2)
         case "/drag":
-            point(app, body["x1"], body["y1"]).press(
-                forDuration: 0.05, thenDragTo: point(app, body["x2"], body["y2"]),
+            let target = touched(app)
+            point(target, body["x1"], body["y1"]).press(
+                forDuration: 0.05, thenDragTo: point(target, body["x2"], body["y2"]),
                 withVelocity: .fast, thenHoldForDuration: 0.05)
         case "/type":
             app.typeText((body["text"] as? String) ?? "")

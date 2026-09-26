@@ -17,6 +17,10 @@ match.
 - A `fresh: true` test now also puts back device changes an earlier test made (`rotate:`, `dark_mode:`,
   `network:`, location), so one failing test can't leave the device rotated for the rest.
 - An iOS app state XCUITest doesn't define is an error, not a guess.
+- `scroll_to` calls it the end of the content only after two scrolls in a row move nothing: a real phone's web
+  view sometimes ignores one.
+- iOS: while a system alert is up, touches go to SpringBoard, and an agent call may take 150 s, since XCUITest
+  waits up to 60 s for SpringBoard to settle before touching on a real iPhone.
 - Requires Python 3.11 or newer.
 
 ## 0.4.0

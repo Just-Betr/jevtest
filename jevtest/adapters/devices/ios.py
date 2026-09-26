@@ -34,6 +34,9 @@ from jevtest.domain.screen import Element, Point, Screen
 from .common import BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
 
 AGENT_SRC = Path(__file__).resolve().parent / "ios_agent"
+AGENT_CALL_TIMEOUT = 150
+"""Seconds one agent call may take. XCUITest waits up to 60 s for SpringBoard to settle before touching while a
+system alert is up, and on a real iPhone it doesn't settle while a permission prompt is showing."""
 AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator or phone
 # Container types that only matter when they carry a label or identifier.
 CONTAINERS = {"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"}
@@ -350,14 +353,14 @@ class IOSDevice(BaseDevice):
         """
         body.setdefault("bundle_id", self.app_id)
         try:
-            data = http_post(self._url(path), body, timeout=60)
+            data = http_post(self._url(path), body, timeout=AGENT_CALL_TIMEOUT)
         except OSError as e:
             if not self.physical:
                 raise DeviceError(f"Lost the iOS agent during {path} ({e}). Agent log tail:\n{self._log_tail()}") \
                     from None
             try:  # the phone's tunnel address changes when it relocks: look it up again, once
                 self.host = self._tunnel_host()
-                data = http_post(self._url(path), body, timeout=60)
+                data = http_post(self._url(path), body, timeout=AGENT_CALL_TIMEOUT)
             except (OSError, DeviceError) as again:
                 raise DeviceError(f"Lost the agent on {self.name} during {path} ({again}). "
                                   f"Is it unlocked and plugged in? Agent log tail:\n{self._log_tail()}") from None

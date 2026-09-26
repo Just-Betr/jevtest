@@ -235,10 +235,17 @@ def test_scroll_to_already_on_screen(tmp_path, clock, out):
 
 
 def test_scroll_to_stops_at_the_end_of_the_content(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Item 1"), screen_with("Item 2"), screen_with("Item 2"))
+    d = FakeDevice(screen_with("Item 1"), screen_with("Item 2"), screen_with("Item 2"), screen_with("Item 2"))
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "up"}, device=d)
     assert res.failure.endswith("Scrolled up to the end but never found 'Item 99'")
-    assert d.names().count("drag") == 2  # the second scroll moved nothing: that's the end
+    assert d.names().count("drag") == 3  # the last two scrolls moved nothing: that's the end
+
+
+def test_scroll_to_keeps_going_after_one_scroll_that_moved_nothing(tmp_path, clock, out):
+    """A real phone's web view sometimes ignores a single scroll: that isn't the end."""
+    d = FakeDevice(screen_with("Item 1"), screen_with("Item 1"), screen_with("Back to top"))
+    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Back to top", "direction": "down"}, device=d)
+    assert res.status is Status.PASS and d.names().count("drag") == 2
 
 
 def test_scroll_to_gives_up_after_50_scrolls(tmp_path, clock, out):

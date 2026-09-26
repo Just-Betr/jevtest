@@ -80,6 +80,10 @@ APP_MAY_LEAVE = (Stop, ClearData, Reinstall, Home, OpenUrl)
 NO_SETTLE = (Stop, ClearData, Reinstall, Home, Wait, Screenshot, ScrollTo, Do, Use)
 """Actions that do their own waiting, or change nothing on screen."""
 
+END_OF_CONTENT = 2
+"""Scrolls in a row that must move nothing before `scroll_to:` calls it the end. One isn't enough: a real
+phone's web view sometimes ignores a single scroll."""
+
 T = TypeVar("T")
 
 
@@ -390,6 +394,7 @@ class TestRunner:
         """
         wanted = self._value(text)
         screen = self.device.screen()
+        unmoved = 0  # scrolls in a row that moved nothing
         for scrolls in range(MAX_SCROLLS + 1):
             if screen.shows(wanted):
                 return f"{scrolls} scroll(s)" if scrolls else None
@@ -398,7 +403,8 @@ class TestRunner:
             self.device.scroll(direction, screen=screen)
             self._settle()
             before, screen = screen, self.device.screen()
-            if screen == before:
+            unmoved = unmoved + 1 if screen == before else 0
+            if unmoved == END_OF_CONTENT:
                 raise StepFailed(f"Scrolled {direction} to the end but never found '{text}'")
         raise AssertionError("unreachable")  # pragma: no cover
 
