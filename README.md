@@ -53,7 +53,7 @@ export OPENROUTER_API_KEY=sk-or-...        # https://openrouter.ai/keys
 Both agents stay running for the whole run and answer "what's on screen?" in milliseconds (Android ~3 ms, iOS ~40 ms). The iOS agent uses only public XCTest API.
 
 **How jevtest waits.** There are no fixed sleeps:
-- **After an action**, it waits until the screen has not changed for 150 ms (0.5 s after launching the app, because startup pauses longer). On Android "not changed" means neither the accessibility tree nor the pixels: a window sliding in reports its final positions only when it lands, so only the pixels show it moving. On iOS the agent compares snapshots (iOS has no change events; WebDriverAgent and Maestro poll too).
+- **After an action**, it waits until the screen has not changed for 150 ms (0.5 s after launching the app, because startup pauses longer). On Android "not changed" means the accessibility tree, plus the pixels whenever a window opened or closed: a dialog or permission prompt sliding in reports its final positions only when it lands, so only the pixels show it moving. Decoration inside a window that stays put (a tap ripple, a blinking cursor) moves nothing and is not waited for. On iOS the agent compares snapshots (iOS has no change events; WebDriverAgent and Maestro poll too).
 - **jevtest never changes the app or the device to make tests easier.** Animations stay on; the only settings a run changes are ones a step asks for (like `rotate:`), and those are restored afterwards.
 - **When a check or element isn't there yet**, it waits for the screen to differ from the one it last looked at, then looks again. Jev is only asked again when the screen actually changed.
 

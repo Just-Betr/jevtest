@@ -27,8 +27,8 @@ import java.util.List;
  * it keeps one UiAutomation connection open and answers on 127.0.0.1:port:
  *   GET /tree        -> the active window as uiautomator-style XML, plus
  *                       ime="true|false" and package="..." on the root element
- *   GET /idle?ms=N&quiet=Q -> returns once, for Q ms (default 150; max N ms), neither the tree nor
- *                       the screen's pixels have changed
+ *   GET /idle?ms=N&quiet=Q -> returns once the tree has not changed for Q ms (default 150; max N ms);
+ *                       while windows differ from what the client last saw, the pixels too
  *   GET /change?ms=N -> returns as soon as the tree differs from the last one /tree served (max N ms):
  *                       comparing with what the client last saw means a change that lands between
  *                       its /tree and its /change is not missed
@@ -45,7 +45,8 @@ public class Agent extends Instrumentation {
     private int port = 7912;
     private final Object changed = new Object();
     private long changes = 0;
-    private String served = "";  // the tree the client last received
+    private String served = "";         // the tree the client last received
+    private String servedWindows = "";  // and the windows on screen at that moment
 
     @Override
     public void onCreate(Bundle arguments) {
@@ -93,6 +94,7 @@ public class Agent extends Instrumentation {
                     String body;
                     if (path.equals("/tree")) {
                         body = served = tree(ui);
+                        servedWindows = windows(ui);
                     } else if (path.equals("/idle")) {
                         body = idle(ui, quiet, ms);
                     } else if (path.equals("/change")) {
@@ -126,38 +128,55 @@ public class Agent extends Instrumentation {
         return fallback;
     }
 
-    /** Idle = for `quiet` ms neither the tree nor the pixels changed. Both matter: a window sliding
-     *  in (a permission prompt) keeps reporting its start positions until it lands, so only the
-     *  pixels show it moving; and some tree changes are invisible in pixels. */
+    /** Idle = the tree has not changed for `quiet` ms. While the set of windows differs from what
+     *  the client last saw (a dialog, a permission prompt, a new screen), the pixels must be still
+     *  too: a window sliding in reports its final element positions only when it lands, so only
+     *  the pixels show it moving. In a window that stays put, decoration such as a tap ripple or a
+     *  blinking cursor changes pixels but moves nothing, so it is not waited for. */
     private String idle(UiAutomation ui, long quiet, long ms) throws InterruptedException {
         long deadline = System.currentTimeMillis() + ms;
         String last = tree(ui);
-        Bitmap lastPixels = ui.takeScreenshot();
+        Bitmap lastPixels = null;
         long stableSince = System.currentTimeMillis();
-        while (System.currentTimeMillis() - stableSince < quiet) {
-            long left = deadline - System.currentTimeMillis();
-            if (left <= 0) {
-                return "busy";
+        try {
+            while (System.currentTimeMillis() - stableSince < quiet) {
+                long left = deadline - System.currentTimeMillis();
+                if (left <= 0) {
+                    return "busy";
+                }
+                synchronized (changed) {
+                    changed.wait(Math.min(CHECK_MS, left));  // an event wakes it early
+                }
+                String now = tree(ui);
+                boolean moved = false;
+                if (!windows(ui).equals(servedWindows)) {
+                    Bitmap pixels = ui.takeScreenshot();
+                    moved = pixels == null || lastPixels == null || !pixels.sameAs(lastPixels);
+                    if (lastPixels != null) {
+                        lastPixels.recycle();
+                    }
+                    lastPixels = pixels;
+                }
+                if (!now.equals(last) || moved) {
+                    last = now;
+                    stableSince = System.currentTimeMillis();
+                }
             }
-            synchronized (changed) {
-                changed.wait(Math.min(CHECK_MS, left));  // an event wakes it early
-            }
-            String now = tree(ui);
-            Bitmap pixels = ui.takeScreenshot();
-            boolean moved = pixels == null || lastPixels == null || !pixels.sameAs(lastPixels);
+            return "idle";
+        } finally {
             if (lastPixels != null) {
                 lastPixels.recycle();
             }
-            lastPixels = pixels;
-            if (!now.equals(last) || moved) {
-                last = now;
-                stableSince = System.currentTimeMillis();
-            }
         }
-        if (lastPixels != null) {
-            lastPixels.recycle();
+    }
+
+    /** Which windows are on screen (id, type, layer): changes when a dialog, prompt or screen opens. */
+    private static String windows(UiAutomation ui) {
+        StringBuilder sb = new StringBuilder();
+        for (AccessibilityWindowInfo w : ui.getWindows()) {
+            sb.append(w.getId()).append(':').append(w.getType()).append(':').append(w.getLayer()).append(';');
         }
-        return "idle";
+        return sb.toString();
     }
 
     /** Sleeps until an accessibility event arrives, then compares the tree: events also fire for
