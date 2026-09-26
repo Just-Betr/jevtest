@@ -142,6 +142,7 @@ class Runner:
                 "steps": steps, "log": list(self.lines)}
 
     def start_app(self, fresh: bool):
+        self.driver.check_ready()
         if fresh:
             self.driver.stop()
             self.driver.clear_data()

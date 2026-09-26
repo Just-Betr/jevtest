@@ -85,18 +85,10 @@ class Test:
 @dataclass
 class Spec:
     path: Path
-    apps: dict[str, Path]
+    apps: dict[str, Path]      # platform -> build, in the order the file lists them
     tests: list[Test]
     settings: Settings
-
-    def app_for(self, platform: str | None) -> tuple[str, Path]:
-        if platform:
-            if platform not in self.apps:
-                raise SpecError(f"No {platform} app in {self.path.name} (have: {', '.join(self.apps)})")
-            return platform, self.apps[platform]
-        if len(self.apps) > 1:
-            raise SpecError(f"{self.path.name} has apps for {', '.join(self.apps)}; pick one with --platform")
-        return next(iter(self.apps.items()))
+    devices: dict[str, str] = field(default_factory=dict)  # platform -> device name; missing = the running one
 
 
 def platform_of(path: Path) -> str:
@@ -289,6 +281,21 @@ def _apps(raw, base: Path) -> dict[str, Path]:
     return apps
 
 
+def _devices(raw, apps: dict[str, Path]) -> dict[str, str]:
+    """Which device each platform runs on: a name or id (phone, emulator or simulator)."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise SpecError("`device` must name a device per platform, e.g. {android: Pixel 4a, ios: iPhone 17 Pro}")
+    unknown = set(raw) - {"android", "ios"}
+    if unknown:
+        raise SpecError(f"`device` keys must be android and/or ios, got {', '.join(sorted(map(str, unknown)))}")
+    for plat in raw:
+        if plat not in apps:
+            raise SpecError(f"`device` names a {plat} device, but `app` has no {plat} build")
+    return {plat: _text(name, f"device.{plat}") for plat, name in raw.items()}
+
+
 def _link_uses(tests: list[Test]):
     """Point each `use:` step at the test it names, and refuse loops."""
     by_name = {t.name: t for t in tests}
@@ -346,8 +353,9 @@ def load(path: str | Path) -> Spec:
         raise SpecError(f"{path.name} is not valid YAML: {e}") from None
     if not isinstance(data, dict):
         raise SpecError(f"{path.name} must be a YAML mapping with `app` and `tests`")
-    unknown = set(data) - {"app", "settings", "tests"}
+    unknown = set(data) - {"app", "device", "settings", "tests"}
     if unknown:
         raise SpecError(f"Unknown top-level keys: {', '.join(sorted(map(str, unknown)))}")
-    return Spec(path=path, apps=_apps(data.get("app"), path.parent),
-                tests=_tests(data.get("tests")), settings=_settings(data.get("settings")))
+    apps = _apps(data.get("app"), path.parent)
+    return Spec(path=path, apps=apps, tests=_tests(data.get("tests")), settings=_settings(data.get("settings")),
+                devices=_devices(data.get("device"), apps))

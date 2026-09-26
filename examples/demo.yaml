@@ -1,6 +1,5 @@
 # jevtest example: runs against the bundled demo app.
-#   jevtest run examples/demo.yaml --platform android
-#   jevtest run examples/demo.yaml --platform ios
+#   jevtest run examples/demo.yaml      (runs on Android, then iOS)
 #
 # Every step is: an action, then what should be true after it.
 #
@@ -9,6 +8,11 @@
 #     see: <exact text on screen>            plain text check, no model
 #
 # `use: <test name>` runs another test's steps first, so tests build on each other.
+
+# Which device each platform runs on. Leave it out to use whatever is running; name one to choose:
+# device:
+#   android: Pixel 4a        # a phone's model, an emulator's AVD name, or a serial
+#   ios: iPhone 17 Pro       # a booted simulator's name or UDID
 
 app:
   android: ../demo_app/build/app/outputs/flutter-apk/app-debug.apk

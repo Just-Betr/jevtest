@@ -168,6 +168,9 @@ class Driver(ABC):
     def resume(self):
         """Bring the app back to the foreground without restarting it."""
 
+    def check_ready(self):  # noqa: B027 - optional hook
+        """Raise DriverError if the device can't be tested right now (e.g. a phone that is locked)."""
+
     def close(self):  # noqa: B027 - optional hook
         """Release anything the driver started (its on-device agent)."""
 

@@ -205,10 +205,16 @@ def test_picks_first_device(adb):
     assert AndroidDriver().serial == "emulator-5554"
 
 
-def test_named_device_must_be_connected(adb):
-    with pytest.raises(DriverError, match="R58N not connected"):
-        AndroidDriver("R58N")
-    assert AndroidDriver("emulator-5554").serial == "emulator-5554"
+def test_device_named_by_serial_model_or_avd(adb):
+    adb.rules["adb devices"] = "List of devices attached\nemulator-5554\tdevice\n15241JEC\tdevice\n"
+    adb.rules["-s 15241JEC shell getprop ro.product.model"] = "Pixel 4a\n"
+    adb.rules["-s emulator-5554 shell getprop ro.product.model"] = "sdk_gphone64_arm64\n"
+    adb.rules["emu avd name"] = "Pixel_10\nOK\n"
+    assert AndroidDriver("15241JEC").serial == "15241JEC"
+    assert AndroidDriver("pixel 4a").serial == "15241JEC"
+    assert AndroidDriver("Pixel_10").serial == "emulator-5554"
+    with pytest.raises(DriverError, match="called 'Galaxy'. Connected: .*Pixel_10.*Pixel 4a"):
+        AndroidDriver("Galaxy")
 
 
 def test_no_device_is_an_error_not_a_boot(adb):
@@ -269,6 +275,21 @@ def test_reinstall(drv, adb):
     drv.reinstall()
     assert adb.shell()[0] == "pm uninstall dev.demo"
     assert any("install -r" in c for c in adb.cmds)
+
+
+@pytest.mark.parametrize("reply,ready", [
+    ("  mWakefulness=Awake\n    isKeyguardShowing=false\n", True),
+    ("  mWakefulness=Dozing\n    isKeyguardShowing=true\n", False),
+    ("  mWakefulness=Awake\n    isKeyguardShowing=true\n", False),   # awake on the lock screen
+    ("  mWakefulness=Asleep\n    isKeyguardShowing=false\n", False)])
+def test_check_ready_reports_a_locked_or_sleeping_phone(drv, adb, reply, ready):
+    adb.rules["dumpsys power"] = reply
+    if ready:
+        drv.check_ready()
+    else:
+        with pytest.raises(DriverError, match="asleep or locked: unlock it"):
+            drv.check_ready()
+    assert not any("keyevent" in c for c in adb.shell())  # never wakes or unlocks it
 
 
 @pytest.mark.parametrize("reply,state", [

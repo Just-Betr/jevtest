@@ -61,6 +61,14 @@ def test_not_fresh_launches_closed_app(tmp_path, clock, out):
     assert res["status"] == "pass"
 
 
+def test_locked_device_fails_the_test_clearly(tmp_path, clock, out):
+    d = FakeDriver()
+    d.fail["check_ready"] = DriverError("Android device X is asleep or locked: unlock it")
+    res, _, _ = run1(tmp_path, clock, out, "back", driver=d)
+    assert res["failure"] == "(start app) — Android device X is asleep or locked: unlock it"
+    assert "launch" not in d.names()
+
+
 def test_app_that_cannot_start_fails_the_test(tmp_path, clock, out):
     d = FakeDriver()
     d.fail["launch"] = DriverError("boom")

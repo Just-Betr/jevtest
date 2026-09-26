@@ -65,7 +65,11 @@ Both agents stay running for the whole run and answer "what's on screen?" in mil
 
 ```yaml
 app: build/app.apk            # .apk / .aab (Android), .app / .zip / .ipa with a simulator .app (iOS)
-# or both:  app: { android: app.apk, ios: Runner.app }  and pick with --platform
+# or both:  app: { android: app.apk, ios: Runner.app }   -> the tests run on each, one after the other
+
+device:                       # optional; leave it out to use the device that is running
+  android: Pixel 4a           # a phone's model, an emulator's AVD name, or a serial
+  ios: iPhone 17 Pro          # a booted simulator's name or UDID
 
 settings:                     # all optional
   model: typesafe/jev-1.13     # pinned; the lockfile is per model
@@ -135,8 +139,7 @@ After every action the harness also fails the step if the app crashed or left th
 ## Commands
 
 ```bash
-jevtest run tests.yaml [--platform android|ios] [--device SERIAL|UDID|NAME] [--test NAME]...
-                       [-v] [--junit PATH] [--out DIR] [--frozen | --refresh-lock | --no-lock]
+jevtest run tests.yaml [--test NAME]... [-v] [--out DIR] [--frozen | --refresh-lock | --no-lock]
 ```
 
 | Exit code | Meaning |
@@ -150,8 +153,8 @@ jevtest run tests.yaml [--platform android|ios] [--device SERIAL|UDID|NAME] [--t
 
 Every run prints each step, the actions Jev chose, and each check. It ends with a summary: failures with their reason, and how many Jev decisions came from the lockfile vs. were asked live, with time and cost. `-v` also prints every Jev question with its top answers and probabilities.
 
-Each run writes to `jevtest-results/<timestamp>/`:
-- `junit.xml` for CI test reporting (`--junit PATH` to put it elsewhere);
+Each run writes to `jevtest-results/<timestamp>/<platform>/`:
+- `junit.xml` for CI test reporting;
 - `report.json` with every step, check and Jev request/answer;
 - a screenshot of every failure.
 
@@ -160,7 +163,7 @@ Each run writes to `jevtest-results/<timestamp>/`:
 ```yaml
 # GitHub Actions, on a macOS runner with a simulator
 - run: pip install jevtest
-- run: jevtest run tests.yaml --platform ios --frozen --junit results/junit.xml
+- run: jevtest run tests.yaml --frozen
 - uses: actions/upload-artifact@v4
   if: always()
   with: { name: jevtest-results, path: jevtest-results }

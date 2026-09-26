@@ -1,9 +1,10 @@
 """jevtest command line.
 
-  jevtest run tests.yaml [--platform android|ios] [--device ID] [--test NAME] [-v]
+  jevtest run tests.yaml [--test NAME] [-v]
 
-It tests on a device that is already running (an Android emulator or phone, a booted iOS
-simulator); it does not start, stop or manage devices.
+The test file says which app to test on which device (`app:` and `device:`); jevtest runs the
+tests on each platform it lists. It uses devices that are already running (a phone, an emulator,
+a booted simulator); it does not start, stop or manage devices.
 
 Exit codes: 0 all tests passed, 1 a test failed, 2 setup error, 130 interrupted.
 """
@@ -63,45 +64,53 @@ def cmd_run(args) -> int:
         if missing:
             raise SpecError(f"No test named: {', '.join(missing)}")
         spec.tests = [t for t in spec.tests if t.name in args.test]
-    platform, app = spec.app_for(args.platform)
-    if not app.exists():
-        raise SpecError(f"App not found: {app}")
+    for app in spec.apps.values():
+        if not app.exists():
+            raise SpecError(f"App not found: {app}")
     model = spec.settings.model
     jev = LockedJev(model, spec.path.with_suffix(".lock.json"), lock_mode(args), lambda: Jev(model=model))
-
     out = Path(args.out) / time.strftime("%Y%m%d-%H%M%S")
+    failed = 0
+    try:
+        for platform, app in spec.apps.items():  # each platform in the file, on its device
+            failed += run_platform(spec, platform, app, jev, out / platform, args.verbose)
+    finally:
+        jev.save()
+    return 0 if failed == 0 else 1
+
+
+def run_platform(spec, platform: str, app: Path, jev: LockedJev, out: Path, verbose: bool) -> int:
+    """Run every test on this platform's device; return how many failed."""
     out.mkdir(parents=True, exist_ok=True)
-    driver = make_driver(platform, args.device)
+    driver = make_driver(platform, spec.devices.get(platform))
     driver.settle, driver.timeout = spec.settings.settle, spec.settings.timeout
+    calls_before = len(jev.calls)
     try:
         app_id = driver.install(app)
-        print(f"jevtest {__version__} · {platform} · {app_id} · {model} · lockfile: {jev.mode}")
-        results = Runner(spec, driver, Brain(jev), out,
-                         verbose=args.verbose).run()
+        print(f"jevtest {__version__} · {platform} · {app_id} · {spec.settings.model} · lockfile: {jev.mode}")
+        results = Runner(spec, driver, Brain(jev), out, verbose=verbose).run()
     finally:
         driver.close()
-        jev.save()
-
-    write_report(out, {"file": str(spec.path), "platform": platform, "app": str(app),
-                       "app_id": app_id, "model": model}, results, jev.calls)
-    junit = Path(args.junit) if args.junit else out / "junit.xml"
-    write_junit(junit, f"jevtest.{platform}", results)
-    print(summary(results, jev, out, junit))
-    return 0 if results["failed"] == 0 else 1
+    calls = jev.calls[calls_before:]
+    write_report(out, {"file": str(spec.path), "platform": platform, "app": str(app), "app_id": app_id,
+                       "model": spec.settings.model}, results, calls)
+    write_junit(out / "junit.xml", f"jevtest.{platform}", results)
+    print(summary(results, calls, out))
+    return results["failed"]
 
 
-def summary(results: dict, jev: LockedJev, out: Path, junit: Path) -> str:
+def summary(results: dict, calls: list[dict], out: Path) -> str:
     total = results["passed"] + results["failed"]
     run_s = sum(t["seconds"] for t in results["tests"])
-    live = [c for c in jev.calls if not c.get("cached")]
+    live = [c for c in calls if not c.get("cached")]
     jev_s = sum(c["ms"] for c in live) / 1000
     cost = sum(c["usage"].get("cost", 0) for c in live)
     share = f" ({jev_s / run_s:.0%} of run time)" if run_s else ""
     lines = [f"\n{results['passed']}/{total} passed in {run_s:.0f}s"]
     lines += [f"  FAILED {t['name']}: {t['failure']}" for t in results["tests"] if t["status"] != "pass"]
-    lines.append(f"Jev: {len(jev.calls)} decisions, {jev.hits} from lockfile, {len(live)} asked live"
+    lines.append(f"Jev: {len(calls)} decisions, {len(calls) - len(live)} from lockfile, {len(live)} asked live"
                  f" in {jev_s:.1f}s{share}, ${cost:.4f}")
-    lines.append(f"Report: {out / 'report.json'} · JUnit: {junit}")
+    lines.append(f"Results: {out} (report.json, junit.xml)")
     return "\n".join(lines)
 
 
@@ -112,11 +121,8 @@ def parser() -> argparse.ArgumentParser:
 
     r = sub.add_parser("run", help="run a test file")
     r.add_argument("file")
-    r.add_argument("--platform", choices=["android", "ios"])
-    r.add_argument("--device", help="adb serial, or simulator name / UDID")
     r.add_argument("--test", action="append", help="only run this test (repeatable)")
     r.add_argument("--out", default="jevtest-results", help="results folder")
-    r.add_argument("--junit", help="JUnit XML path (default: <results>/junit.xml)")
     r.add_argument("-v", "--verbose", action="store_true", help="print every Jev question and answer")
     r.add_argument("--frozen", action="store_true",
                    help="only use recorded Jev decisions; fail on anything new (for CI)")

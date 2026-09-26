@@ -7,7 +7,7 @@ import pytest
 from jevtest import __version__, cli
 from jevtest.drivers.base import DriverError
 
-from .conftest import FakeDriver, FakeJev, act, yes
+from .conftest import FakeDriver, FakeJev, act, screen_with, yes
 
 SPEC = """app: app.apk
 settings: {settle: 0, timeout: 0}
@@ -62,7 +62,8 @@ def test_run_writes_report_junit_and_lockfile(project, monkeypatch, capsys):
     assert drivers[0].calls[0][0] == "install" and made[0].model == "typesafe/jev-1.13"
     assert (drivers[0].settle, drivers[0].timeout) == (0.0, 0.0)  # the test file's settings reach the driver
 
-    [run_dir] = (tmp / "res").iterdir()
+    [stamp] = (tmp / "res").iterdir()
+    run_dir = stamp / "android"
     report = json.loads((run_dir / "report.json").read_text())
     assert report["platform"] == "android" and report["app_id"] == "dev.fake"
     assert [t["status"] for t in report["tests"]] == ["pass", "fail"]
@@ -96,13 +97,50 @@ def test_no_lock_leaves_no_file(project, monkeypatch):
     assert not (tmp / "t.lock.json").exists()
 
 
-def test_all_pass_exits_zero_and_custom_junit(project, monkeypatch, capsys):
+def test_all_pass_exits_zero(project, monkeypatch, capsys):
     tmp, _ = project
     fake_jev(monkeypatch, act("done"), yes(0.95))
-    assert run_cli("--test", "Sign in", "--junit", "ci/junit.xml", "-v") == 0
+    assert run_cli("--test", "Sign in", "-v") == 0
     out = capsys.readouterr().out
     assert "jev action: done" in out and f"jevtest {__version__} · android" in out
-    assert (tmp / "ci/junit.xml").exists()
+    [stamp] = (tmp / "res").iterdir()
+    assert (stamp / "android" / "junit.xml").exists()
+
+
+def test_the_file_chooses_platforms_and_devices(tmp_path, monkeypatch, capsys):
+    (tmp_path / "a.apk").write_text("")
+    app = tmp_path / "A.app"
+    app.mkdir()
+    (tmp_path / "t.yaml").write_text("app: {android: a.apk, ios: A.app}\n"
+                                     "device: {ios: iPhone 17 Pro}\n"
+                                     "settings: {settle: 0}\n"
+                                     "tests:\n  - name: T\n    steps: [back]\n")
+    monkeypatch.chdir(tmp_path)
+    asked = []
+
+    def make_driver(platform, device):
+        asked.append((platform, device))
+        return FakeDriver()
+    monkeypatch.setattr(cli, "make_driver", make_driver)
+    fake_jev(monkeypatch)
+    assert run_cli() == 0
+    assert asked == [("android", None), ("ios", "iPhone 17 Pro")]  # no device named: the running one
+    [stamp] = (tmp_path / "res").iterdir()
+    assert sorted(p.name for p in stamp.iterdir()) == ["android", "ios"]
+    assert capsys.readouterr().out.count("1/1 passed") == 2
+
+
+def test_a_failure_on_any_platform_fails_the_run(tmp_path, monkeypatch):
+    (tmp_path / "a.apk").write_text("")
+    app = tmp_path / "A.app"
+    app.mkdir()
+    (tmp_path / "t.yaml").write_text("app: {android: a.apk, ios: A.app}\nsettings: {settle: 0, timeout: 0}\n"
+                                     "tests:\n  - name: T\n    steps: [{see: Welcome}]\n")
+    monkeypatch.chdir(tmp_path)
+    screens = iter([screen_with("Welcome"), screen_with("Nope")])
+    monkeypatch.setattr(cli, "make_driver", lambda platform, device: FakeDriver(next(screens)))
+    fake_jev(monkeypatch)
+    assert run_cli() == 1
 
 
 def test_unknown_test_name(project, capsys):
@@ -147,11 +185,7 @@ def test_interrupt_exits_130(project, monkeypatch):
 
 
 def test_summary_with_no_time(tmp_path):
-    results = {"passed": 0, "failed": 0, "tests": []}
-
-    class J:
-        calls, hits = [], 0
-    text = cli.summary(results, J(), tmp_path, tmp_path / "j.xml")
+    text = cli.summary({"passed": 0, "failed": 0, "tests": []}, [], tmp_path)
     assert "0/0 passed in 0s" in text and "of run time" not in text
 
 

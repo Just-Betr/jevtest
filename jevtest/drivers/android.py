@@ -80,6 +80,23 @@ def devices() -> list[str]:
     return [line.split()[0] for line in out.splitlines()[1:] if line.strip().endswith("\tdevice")]
 
 
+def device_names(serial: str) -> list[str]:
+    """What a test file may call this device: its serial, its model ("Pixel 4a"), its emulator's AVD name."""
+    names = [serial, run([adb_path(), "-s", serial, "shell", "getprop", "ro.product.model"], check=False).strip()]
+    if serial.startswith("emulator-"):
+        names.append(run([adb_path(), "-s", serial, "emu", "avd", "name"], check=False).split("\n")[0].strip())
+    return [n for n in names if n]
+
+
+def pick_device(wanted: str, serials: list[str]) -> str:
+    named = {serial: device_names(serial) for serial in serials}
+    for serial, names in named.items():
+        if any(n.lower() == wanted.lower() for n in names):
+            return serial
+    listed = "; ".join(" / ".join(names) for names in named.values())
+    raise DriverError(f"No connected Android device called '{wanted}'. Connected: {listed}")
+
+
 def http_get(url: str, timeout: float) -> str:
     with urllib.request.urlopen(url, timeout=timeout) as resp:
         return resp.read().decode()
@@ -174,14 +191,12 @@ def parse_hierarchy(xml: str, width: int, height: int) -> list[Element]:
 class AndroidDriver(Driver):
     platform = "android"
 
-    def __init__(self, serial: str | None = None):
+    def __init__(self, device: str | None = None):
         self.adb = adb_path()
         found = devices()
-        if serial and serial not in found:
-            raise DriverError(f"Android device {serial} not connected (connected: {', '.join(found) or 'none'})")
         if not found:
-            raise DriverError("No Android device connected. Start an emulator or connect a device (see `adb devices`).")
-        self.serial = serial or found[0]
+            raise DriverError("No Android device connected. Start an emulator or connect a phone (see `adb devices`).")
+        self.serial = pick_device(device, found) if device else found[0]
         self.app_path: Path | None = None
         self.activity = ""
         self._size: tuple[int, int] | None = None
@@ -286,6 +301,14 @@ class AndroidDriver(Driver):
     def reinstall(self):
         self.sh(f"pm uninstall {self.app_id}", check=False)
         self.install(self.app_path)
+
+    def check_ready(self):
+        """A phone that is asleep or locked shows no app to test. Say so; never wake or unlock it."""
+        out = self.sh("dumpsys power | grep -m1 mWakefulness=; dumpsys window | grep -m1 -E 'isKeyguardShowing='",
+                      check=False)
+        if "mWakefulness=Awake" not in out or "isKeyguardShowing=true" in out:
+            raise DriverError(f"Android device {self.serial} is asleep or locked: unlock it and keep it awake "
+                              "during the run")
 
     def app_state(self) -> str:
         out = self.sh(f"pidof {self.app_id}; dumpsys activity activities | grep -m1 topResumedActivity",

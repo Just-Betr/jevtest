@@ -189,6 +189,10 @@ class FakeDriver(Driver):
     def network(self, on):
         self._rec("network", on)
 
+    def check_ready(self):  # not logged: only matters when a test makes it fail
+        if "check_ready" in self.fail:
+            raise self.fail["check_ready"]
+
     def wait_idle(self, timeout, quiet=None):
         self._rec("wait_idle", timeout) if quiet is None else self._rec("wait_idle", timeout, quiet)
 

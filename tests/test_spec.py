@@ -123,18 +123,21 @@ def test_minimal_file(tmp_path):
     assert spec.apps == {"android": (tmp_path / "a.apk").resolve()}
     assert spec.settings == Settings()
     assert spec.tests[0].fresh is True
-    assert spec.app_for(None) == ("android", (tmp_path / "a.apk").resolve())
-    assert spec.app_for("android")[0] == "android"
-    with pytest.raises(SpecError, match="No ios app"):
-        spec.app_for("ios")
+    assert spec.devices == {}  # no device named: the running one
 
 
 def test_example_file_loads():
     spec = load(EXAMPLE)
     assert set(spec.apps) == {"android", "ios"}
     assert len({t.name for t in spec.tests}) == len(spec.tests)
-    with pytest.raises(SpecError, match="pick one with --platform"):
-        spec.app_for(None)
+
+
+def test_devices(tmp_path):
+    body = ("app: {android: a.apk, ios: x.zip}\ndevice: {android: Pixel 4a, ios: 'BH'}\n"
+            "tests:\n  - {name: T, steps: [back]}\n")
+    (tmp_path / "x.zip").write_text("")
+    spec = load(write(tmp_path, body))
+    assert list(spec.apps) == ["android", "ios"] and spec.devices == {"android": "Pixel 4a", "ios": "BH"}
 
 
 def test_settings(tmp_path):
@@ -164,6 +167,10 @@ def test_settings(tmp_path):
     (minimal(extra="settings: {max_actions: 0}\n"), "settings.max_actions must be at least 1"),
     (minimal(extra="settings: {settle: -1}\n"), "settings.settle must be at least 0"),
     (minimal(extra="settings: {model: ''}\n"), "settings.model needs a text value"),
+    (minimal(extra="device: Pixel\n"), "must name a device per platform"),
+    (minimal(extra="device: {web: x}\n"), "keys must be android and/or ios"),
+    (minimal(extra="device: {ios: BH}\n"), "names a ios device, but `app` has no ios build"),
+    (minimal(extra="device: {android: ''}\n"), "device.android needs a text value"),
 ])
 def test_bad_files_are_rejected(tmp_path, body, message):
     with pytest.raises(SpecError, match=message):
