@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0
 
 **Settings.** A test file can now tune how steps wait and how far they go, with defaults that suit most apps and
 limits that keep a test from hiding a broken app. A file without settings runs exactly as before.
