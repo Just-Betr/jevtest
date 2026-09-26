@@ -10,7 +10,8 @@
 #     see: <exact text on screen>            plain text check, no model
 #
 # `use: <test name>` runs another test's steps first, so tests build on each other.
-# Every ${NAME} comes from examples/.env (or the environment): nothing here is assumed.
+# Every ${NAME} comes from examples/.env (or the environment). Each step waits up to 10 seconds
+# for what it looks for; add `timeout: 30` to a step that needs longer.
 
 app:
   android: ../demo_app/build/app/outputs/flutter-apk/app-debug.apk
@@ -20,15 +21,6 @@ device:
   android: ${ANDROID_DEVICE}     # exact serial, model or AVD name (see `adb devices`)
   ios: ${IOS_DEVICE}             # exact name or UDID of a booted simulator or a connected iPhone
   # Several devices split the tests and run at the same time: android: [Pixel 4a, Pixel_10]
-
-settings:
-  model: typesafe/jev-1.13       # the Jev model (the lockfile is per model)
-  max_actions: 8                 # Jev actions allowed per `do:` step
-  max_scrolls: 15                # scrolls a `scroll_to:` may make
-  timeout: 10                    # seconds checks and element lookups keep trying
-  settle: 3                      # most seconds to wait for the screen to stop changing
-  threshold: 0.5                 # Jev's yes-probability an `expect:` needs
-  ios_team: ${IOS_TEAM}          # Apple team that signs jevtest's agent (used on a real iPhone)
 
 include: shared/auth.yaml        # the "Sign in" building block
 

@@ -13,7 +13,7 @@ from .brain import Brain, Decision
 from .drivers.base import Driver, DriverError
 from .jev import JevError
 from .screen import Element, Screen
-from .spec import Spec, Step, Test, fill
+from .spec import MAX_ACTIONS, MAX_SCROLLS, SETTLE, THRESHOLD, TIMEOUT, Spec, Step, Test, fill
 
 LAUNCH_QUIET = 0.5  # seconds without a UI change that count as "the app has finished starting"
 # Actions after which the app is allowed to be closed or in the background.
@@ -40,7 +40,6 @@ class Runner:
     def __init__(self, spec: Spec, driver: Driver, brain: Brain, out_dir: Path,
                  verbose: bool = False, clock: Clock | None = None, out=None, on_test=None):
         self.spec = spec
-        self.s = spec.settings
         self.driver = driver
         self.brain = brain
         self.out_dir = out_dir
@@ -75,12 +74,17 @@ class Runner:
     # --- helpers ---------------------------------------------------------------
     def settle(self):
         """Wait until the UI stops changing (the driver reacts to the device; no fixed sleep)."""
-        self.driver.wait_idle(self.s.settle)
+        self.driver.wait_idle(SETTLE)
 
     def value(self, text: str) -> str:
         """`text` with its ${NAME} values filled in. Only for doing and comparing: logs, reports and
         Jev's goals keep the ${NAME}, so secrets stay out of them."""
         return fill(text, self.spec.variables)
+
+    @staticmethod
+    def timeout(step: Step) -> float:
+        """How long a step waits for what it looks for: its own `timeout:`, or 10 seconds."""
+        return step.opts.get("timeout", TIMEOUT)
 
     def screen(self) -> Screen:
         return self.driver.screen()
@@ -162,7 +166,7 @@ class Runner:
             self.driver.launch()
             # Startup pauses longer than a tap does (a Flutter app adds its accessibility tree
             # in bursts ~0.4 s apart), so require a longer quiet window once, here.
-            self.driver.wait_idle(self.s.settle, quiet=LAUNCH_QUIET)
+            self.driver.wait_idle(SETTLE, quiet=LAUNCH_QUIET)
         self.expect_running = True
 
     def run_steps(self, steps: list[Step], results: list, pad: str) -> str:
@@ -186,7 +190,7 @@ class Runner:
             pad = pad + "    " if step.kind is not None else pad
             result["checks"] = []
             for kind, text in step.checks:
-                check = self.run_check(kind, text, step.opts.get("timeout", self.s.timeout), pad)
+                check = self.run_check(kind, text, self.timeout(step), pad)
                 result["checks"].append(check)
                 if check["status"] != "pass":
                     result["status"] = "fail"
@@ -246,7 +250,7 @@ class Runner:
         def attempt(screen):
             if kind == "expect":
                 p = last["p"] = self.brain.check(wanted, screen)
-                return f"Jev {p:.2f}" if p > self.s.threshold else None
+                return f"Jev {p:.2f}" if p > THRESHOLD else None
             found = any(wanted.lower() in t.lower() for t in screen.texts())
             return "" if found == (kind == "see") else None
 
@@ -300,7 +304,7 @@ class Runner:
         self.driver.scroll(step.value)
 
     def act_swipe(self, step, _):
-        timeout = step.opts.get("timeout", self.s.timeout)
+        timeout = self.timeout(step)
         el = self.locate(step.opts["target"], timeout) if "target" in step.opts else None
         self.driver.swipe(step.value, el=el)
         return f"on {el.label()}" if el else None
@@ -310,16 +314,21 @@ class Runner:
         absent text is there tends to pick something similar)."""
         direction = step.opts["direction"]
         wanted = self.value(step.value).lower()
-        for _i in range(step.opts.get("max_scrolls", self.s.max_scrolls)):
-            screen = self.screen()
+        screen = self.screen()
+        for scrolls in range(MAX_SCROLLS + 1):
             if any(wanted in t.lower() for t in screen.texts()):
-                return None
+                return f"{scrolls} scroll(s)" if scrolls else None
+            if scrolls == MAX_SCROLLS:
+                raise StepFailed(f"Scrolled {direction} {MAX_SCROLLS} times but never found '{step.value}'")
             self.driver.scroll(direction, screen=screen)
             self.settle()
-        raise StepFailed(f"Scrolled {direction} but never found '{step.value}'")
+            before, screen = screen, self.screen()
+            if screen.signature() == before.signature():
+                raise StepFailed(f"Scrolled {direction} to the end but never found '{step.value}'")
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def _touch(self, step) -> str:
-        el = self.locate(step.value, step.opts.get("timeout", self.s.timeout))
+        el = self.locate(step.value, self.timeout(step))
         getattr(self.driver, step.kind)(*el.center)
         return f"on {el.label()}"
 
@@ -333,7 +342,7 @@ class Runner:
         return self._touch(step)
 
     def act_clear(self, step, _):
-        el = self.locate(step.value, step.opts.get("timeout", self.s.timeout), editable=True)
+        el = self.locate(step.value, self.timeout(step), editable=True)
         self.driver.clear_text(el)
         return f"on {el.label()}"
 
@@ -341,7 +350,7 @@ class Runner:
         if "into" not in step.opts:
             self.driver.type_text(self.value(step.value))
             return None
-        el = self.locate(step.opts["into"], step.opts.get("timeout", self.s.timeout), editable=True)
+        el = self.locate(step.opts["into"], self.timeout(step), editable=True)
         self.driver.type_text(self.value(step.value), at=el.center)  # the driver focuses the field
         return f"into {el.label()}"
 
@@ -372,7 +381,7 @@ class Runner:
         self.driver.network(step.value)
 
     def act_do(self, step, decisions):
-        return self.achieve(step.value, step.opts.get("max_actions", self.s.max_actions), decisions)
+        return self.achieve(step.value, MAX_ACTIONS, decisions)
 
     # --- the Jev loop --------------------------------------------------------------
     def achieve(self, goal: str, max_actions: int, decisions: list) -> str:
@@ -415,7 +424,7 @@ class Runner:
         elif a == "hide_keyboard":
             d.hide_keyboard()
         else:  # wait: the screen is still loading
-            d.wait_change(self.s.settle)
+            d.wait_change(SETTLE)
 
 
 # --- results -------------------------------------------------------------------------

@@ -26,12 +26,9 @@ app:
   ios: build/Release-iphoneos/MyApp.app
 device:
   ios: My iPhone                # Settings > General > About > Name, or its UDID
-settings:
-  # ...
-  ios_team: ABCDE12345          # your team ID, from Xcode > Settings > Accounts
 ```
 
-`ios_team` is required for a real iPhone. If it's missing, the error lists the teams signed into Xcode.
+jevtest signs its own agent with **the same team that signed your app**, read from the app's provisioning profile, so there's nothing to configure. That team must be signed into Xcode; if it isn't, the error says which team to add.
 
 **First run:** jevtest builds its agent, signs it with your team and registers the phone with that team (about a minute). Later runs reuse it. jevtest reaches the phone through the USB connection Xcode already keeps to it, so nothing else needs installing.
 

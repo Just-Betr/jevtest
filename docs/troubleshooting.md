@@ -7,9 +7,8 @@ Every error jevtest prints says what's wrong and what to do. This page collects 
 jevtest checks the whole file before touching a device and lists every problem at once:
 
 ```console
-error: t.yaml has 3 problems:
+error: t.yaml has 2 problems:
   - Missing `device:`. Name the device for each platform in `app:`, e.g. {android: Pixel 4a, ios: iPhone 17 Pro}
-  - Missing settings: max_actions, max_scrolls, settle, threshold (all of model, max_actions, max_scrolls, timeout, settle, threshold are required)
   - Test #1 in t.yaml needs `name`, `fresh` (true: start from a clean install, false: carry on from the previous test) and `steps`
 ```
 
@@ -19,7 +18,8 @@ error: t.yaml has 3 problems:
 | `'wait' must be a number, got '2' (remove the quotes)` | Numbers are written without quotes. |
 | `'tap' needs text, got a number (to use 42 as text, put it in quotes)` | `tap: "42"`. |
 | `'scroll_to' needs direction: (up, down, left or right)` | Add `direction: down` to the step. |
-| `` `max_actions` belongs to do, not to tap `` | Options only go on the actions they apply to ([table](reference/steps.md#options)). |
+| `` `direction` belongs to scroll_to, not to tap `` | Options only go on the actions they apply to ([table](reference/steps.md#options)). |
+| `` `settings` is not part of a test file `` | Remove it. Steps wait 10 seconds, or their own `timeout:`; everything else is a [fixed rule](reference/test-file.md#fixed-rules). |
 | `timeout only applies to a step that finds an element or has checks` | Remove it, or add the check it was meant for. |
 | `t.yaml is not valid YAML: … A value starting with ${ must be quoted inside { } or [ ]` | `{android: "${PHONE}"}`. |
 | ``Not set: ${PASSWORD}. Add them to .env next to the test file, or to the environment`` | Define the value. Only the `.env` **next to the test file** is read. |
@@ -37,7 +37,8 @@ error: t.yaml has 3 problems:
 | `No booted simulator or connected iPhone called 'iPhone 16' (names are exact). Running: …` | Boot it (`xcrun simctl boot "iPhone 16"`), or use a listed name. |
 | `Several devices are called 'iPhone 17 Pro' (X, Y): name one by its UDID` | Use the UDID. |
 | `… is asleep or locked: unlock it` / `BH is locked: unlock it and keep it unlocked during the run` | Unlock the phone; consider a longer screen timeout while testing. |
-| `Testing on a real iPhone needs ios_team: in settings … Signed into Xcode: ABCDE12345` | Add `ios_team:` to `settings`. |
+| `The app is signed by team ABCDE12345, which is not signed into Xcode (signed in: …)` | jevtest signs its agent with your app's team: add that team's Apple Account in Xcode > Settings > Accounts. |
+| `Runner.app is not signed for a real iPhone (it has no provisioning profile)` | Build the app for the device, signed with your team. |
 | `Testing on a real iPhone needs signing: in Xcode, Settings > Accounts > + > Apple Account` | Sign into Xcode ([Real phones](guides/real-devices.md#iphone)). |
 | `Runner.app is built for iPhoneSimulator, not a real iPhone (BH)…` | Build for the device, signed with your team. |
 | `Setting location is only supported on the Android emulator` | Android phones can't take a simulated location. |
@@ -56,7 +57,8 @@ error: t.yaml has 3 problems:
 
 - **`Could not find element 'X' on screen`**: the text isn't on screen within `timeout`. Check the failure screenshot; maybe it's below the fold (`scroll_to:` first) or labelled differently.
 - **`Jev says the goal is impossible from this screen`**: the goal can't be done from where the app is. Often a previous step didn't land; add a `see:` after it.
-- **`Goal not reached after 8 actions`**: split the `do:` into smaller goals, or raise `max_actions` on that step.
+- **`Goal not reached after 10 actions`**: split the `do:` into smaller goals, one per step.
+- **`Scrolled down to the end but never found 'X'`**: the text isn't in the list, or it's the other way (`direction: up`).
 - **`Stuck repeating: tap button 'Next'`**: the action has no effect. The element may be disabled or covered.
 - **`The app is no longer running (crashed or closed)`**: the app crashed. The log from `adb logcat` or the device's crash reports will say why.
 - **`expect: … — Jev says false (0.31)`**: Jev judged the statement false. Read the screenshot: it's usually right. If the statement is ambiguous, make it concrete, or use `see:` for exact text.

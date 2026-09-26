@@ -103,7 +103,7 @@ def make_app(tmp_path, bundle_id="dev.demo", platforms=("iPhoneSimulator",), nam
 
 @pytest.fixture
 def drv(env, tmp_path):
-    d = IOSDriver("A", "")
+    d = IOSDriver("A", Path("Demo.app"))
     d.install(make_app(tmp_path))
     env[0].cmds.clear()
     env[1].calls.clear()
@@ -233,7 +233,7 @@ def test_app_bundle_rejects_bad_input(tmp_path):
 
 def test_starts_agent_on_simulator(env):
     _, agent, procs = env
-    d = IOSDriver("A", "")
+    d = IOSDriver("A", Path("Demo.app"))
     cmd, ready, run_env = procs[0]
     assert cmd[:2] == ["xcodebuild", "test-without-building"] and cmd[-1] == "id=A"
     assert ready == "JEVTEST_AGENT_READY"  # returns the moment the agent says so, no polling
@@ -252,14 +252,14 @@ def test_agent_is_built_when_missing(env, monkeypatch, tmp_path):
             (out / "x.xctestrun").write_text("")
         return sim(cmd, **kw)
     monkeypatch.setattr(ios, "run", build)
-    IOSDriver("A", "")
+    IOSDriver("A", Path("Demo.app"))
     assert any("build-for-testing" in c for c in sim.cmds)
 
 
 def test_agent_build_without_output_fails(env, monkeypatch, tmp_path):
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "fresh"))
     with pytest.raises(DriverError, match="no .xctestrun"):
-        IOSDriver("A", "")
+        IOSDriver("A", Path("Demo.app"))
 
 
 
@@ -271,11 +271,11 @@ def test_agent_build_without_output_fails(env, monkeypatch, tmp_path):
 def test_requires_xcode(env, monkeypatch):
     monkeypatch.setattr(ios.shutil, "which", lambda n: None)
     with pytest.raises(DriverError, match="Xcode"):
-        IOSDriver("A", "")
+        IOSDriver("A", Path("Demo.app"))
 
 
 def test_close_stops_agent(env):
-    IOSDriver("A", "").close()
+    IOSDriver("A", Path("Demo.app")).close()
     assert env[2][-1] == ("stopped", "proc")
 
 
@@ -318,7 +318,7 @@ def test_http_post_roundtrip(monkeypatch):
 
 def test_install(env, tmp_path):
     sim = env[0]
-    d = IOSDriver("A", "")
+    d = IOSDriver("A", Path("Demo.app"))
     assert d.install(make_app(tmp_path)) == "dev.demo"
     assert any("simctl install A" in c for c in sim.cmds)
 
@@ -328,14 +328,14 @@ def test_install(env, tmp_path):
     ({"bundle_id": None}, "no CFBundleIdentifier")])
 def test_install_rejects_bad_bundles(env, tmp_path, kwargs, message):
     with pytest.raises(DriverError, match=message):
-        IOSDriver("A", "").install(make_app(tmp_path, **kwargs))
+        IOSDriver("A", Path("Demo.app")).install(make_app(tmp_path, **kwargs))
 
 
 def test_install_without_plist(env, tmp_path):
     app = tmp_path / "Bad.app"
     app.mkdir()
     with pytest.raises(DriverError, match="no readable Info.plist"):
-        IOSDriver("A", "").install(app)
+        IOSDriver("A", Path("Demo.app")).install(app)
 
 
 def test_launch_waits_for_the_app_in_front(drv, env):

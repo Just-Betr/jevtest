@@ -90,3 +90,9 @@ extra:
       link: https://pypi.org/project/jevtest/
 
 strict: true
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn

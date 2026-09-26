@@ -10,7 +10,6 @@ hide:
 ```yaml title="login.yaml"
 app: build/app-debug.apk
 device: { android: emulator-5554 }
-settings: { model: typesafe/jev-1.13, max_actions: 8, max_scrolls: 15, timeout: 10, settle: 3, threshold: 0.5 }
 
 tests:
   - name: Sign in
@@ -23,19 +22,19 @@ tests:
 
 ```console
 $ jevtest run login.yaml --lock frozen --out results
-jevtest 0.3.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
+jevtest 0.4.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
 
 ▶ Sign in
-  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (1.8s) — 3 action(s)
+  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.7s) — 3 action(s)
       → type "${DEMO_EMAIL}" into text_field 'Email'  (confidence 0.83)
       → type "${DEMO_PASSWORD}" into password_field 'Password'  (confidence 0.76)
       → tap button 'Sign in'  (confidence 0.93)
       → done  (confidence 0.96)
       ✓ expect: The home screen is showing — Jev 0.95
       ✓ see: Welcome, ${DEMO_EMAIL}
-  PASS Sign in (4.1s)
+  PASS Sign in (7.1s)
 
-1/1 passed in 4s
+1/1 passed in 7s
 Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.0000
 ```
 
@@ -58,7 +57,7 @@ Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.000
 
 -   :material-alert-octagon-outline: **Nothing assumed**
 
-    No default device, no default settings, no guessing what a typo meant. Anything missing or wrong fails before the run starts, and says exactly what to fix.
+    No settings file, no default device, no guessing what a typo meant. Anything missing or wrong fails before the run starts, and says exactly what to fix.
 
 -   :material-cellphone-link: **Real apps, real phones**
 

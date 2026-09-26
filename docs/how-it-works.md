@@ -31,15 +31,15 @@ sequenceDiagram
 2. **Describe it as text.** Each element becomes a short line: `{"id": "e4", "type": "button", "text": "Sign in", "position": "top-center"}`.
 3. **Ask Jev to choose.** One request, several questions: *what's the next action* (tap, type, scroll, back, done, impossible, …), *on which element*, and *which quoted value to type*. Jev answers each by choosing one of the options, with probabilities.
 4. **Act** through the agent or `adb`, then **wait** until the screen stops changing.
-5. **Repeat** until Jev answers `done` or `impossible`, or the step runs out of `max_actions`.
+5. **Repeat** until Jev answers `done` or `impossible`. A goal gets at most 10 actions.
 
-`expect:` checks are one yes/no question each, passed when Jev's yes-probability is above `threshold`. `see:` and `not_see:` never ask Jev.
+`expect:` checks are one yes/no question each, passed when Jev finds the statement more likely true than false (yes-probability above 0.5). `see:` and `not_see:` never ask Jev.
 
 ## Jev
 
 Jev is TypeSafe's decision model, reached through [OpenRouter](https://openrouter.ai). It reads text and answers **by choosing from options it's given**: it never writes free text. That's why jevtest can trust it with a test: everything it does is one of a fixed list of actions on one of the elements actually on screen, and everything typed comes from your test file.
 
-jevtest uses no other model. The model is pinned in `settings.model` (e.g. `typesafe/jev-1.13`) so an alias update can't change behaviour underneath you.
+jevtest uses no other model. Each release of jevtest is built and tested against one pinned Jev version (`typesafe/jev-1.13`), printed at the start of every run, so an update on OpenRouter's side can't change behaviour underneath you. A new Jev version comes with a new jevtest release.
 
 ## The lockfile
 
@@ -57,7 +57,7 @@ Commit the lockfile. [`--lock`](reference/cli.md#lock-modes) says how each run u
 
 jevtest has no fixed sleeps. It reacts to the device:
 
-- **After an action** it waits until the screen has not changed for 150 ms (0.5 s after launching the app, because apps pause longer while starting), up to `settle` seconds.
+- **After an action** it waits until the screen has not changed for 150 ms (0.5 s after launching the app, because apps pause longer while starting), up to 3 seconds.
     - On Android, "changed" means the accessibility tree, plus the pixels while a window is opening or closing: a dialog sliding in reports its final position only when it lands, so only the pixels show it moving. A blinking cursor or a ripple inside a window that stays put isn't waited for.
     - On iOS there are no change events, so the agent compares snapshots, as WebDriverAgent and Maestro do.
 - **When a check or element isn't there yet**, it waits for the screen to change, then looks again. Jev is asked again only when the screen actually changed.
@@ -66,7 +66,7 @@ jevtest has no fixed sleeps. It reacts to the device:
 
 jevtest never fills a gap for you:
 
-- No default device, settings, lock mode or results folder: the test file and the command say everything.
+- No default device, lock mode or results folder: the test file and the command say everything. There's no settings block: the few fixed rules (10 seconds to wait, 10 actions per goal, …) are part of jevtest and [listed](reference/test-file.md#fixed-rules).
 - A misspelled step, a value of the wrong type or an option on the wrong action is an error, never a guess. `- bakc` doesn't become a goal for Jev; `wait: "2"` isn't quietly read as 2.
 - The whole test file is checked before any device is touched, and every problem is reported at once.
 - A device name must match exactly one device.

@@ -31,7 +31,7 @@ from .drivers.base import DriverError
 from .jev import Jev, JevError
 from .lock import LockedJev
 from .runner import Runner, write_junit, write_report
-from .spec import Spec, SpecError, Test, is_test_file, load
+from .spec import MODEL, SETTLE, TIMEOUT, Spec, SpecError, Test, is_test_file, load
 
 API_KEY = "OPENROUTER_API_KEY"
 
@@ -84,12 +84,12 @@ def test_files(paths: list[str]) -> tuple[list[Path], list[Path]]:
     return unique, [f.resolve() for f in others]
 
 
-def make_driver(platform: str, device: str, ios_team: str):
+def make_driver(platform: str, device: str, app: Path):
     if platform == "android":
         from .drivers.android import AndroidDriver
         return AndroidDriver(device)
     from .drivers.ios import IOSDriver
-    return IOSDriver(device, team=ios_team)
+    return IOSDriver(device, app)
 
 
 @dataclass
@@ -160,11 +160,11 @@ def run_job(job: Job, jev: LockedJev, verbose: bool, printer: Printer) -> dict:
     """Run the job's tests on its device; return its results."""
     job.out.mkdir(parents=True, exist_ok=True)
     spec = job.spec
-    driver = make_driver(job.platform, job.device, spec.settings.ios_team)
-    driver.settle, driver.timeout = spec.settings.settle, spec.settings.timeout
+    driver = make_driver(job.platform, job.device, job.app)
+    driver.settle, driver.timeout = SETTLE, TIMEOUT
     try:
         app_id = driver.install(job.app)
-        printer.block(job, f"jevtest {__version__} · {job.name} · {app_id} · {spec.settings.model} · "
+        printer.block(job, f"jevtest {__version__} · {job.name} · {app_id} · {MODEL} · "
                            f"lockfile: {jev.mode}")
         if printer.parallel:
             runner = Runner(spec, driver, Brain(jev), job.out, verbose=verbose, out=io.StringIO(),
@@ -175,7 +175,7 @@ def run_job(job: Job, jev: LockedJev, verbose: bool, printer: Printer) -> dict:
     finally:
         driver.close()
     write_report(job.out, {"file": str(spec.path), "platform": job.platform, "device": job.device,
-                           "app": str(job.app), "app_id": app_id, "model": spec.settings.model},
+                           "app": str(job.app), "app_id": app_id, "model": MODEL},
                  results, jev.calls)
     printer.block(job, summary(results, jev.calls, job.out))
     return results
@@ -237,9 +237,8 @@ def cmd_run(args) -> int:
     for spec, env in loaded:  # one file at a time; its devices at the same time
         label = spec.path.relative_to(root).with_suffix("").as_posix() if len(loaded) > 1 else ""
         jobs = plan(spec, out / label if label else out, label)
-        model = spec.settings.model
-        jev = LockedJev(model, spec.path.with_suffix(".lock.json"), mode,
-                        lambda model=model, env=env: Jev(model=model, api_key=env.get(API_KEY)))
+        jev = LockedJev(MODEL, spec.path.with_suffix(".lock.json"), mode,
+                        lambda env=env: Jev(model=MODEL, api_key=env.get(API_KEY)))
         if label:
             print(f"\n=== {spec.path.name} ===", flush=True)
         try:

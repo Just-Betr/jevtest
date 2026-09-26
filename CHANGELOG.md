@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0
+
+**No settings.** A test file is just `app`, `device`, `include` and `tests`.
+
+- `settings:` is gone. Each step waits up to 10 seconds for what it looks for; a step can say `timeout: 30`.
+- The rest are fixed rules of jevtest, listed in the docs: 10 actions per `do:` goal, `expect:` passes above 0.5,
+  and the Jev model is pinned per release (`typesafe/jev-1.13`).
+- `scroll_to` scrolls until the text appears, stopping at the end of the content or after 50 scrolls; it also checks
+  after its last scroll now.
+- A real iPhone needs no team setting: jevtest signs its agent with the team that signed your app.
+- The per-step `max_actions` and `max_scrolls` options are gone.
+
 ## 0.3.0
 
 **Nothing is assumed any more.** Every value a run uses comes from the test file, the `.env` next to it or the command line; anything missing or wrong is an error that says what to fix.

@@ -98,32 +98,48 @@ def find_target(wanted: str) -> Target:
     return matches[0]
 
 
-def xcode_team(wanted: str) -> str:
-    """Check the team the test file names is signed into Xcode (Settings > Accounts)."""
+def xcode_team(team: str) -> str:
+    """Check the app's team is signed into Xcode (Settings > Accounts), so jevtest can sign its agent."""
     raw = run(["defaults", "export", "com.apple.dt.Xcode", "-"], check=False)
     prefs = plistlib.loads(raw.encode()) if raw.strip() else {}
     teams = [t for account in prefs.get("IDEProvisioningTeamByIdentifier", {}).values() for t in account]
     ids = sorted({t["teamID"] for t in teams if "teamID" in t})
-    if not ids:
-        raise DriverError("Testing on a real iPhone needs signing: in Xcode, Settings > Accounts > + > Apple Account")
-    if not wanted:
-        raise DriverError(f"Testing on a real iPhone needs `ios_team:` in settings: the team that signs "
-                          f"jevtest's agent. Signed into Xcode: {', '.join(ids)}")
-    if wanted not in ids:
-        raise DriverError(f"Team {wanted} is not signed into Xcode (signed in: {', '.join(ids)})")
-    return wanted
+    if team not in ids:
+        signed_in = ", ".join(ids) or "none"
+        raise DriverError(f"The app is signed by team {team}, which is not signed into Xcode (signed in: "
+                          f"{signed_in}). jevtest signs its agent with the app's team: in Xcode, Settings > "
+                          "Accounts, add the Apple Account for that team.")
+    return team
+
+
+def profile(app: Path) -> dict | None:
+    """An app's embedded provisioning profile, decoded; None for a simulator build (it has none)."""
+    path = app / "embedded.mobileprovision"
+    if not path.exists():
+        return None
+    raw = run(["security", "cms", "-D", "-i", str(path)], binary=True, check=False)
+    try:
+        return plistlib.loads(raw)
+    except plistlib.InvalidFileException:
+        raise DriverError(f"{app.name}'s embedded.mobileprovision can't be read") from None
 
 
 def provisioned_devices(app: Path) -> set[str]:
     """The device UDIDs an app's embedded provisioning profile allows."""
-    profile = app / "embedded.mobileprovision"
-    if not profile.exists():
-        return set()
-    raw = run(["security", "cms", "-D", "-i", str(profile)], binary=True, check=False)
-    try:
-        return set(plistlib.loads(raw).get("ProvisionedDevices", []))
-    except plistlib.InvalidFileException:
-        return set()
+    return set((profile(app) or {}).get("ProvisionedDevices", []))
+
+
+def app_team(app: Path) -> str:
+    """The Apple team that signed a device build: jevtest signs its agent with the same team."""
+    prof = profile(app)
+    if prof is None:
+        raise DriverError(f"{app.name} is not signed for a real iPhone (it has no provisioning profile). "
+                          "Build it for the device, signed with your team.")
+    teams = prof.get("TeamIdentifier", [])
+    if len(teams) != 1:
+        raise DriverError(f"{app.name}'s provisioning profile names {len(teams)} teams ({', '.join(teams)}); "
+                          "expected one")
+    return teams[0]
 
 
 # Devices tested at the same time share the agent build: one builds and starts it at a time.
@@ -197,12 +213,13 @@ def http_post(url: str, body: dict, timeout: float) -> dict:
 class IOSDriver(Driver):
     platform = "ios"
 
-    def __init__(self, device: str, team: str):
+    def __init__(self, device: str, app: Path):
         if shutil.which("xcrun") is None:
             raise DriverError("Xcode command line tools are required for iOS")
         target = find_target(device)
         self.udid, self.name, self.physical = target.udid, target.name, target.physical
-        self.team = xcode_team(team) if self.physical else ""
+        self._tmp = tempfile.TemporaryDirectory()
+        self.team = xcode_team(app_team(app_bundle(app, Path(self._tmp.name) / "team"))) if self.physical else ""
         self.port = free_port()
         self.host = "127.0.0.1"
         self.agent: subprocess.Popen | None = None
@@ -210,7 +227,6 @@ class IOSDriver(Driver):
         self.app_path: Path | None = None
         self._restore: dict[str, dict] = {}  # agent call -> body that puts back what a step changed
         self._location_set = False
-        self._tmp = tempfile.TemporaryDirectory()
         self._start_agent()
 
     # --- agent ------------------------------------------------------------------

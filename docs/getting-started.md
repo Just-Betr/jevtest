@@ -60,14 +60,6 @@ app: build/app-debug.apk                  # your build, relative to this file
 device:
   android: emulator-5554                  # exact serial, model or AVD name
 
-settings:                                 # every value is required: nothing is assumed
-  model: typesafe/jev-1.13
-  max_actions: 8                          # Jev actions allowed per `do:` step
-  max_scrolls: 15                         # scrolls a `scroll_to:` may make
-  timeout: 10                             # seconds checks and lookups keep trying
-  settle: 3                               # most seconds to wait for the screen to stop changing
-  threshold: 0.5                          # Jev's yes-probability an `expect:` needs
-
 tests:
   - name: App opens on the sign-in screen
     fresh: true                           # start from a clean install
@@ -75,6 +67,8 @@ tests:
       - expect: The sign in screen is showing
         see: Sign in
 ```
+
+That's the whole file: the build, the device, and the tests. Each step waits up to 10 seconds for what it looks for; a step that needs longer says so with `timeout: 30`.
 
 ## 4. Run it
 
@@ -88,16 +82,16 @@ jevtest run tests.yaml --lock record --out results
 Both flags are required, so every run says how it treats the lockfile and where its results go.
 
 ```console
-jevtest 0.3.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: record
+jevtest 0.4.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: record
 
 ▶ App opens on the sign-in screen
   ✓ expect: The sign in screen is showing — Jev 0.98
   ✓ see: Sign in
-  PASS App opens on the sign-in screen (2.5s)
+  PASS App opens on the sign-in screen (4.4s)
 
-1/1 passed in 2s
-Jev: 1 decision, 0 from lockfile, 1 asked live in 0.2s (10% of run time), $0.0000
-Results: results/20260925-205537/android/emulator-5554
+1/1 passed in 4s
+Jev: 1 decision, 0 from lockfile, 1 asked live in 0.2s (4% of run time), $0.0000
+Results: results/20260925-220819/android/emulator-5554
 ```
 
 Commit `tests.yaml` and `tests.lock.json`. Every recorded screen now gets the same decision on every run.

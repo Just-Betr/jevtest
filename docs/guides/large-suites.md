@@ -2,7 +2,7 @@
 
 Four features keep a big app's tests manageable. A small app needs none of them.
 
-## `${NAME}` values: secrets and settings
+## `${NAME}` values: secrets and per-machine values
 
 Anywhere in a test file, `${NAME}` is replaced by the value of `NAME`:
 
@@ -28,7 +28,7 @@ tests:
         see: Welcome
 ```
 
-**Where values go.** In `app`, `device` and `settings`, values are filled in when the file loads. In steps, a value is filled in only when the app needs it: the text typed, the text compared, the element searched for, the URL opened. Logs, reports and the goals sent to Jev keep `${NAME}`.
+**Where values go.** In `app` and `device`, values are filled in when the file loads. In steps, a value is filled in only when the app needs it: the text typed, the text compared, the element searched for, the URL opened. Logs, reports and the goals sent to Jev keep `${NAME}`.
 
 !!! note "What Jev can see"
     Jev reads the screen. A password field shows only dots, but text the app displays (a typed email, a greeting with the user's name) is part of the screen Jev reads, and so part of the lockfile. Keep secrets in password fields.
@@ -51,7 +51,6 @@ tests:
 ```yaml title="checkout.yaml"
 app: build/app.apk
 device: { android: Pixel 8 }
-settings: { model: typesafe/jev-1.13, max_actions: 8, max_scrolls: 15, timeout: 10, settle: 3, threshold: 0.5 }
 include: shared/auth.yaml
 
 tests:
@@ -117,7 +116,7 @@ mobile-tests/
   shared/
     auth.yaml           # Sign in, Sign out
     navigation.yaml     # Open settings, Open the cart, ...
-  login.yaml            # app:, device:, settings:, include:, tests:
+  login.yaml            # app:, device:, include:, tests:
   checkout.yaml
   settings.yaml
   *.lock.json           # recorded Jev decisions, committed

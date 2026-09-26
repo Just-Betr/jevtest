@@ -19,16 +19,15 @@ from .conftest import (
     confirm,
     el,
     login_screen,
-    make_settings,
     pick,
     screen_with,
     yes,
 )
 
 
-def make(tmp_path, clock, out, *steps, driver=None, jev=None, verbose=False, tests=None, **settings):
+def make(tmp_path, clock, out, *steps, driver=None, jev=None, verbose=False, tests=None):
     tests = tests or [Test("T", [parse_step(s) for s in steps], fresh=True)]
-    spec = Spec(path=tmp_path / "t.yaml", apps={}, tests=tests, settings=make_settings(**settings), devices={},
+    spec = Spec(path=tmp_path / "t.yaml", apps={}, tests=tests, devices={},
                 variables={})
     driver = driver or FakeDriver()
     driver.clock = clock
@@ -82,14 +81,15 @@ def test_app_that_cannot_start_fails_the_test(tmp_path, clock, out):
 
 
 def test_run_totals(tmp_path, clock, out):
-    tests = [Test("A", [parse_step("back")], fresh=True), Test("B", [parse_step({"see": "missing"})], fresh=True)]
-    r, _, _ = make(tmp_path, clock, out, tests=tests, timeout=0)
+    tests = [Test("A", [parse_step("back")], fresh=True),
+             Test("B", [parse_step({"see": "missing", "timeout": 0})], fresh=True)]
+    r, _, _ = make(tmp_path, clock, out, tests=tests)
     results = r.run()
     assert (results["passed"], results["failed"]) == (1, 1)
 
 
 def test_first_failure_stops_the_test_and_screenshots(tmp_path, clock, out):
-    res, d, _ = run1(tmp_path, clock, out, {"see": "Nope"}, "back", timeout=0)
+    res, d, _ = run1(tmp_path, clock, out, {"see": "Nope", "timeout": 0}, "back")
     assert res["status"] == "fail"
     assert "back" not in d.names()
     assert res["steps"][-1]["screenshot"] == "001_FAIL_T.png"
@@ -134,15 +134,15 @@ def test_lifecycle_actions(tmp_path, clock, out):
 
 
 def test_wait_and_background_use_the_clock(tmp_path, clock, out):
-    res, d, _ = run1(tmp_path, clock, out, {"wait": 3}, {"background": 2}, settle=0)
+    res, d, _ = run1(tmp_path, clock, out, {"wait": 3}, {"background": 2})
     assert 3.0 in clock.slept and 2.0 in clock.slept
     assert [n for n in d.names() if n in ("home", "resume")] == ["home", "resume"]
 
 
 def test_settle_waits_for_idle_not_a_fixed_time(tmp_path, clock, out):
-    _, d, _ = run1(tmp_path, clock, out, "back", settle=0.7)
-    assert ("wait_idle", 0.7, 0.5) in d.calls  # after launch: a longer quiet window
-    assert d.calls.count(("wait_idle", 0.7)) == 1  # after back
+    _, d, _ = run1(tmp_path, clock, out, "back")
+    assert ("wait_idle", 3.0, 0.5) in d.calls  # after launch: a longer quiet window
+    assert d.calls.count(("wait_idle", 3.0)) == 1  # after back
     assert clock.slept == []  # no fixed sleeps
 
 
@@ -216,18 +216,38 @@ def test_type_into_focused_field(tmp_path, clock, out):
 
 
 def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
-    d = FakeDriver(screen_with("Item 1"), screen_with("Item 1"), screen_with("Item 30 is here"))
+    d = FakeDriver(screen_with("Item 1"), screen_with("Item 10"), screen_with("Item 30 is here"))
     res, d, jev = run1(tmp_path, clock, out, {"scroll_to": "item 30", "direction": "down"}, driver=d)
     assert res["status"] == "pass"
     assert d.names().count("drag") == 2
     assert not jev.asked  # matched in code, never by the model
 
 
-def test_scroll_to_gives_up(tmp_path, clock, out):
-    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "max_scrolls": 3, "direction": "up"},
-                     driver=FakeDriver(screen_with("Item 1")))
-    assert "Scrolled up but never found 'Item 99'" in res["failure"]
-    assert d.names().count("drag") == 3
+def test_scroll_to_stops_at_the_end_of_the_content(tmp_path, clock, out):
+    d = FakeDriver(screen_with("Item 1"), screen_with("Item 2"), screen_with("Item 2"))
+    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "up"}, driver=d)
+    assert res["failure"].endswith("Scrolled up to the end but never found 'Item 99'")
+    assert d.names().count("drag") == 2  # the second scroll moved nothing: that's the end
+
+
+def test_scroll_to_gives_up_after_50_scrolls(tmp_path, clock, out):
+    d = FakeDriver(*[screen_with(f"Item {i}") for i in range(60)])  # an endless feed
+    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "down"}, driver=d)
+    assert res["failure"].endswith("Scrolled down 50 times but never found 'Item 99'")
+    assert d.names().count("drag") == 50
+
+
+def test_scroll_to_found_after_the_last_allowed_scroll(tmp_path, clock, out):
+    d = FakeDriver(*[screen_with(f"Item {i}") for i in range(51)])
+    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 50", "direction": "down"}, driver=d)
+    assert res["status"] == "pass" and res["steps"][0]["detail"] == "50 scroll(s)"
+
+
+def test_steps_wait_10_seconds_unless_they_say_otherwise(tmp_path, clock, out):
+    res, _, _ = run1(tmp_path, clock, out, {"see": "Nope"})
+    assert res["seconds"] >= 10 and res["steps"][0]["seconds"] == 10.0
+    res, _, _ = run1(tmp_path, clock, out, {"see": "Nope", "timeout": 2.5})
+    assert res["steps"][0]["seconds"] == 2.5
 
 
 # --- crash / foreground detection ---------------------------------------------------------
@@ -283,9 +303,10 @@ def test_expect_passes_above_threshold(tmp_path, clock, out):
     assert check == {"check": "expect", "text": "Login form", "status": "pass", "detail": "Jev 0.80"}
 
 
-def test_expect_uses_threshold_setting(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"expect": "x", "timeout": 0}, jev=FakeJev(yes(0.8)), threshold=0.9)
-    assert res["failure"] == "expect: x — Jev says false (0.80)"
+@pytest.mark.parametrize("p,passes", [(0.5, False), (0.51, True)])
+def test_expect_passes_when_more_likely_true_than_false(tmp_path, clock, out, p, passes):
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "x", "timeout": 0}, jev=FakeJev(yes(p)))
+    assert (res["status"] == "pass") is passes
 
 
 def test_checks_run_after_the_action_and_stop_at_first_failure(tmp_path, clock, out):
@@ -330,10 +351,10 @@ def test_use_runs_the_other_tests_steps(tmp_path, clock, out):
 
 
 def test_failure_inside_use_is_reported(tmp_path, clock, out):
-    inner = Test("Inner", [parse_step({"see": "Nope"})], fresh=True)
+    inner = Test("Inner", [parse_step({"see": "Nope", "timeout": 0})], fresh=True)
     use = parse_step({"use": "Inner"})
     use.used = inner
-    r, d, _ = make(tmp_path, clock, out, tests=[Test("Outer", [use, parse_step("home")], fresh=True)], timeout=0)
+    r, d, _ = make(tmp_path, clock, out, tests=[Test("Outer", [use, parse_step("home")], fresh=True)])
     res = r.run()["tests"][0]
     assert res["failure"] == "see: Nope — not on screen"
     assert "home" not in d.names()
@@ -377,7 +398,7 @@ def test_do_performs_each_action(tmp_path, clock, out, action, call):
 def test_do_wait_waits_for_a_change(tmp_path, clock, out):
     jev = FakeJev({"action": {"type": "choice", "choice": "wait", "confidence": 1, "probabilities": {}},
                    "target": {"type": "choice", "choice": "e1"}}, act("done"))
-    _, d, _ = run1(tmp_path, clock, out, {"do": "Do it"}, jev=jev, settle=0)
+    _, d, _ = run1(tmp_path, clock, out, {"do": "Do it"}, jev=jev)
     assert "wait_change" in d.names()
 
 
@@ -386,11 +407,11 @@ def test_do_impossible(tmp_path, clock, out):
     assert "impossible" in res["failure"]
 
 
-def test_do_gives_up_after_max_actions(tmp_path, clock, out):
-    jev = FakeJev(act("tap", target="e3"), act("back"), act("tap", target="e3"))
-    res, d, _ = run1(tmp_path, clock, out, {"do": "Loop", "max_actions": 2}, jev=jev)
-    assert res["failure"].endswith("Goal not reached after 2 actions")
-    assert len(res["steps"][0]["decisions"]) == 3
+def test_do_gives_up_after_10_actions(tmp_path, clock, out):
+    jev = FakeJev(*[act("tap", target="e3") if i % 2 else act("back") for i in range(11)])
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Loop"}, jev=jev)
+    assert res["failure"].endswith("Goal not reached after 10 actions")
+    assert len(res["steps"][0]["decisions"]) == 11
 
 
 def test_do_detects_being_stuck(tmp_path, clock, out):
@@ -466,7 +487,7 @@ def test_real_clock():
 
 def test_default_output_is_stdout(tmp_path, capsys):
     spec = Spec(path=Path("t"), apps={}, tests=[Test("T", [parse_step("back")], fresh=True)],
-                settings=make_settings(settle=0), devices={}, variables={})
+                devices={}, variables={})
     Runner(spec, FakeDriver(), Brain(FakeJev()), tmp_path).run()
     assert "PASS T" in capsys.readouterr().out
 

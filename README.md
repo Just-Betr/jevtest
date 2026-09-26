@@ -22,7 +22,6 @@ Write what a user does and what they should see. Jev works out the taps. CI repl
 ```yaml
 app: build/app-debug.apk
 device: { android: emulator-5554 }
-settings: { model: typesafe/jev-1.13, max_actions: 8, max_scrolls: 15, timeout: 10, settle: 3, threshold: 0.5 }
 
 tests:
   - name: Sign in
@@ -35,19 +34,19 @@ tests:
 
 ```console
 $ jevtest run login.yaml --lock frozen --out results
-jevtest 0.3.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
+jevtest 0.4.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
 
 ▶ Sign in
-  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (1.8s) — 3 action(s)
+  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.7s) — 3 action(s)
       → type "${DEMO_EMAIL}" into text_field 'Email'  (confidence 0.83)
       → type "${DEMO_PASSWORD}" into password_field 'Password'  (confidence 0.76)
       → tap button 'Sign in'  (confidence 0.93)
       → done  (confidence 0.96)
       ✓ expect: The home screen is showing — Jev 0.95
       ✓ see: Welcome, ${DEMO_EMAIL}
-  PASS Sign in (4.1s)
+  PASS Sign in (7.1s)
 
-1/1 passed in 4s
+1/1 passed in 7s
 Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.0000
 ```
 
@@ -55,7 +54,7 @@ Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.000
 
 - **Tests read like the spec.** One action, then what should be true. `do:` takes a plain-English goal; `tap:`, `type:`, `swipe:`, `scroll_to:` and 20 more give exact control.
 - **Deterministic.** Every Jev decision is recorded in a lockfile. The same screen always gets the same answer; `--lock frozen` replays a run exactly, with no network and no API key.
-- **Nothing assumed.** No default device, no default settings, no guessing what a typo meant. The whole test file is checked before a device is touched, and every problem is reported at once with what to fix.
+- **Nothing assumed.** No settings file, no default device, no guessing what a typo meant. The whole test file is checked before a device is touched, and every problem is reported at once with what to fix.
 - **Real apps, real phones.** Android emulators and phones, iOS simulators and iPhones. Native, Flutter, React Native and **in-app WebViews**, driven the same way. Animations stay on, and anything a step changes on the device is put back.
 - **No sleeps.** It waits for the screen to stop changing, reacting to the device rather than a timer.
 - **Built for scale and CI.** `${SECRETS}` from `.env` or CI, shared test libraries, whole folders in one command, several devices at once, JUnit XML, JSON reports and failure screenshots.

@@ -3,10 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from jevtest.spec import Settings, SpecError, fill, is_test_file, load, parse_step, platform_of
+from jevtest.spec import SpecError, fill, is_test_file, load, parse_step, platform_of
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
-SETTINGS = "settings: {model: m, max_actions: 8, max_scrolls: 15, timeout: 10, settle: 3, threshold: 0.5}\n"
 
 
 # --- steps -------------------------------------------------------------------------
@@ -59,7 +58,7 @@ def test_checks_only_step():
 @pytest.mark.parametrize("raw", [
     {"tap": "x", "timeout": 1}, {"clear": "x", "timeout": 1}, {"type": {"text": "a", "into": "E"}, "timeout": 1},
     {"swipe": "left", "target": "Item", "timeout": 1}, {"back": None, "see": "x", "timeout": 1},
-    {"do": "x", "max_actions": 2}, {"scroll_to": "x", "direction": "up", "max_scrolls": 3},
+    {"scroll_to": "x", "direction": "up"},
 ])
 def test_options_where_they_apply(raw):
     parse_step(raw)
@@ -103,9 +102,9 @@ def test_options_where_they_apply(raw):
     ({"type": {"into": "E"}}, "type needs `text:`"),
     ({"type": {"text": "a", "into": "E"}, "into": "F"}, "`into` is given twice"),
     ({"type": "a", "text": "b"}, "`text` goes inside type"),
-    ({"do": "x", "max_actions": 0}, "max_actions must be at least 1"),
-    ({"do": "x", "max_actions": 1.5}, "whole number"),
-    ({"tap": "x", "max_actions": 2}, "`max_actions` belongs to do, not to tap"),
+    ({"do": "x", "max_actions": 3}, "unknown keys: max_actions"),
+    ({"scroll_to": "x", "direction": "up", "max_scrolls": 3}, "unknown keys: max_scrolls"),
+    ({"tap": "x", "direction": "up"}, "`direction` belongs to scroll_to, not to tap"),
     ({"see": "x", "direction": "up"}, "`direction` belongs to scroll_to, not to a checks-only step"),
     ({"scroll_to": "x"}, "'scroll_to' needs `direction:`"),
     ({"scroll_to": "x", "direction": "in"}, "direction must be one of"),
@@ -142,25 +141,22 @@ def write(tmp_path, body: str, name="t.yaml") -> Path:
     return f
 
 
-def minimal(tests="  - {name: T, fresh: true, steps: [back]}\n", extra="", device="device: {android: Pixel}\n",
-            settings=SETTINGS):
-    return f"app: a.apk\n{device}{settings}{extra}tests:\n{tests}"
+def minimal(tests="  - {name: T, fresh: true, steps: [back]}\n", extra="", device="device: {android: Pixel}\n"):
+    return f"app: a.apk\n{device}{extra}tests:\n{tests}"
 
 
 def test_minimal_file(tmp_path):
     spec = load(write(tmp_path, minimal()), {})
     assert spec.apps == {"android": (tmp_path / "a.apk").resolve()}
-    assert spec.settings == Settings(model="m", max_actions=8, max_scrolls=15, timeout=10.0, settle=3.0,
-                                     threshold=0.5)
     assert spec.devices == {"android": ["Pixel"]} and spec.tests[0].fresh is True
     assert spec.variables == {} and spec.includes == []
 
 
 def test_example_files_load():
     env = {"DEMO_EMAIL": "e", "DEMO_PASSWORD": "p", "ANDROID_DEVICE": "P", "IOS_DEVICE": "BH",  # CI has no .env
-           "IOS_APP": "Runner.app", "IOS_TEAM": "T"}
+           "IOS_APP": "Runner.app"}
     spec = load(EXAMPLES / "demo.yaml", env)
-    assert spec.devices == {"android": ["P"], "ios": ["BH"]} and spec.settings.ios_team == "T"
+    assert spec.devices == {"android": ["P"], "ios": ["BH"]}
     assert set(spec.apps) == {"android", "ios"}
     assert len({t.name for t in spec.tests}) == len(spec.tests)
 
@@ -173,9 +169,9 @@ def test_both_platforms_and_several_devices(tmp_path):
     assert spec.devices == {"android": ["Pixel 4a", "Pixel 8"], "ios": ["BH"]}
 
 
-def test_ios_team(tmp_path):
-    spec = load(write(tmp_path, minimal(settings=SETTINGS.replace("}", ", ios_team: ABC123}"))), {})
-    assert spec.settings.ios_team == "ABC123"
+def test_settings_are_not_part_of_a_test_file(tmp_path):
+    with pytest.raises(SpecError, match=r"`settings` is not part of a test file: each step waits up to 10 seconds"):
+        load(write(tmp_path, minimal(extra="settings: {timeout: 5}\n")), {})
 
 
 @pytest.mark.parametrize("body,message", [
@@ -186,19 +182,6 @@ def test_ios_team(tmp_path):
     (minimal().replace("app: a.apk", "app: {android: b.aab, ios: a.apk}"), "app.ios points at a android build"),
     (minimal().replace("app: a.apk", "app: {web: a.apk}"), "must be android and/or ios"),
     (minimal(extra="extra: 1\n"), "Unknown top-level keys: extra"),
-    # settings: every value is required
-    (minimal(settings=""), r"Missing `settings:`.*e\.g\. settings: \{model: typesafe/jev-1.13"),
-    (minimal(settings="settings: [1]\n"), "`settings` must be a mapping"),
-    (minimal(settings=SETTINGS.replace("}", ", speed: 1}")), "Unknown settings: speed"),
-    (minimal(settings="settings: {model: m, timeout: 10}\n"),
-     "Missing settings: max_actions, max_scrolls, settle, threshold"),
-    (minimal(settings=SETTINGS.replace("threshold: 0.5", "threshold: 1")), "between 0 and 1"),
-    (minimal(settings=SETTINGS.replace("max_actions: 8", "max_actions: 0")),
-     "settings.max_actions must be at least 1"),
-    (minimal(settings=SETTINGS.replace("settle: 3", "settle: -1")), "settings.settle must be at least 0"),
-    (minimal(settings=SETTINGS.replace("timeout: 10", "timeout: '10'")), "settings.timeout must be a number"),
-    (minimal(settings=SETTINGS.replace("model: m", "model: ''")), "settings.model needs text"),
-    (minimal(settings=SETTINGS.replace("}", ", ios_team: 5}")), "settings.ios_team needs text"),
     # device: required for every platform
     (minimal(device=""), r"Missing `device:`.*e\.g\. \{android: Pixel 4a"),
     (minimal(device="device: Pixel\n"), "must name a device per platform"),
@@ -226,15 +209,13 @@ def test_bad_files_are_rejected(tmp_path, body, message):
 
 
 def test_every_problem_is_reported_at_once(tmp_path):
-    body = minimal(device="", settings="settings: {model: m}\n",
-                   tests="  - {name: A, steps: [back]}\n  - {name: B, fresh: true, steps: [back, bakc]}\n")
+    body = minimal(device="", tests="  - {name: A, steps: [back]}\n  - {name: B, fresh: true, steps: [back, bakc]}\n")
     with pytest.raises(SpecError) as e:
         load(write(tmp_path, body), {})
     lines = str(e.value).splitlines()
-    assert lines[0] == "t.yaml has 4 problems:"
+    assert lines[0] == "t.yaml has 3 problems:"
     assert [line.split(":")[0] for line in lines[1:]] == [
-        "  - Missing `device", "  - Missing settings", "  - Test #1 in t.yaml needs `name`, `fresh` (true",
-        "  - Test 'B', step 2"]
+        "  - Missing `device", "  - Test #1 in t.yaml needs `name`, `fresh` (true", "  - Test 'B', step 2"]
 
 
 def test_uses_are_checked_once_the_tests_are_valid(tmp_path):
@@ -300,7 +281,7 @@ def test_platform_of_unknown():
 
 # --- ${NAME} values ----------------------------------------------------------------------
 
-VARS = ("app: ${APP}\ndevice: {android: \"${PHONE}\"}\n" + SETTINGS.replace("}", ', ios_team: "${TEAM}"}') +
+VARS = ("app: ${APP}\ndevice: {android: \"${PHONE}\"}\n" +
         """tests:
   - name: Sign in
     fresh: true
@@ -311,11 +292,10 @@ VARS = ("app: ${APP}\ndevice: {android: \"${PHONE}\"}\n" + SETTINGS.replace("}",
 
 
 def test_variables_come_from_env(tmp_path):
-    env = {"APP": "a.apk", "PHONE": "Pixel", "TEAM": "T1", "PASSWORD": "pw", "USER_NAME": "Ann", "OTHER": "x"}
+    env = {"APP": "a.apk", "PHONE": "Pixel", "PASSWORD": "pw", "USER_NAME": "Ann", "OTHER": "x"}
     spec = load(write(tmp_path, VARS), env)
     assert spec.variables == {k: v for k, v in env.items() if k != "OTHER"}  # only what the file uses
     assert spec.apps["android"].name == "a.apk" and spec.devices == {"android": ["Pixel"]}
-    assert spec.settings.ios_team == "T1"
     step = spec.tests[0].steps[0]
     assert step.value == "${PASSWORD}" and step.checks == [("see", "Hi ${USER_NAME}")]  # filled only when used
     assert fill(step.value, spec.variables) == "pw"
@@ -329,7 +309,7 @@ def test_only_the_given_env_counts(tmp_path, monkeypatch):
 
 def test_missing_variables_are_named(tmp_path):
     with pytest.raises(SpecError, match=r"Not set: \$\{APP\}, \$\{PASSWORD\}, \$\{PHONE\}.*\.env"):
-        load(write(tmp_path, VARS), {"TEAM": "x", "USER_NAME": "y"})
+        load(write(tmp_path, VARS), {"USER_NAME": "y"})
 
 
 # --- include ------------------------------------------------------------------------------

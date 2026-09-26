@@ -16,7 +16,7 @@ A step is one action, then optional checks on the result:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -31,10 +31,9 @@ TEXT_ACTIONS = {"do", "use", "tap", "double_tap", "long_press", "clear", "scroll
 ACTIONS = TEXT_ACTIONS | {"wait", "background", "scroll", "swipe", "type", "rotate", "location",
                           "dark_mode", "network"}
 CHECKS = {"expect", "see", "not_see"}
-OPTIONS = {"timeout", "max_actions", "max_scrolls", "target", "direction", "text", "into"}
+OPTIONS = {"timeout", "target", "direction", "text", "into"}
 # Which actions each option belongs to. `timeout` is for steps that wait for something (below).
-OPTION_ACTIONS = {"max_actions": {"do"}, "max_scrolls": {"scroll_to"}, "direction": {"scroll_to"},
-                  "target": {"swipe"}, "into": {"type"}, "text": {"type"}}
+OPTION_ACTIONS = {"direction": {"scroll_to"}, "target": {"swipe"}, "into": {"type"}, "text": {"type"}}
 LOCATING = {"tap", "double_tap", "long_press", "clear"}  # find an element first, so they can time out
 
 DIRECTIONS = ("up", "down", "left", "right")
@@ -53,19 +52,14 @@ def fill(text: str, variables: dict[str, str]) -> str:
     return VARIABLE.sub(lambda m: variables[m.group(1)], text)
 
 
-@dataclass
-class Settings:
-    """All required in the file, except ios_team, which only a real iPhone needs."""
-    model: str                 # the Jev model; the lockfile is per model
-    max_actions: int           # Jev actions allowed per `do:` step
-    max_scrolls: int           # scrolls a `scroll_to:` may make
-    timeout: float             # seconds a check / element lookup keeps retrying
-    settle: float              # most seconds to wait for the UI to go idle after an action
-    threshold: float           # Jev yes-probability an `expect:` needs to pass
-    ios_team: str = ""         # Apple team that signs jevtest's agent for a real iPhone ("" = not given)
-
-
-REQUIRED_SETTINGS = ("model", "max_actions", "max_scrolls", "timeout", "settle", "threshold")
+# jevtest's fixed rules. They are part of what jevtest is, not settings: the docs list them and every run
+# prints the model. A step can wait longer with `timeout:`.
+MODEL = "typesafe/jev-1.13"  # the Jev version this release of jevtest is built and tested against
+TIMEOUT = 10.0               # seconds a step waits for what it looks for (checks, elements)
+MAX_ACTIONS = 10             # actions a `do:` goal may take; a bigger goal is split into steps
+MAX_SCROLLS = 50             # scrolls a `scroll_to:` may make (it also stops at the end of the content)
+THRESHOLD = 0.5              # an `expect:` passes when Jev finds it more likely true than false
+SETTLE = 3.0                 # most seconds to wait for the screen to stop changing after an action
 
 
 @dataclass
@@ -107,7 +101,6 @@ class Spec:
     path: Path
     apps: dict[str, Path]      # platform -> build, in the order the file lists them
     tests: list[Test]
-    settings: Settings
     devices: dict[str, list[str]]  # platform -> device names (every platform in apps has at least one)
     variables: dict[str, str]      # ${NAME} -> value, from the .env next to the file / the environment
     includes: list[Path] = field(default_factory=list)  # library files it includes, directly or not
@@ -148,13 +141,6 @@ def _number(value, what: str, minimum: float = 0) -> float:
     if value < minimum:
         raise SpecError(f"{what} must be at least {minimum:g}, got {value:g}")
     return float(value)
-
-
-def _count(value, what: str) -> int:
-    n = _number(value, what, minimum=1)
-    if n != int(n):
-        raise SpecError(f"{what} must be a whole number, got {n:g}")
-    return int(n)
 
 
 def _text(value, what: str) -> str:
@@ -226,9 +212,6 @@ def _options(kind: str | None, opts: dict, has_checks: bool) -> dict:
     out = dict(opts)
     if "timeout" in out:
         out["timeout"] = _number(out["timeout"], "timeout")
-    for k in ("max_actions", "max_scrolls"):
-        if k in out:
-            out[k] = _count(out[k], k)
     if "direction" in out:
         out["direction"] = _choice(out["direction"], DIRECTIONS, "direction")
     for k in ("target", "into"):
@@ -291,32 +274,6 @@ def parse_step(raw) -> Step:
 
 
 # --- file ----------------------------------------------------------------------
-
-def _settings(raw) -> Settings:
-    example = "settings: {model: typesafe/jev-1.13, max_actions: 8, max_scrolls: 15, timeout: 10, settle: 3, " \
-              "threshold: 0.5}"
-    if raw is None:
-        raise SpecError(f"Missing `settings:`. Every run's limits are written in the file, e.g. {example}")
-    if not isinstance(raw, dict):
-        raise SpecError(f"`settings` must be a mapping, e.g. {example}")
-    unknown = set(raw) - {f.name for f in fields(Settings)}
-    if unknown:
-        raise SpecError(f"Unknown settings: {', '.join(sorted(map(str, unknown)))}")
-    missing = [k for k in REQUIRED_SETTINGS if k not in raw]
-    if missing:
-        raise SpecError(f"Missing settings: {', '.join(missing)} (all of {', '.join(REQUIRED_SETTINGS)} are required)")
-    s = Settings(model=_text(raw["model"], "settings.model"),
-                 max_actions=_count(raw["max_actions"], "settings.max_actions"),
-                 max_scrolls=_count(raw["max_scrolls"], "settings.max_scrolls"),
-                 timeout=_number(raw["timeout"], "settings.timeout"),
-                 settle=_number(raw["settle"], "settings.settle"),
-                 threshold=_number(raw["threshold"], "settings.threshold"))
-    if not 0 < s.threshold < 1:
-        raise SpecError("settings.threshold must be between 0 and 1")
-    if "ios_team" in raw:
-        s.ios_team = _text(raw["ios_team"], "settings.ios_team")
-    return s
-
 
 def _apps(raw, base: Path) -> dict[str, Path]:
     if raw is None:
@@ -477,10 +434,13 @@ def load(path: str | Path, env: dict[str, str]) -> Spec:
     Every problem in the file is reported at once, in file order."""
     path = Path(path).resolve()
     data = _read(path)
-    unknown = set(data) - {"app", "device", "settings", "tests", "include"}
+    if "settings" in data:
+        raise SpecError("`settings` is not part of a test file: each step waits up to 10 seconds, or its own "
+                        "`timeout:`; everything else is a fixed rule (see the docs' Test file page)")
+    unknown = set(data) - {"app", "device", "tests", "include"}
     if unknown:
         raise SpecError(f"Unknown top-level keys: {', '.join(sorted(map(str, unknown)))} "
-                        "(a test file has app, device, settings, include and tests)")
+                        "(a test file has app, device, include and tests)")
     libraries = _included(data, path, (path,))
     variables = _variables([data] + [d for _, d in libraries], env)
     problems: list[str] = []
@@ -494,7 +454,6 @@ def load(path: str | Path, env: dict[str, str]) -> Spec:
 
     apps = section(_apps, _fill_all(data.get("app"), variables), path.parent)
     devices = section(_devices, data.get("device"), apps, variables) if apps else None
-    settings = section(_settings, _fill_all(data.get("settings"), variables))
     tests = _tests(data.get("tests"), path.name, problems)
     shared = [t for lib, d in libraries for t in _tests(d.get("tests"), lib.name, problems)]
     names = [t.name for t in tests + shared]
@@ -507,7 +466,7 @@ def load(path: str | Path, env: dict[str, str]) -> Spec:
         raise SpecError(problems[0])
     if problems:
         raise SpecError(f"{path.name} has {len(problems)} problems:\n" + "\n".join(f"  - {p}" for p in problems))
-    return Spec(path=path, apps=apps, tests=tests, settings=settings, devices=devices, variables=variables,
+    return Spec(path=path, apps=apps, tests=tests, devices=devices, variables=variables,
                 includes=[lib for lib, _ in libraries])
 
 

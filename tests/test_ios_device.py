@@ -28,13 +28,21 @@ def phone(env, monkeypatch, tmp_path):
     (out / "Debug-iphoneos/JevAgentUITests-Runner.app").mkdir(parents=True)
     (out / "a.xctestrun").write_text("")
     monkeypatch.setattr(ios, "provisioned_devices", lambda app: {"00008150-X"})
+    sim.rules["security cms"] = plistlib.dumps({"TeamIdentifier": ["TEAM1"]}).decode()
     return sim, agent, procs
+
+
+def signed_app(tmp_path) -> Path:
+    """A device build of the app, signed by team TEAM1 (its profile is decoded by the fake `security cms`)."""
+    app = make_app(tmp_path / "signed", platforms=("iPhoneOS",))
+    (app / "embedded.mobileprovision").write_bytes(b"signed")
+    return app
 
 
 @pytest.fixture
 def dev(phone, tmp_path):
-    d = IOSDriver("BH", "TEAM1")
-    d.install(make_app(tmp_path, platforms=("iPhoneOS",)))
+    d = IOSDriver("BH", signed_app(tmp_path))
+    d.install(signed_app(tmp_path / "again"))
     ios.devicectl.calls.clear()
     phone[1].calls.clear()
     return d
@@ -61,22 +69,33 @@ def teams(*entries):
     return plistlib.dumps({"IDEProvisioningTeamByIdentifier": {"a": list(entries)}}).decode()
 
 
-def test_xcode_team_is_the_one_named(env):
-    env[0].rules["defaults export"] = teams({"teamID": "T1"}, {"teamID": "T2", "isFreeProvisioningTeam": True})
-    assert ios.xcode_team("T2") == "T2"
+def test_the_agent_is_signed_by_the_apps_team(phone, tmp_path):
+    assert IOSDriver("BH", signed_app(tmp_path)).team == "TEAM1"
 
 
-@pytest.mark.parametrize("prefs,wanted,message", [
-    ("", "T1", "Settings > Accounts"),
-    (teams(), "T1", "Settings > Accounts"),
-    (teams({"teamID": "T1"}), "", r"needs `ios_team:` in settings.*Signed into Xcode: T1$"),  # even with one team
-    (teams({"teamID": "T1"}, {"teamID": "T2"}), "", "Signed into Xcode: T1, T2"),
-    (teams({"teamID": "T1"}), "T9", r"Team T9 is not signed into Xcode \(signed in: T1\)"),
+@pytest.mark.parametrize("prefs,message", [
+    ("", r"signed by team TEAM1, which is not signed into Xcode \(signed in: none\).*Settings > Accounts"),
+    (teams({"teamID": "T2"}), r"signed by team TEAM1, which is not signed into Xcode \(signed in: T2\)"),
 ])
-def test_xcode_team_errors(env, prefs, wanted, message):
-    env[0].rules["defaults export"] = prefs
+def test_the_apps_team_must_be_signed_into_xcode(phone, tmp_path, prefs, message):
+    phone[0].rules["defaults export"] = prefs
     with pytest.raises(DriverError, match=message):
-        ios.xcode_team(wanted)
+        IOSDriver("BH", signed_app(tmp_path))
+
+
+def test_a_simulator_build_on_a_phone_is_an_error(phone, tmp_path):
+    with pytest.raises(DriverError, match=r"Demo.app is not signed for a real iPhone \(it has no provisioning"):
+        IOSDriver("BH", make_app(tmp_path))
+
+
+@pytest.mark.parametrize("profile,message", [
+    ({"TeamIdentifier": []}, "names 0 teams"),
+    ({"TeamIdentifier": ["A", "B"]}, r"names 2 teams \(A, B\); expected one"),
+])
+def test_the_profile_must_name_one_team(phone, tmp_path, profile, message):
+    phone[0].rules["security cms"] = plistlib.dumps(profile).decode()
+    with pytest.raises(DriverError, match=message):
+        IOSDriver("BH", signed_app(tmp_path))
 
 
 def test_provisioned_devices(env, tmp_path):
@@ -87,7 +106,8 @@ def test_provisioned_devices(env, tmp_path):
     env[0].rules["security cms"] = plistlib.dumps({"ProvisionedDevices": ["U1", "U2"]}).decode()
     assert ios.provisioned_devices(app) == {"U1", "U2"}
     env[0].rules["security cms"] = "not a plist"
-    assert ios.provisioned_devices(app) == set()
+    with pytest.raises(DriverError, match="R.app's embedded.mobileprovision can't be read"):
+        ios.provisioned_devices(app)
 
 
 def test_devicectl_returns_the_json_result(monkeypatch):
@@ -103,23 +123,23 @@ def test_devicectl_returns_the_json_result(monkeypatch):
 
 # --- the signed agent ----------------------------------------------------------------------------
 
-def test_agent_on_a_phone_is_reached_through_the_tunnel(phone):
-    d = IOSDriver("BH", "TEAM1")
+def test_agent_on_a_phone_is_reached_through_the_tunnel(tmp_path, phone):
+    d = IOSDriver("BH", signed_app(tmp_path))
     assert (d.physical, d.team, d.host) == (True, "TEAM1", "[fd00::1]")
     assert d._url("/tree") == "http://[fd00::1]:8123/tree"
     cmd = phone[2][0][0]
     assert cmd[-1] == "id=00008150-X"
 
 
-def test_ipv4_tunnel_address_has_no_brackets(phone):
+def test_ipv4_tunnel_address_has_no_brackets(tmp_path, phone):
     ios.devicectl.replies["info details"] = {"connectionProperties": {"tunnelIPAddress": "10.0.0.2"}}
-    assert IOSDriver("BH", "TEAM1").host == "10.0.0.2"
+    assert IOSDriver("BH", signed_app(tmp_path)).host == "10.0.0.2"
 
 
-def test_no_tunnel_is_a_clear_error(phone):
+def test_no_tunnel_is_a_clear_error(tmp_path, phone):
     ios.devicectl.replies["info details"] = {"connectionProperties": {}}
     with pytest.raises(DriverError, match="No connection to BH: unlock it and keep it plugged in"):
-        IOSDriver("BH", "TEAM1")
+        IOSDriver("BH", signed_app(tmp_path))
 
 
 def test_agent_is_signed_for_the_phone_when_not_provisioned(phone, monkeypatch, tmp_path):
@@ -129,14 +149,14 @@ def test_agent_is_signed_for_the_phone_when_not_provisioned(phone, monkeypatch, 
     def fake_build(self, out, destination, signing):
         builds.append((destination, signing))
     monkeypatch.setattr(IOSDriver, "_xcodebuild", fake_build)
-    IOSDriver("BH", "TEAM1")
+    IOSDriver("BH", signed_app(tmp_path))
     [(destination, signing)] = builds
     assert destination == "id=00008150-X"
     wanted = {"DEVELOPMENT_TEAM=TEAM1", "JEVTEST_TEAM_SUFFIX=.TEAM1", "-allowProvisioningDeviceRegistration"}
     assert wanted <= set(signing)
 
 
-def test_agent_build_retries_once_when_xcode_swaps_the_profile(phone, monkeypatch):
+def test_agent_build_retries_once_when_xcode_swaps_the_profile(tmp_path, phone, monkeypatch):
     monkeypatch.setattr(ios, "provisioned_devices", lambda app: set())
     attempts = []
 
@@ -145,12 +165,12 @@ def test_agent_build_retries_once_when_xcode_swaps_the_profile(phone, monkeypatc
         if len(attempts) == 1:
             raise DriverError("Build input file cannot be found: ...mobileprovision")
     monkeypatch.setattr(IOSDriver, "_xcodebuild", flaky)
-    IOSDriver("BH", "TEAM1")
+    IOSDriver("BH", signed_app(tmp_path))
     assert len(attempts) == 2
 
 
 def test_agent_build_command(phone, monkeypatch, tmp_path):
-    d = IOSDriver("BH", "TEAM1")
+    d = IOSDriver("BH", signed_app(tmp_path))
     seen = []
     monkeypatch.setattr(ios, "run", lambda cmd, timeout: seen.append(cmd))
     d._xcodebuild(tmp_path / "out", "id=U", ["X=1"])
@@ -189,7 +209,7 @@ def test_simulator_is_always_ready(drv):
 
 def test_install_needs_a_device_build(phone, tmp_path):
     with pytest.raises(DriverError, match="built for iPhoneSimulator, not a real iPhone .BH.*signed with your team"):
-        IOSDriver("BH", "TEAM1").install(make_app(tmp_path))
+        IOSDriver("BH", signed_app(tmp_path)).install(make_app(tmp_path))
 
 
 def test_app_lifecycle_uses_devicectl_and_the_agent(dev, phone):
@@ -226,19 +246,19 @@ def test_sims_constant_still_has_a_booted_simulator():
     assert any(d["state"] == "Booted" for v in SIMS["devices"].values() for d in v)
 
 
-def test_a_phone_that_refuses_ui_automation_says_what_to_do(phone, monkeypatch):
+def test_a_phone_that_refuses_ui_automation_says_what_to_do(tmp_path, phone, monkeypatch):
     def refuse(cmd, ready, log, timeout, env):
         log.write_text("Failed to initialize for UI testing: Timed out while enabling automation mode.\n")
         raise DriverError("xcodebuild exited before it was ready.")
     monkeypatch.setattr(ios, "start_process", refuse)
     with pytest.raises(DriverError, match=r"BH did not allow UI automation .*Enable UI Automation is on"):
-        IOSDriver("BH", "TEAM1")
+        IOSDriver("BH", signed_app(tmp_path))
 
 
-def test_other_agent_start_errors_pass_through(phone, monkeypatch):
+def test_other_agent_start_errors_pass_through(tmp_path, phone, monkeypatch):
     def fail(cmd, ready, log, timeout, env):
         log.write_text("error: something else\n")
         raise DriverError("xcodebuild exited before it was ready.")
     monkeypatch.setattr(ios, "start_process", fail)
     with pytest.raises(DriverError, match="^xcodebuild exited before it was ready.$"):
-        IOSDriver("BH", "TEAM1")
+        IOSDriver("BH", signed_app(tmp_path))
