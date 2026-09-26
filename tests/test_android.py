@@ -401,8 +401,10 @@ def test_touch_commands(drv, adb):
     drv.double_tap(3, 4)
     drv.long_press(5, 6, seconds=1.5)
     drv.drag(1, 2, 3, 4)
-    assert adb.shell() == ["input tap 1 2", "input tap 3 4; sleep 0.1; input tap 3 4", "input swipe 5 6 5 6 1500",
-                           "input swipe 1 2 3 4 300"]
+    assert adb.shell()[:3] == ["input tap 1 2", "input tap 3 4; sleep 0.1; input tap 3 4", "input swipe 5 6 5 6 1500"]
+    drag = adb.shell()[3].split("; ")
+    assert drag[0] == "input motionevent DOWN 1 2" and len(drag) == 13
+    assert drag[-2:] == ["sleep 0.1", "input motionevent UP 3 4"]  # held still before lifting: no fling
 
 
 FOCUSED = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"').replace(
@@ -520,8 +522,8 @@ def test_location_on_emulator_only(drv, adb):
 def test_swipe_and_scroll_geometry(drv, adb):
     drv.swipe("left", el=Element("text", bounds=(0, 0, 100, 100)))
     drv.scroll("down")
-    assert adb.shell()[0] == "input swipe 85 50 15 50 300"
-    assert adb.shell()[-1] == "input swipe 540 1939 540 485 300"
+    assert adb.shell()[0].startswith("input motionevent DOWN 85 50;") and adb.shell()[0].endswith("UP 15 50")
+    assert adb.shell()[-1].startswith("input motionevent DOWN 540 1939;") and adb.shell()[-1].endswith("UP 540 485")
 
 
 def test_bad_directions(drv):

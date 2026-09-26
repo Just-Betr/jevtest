@@ -107,12 +107,12 @@ Each test starts from a clean install (clear data + launch) unless you set `fres
 |---|---|
 | `- do: sentence` (or just `- sentence`) | Jev works out the taps and typing to reach this goal. Values in `"quotes"` are what it may type. `max_actions: N` overrides the limit |
 | `- use: test name` | Run another test's steps here |
-| `- tap: target` / `double_tap:` / `long_press:` | Jev finds the element you describe (an exact unique label match skips Jev) |
+| `- tap: target` / `double_tap:` / `long_press:` | Finds the element: exact label first, then an element containing that text (both in code); only a description that isn't on-screen text ("the login button") goes to Jev, which picks and then confirms |
 | `- type: {text: "abc", into: Email}` | Type into a field. Without `into:`, types into the focused field |
 | `- clear: Email` | Erase a text field |
 | `- scroll: down` (up/left/right) | Scroll the content |
 | `- swipe: up` or `- swipe: left` + `target: Item 3` | Finger swipe across the screen or on one element |
-| `- scroll_to: Item 30` | Scroll until Jev sees it (`direction:`, `max_scrolls:`) |
+| `- scroll_to: Item 30` | Scroll until that text is on screen (matched in code, like `see:`; `direction:`, `max_scrolls:`) |
 | `- key: enter` | enter, delete, tab, escape, space (+ Android keycodes) |
 | `- back` / `- home` / `- hide_keyboard` | Navigation. iOS has no system back button, so `back` taps the nav bar back button or does the edge swipe |
 | `- launch` / `- stop` / `- restart` / `- clear_data` / `- reinstall` | App lifecycle |
@@ -186,7 +186,7 @@ cd .. && jevtest run examples/demo.yaml --platform android
 - iOS runs on the **simulator** only. A device `.ipa` can't be installed there; build with `-sdk iphonesimulator`.
 - Jev is text-only, so anything with no accessibility label (canvas, games, unlabeled images) is invisible to it.
 - `input text` on Android is ASCII only (non-ASCII text fails the step clearly).
-- WebViews work on both platforms: their HTML elements show up like native ones. Clearing a web text field relies on its reported value, which may not always match the page.
+- **In-app WebViews are fully supported** on both platforms: their HTML elements appear like native ones and are driven the same way. The example suite covers typing, clearing and retyping, password fields, a `<select>` dropdown, radio buttons, checkboxes, form submission, links, JavaScript `alert()` shown as an app dialog, navigation between pages of a web app, and scrolling a long page.
 - iOS runs are slower than Android on the demo app: an XCUITest tap costs ~0.55 s. Animations are never turned off: jevtest tests the app as users see it, and waits for it.
 - Very large screens are snapshotted in full on iOS (no depth limit yet).
 - Tested on the Flutter demo app with native and web screens, on the Android emulator (API 37) and iOS 26 simulators.

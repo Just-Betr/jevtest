@@ -4,7 +4,7 @@ from jevtest.brain import ACTIONS, MAX_OPTIONS, Brain, Decision, quoted_values
 from jevtest.jev import JevError
 from jevtest.screen import Element, Screen
 
-from .conftest import FakeJev, act, el, login_screen, pick, yes
+from .conftest import FakeJev, act, confirm, el, login_screen, pick, yes
 
 # --- screen --------------------------------------------------------------------------
 
@@ -141,6 +141,22 @@ def test_locate_exact_unique_match_skips_jev():
     assert not jev.asked
 
 
+def test_locate_by_contained_text_skips_jev():
+    s = Screen(width=10, height=10, elements=[el("text", "Here is more content from the page.", bounds=(0, 0, 10, 10)),
+                                              el("button", "Show more", clickable=True, bounds=(0, 0, 10, 10))])
+    jev = FakeJev()
+    assert Brain(jev).locate("here is more content", s).kind == "text" and not jev.asked
+
+
+def test_locate_asks_jev_only_among_elements_that_contain_the_text():
+    s = Screen(width=10, height=10, elements=[el("button", "Delete account", clickable=True, bounds=(0, 0, 10, 10)),
+                                              el("button", "Delete photo", clickable=True, bounds=(0, 0, 10, 10)),
+                                              el("button", "Cancel", clickable=True, bounds=(0, 0, 10, 10))])
+    jev = FakeJev(pick("e2"), confirm())
+    assert Brain(jev).locate("delete", s).text == "Delete photo"
+    assert set(jev.asked[0][1]["element"]["criteria"]) == {"e1", "e2", "not_on_screen"}
+
+
 def test_locate_by_resource_id():
     s = Screen(width=10, height=10, elements=[el("image", resource_id="logo", bounds=(0, 0, 10, 10))])
     assert Brain(FakeJev()).locate("logo", s).resource_id == "logo"
@@ -156,9 +172,22 @@ def test_locate_prefers_the_one_actionable_exact_match():
 def test_locate_ambiguous_exact_match_asks_jev():
     s = Screen(width=10, height=10, elements=[el("text", "Sign in", bounds=(0, 0, 10, 10)),
                                               el("button", "Sign in", bounds=(0, 0, 10, 10))])
-    jev = FakeJev(pick("e2"))
+    jev = FakeJev(pick("e2"), confirm())
     assert Brain(jev).locate("Sign in", s).kind == "button"
     assert "not_on_screen" in jev.asked[0][1]["element"]["criteria"]
+
+
+def test_locate_confirms_the_pick():
+    jev = FakeJev(pick("e3"), confirm(0.9))
+    assert Brain(jev).locate("the login button", login_screen()).text == "Sign in"
+    question = jev.asked[1][1]["is_target"]
+    assert question["type"] == "noul" and question["instructions"]["target"] == "the login button"
+
+
+def test_locate_rejects_a_closest_but_wrong_pick():
+    """A Choice always picks something; the yes/no check catches a target that is not there."""
+    jev = FakeJev(pick("e3"), confirm(0.2))
+    assert Brain(jev).locate("Here is more content", login_screen()) is None
 
 
 def test_locate_not_on_screen():
@@ -170,7 +199,7 @@ def test_locate_with_no_candidates():
 
 
 def test_locate_limits_candidates():
-    jev = FakeJev(pick("e1"))
+    jev = FakeJev(pick("e1"), confirm())
     s = login_screen()
     Brain(jev).locate("the first box", s, candidates=s.editable)
     assert set(jev.asked[0][1]["element"]["criteria"]) == {"e1", "e2", "not_on_screen"}
@@ -190,6 +219,11 @@ def test_check_returns_probability():
 def test_answers_outside_the_options_are_errors(answers):
     with pytest.raises(JevError, match="not one of the options"):
         Brain(FakeJev(answers)).next_action("x", login_screen(), [])
+
+
+def test_locate_confirmation_must_be_a_probability():
+    with pytest.raises(JevError, match="yes/no"):
+        Brain(FakeJev(pick("e3"), {"is_target": {"type": "noul", "noul": True}})).locate("x", login_screen())
 
 
 def test_locate_answer_outside_options():

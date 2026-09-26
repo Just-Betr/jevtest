@@ -96,8 +96,10 @@ tests:
       - use: Open the web page
       - tap: I agree to the terms
         see: Terms accepted
+      - scroll_to: Show more
       - tap: Show more
-        expect: The page shows more content from the web page
+      - scroll_to: Here is more content from the web page.
+        see: Here is more content
 
   # Native (non-Flutter) screen: Android Views / iOS UIKit.
   - name: Native screen
@@ -136,3 +138,45 @@ tests:
       - scroll_to: Load data
       - tap: Load data
         see: Data loaded
+
+  # In-app web: a full form, a dropdown, radio buttons, clearing, a JavaScript alert,
+  # navigation between web pages, and scrolling a long page.
+  - name: Web form
+    steps:
+      - use: Open the web page
+      - type: { text: "Bert", into: Your name }
+      - clear: Your name
+      - type: { text: "Bret", into: Your name }
+      - tap: Say hello
+        see: Hello, Bret!
+      - type: { text: "secret1", into: Web password }
+      - do: Choose Canada in the Country dropdown
+        expect: Canada is the selected country
+      - scroll_to: Submit form
+      - tap: Pro plan
+      - tap: I agree to the terms
+        see: Terms accepted
+      - tap: Submit form
+        see: "Submitted: Canada, Pro plan, with a password"
+
+  - name: Web alert and navigation
+    steps:
+      - use: Open the web page
+      - scroll_to: Show web alert
+      - tap: Show web alert
+        see: Hello from the web page
+      - tap: OK
+        not_see: Hello from the web page
+      - scroll_to: Open settings page
+      - tap: Open settings page
+        see: Web settings
+      - tap: Back to the form
+        expect: The web form with the name field is showing again
+
+  - name: Long web page
+    steps:
+      - use: Open the web page
+      - scroll_to: Back to top
+        see: End of the page
+      - tap: Back to top
+        see: Web Greeter

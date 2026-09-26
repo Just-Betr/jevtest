@@ -21,10 +21,10 @@ AGENT_SRC = Path(__file__).resolve().parent.parent / "ios_agent"
 AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator
 # Container types that only matter when they carry a label or identifier.
 CONTAINERS = {"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"}
-# Kinds whose accessibility value means something (for plain text it repeats the label or is a heading level).
-VALUE_KINDS = {"text_field", "text_area", "slider", "picker", "segmented_control", "progress"}
+# Kinds whose value is shown some other way: a switch's as on/off, a secure field's is bullets.
+HIDDEN_VALUE = {"switch", "password_field"}
 SCROLL_INDICATOR = re.compile(r"^(Vertical|Horizontal) scroll bar\b")
-TOUCHABLE = {"button", "cell", "link", "switch", "tab", "menu_item", "segmented_control"}
+TOUCHABLE = {"button", "cell", "link", "switch", "tab", "menu_item", "segmented_control", "dropdown"}
 EDITABLE = {"text_field", "password_field", "text_area"}
 # XCUIApplication.State raw values.
 APP_STATES = {0: "not_running", 1: "not_running", 2: "background", 3: "background", 4: "foreground"}
@@ -101,7 +101,8 @@ def parse_tree(data: dict) -> Screen:
         if kind in EDITABLE and value == placeholder:
             value = ""  # an empty field reports its placeholder as its value
         text = label
-        if kind in VALUE_KINDS and value and value != label:  # secure fields are not in VALUE_KINDS: bullets
+        # Any other value that says something the label doesn't (a web <select>'s choice, a field's text).
+        if kind not in HIDDEN_VALUE and value.strip() and value.strip() != label.strip():
             text = f"{label}: {value}" if label else value
         text = " ".join(text.split())
         if kind in CONTAINERS and not (text or d.get("identifier")):

@@ -253,26 +253,60 @@ class DetailPage extends StatelessWidget {
   }
 }
 
-// A plain HTML page inside an in-app WebView: input, button, checkbox, link.
+// An in-app web app: a form (text, password, dropdown, radio, checkbox), navigation between
+// pages, a long page that needs scrolling, and a JavaScript alert shown as an app dialog.
 const _html = """
 <!doctype html>
 <html>
 <head><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   body { font-family: -apple-system, Roboto, sans-serif; padding: 16px; }
-  input[type=text], button { font-size: 18px; padding: 10px; width: 100%; box-sizing: border-box; margin: 8px 0; }
-  label { font-size: 18px; }
+  input[type=text], input[type=password], select, button { font-size: 18px; padding: 10px; width: 100%; box-sizing: border-box; margin: 8px 0; }
+  label { font-size: 18px; display: block; margin: 8px 0; }
+  .page { display: none; } .page.on { display: block; }
+  .tall { height: 1400px; }
 </style></head>
 <body>
-  <h1>Web Greeter</h1>
-  <label for="name">Your name</label>
-  <input id="name" type="text" placeholder="Your name">
-  <button onclick="greet()">Say hello</button>
-  <p id="out">Nobody greeted yet</p>
-  <label><input id="agree" type="checkbox" onchange="agreed()"> I agree to the terms</label>
-  <p id="terms">Terms not accepted</p>
-  <p><a href="#" onclick="more(); return false;">Show more</a></p>
-  <p id="more"></p>
+  <div id="form" class="page on">
+    <h1>Web Greeter</h1>
+    <label for="name">Your name</label>
+    <input id="name" type="text" placeholder="Your name" value="">
+    <button onclick="greet()">Say hello</button>
+    <p id="out">Nobody greeted yet</p>
+
+    <label for="pw">Web password</label>
+    <input id="pw" type="password" placeholder="Web password">
+
+    <label for="country">Country</label>
+    <select id="country">
+      <option value="">Choose a country</option>
+      <option>Canada</option>
+      <option>Mexico</option>
+      <option>United States</option>
+    </select>
+
+    <p>Plan</p>
+    <label><input type="radio" name="plan" value="Free" checked> Free plan</label>
+    <label><input type="radio" name="plan" value="Pro"> Pro plan</label>
+    <label><input id="agree" type="checkbox" onchange="agreed()"> I agree to the terms</label>
+    <p id="terms">Terms not accepted</p>
+    <button onclick="submitForm()">Submit form</button>
+    <p id="summary">Form not submitted</p>
+
+    <p><a href="#" onclick="more(); return false;">Show more</a></p>
+    <p id="more"></p>
+    <button onclick="alert('Hello from the web page')">Show web alert</button>
+    <p><a href="#" onclick="go('settings'); return false;">Open settings page</a></p>
+    <div class="tall"></div>
+    <p>End of the page</p>
+    <button onclick="window.scrollTo(0, 0)">Back to top</button>
+  </div>
+
+  <div id="settings" class="page">
+    <h1>Web settings</h1>
+    <p>This is the second page of the web app.</p>
+    <a href="#" onclick="go('form'); return false;">Back to the form</a>
+  </div>
   <script>
     function greet() {
       var n = document.getElementById('name').value.trim();
@@ -283,6 +317,18 @@ const _html = """
         document.getElementById('agree').checked ? 'Terms accepted' : 'Terms not accepted';
     }
     function more() { document.getElementById('more').textContent = 'Here is more content from the web page.'; }
+    function submitForm() {
+      var c = document.getElementById('country').value || 'no country';
+      var plan = document.querySelector('input[name=plan]:checked').value;
+      var pw = document.getElementById('pw').value ? 'with a password' : 'without a password';
+      document.getElementById('summary').textContent = 'Submitted: ' + c + ', ' + plan + ' plan, ' + pw;
+    }
+    function show(page) {
+      document.querySelectorAll('.page').forEach(function (p) { p.classList.toggle('on', p.id === page); });
+      window.scrollTo(0, 0);
+    }
+    function go(page) { history.pushState({page: page}, '', '#' + page); show(page); }
+    window.onpopstate = function (e) { show(e.state && e.state.page ? e.state.page : 'form'); };
   </script>
 </body>
 </html>
@@ -298,6 +344,13 @@ class WebPage extends StatefulWidget {
 class _WebPageState extends State<WebPage> {
   late final WebViewController _controller = WebViewController()
     ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    ..setOnJavaScriptAlertDialog((request) => showDialog<void>(  // a web alert() as an app dialog
+          context: context,
+          builder: (context) => AlertDialog(
+            content: Text(request.message),
+            actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))],
+          ),
+        ))
     ..loadHtmlString(_html);
 
   @override

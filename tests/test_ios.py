@@ -121,11 +121,15 @@ def test_parse_rules():
         {"type": "button", "label": "Go", "identifier": "go", "x": -10, "y": 190, "w": 50, "h": 50,
          "enabled": False},
         {"type": "list", "label": "", "identifier": "feed", "x": 0, "y": 0, "w": 100, "h": 100},
+        {"type": "dropdown", "label": "Country", "value": "Canada", "x": 0, "y": 120, "w": 50, "h": 20},
+        {"type": "other", "label": "Size", "value": "Large", "x": 0, "y": 140, "w": 50, "h": 20},  # web <select>
+        {"type": "text", "label": "Same", "value": " Same", "x": 0, "y": 160, "w": 50, "h": 20},
     ]}
     s = parse_tree(data)
     assert [(e.kind, e.text) for e in s.elements] == [
         ("text", "Card"), ("text", "Hi"), ("text_field", "Email: a@b.c"), ("text_field", "typed"),
-        ("password_field", "Password"), ("switch", "Wifi"), ("button", "Go"), ("list", "")]
+        ("password_field", "Password"), ("switch", "Wifi"), ("button", "Go"), ("list", ""),
+        ("dropdown", "Country: Canada"), ("text", "Size: Large"), ("text", "Same")]  # values that add information
     go = s.elements[6]
     assert go.bounds == (0, 190, 40, 200) and go.enabled is False and go.clickable and go.resource_id == "go"
     assert s.elements[2].focused and s.elements[5].checked is True

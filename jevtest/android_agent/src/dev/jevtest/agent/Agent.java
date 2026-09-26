@@ -40,7 +40,7 @@ import java.util.List;
 public class Agent extends Instrumentation {
     private static final long QUIET_MS = 150;
     // Re-read the tree on every accessibility event, and at least this often: some changes send
-    // no event (a dialog moving into place while its window animates).
+    // no event (a dialog moving into place, a WebView swapping its content).
     private static final long CHECK_MS = 50;
     private int port = 7912;
     private final Object changed = new Object();
@@ -179,27 +179,21 @@ public class Agent extends Instrumentation {
         return sb.toString();
     }
 
-    /** Sleeps until an accessibility event arrives, then compares the tree: events also fire for
-     *  things that change nothing on screen (a blinking cursor), so an event alone is not a change. */
+    /** Returns once the tree differs from the one the client last received. Re-reads the tree on
+     *  every accessibility event and at least every CHECK_MS: some changes arrive with no event
+     *  (a WebView swapping its content), and some events change nothing (a blinking cursor). */
     private String change(UiAutomation ui, long ms) throws InterruptedException {
         long deadline = System.currentTimeMillis() + ms;
-        if (!tree(ui).equals(served)) {
-            return "changed";  // it already changed since the client looked
-        }
-        synchronized (changed) {
-            long seen = changes;
-            while (true) {
-                while (changes == seen) {
-                    long left = deadline - System.currentTimeMillis();
-                    if (left <= 0) {
-                        return "unchanged";
-                    }
-                    changed.wait(left);
-                }
-                seen = changes;
-                if (!tree(ui).equals(served)) {
-                    return "changed";
-                }
+        while (true) {
+            if (!tree(ui).equals(served)) {
+                return "changed";
+            }
+            long left = deadline - System.currentTimeMillis();
+            if (left <= 0) {
+                return "unchanged";
+            }
+            synchronized (changed) {
+                changed.wait(Math.min(CHECK_MS, left));  // an event wakes it early
             }
         }
     }

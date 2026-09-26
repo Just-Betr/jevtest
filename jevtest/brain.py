@@ -15,6 +15,7 @@ from .screen import Element, Screen
 
 QUOTED = re.compile(r'"([^"]+)"|“([^”]+)”')
 MAX_OPTIONS = 250  # Jev allows 255 options per Choice
+CONFIRM = 0.5      # yes-probability needed to accept a located element
 
 ACTIONS = {
     "done": "The goal is already fully achieved. Pick this when `actions_taken` already did "
@@ -80,6 +81,13 @@ def _picked(answers: dict, qid: str, options) -> str:
     return chosen
 
 
+def _probability(answers: dict, qid: str) -> float:
+    p = answers[qid].get("noul")
+    if not isinstance(p, (int, float)) or isinstance(p, bool) or not 0 <= p <= 1:
+        raise JevError(f"Jev returned {p!r} for a yes/no question")
+    return float(p)
+
+
 def _state(screen: Screen, **extra) -> dict:
     state = {"screen": screen.to_state(), "keyboard_visible": screen.keyboard_visible}
     state.update(extra)
@@ -139,15 +147,21 @@ class Brain:
         return d
 
     def locate(self, target: str, screen: Screen, candidates: list[Element] | None = None) -> Element | None:
-        """Find the element the test file names. Exact unique text match skips the model."""
+        """Find the element the test file names. Text is matched in code first (exact, then
+        contained); only a description that is not on-screen text goes to Jev."""
         candidates = screen.elements if candidates is None else candidates
         t = target.strip().lower()
-        exact = [el for el in candidates
-                 if t in (el.text.lower(), el.hint.lower(), el.resource_id.lower())]
-        if len(exact) > 1:  # e.g. a label and the switch beside it: the one you can act on
-            exact = [el for el in exact if el.clickable or el.editable] or exact
-        if len(exact) == 1:
-            return exact[0]
+        for matches in (
+            [el for el in candidates if t in (el.text.lower(), el.hint.lower(), el.resource_id.lower())],
+            [el for el in candidates if t in el.text.lower() or t in el.hint.lower()],
+        ):
+            if len(matches) > 1:  # e.g. a label and the switch beside it: the one you can act on
+                matches = [el for el in matches if el.clickable or el.editable] or matches
+            if len(matches) == 1:
+                return matches[0]
+            if matches:  # several elements carry that text: let Jev choose among them only
+                candidates = matches
+                break
         if not candidates:
             return None
         options = _element_options(screen, candidates)
@@ -155,13 +169,18 @@ class Brain:
         ans = self.jev.ask(_state(screen), {"element": choice(
             {"target": target, "question": "Which element on the screen is `target`?"}, options)})
         pick = _picked(ans, "element", options)
-        return None if pick == "not_on_screen" else screen.by_id(pick)
+        if pick == "not_on_screen":
+            return None
+        # A Choice always picks the closest option, even when the target is not on screen at all, so
+        # confirm the pick with a yes/no question (the pattern TypeSafe's docs recommend).
+        el = screen.by_id(pick)
+        confirm = self.jev.ask(_state(screen), {"is_target": noul(
+            {"target": target, "element": options[pick],
+             "question": "Is `element` the element described by `target`?"})})
+        return el if _probability(confirm, "is_target") > CONFIRM else None
 
     def check(self, statement: str, screen: Screen) -> float:
         """Probability that `statement` is true of the current screen."""
         ans = self.jev.ask(_state(screen), {"check": noul(
             {"statement": statement, "question": "Is `statement` true of the current `screen`?"})})
-        p = ans["check"].get("noul")
-        if not isinstance(p, (int, float)) or not 0 <= p <= 1:
-            raise JevError(f"Jev returned {p!r} for a yes/no question")
-        return float(p)
+        return _probability(ans, "check")

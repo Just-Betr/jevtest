@@ -36,6 +36,8 @@ EDITABLE = {"EditText", "AutoCompleteTextView"}
 # Always report on/off for these: WebView checkboxes come through with checkable="false".
 TOGGLES = {"CheckBox", "Switch", "RadioButton", "ToggleButton", "SwitchCompat", "SwitchMaterial"}
 DOUBLE_TAP_GAP = 0.1      # Android and Flutter ignore taps < 40 ms apart and > 300 ms apart
+DRAG_STEPS = 10           # finger positions along a drag
+DRAG_HOLD = 0.1           # seconds the finger rests before lifting, so nothing flings
 AGENT_START_TIMEOUT = 30
 TOP_ACTIVITY = re.compile(r"topResumedActivity=ActivityRecord\{\S+ \S+ ([\w.]+)/")
 PERMISSION_PROMPT = re.compile(r"com\.(google\.)?android\.permissioncontroller")
@@ -383,7 +385,11 @@ class AndroidDriver(Driver):
         self.sh(f"input swipe {x} {y} {x} {y} {int(seconds * 1000)}")
 
     def drag(self, x1, y1, x2, y2, seconds=0.3):
-        self.sh(f"input swipe {x1} {y1} {x2} {y2} {int(seconds * 1000)}")
+        # Press, move in steps, hold still, lift: the content stops where the finger stops. A plain
+        # `input swipe` lifts while moving, so the content flings on and a scroll lands anywhere.
+        steps = [(x1 + (x2 - x1) * i // DRAG_STEPS, y1 + (y2 - y1) * i // DRAG_STEPS) for i in range(1, DRAG_STEPS + 1)]
+        self.sh("; ".join([f"input motionevent DOWN {x1} {y1}"] + [f"input motionevent MOVE {x} {y}" for x, y in steps]
+                          + [f"sleep {DRAG_HOLD}", f"input motionevent UP {x2} {y2}"]))
 
     def type_text(self, text, at=None):
         if not text.isascii():

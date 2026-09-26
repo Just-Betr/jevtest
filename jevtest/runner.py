@@ -292,10 +292,13 @@ class Runner:
         return f"on {el.label()}" if el else None
 
     def act_scroll_to(self, step, _):
+        """Scroll until the text is on screen: matched in code, like `see:` (a model asked whether
+        absent text is there tends to pick something similar)."""
         direction = step.opts.get("direction", "down")
+        wanted = step.value.lower()
         for _i in range(step.opts.get("max_scrolls", 15)):
             screen = self.screen()
-            if self.brain.locate(step.value, screen) is not None:
+            if any(wanted in t.lower() for t in screen.texts()):
                 return None
             self.driver.scroll(direction, screen=screen)
             self.settle()

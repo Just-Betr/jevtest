@@ -9,7 +9,19 @@ from jevtest.runner import Clock, Runner, failure_of, write_junit, write_report
 from jevtest.screen import Screen
 from jevtest.spec import Settings, Spec, Test, parse_step
 
-from .conftest import DriverError, FakeClock, FakeDriver, FakeJev, act, el, login_screen, pick, screen_with, yes
+from .conftest import (
+    DriverError,
+    FakeClock,
+    FakeDriver,
+    FakeJev,
+    act,
+    confirm,
+    el,
+    login_screen,
+    pick,
+    screen_with,
+    yes,
+)
 
 
 def make(tmp_path, clock, out, *steps, driver=None, jev=None, verbose=False, tests=None, **settings):
@@ -144,8 +156,8 @@ def test_touch_actions_find_the_element(tmp_path, clock, out, kind):
 
 
 def test_tap_asks_jev_when_no_exact_match(tmp_path, clock, out):
-    res, d, jev = run1(tmp_path, clock, out, {"tap": "the login button"}, jev=FakeJev(pick("e3")))
-    assert ("tap", 500, 450) in d.calls and len(jev.asked) == 1
+    res, d, jev = run1(tmp_path, clock, out, {"tap": "the login button"}, jev=FakeJev(pick("e3"), confirm()))
+    assert ("tap", 500, 450) in d.calls and len(jev.asked) == 2  # pick, then confirm
 
 
 def test_tap_waits_for_the_element(tmp_path, clock, out):
@@ -192,18 +204,17 @@ def test_type_into_focused_field(tmp_path, clock, out):
     assert ("type_text", "hi", None) in d.calls
 
 
-def test_scroll_to_scrolls_until_found(tmp_path, clock, out):
-    d = FakeDriver(screen_with("Item 1"), screen_with("Item 1"), screen_with("Item 30"))
-    jev = FakeJev(pick("not_on_screen"), pick("not_on_screen"))
-    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 30"}, driver=d, jev=jev)
+def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
+    d = FakeDriver(screen_with("Item 1"), screen_with("Item 1"), screen_with("Item 30 is here"))
+    res, d, jev = run1(tmp_path, clock, out, {"scroll_to": "item 30"}, driver=d)
     assert res["status"] == "pass"
     assert d.names().count("drag") == 2
+    assert not jev.asked  # matched in code, never by the model
 
 
 def test_scroll_to_gives_up(tmp_path, clock, out):
-    jev = FakeJev(*[pick("not_on_screen")] * 3)
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "max_scrolls": 3, "direction": "up"},
-                     driver=FakeDriver(screen_with("Item 1")), jev=jev)
+                     driver=FakeDriver(screen_with("Item 1")))
     assert "Scrolled up but never found 'Item 99'" in res["failure"]
     assert d.names().count("drag") == 3
 

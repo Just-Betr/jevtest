@@ -52,6 +52,11 @@ def yes(p):
     return {"check": {"type": "noul", "noul": p}}
 
 
+def confirm(p=0.95):
+    """Jev's answer to 'is the element it picked really the target?'"""
+    return {"is_target": {"type": "noul", "noul": p}}
+
+
 class FakeClock:
     def __init__(self):
         self.t = 0.0
@@ -203,5 +208,5 @@ def out():
     return io.StringIO()
 
 
-__all__ = ["FakeJev", "FakeDriver", "FakeClock", "DriverError", "act", "pick", "yes", "el",
+__all__ = ["FakeJev", "FakeDriver", "FakeClock", "DriverError", "act", "pick", "yes", "confirm", "el",
            "login_screen", "screen_with"]

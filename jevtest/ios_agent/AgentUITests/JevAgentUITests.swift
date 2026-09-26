@@ -296,6 +296,7 @@ final class JevAgentUITests: XCTestCase {
         case .alert: return "alert"
         case .sheet: return "sheet"
         case .picker, .pickerWheel: return "picker"
+        case .popUpButton, .comboBox, .menuButton: return "dropdown"  // e.g. a web <select>
         case .segmentedControl: return "segmented_control"
         case .menuItem: return "menu_item"
         case .scrollView: return "scroll_view"
