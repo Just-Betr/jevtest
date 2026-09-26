@@ -9,7 +9,7 @@ Write what a user does and what they should see. Jev works out the taps. CI repl
   <a href="https://pypi.org/project/jevtest/"><img alt="PyPI" src="https://img.shields.io/pypi/v/jevtest"></a>
   <a href="https://pypi.org/project/jevtest/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/jevtest"></a>
   <a href="https://just-betr.github.io/jevtest/"><img alt="Docs" src="https://img.shields.io/badge/docs-just--betr.github.io%2Fjevtest-5e35b1"></a>
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <a href="https://github.com/Just-Betr/jevtest/blob/main/LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
 
 <p align="center"><a href="https://just-betr.github.io/jevtest/"><b>Documentation</b></a> ·
@@ -86,4 +86,4 @@ Built to a high bar: a [clean architecture](https://just-betr.github.io/jevtest/
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/Just-Betr/jevtest/blob/main/LICENSE)
