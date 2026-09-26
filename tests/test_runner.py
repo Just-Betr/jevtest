@@ -1,3 +1,4 @@
+import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -440,8 +441,9 @@ def test_junit_and_report(tmp_path):
         {"name": "A", "status": "pass", "seconds": 1.25, "failure": None, "log": ["ok"]},
         {"name": "B <x>", "status": "fail", "seconds": 2.0, "failure": "see: X — not on screen", "log": ["bad"]}]}
     path = tmp_path / "sub" / "junit.xml"
-    write_junit(path, "jevtest.ios", results)
-    suite = ET.parse(path).getroot().find("testsuite")
+    write_junit(path, [("jevtest.ios", results), ("jevtest.android", {"passed": 0, "failed": 0, "tests": []})])
+    suite, other = ET.parse(path).getroot().findall("testsuite")
+    assert other.attrib["name"] == "jevtest.android"
     assert suite.attrib == {"name": "jevtest.ios", "tests": "2", "failures": "1", "errors": "0", "time": "3.2"}
     cases = suite.findall("testcase")
     assert cases[0].find("failure") is None and cases[0].find("system-out").text == "ok"
@@ -497,3 +499,46 @@ def test_unchanged_screen_is_not_rejudged(tmp_path, clock, out):
     res, d, jev = run1(tmp_path, clock, out, {"expect": "x", "timeout": 5}, jev=FakeJev(yes(0.1)))
     assert res["status"] == "fail" and len(jev.asked) == 1
     assert d.names().count("wait_change") >= 5
+
+
+# --- ${NAME} values --------------------------------------------------------------------
+
+def test_variables_are_filled_only_where_the_app_sees_them(tmp_path, clock, out):
+    steps = [{"type": {"text": "${PASS}", "into": "${FIELD}"}, "see": "${NAME}"},
+             {"type": "${PASS}", "not_see": "${SECRET_ERR}", "expect": "Signed in as ${NAME}"},
+             {"open_url": "app://${HOST}/x"}, {"scroll_to": "${NAME}"}]
+    d = FakeDriver(screen_with("Email", "Welcome Ann"))
+    d.screens[0].elements[0].editable = True
+    r, d, jev = make(tmp_path, clock, out, *steps, driver=d, jev=FakeJev(yes(0.9)))
+    r.spec.variables = {"PASS": "hunter2", "FIELD": "Email", "NAME": "Ann", "SECRET_ERR": "Denied",
+                        "HOST": "h"}
+    res = r.run()["tests"][0]
+    assert res["status"] == "pass"
+    assert [c[1] for c in d.calls if c[0] == "type_text"] == ["hunter2", "hunter2"]
+    assert ("open_url", "app://h/x") in d.calls
+    assert "Signed in as Ann" in json.dumps(jev.asked[0][1])  # Jev judges the real statement
+    log = out.getvalue()
+    assert "hunter2" not in log and "type: ${PASS} into='${FIELD}'" in log and "see: ${NAME}" in log
+
+
+def test_jev_sees_the_placeholder_and_the_app_gets_the_value(tmp_path, clock, out):
+    jev = FakeJev(act("type", field="e1", value="v0"), act("done"))
+    r, d, _ = make(tmp_path, clock, out, 'Type "${PASS}" into the password', jev=jev)
+    r.spec.variables = {"PASS": "hunter2"}
+    res = r.run()["tests"][0]
+    assert res["status"] == "pass" and ("type_text", "hunter2", (500, 150)) in d.calls
+    assert "hunter2" not in json.dumps(jev.asked) and "hunter2" not in out.getvalue()
+
+
+def test_missing_target_is_reported_by_its_placeholder(tmp_path, clock, out):
+    r, _, _ = make(tmp_path, clock, out, {"tap": "${WHO}", "timeout": 0}, jev=FakeJev(pick("not_on_screen")))
+    r.spec.variables = {"WHO": "Bob"}
+    assert "Could not find element '${WHO}'" in r.run()["tests"][0]["failure"]
+
+
+def test_on_test_gets_each_result_as_it_finishes(tmp_path, clock, out):
+    done = []
+    r, _, _ = make(tmp_path, clock, out, tests=[Test("A", [parse_step("back")]), Test("B", [parse_step("back")])])
+    r.on_test = lambda res: done.append(res["name"])
+    r.run()
+    assert done == ["A", "B"]

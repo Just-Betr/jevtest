@@ -16,6 +16,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import threading
 import urllib.request
 import zipfile
 from base64 import b64decode
@@ -125,6 +126,10 @@ def provisioned_devices(app: Path) -> set[str]:
         return set(plistlib.loads(raw).get("ProvisionedDevices", []))
     except plistlib.InvalidFileException:
         return set()
+
+
+# Devices tested at the same time share the agent build: one builds and starts it at a time.
+AGENT_LOCK = threading.Lock()
 
 
 def free_port() -> int:
@@ -244,10 +249,11 @@ class IOSDriver(Driver):
 
     def _start_agent(self):
         env = dict(os.environ, TEST_RUNNER_JEVTEST_PORT=str(self.port))
-        self.agent = start_process(
-            ["xcodebuild", "test-without-building", "-xctestrun", str(self._build_agent()),
-             "-destination", f"id={self.udid}"],
-            ready="JEVTEST_AGENT_READY", log=self.agent_log, timeout=AGENT_START_TIMEOUT, env=env)
+        with AGENT_LOCK:
+            self.agent = start_process(
+                ["xcodebuild", "test-without-building", "-xctestrun", str(self._build_agent()),
+                 "-destination", f"id={self.udid}"],
+                ready="JEVTEST_AGENT_READY", log=self.agent_log, timeout=AGENT_START_TIMEOUT, env=env)
         if self.physical:
             self.host = self._tunnel_host()
 

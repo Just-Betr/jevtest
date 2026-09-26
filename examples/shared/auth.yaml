@@ -1,0 +1,12 @@
+# Building blocks for other test files. A file that says `include: shared/auth.yaml` can
+# `use: Sign in`; tests in an included file don't run on their own.
+#
+# ${DEMO_EMAIL} and ${DEMO_PASSWORD} come from examples/.env (copy .env.example) or the
+# environment, e.g. CI secrets. Jev and the logs only ever see the ${NAME}, never the value.
+
+tests:
+  - name: Sign in
+    steps:
+      - do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}"
+        expect: The home screen is showing
+        see: Welcome, ${DEMO_EMAIL}

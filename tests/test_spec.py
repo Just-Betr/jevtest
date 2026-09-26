@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from jevtest.spec import Settings, SpecError, load, parse_step, platform_of
+from jevtest.spec import Settings, SpecError, fill, is_test_file, load, parse_step, platform_of
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "demo.yaml"
 
@@ -126,8 +126,10 @@ def test_minimal_file(tmp_path):
     assert spec.devices == {}  # no device named: the running one
 
 
-def test_example_file_loads():
-    spec = load(EXAMPLE)
+def test_example_files_load():
+    env = {"DEMO_EMAIL": "e", "DEMO_PASSWORD": "p", "IPHONE": "BH"}  # CI has no examples/.env
+    assert load(EXAMPLE.with_name("demo_iphone.yaml"), env).devices == {"ios": ["BH"]}
+    spec = load(EXAMPLE, env)
     assert set(spec.apps) == {"android", "ios"}
     assert len({t.name for t in spec.tests}) == len(spec.tests)
 
@@ -137,7 +139,7 @@ def test_devices(tmp_path):
             "tests:\n  - {name: T, steps: [back]}\n")
     (tmp_path / "x.zip").write_text("")
     spec = load(write(tmp_path, body))
-    assert list(spec.apps) == ["android", "ios"] and spec.devices == {"android": "Pixel 4a", "ios": "BH"}
+    assert list(spec.apps) == ["android", "ios"] and spec.devices == {"android": ["Pixel 4a"], "ios": ["BH"]}
 
 
 def test_settings(tmp_path):
@@ -161,7 +163,7 @@ def test_settings(tmp_path):
     (minimal(tests="  - name: T\n    steps: [back]\n    tags: [x]\n"), "unknown keys: tags"),
     (minimal(tests="  - name: T\n    steps: [{wait: x}]\n"), "Test 'T': 'wait' must be a number"),
     (minimal(tests="  - name: T\n    steps: [back]\n    fresh: sometimes\n"), "fresh must be on or off"),
-    (minimal(tests="  - name: T\n    steps: [back]\n  - name: T\n    steps: [back]\n"), "unique: T"),
+    (minimal(tests="  - name: T\n    steps: [back]\n  - name: T\n    steps: [back]\n"), "unique .*: T"),
     (minimal(extra="settings: [1]\n"), "`settings` must be a mapping"),
     (minimal(extra="settings: {speed: 1}\n"), "Unknown settings: speed"),
     (minimal(extra="settings: {threshold: 1}\n"), "between 0 and 1"),
@@ -223,3 +225,101 @@ def test_platform_of(name, platform):
 def test_platform_of_unknown():
     with pytest.raises(SpecError):
         platform_of(Path("x.exe"))
+
+
+# --- device lists ----------------------------------------------------------------------
+
+def test_several_devices_per_platform(tmp_path):
+    spec = load(write(tmp_path, minimal(extra="device: {android: [Pixel 4a, Pixel 8]}\n")))
+    assert spec.devices == {"android": ["Pixel 4a", "Pixel 8"]}
+
+
+@pytest.mark.parametrize("extra,message", [
+    ("device: {android: []}\n", "at least one device"),
+    ("device: {android: [A, A]}\n", "lists a device twice"),
+    ("device: {android: [A, '']}\n", "device.android needs a text value"),
+])
+def test_bad_device_lists(tmp_path, extra, message):
+    with pytest.raises(SpecError, match=message):
+        load(write(tmp_path, minimal(extra=extra)))
+
+
+# --- ${NAME} values ----------------------------------------------------------------------
+
+VARS = """app: ${APP}
+device: {android: "${PHONE}"}
+settings: {ios_team: "${TEAM}"}
+tests:
+  - name: Sign in
+    steps:
+      - type: {text: "${PASSWORD}", into: Password}
+        see: Hi ${USER_NAME}
+"""
+
+
+def test_variables_come_from_env(tmp_path):
+    env = {"APP": "a.apk", "PHONE": "Pixel", "TEAM": "T1", "PASSWORD": "pw", "USER_NAME": "Ann", "OTHER": "x"}
+    spec = load(write(tmp_path, VARS), env)
+    assert spec.variables == {k: v for k, v in env.items() if k != "OTHER"}  # only what the file uses
+    assert spec.apps["android"].name == "a.apk" and spec.devices == {"android": ["Pixel"]}
+    assert spec.settings.ios_team == "T1"
+    step = spec.tests[0].steps[0]
+    assert step.value == "${PASSWORD}" and step.checks == [("see", "Hi ${USER_NAME}")]  # filled only when used
+    assert fill(step.value, spec.variables) == "pw"
+
+
+def test_variables_default_to_the_environment(tmp_path, monkeypatch):
+    monkeypatch.setenv("JEVTEST_T_APP", "a.apk")
+    assert load(write(tmp_path, "app: ${JEVTEST_T_APP}\ntests: [{name: T, steps: [back]}]\n")).apps
+
+
+def test_missing_variables_are_named(tmp_path):
+    with pytest.raises(SpecError, match=r"Not set: \$\{APP\}, \$\{PASSWORD\}, \$\{PHONE\}.*\.env"):
+        load(write(tmp_path, VARS), {"TEAM": "x", "USER_NAME": "y"})
+
+
+# --- include ------------------------------------------------------------------------------
+
+LIB = """tests:
+  - name: Sign in
+    steps: [{type: {text: "${PASSWORD}", into: Password}}]
+"""
+
+
+def test_included_tests_can_be_used_but_do_not_run(tmp_path):
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "lib" / "auth.yaml").write_text("include: common.yaml\n" + LIB)
+    (tmp_path / "lib" / "common.yaml").write_text("tests: [{name: Home, steps: [home]}]\n")
+    spec = load(write(tmp_path, minimal(extra="include: [lib/auth.yaml, lib/common.yaml]\n",
+                                        tests="  - {name: Counter, steps: [{use: Sign in}, {use: Home}]}\n")),
+                {"PASSWORD": "pw"})
+    assert [t.name for t in spec.tests] == ["Counter"]
+    assert [s.used.name for s in spec.tests[0].steps] == ["Sign in", "Home"]
+    assert spec.variables == {"PASSWORD": "pw"}  # a library's ${NAME}s count too
+
+
+@pytest.mark.parametrize("files,message", [
+    ({"a.yaml": "include: b.yaml\ntests: [{name: A, steps: [back]}]\n",
+      "b.yaml": "include: a.yaml\ntests: [{name: B, steps: [back]}]\n"}, "loop: t.yaml -> a.yaml -> b.yaml -> a.yaml"),
+    ({"a.yaml": "app: x.apk\ntests: [{name: A, steps: [back]}]\n"}, "can only have `include` and `tests`.*app"),
+    ({"a.yaml": "tests: [{name: T, steps: [back]}]\n"}, "unique .*: T"),
+    ({"a.yaml": "tests: []\n"}, "No tests found under `tests:` in a.yaml"),
+    ({}, "Test file not found: .*a.yaml"),
+])
+def test_bad_includes(tmp_path, files, message):
+    for name, body in files.items():
+        (tmp_path / name).write_text(body)
+    with pytest.raises(SpecError, match=message):
+        load(write(tmp_path, minimal(extra="include: a.yaml\n")))
+
+
+def test_include_cannot_include_the_main_file(tmp_path):
+    (tmp_path / "a.yaml").write_text("include: t.yaml\ntests: [{name: A, steps: [back]}]\n")
+    with pytest.raises(SpecError, match="loop: t.yaml -> a.yaml -> t.yaml"):
+        load(write(tmp_path, minimal(extra="include: a.yaml\n")))
+
+
+def test_is_test_file(tmp_path):
+    assert is_test_file(write(tmp_path, minimal()))
+    assert not is_test_file(write(tmp_path, "tests: []\n", name="lib.yaml"))
+    assert is_test_file(write(tmp_path, "app: [", name="broken.yaml"))  # run it so the error is shown

@@ -8,25 +8,28 @@
 #     see: <exact text on screen>            plain text check, no model
 #
 # `use: <test name>` runs another test's steps first, so tests build on each other.
+# Values like ${DEMO_PASSWORD} come from .env or the environment (see shared/auth.yaml).
 
 # Which device each platform runs on. Leave it out to use whatever is running; name one to choose:
 # device:
 #   android: Pixel 4a        # a phone's model, an emulator's AVD name, or a serial
 #   ios: iPhone 17 Pro       # a booted simulator's name or UDID
+# List several to split the tests across them and run them at the same time:
+#   android: [Pixel 4a, Pixel_10]
 
 # The same tests on a real iPhone: see "Testing on a real iPhone" in the README.
 device:
-  ios: My iPhone     # your iPhone's name (Settings > General > About > Name)
+  ios: ${IPHONE}     # your iPhone's name (Settings > General > About > Name), from .env
 
 app:
   ios: ../demo_app/build/ios_device/Build/Products/Release-iphoneos/Runner.app
 
+include: shared/auth.yaml   # the "Sign in" building block, with the login from .env
+
 tests:
-  - name: Sign in
+  - name: Sign in works
     steps:
-      - do: Sign in with email "demo@jevtest.dev" and password "hunter22"
-        expect: The home screen is showing
-        see: Welcome, demo@jevtest.dev
+      - use: Sign in
 
   - name: Wrong password is rejected
     steps:

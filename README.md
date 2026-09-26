@@ -5,7 +5,7 @@ A mobile app test harness driven by **Jev**, TypeSafe AI's decision model, calle
 You give it an app build and a YAML test file, then run one command:
 
 ```bash
-jevtest run tests.yaml
+jevtest run tests.yaml        # or a folder of test files: jevtest run tests/
 ```
 
 ## How it works
@@ -44,7 +44,7 @@ The model is pinned (`typesafe/jev-1.13`), as TypeSafe recommends, so an alias u
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
 pip install -e .
-export OPENROUTER_API_KEY=sk-or-...        # https://openrouter.ai/keys
+export OPENROUTER_API_KEY=sk-or-...        # https://openrouter.ai/keys (or put it in a .env file)
 ```
 
 - **Android:** the Android SDK (platform-tools, build-tools, one platform) and a JDK. `bundletool` is needed for `.aab`. Tests on a device that is already connected or running (`adb devices`). The first run builds a 12 KB on-device agent (a few seconds, then cached in `~/.cache/jevtest`).
@@ -65,11 +65,14 @@ Both agents stay running for the whole run and answer "what's on screen?" in mil
 
 ```yaml
 app: build/app.apk            # .apk / .aab (Android), .app / .zip / .ipa with a simulator .app (iOS)
-# or both:  app: { android: app.apk, ios: Runner.app }   -> the tests run on each, one after the other
+# or both:  app: { android: app.apk, ios: Runner.app }   -> the tests run on each, at the same time
 
 device:                       # optional; leave it out to use the device that is running
   android: Pixel 4a           # a phone's model, an emulator's AVD name, or a serial
   ios: iPhone 17 Pro          # a booted simulator's name, or a real iPhone's name, or a UDID
+  # android: [Pixel 4a, Pixel_10]   -> several devices share the tests and run at the same time
+
+include: shared/auth.yaml     # optional; tests other files keep, for `use:` (see "Large suites")
 
 settings:                     # all optional
   model: typesafe/jev-1.13     # pinned; the lockfile is per model
@@ -81,7 +84,7 @@ settings:                     # all optional
 tests:                        # run in this order
   - name: Sign in
     steps:
-      - do: Sign in with email "me@x.dev" and password "hunter22"   # action: Jev drives
+      - do: Sign in with email "${EMAIL}" and password "${PASSWORD}"   # action: Jev drives; values from .env
         expect: The home screen greets the user                     # check: Jev judges
         see: Welcome                                                # check: exact text
 
@@ -136,6 +139,57 @@ A bare word like `- back` is fine alone. To put checks under it, add a colon: `-
 
 After every action the harness also fails the step if the app crashed or left the foreground.
 
+## Large suites
+
+Four things keep a big app's tests manageable. None of them is needed for a small one.
+
+**`${NAME}` values: logins, secrets, per-environment settings.** Anywhere in a test file, `${NAME}` is replaced by the value of `NAME` from a `.env` file (next to the test file, or in the folder you run from) or from the environment, which wins, so CI secrets need no file. A name that isn't set is an error before anything runs. Values are only put in when the app needs them (the text typed, the text compared, the element searched for, the URL opened). Jev's goals, the logs and the reports keep `${NAME}`. What the app itself shows on screen is part of the screen Jev reads (a password field shows only dots; a typed email is visible), so put secrets in password fields.
+
+```
+# .env  (git-ignored)
+EMAIL=qa@example.com
+PASSWORD=...
+```
+
+**`include:` shares tests between files.** A library file has only `tests:` (and its own `include:`). Its tests don't run by themselves; files that include it can `use:` them. Paths are relative to the including file; names must be unique across all of them.
+
+```yaml
+# shared/auth.yaml
+tests:
+  - name: Sign in
+    steps:
+      - do: Sign in with email "${EMAIL}" and password "${PASSWORD}"
+        see: Welcome
+
+# checkout.yaml
+app: build/app.apk
+include: shared/auth.yaml
+tests:
+  - name: Buy one item
+    steps:
+      - use: Sign in
+      - do: Add the first item to the cart and check out
+        expect: The order is confirmed
+```
+
+**A folder runs as one suite.** `jevtest run tests/` runs every test file in it and its subfolders in name order (a file without `app:` is a library and is skipped). Each file keeps its own lockfile. `--test NAME` picks tests from any of the files. There is one exit code and one `junit.xml` for the lot.
+
+**Several devices run at once.** List devices to split a platform's tests across them: `device: { android: [Pixel 4a, Pixel 8, Pixel_10] }`. Tests are dealt out in order, and a `fresh: false` test stays on the same device as the test before it, since it continues from where that one left the app. Each platform in `app:` also runs at the same time as the others. While several devices run, each test's log is printed in one piece, tagged with its device: `[android · Pixel 8] ▶ Checkout`.
+
+A typical project:
+
+```
+mobile-tests/
+  .env                  # EMAIL, PASSWORD (git-ignored; CI uses secrets)
+  shared/
+    auth.yaml           # Sign in, Sign out
+    navigation.yaml     # Open settings, Open the cart, ...
+  login.yaml            # app:, device:, include:, tests:
+  checkout.yaml
+  settings.yaml
+  *.lock.json           # recorded Jev decisions, committed
+```
+
 ## Testing on a real phone
 
 **Android phone:** turn on Developer options > USB debugging, plug it in, tap **Allow**. That's all. Name it in `device:` (for example `android: Pixel 4a`) and keep it unlocked while tests run.
@@ -153,8 +207,10 @@ The first run builds jevtest's agent, signs it with your Xcode team and register
 ## Commands
 
 ```bash
-jevtest run tests.yaml [--test NAME]... [-v] [--out DIR] [--frozen | --refresh-lock | --no-lock]
+jevtest run PATH... [--test NAME]... [-v] [--out DIR] [--frozen | --refresh-lock | --no-lock]
 ```
+
+`PATH` is a test file or a folder of them; give as many as you like.
 
 | Exit code | Meaning |
 |---|---|
@@ -167,17 +223,17 @@ jevtest run tests.yaml [--test NAME]... [-v] [--out DIR] [--frozen | --refresh-l
 
 Every run prints each step, the actions Jev chose, and each check. It ends with a summary: failures with their reason, and how many Jev decisions came from the lockfile vs. were asked live, with time and cost. `-v` also prints every Jev question with its top answers and probabilities.
 
-Each run writes to `jevtest-results/<timestamp>/<platform>/`:
-- `junit.xml` for CI test reporting;
-- `report.json` with every step, check and Jev request/answer;
-- a screenshot of every failure.
+Each run writes to `jevtest-results/<timestamp>/`:
+- `junit.xml` for CI test reporting: one suite per file, platform and device;
+- `<platform>/report.json` with every step, check and Jev request/answer, and a screenshot of every failure. With several devices this is `<platform>/<device>/`; when running several files, each file gets its own folder first (`checkout/android/...`).
 
 ### CI
 
 ```yaml
 # GitHub Actions, on a macOS runner with a simulator
 - run: pip install jevtest
-- run: jevtest run tests.yaml --frozen
+- run: jevtest run tests/ --frozen
+  env: { EMAIL: "${{ secrets.QA_EMAIL }}", PASSWORD: "${{ secrets.QA_PASSWORD }}" }
 - uses: actions/upload-artifact@v4
   if: always()
   with: { name: jevtest-results, path: jevtest-results }
@@ -195,7 +251,7 @@ flutter build ios --simulator --debug --config-only
 LANG=en_US.UTF-8 pod install --project-directory=ios
 xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Debug -sdk iphonesimulator \
   -derivedDataPath build/ios_sim ARCHS=arm64 ONLY_ACTIVE_ARCH=YES -quiet
-cd .. && jevtest run examples/demo.yaml
+cd .. && cp examples/.env.example examples/.env && jevtest run examples/demo.yaml
 
 # iOS device build (for examples/demo_iphone.yaml), signed with your team:
 cd demo_app && flutter build ios --release --config-only

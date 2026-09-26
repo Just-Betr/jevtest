@@ -5087,6 +5087,64 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "59e6119b8f1420ae5e967ff38127a3a1385a55b6c916627eeeab2ebd298ac4f2": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.95,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 0.02,
+      "double_tap": 0,
+      "hide_keyboard": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0.03,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.95,
+      "type": 0,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.46,
+     "probabilities": {
+      "e2": 0.27,
+      "e3": 0.73
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 0.98,
+     "probabilities": {
+      "e1": 0,
+      "e2": 0,
+      "e3": 0.02,
+      "e4": 0.98
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 0.25,
+     "probabilities": {
+      "v0": 0.63,
+      "v1": 0.37
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "5a08d6378381a82d4ed7893aa6c2dbe805c4510e184290ffae5a933dffc5d315": {
    "answers": {
     "action": {
@@ -5968,6 +6026,62 @@
    },
    "served_by": "typesafe/jev-1.13-20260917"
   },
+  "7219527b4aeae6ed78d3cbf30423e660a717e3f00201f1f04158e102077f7391": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.69,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 0,
+      "double_tap": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.29,
+      "type": 0.71,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e2",
+     "confidence": 1,
+     "probabilities": {
+      "e2": 1,
+      "e3": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0,
+      "e2": 1,
+      "e3": 0,
+      "e4": 0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1,
+     "probabilities": {
+      "v0": 1,
+      "v1": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
   "72933657f698ed20e67b6b48a69c19f222c3ff3c657e1a3efdfba560050cd2d3": {
    "answers": {
     "element": {
@@ -6078,6 +6192,64 @@
       "e7": 0.01,
       "e8": 0,
       "e9": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "74dde287ae19b055374e4a47316360c1c166f5accafd436ab877912a9de5d79f": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.97,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 0,
+      "double_tap": 0,
+      "hide_keyboard": 0,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0.01,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.01,
+      "type": 0.98,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.99,
+     "probabilities": {
+      "e2": 0,
+      "e3": 1
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e3",
+     "confidence": 0.98,
+     "probabilities": {
+      "e1": 0,
+      "e2": 0,
+      "e3": 0.99,
+      "e4": 0.01
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v1",
+     "confidence": 1,
+     "probabilities": {
+      "v0": 0,
+      "v1": 1
      },
      "type": "choice"
     }
@@ -8378,6 +8550,53 @@
      "probabilities": {
       "v0": 1,
       "v1": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "9d25b16efa6037fccba4a57e35dcd8d30144c86a5189d63164aba759e6cdd2a0": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.97,
+     "probabilities": {
+      "back": 0,
+      "done": 0.97,
+      "double_tap": 0,
+      "impossible": 0.02,
+      "long_press": 0,
+      "scroll_down": 0,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.01,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 0.28,
+     "probabilities": {
+      "e1": 0.13,
+      "e10": 0.04,
+      "e11": 0,
+      "e12": 0.02,
+      "e13": 0,
+      "e14": 0,
+      "e15": 0.15,
+      "e2": 0.34,
+      "e3": 0,
+      "e4": 0.24000000000000002,
+      "e5": 0,
+      "e6": 0.07,
+      "e7": 0,
+      "e8": 0.01,
+      "e9": 0
      },
      "type": "choice"
     }
@@ -12680,6 +12899,88 @@
       "e2": 0.98,
       "e3": 0,
       "e4": 0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "typesafe/jev-1.13-20260917"
+  },
+  "ffba70d9f5538a8813c64c0137ef34c0d180ecdd1bdcdae98dce343f1f3d4318": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.96,
+     "probabilities": {
+      "back": 0,
+      "clear": 0,
+      "done": 0.01,
+      "double_tap": 0,
+      "hide_keyboard": 0.01,
+      "impossible": 0,
+      "long_press": 0,
+      "press_enter": 0,
+      "scroll_down": 0.01,
+      "scroll_left": 0,
+      "scroll_right": 0,
+      "scroll_up": 0,
+      "swipe_left_on": 0,
+      "swipe_right_on": 0,
+      "tap": 0.97,
+      "type": 0,
+      "wait": 0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 0.99,
+     "probabilities": {
+      "e13": 0.01,
+      "e8": 0.99
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e9",
+     "confidence": 0.95,
+     "probabilities": {
+      "e1": 0,
+      "e10": 0,
+      "e11": 0,
+      "e12": 0,
+      "e13": 0,
+      "e14": 0,
+      "e15": 0,
+      "e16": 0,
+      "e17": 0,
+      "e18": 0,
+      "e19": 0,
+      "e2": 0,
+      "e20": 0,
+      "e21": 0,
+      "e22": 0,
+      "e23": 0,
+      "e24": 0,
+      "e25": 0,
+      "e26": 0,
+      "e27": 0,
+      "e28": 0,
+      "e29": 0,
+      "e3": 0.03,
+      "e4": 0,
+      "e5": 0,
+      "e6": 0,
+      "e7": 0,
+      "e8": 0.01,
+      "e9": 0.96
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1,
+     "probabilities": {
+      "v0": 1
      },
      "type": "choice"
     }

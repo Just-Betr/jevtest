@@ -12,6 +12,8 @@ A step is one action, then optional checks on the result:
 
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
@@ -35,8 +37,16 @@ ON = {"on", "true", "yes", "enable", "enabled", "dark"}
 OFF = {"off", "false", "no", "disable", "disabled", "light"}
 
 
+VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
 class SpecError(ValueError):
     pass
+
+
+def fill(text: str, variables: dict[str, str]) -> str:
+    """Put variable values into `text` (for typing, comparing, locating): never into logs or Jev's goals."""
+    return VARIABLE.sub(lambda m: variables[m.group(1)], text)
 
 
 @dataclass
@@ -89,7 +99,8 @@ class Spec:
     apps: dict[str, Path]      # platform -> build, in the order the file lists them
     tests: list[Test]
     settings: Settings
-    devices: dict[str, str] = field(default_factory=dict)  # platform -> device name; missing = the running one
+    devices: dict[str, list[str]] = field(default_factory=dict)  # platform -> device names; none = the running one
+    variables: dict[str, str] = field(default_factory=dict)      # ${NAME} -> value, from the environment / .env
 
 
 def platform_of(path: Path) -> str:
@@ -284,8 +295,8 @@ def _apps(raw, base: Path) -> dict[str, Path]:
     return apps
 
 
-def _devices(raw, apps: dict[str, Path]) -> dict[str, str]:
-    """Which device each platform runs on: a name or id (phone, emulator or simulator)."""
+def _devices(raw, apps: dict[str, Path], variables: dict[str, str]) -> dict[str, list[str]]:
+    """Which device(s) each platform runs on. Several devices share the tests and run at the same time."""
     if raw is None:
         return {}
     if not isinstance(raw, dict):
@@ -293,10 +304,17 @@ def _devices(raw, apps: dict[str, Path]) -> dict[str, str]:
     unknown = set(raw) - {"android", "ios"}
     if unknown:
         raise SpecError(f"`device` keys must be android and/or ios, got {', '.join(sorted(map(str, unknown)))}")
-    for plat in raw:
+    devices = {}
+    for plat, names in raw.items():
         if plat not in apps:
             raise SpecError(f"`device` names a {plat} device, but `app` has no {plat} build")
-    return {plat: _text(name, f"device.{plat}") for plat, name in raw.items()}
+        names = names if isinstance(names, list) else [names]
+        if not names:
+            raise SpecError(f"device.{plat} needs at least one device")
+        devices[plat] = [fill(_text(n, f"device.{plat}"), variables) for n in names]
+        if len(set(devices[plat])) != len(devices[plat]):
+            raise SpecError(f"device.{plat} lists a device twice")
+    return devices
 
 
 def _link_uses(tests: list[Test]):
@@ -320,13 +338,13 @@ def _link_uses(tests: list[Test]):
         visit(t, [])
 
 
-def _tests(raw) -> list[Test]:
+def _tests(raw, where: str) -> list[Test]:
     if not isinstance(raw, list) or not raw:
-        raise SpecError("No tests found under `tests:`")
+        raise SpecError(f"No tests found under `tests:` in {where}")
     tests = []
     for i, t in enumerate(raw, 1):
         if not isinstance(t, dict) or not t.get("name") or "steps" not in t:
-            raise SpecError(f"Test #{i} needs a `name` and `steps`")
+            raise SpecError(f"Test #{i} in {where} needs a `name` and `steps`")
         name = str(t["name"])
         unknown = set(t) - {"name", "steps", "fresh"}
         if unknown:
@@ -338,16 +356,10 @@ def _tests(raw) -> list[Test]:
         except SpecError as e:
             raise SpecError(f"Test '{name}': {e}") from None
         tests.append(Test(name=name, steps=steps, fresh=_on_off(t.get("fresh", True), "fresh")))
-    names = [t.name for t in tests]
-    dupes = sorted({n for n in names if names.count(n) > 1})
-    if dupes:
-        raise SpecError(f"Test names must be unique: {', '.join(dupes)}")
-    _link_uses(tests)
     return tests
 
 
-def load(path: str | Path) -> Spec:
-    path = Path(path).resolve()
+def _read(path: Path) -> dict:
     try:
         data = yaml.safe_load(path.read_text())
     except FileNotFoundError:
@@ -355,10 +367,83 @@ def load(path: str | Path) -> Spec:
     except yaml.YAMLError as e:
         raise SpecError(f"{path.name} is not valid YAML: {e}") from None
     if not isinstance(data, dict):
-        raise SpecError(f"{path.name} must be a YAML mapping with `app` and `tests`")
-    unknown = set(data) - {"app", "device", "settings", "tests"}
+        raise SpecError(f"{path.name} must be a YAML mapping")
+    return data
+
+
+def _included(data: dict, path: Path, chain: tuple[Path, ...]) -> list[tuple[Path, dict]]:
+    """The library files a test file includes (and those include), in order, each once."""
+    raw = data.get("include") or []
+    files = raw if isinstance(raw, list) else [raw]
+    found: list[tuple[Path, dict]] = []
+    for entry in files:
+        lib = (path.parent / _text(entry, f"include in {path.name}")).resolve()
+        if lib in chain:
+            raise SpecError("Files include each other in a loop: " + " -> ".join(p.name for p in (*chain, lib)))
+        lib_data = _read(lib)
+        unknown = set(lib_data) - {"include", "tests"}
+        if unknown:
+            raise SpecError(f"{lib.name} is included, so it can only have `include` and `tests` "
+                            f"(found {', '.join(sorted(map(str, unknown)))})")
+        for nested in [*_included(lib_data, lib, (*chain, lib)), (lib, lib_data)]:
+            if nested[0] not in (p for p, _ in found):
+                found.append(nested)
+    return found
+
+
+def _strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            yield from _strings(k)
+            yield from _strings(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from _strings(v)
+
+
+def _variables(documents: list[dict], env) -> dict[str, str]:
+    names = sorted({name for doc in documents for text in _strings(doc) for name in VARIABLE.findall(text)})
+    missing = [n for n in names if n not in env]
+    if missing:
+        raise SpecError(f"Not set: {', '.join('${' + n + '}' for n in missing)}. "
+                        "Add them to .env next to the test file, or to the environment (e.g. CI secrets)")
+    return {n: env[n] for n in names}
+
+
+def load(path: str | Path, env=None) -> Spec:
+    """Load a test file, plus the library files it includes. `env` supplies ${NAME} values."""
+    path = Path(path).resolve()
+    data = _read(path)
+    unknown = set(data) - {"app", "device", "settings", "tests", "include"}
     if unknown:
         raise SpecError(f"Unknown top-level keys: {', '.join(sorted(map(str, unknown)))}")
-    apps = _apps(data.get("app"), path.parent)
-    return Spec(path=path, apps=apps, tests=_tests(data.get("tests")), settings=_settings(data.get("settings")),
-                devices=_devices(data.get("device"), apps))
+    libraries = _included(data, path, (path,))
+    variables = _variables([data] + [d for _, d in libraries], os.environ if env is None else env)
+    apps = _apps(_fill_all(data.get("app"), variables), path.parent)
+    tests = _tests(data.get("tests"), path.name)
+    shared = [t for lib, d in libraries for t in _tests(d.get("tests"), lib.name)]
+    names = [t.name for t in tests + shared]
+    dupes = sorted({n for n in names if names.count(n) > 1})
+    if dupes:
+        raise SpecError(f"Test names must be unique (across included files too): {', '.join(dupes)}")
+    _link_uses(tests + shared)
+    return Spec(path=path, apps=apps, tests=tests, settings=_settings(_fill_all(data.get("settings"), variables)),
+                devices=_devices(data.get("device"), apps, variables), variables=variables)
+
+
+def _fill_all(value, variables: dict[str, str]):
+    if isinstance(value, str):
+        return fill(value, variables)
+    if isinstance(value, dict):
+        return {k: _fill_all(v, variables) for k, v in value.items()}
+    return value
+
+
+def is_test_file(path: Path) -> bool:
+    """A file with `app:` is a test file to run; one without is a library other files include."""
+    try:
+        return "app" in _read(path)
+    except SpecError:
+        return True  # run it, so load() says what is wrong with it

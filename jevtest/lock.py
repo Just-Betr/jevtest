@@ -35,6 +35,10 @@ class LockedJev:
 
     `make_jev` is only called on the first lookup the lockfile can't answer, so a
     fully recorded run needs no API key and no network.
+
+    Devices tested at the same time each get a `fork()`: its own `calls` (for that device's
+    report), sharing the recorded decisions. Each thread only adds whole entries to the shared
+    dict, so the forks need no lock; the parent saves them all once.
     """
 
     def __init__(self, model: str, path: Path, mode: str, make_jev):
@@ -49,6 +53,7 @@ class LockedJev:
         self.hits = 0
         self.entries: dict[str, dict] = {}
         self.dirty = False
+        self.forks: list[LockedJev] = []
         if mode != "off" and path.exists():
             try:
                 data = json.loads(path.read_text())
@@ -82,13 +87,21 @@ class LockedJev:
             self.dirty = True
         return answers
 
+    def fork(self) -> LockedJev:
+        child = LockedJev(self.model, self.path, "off", self._make_jev)
+        child.mode, child.entries = self.mode, self.entries
+        self.forks.append(child)
+        return child
+
     @property
     def misses(self) -> int:
         return len(self.calls) - self.hits
 
     def save(self):
-        if not self.dirty:
+        if not (self.dirty or any(f.dirty for f in self.forks)):
             return
         data = {"version": VERSION, "model": self.model, "decisions": self.entries}
         self.path.write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
         self.dirty = False
+        for f in self.forks:
+            f.dirty = False

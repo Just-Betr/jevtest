@@ -111,3 +111,22 @@ def test_bad_lockfile(tmp_path, content, message):
 def test_bad_mode(tmp_path):
     with pytest.raises(ValueError):
         LockedJev("m", tmp_path / "x", "sometimes", lambda: None)
+
+
+def test_forks_share_decisions_and_keep_their_own_calls(tmp_path):
+    path = tmp_path / "t.lock.json"
+    parent = LockedJev("m", path, "record", lambda: FakeJev(A1, A2))
+    a, b = parent.fork(), parent.fork()
+    a.ask({"s": 1}, Q)
+    b.ask({"s": 1}, Q)  # recorded by a moments ago: no Jev call
+    b.ask({"s": 2}, Q)
+    assert (len(a.calls), len(b.calls), b.hits, parent.calls) == (1, 2, 1, [])
+    parent.save()
+    assert len(json.loads(path.read_text())["decisions"]) == 2
+    mtime = path.stat().st_mtime_ns
+    parent.save()  # nothing new
+    assert path.stat().st_mtime_ns == mtime and not a.dirty
+
+
+def test_fork_keeps_the_mode(tmp_path):
+    assert LockedJev("m", tmp_path / "x.json", "frozen", None).fork().mode == "frozen"

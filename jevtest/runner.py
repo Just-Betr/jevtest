@@ -13,7 +13,7 @@ from .brain import Brain, Decision
 from .drivers.base import Driver, DriverError
 from .jev import JevError
 from .screen import Element, Screen
-from .spec import Spec, Step, Test
+from .spec import Spec, Step, Test, fill
 
 LAUNCH_QUIET = 0.5  # seconds without a UI change that count as "the app has finished starting"
 # Actions after which the app is allowed to be closed or in the background.
@@ -38,7 +38,7 @@ class Clock:
 
 class Runner:
     def __init__(self, spec: Spec, driver: Driver, brain: Brain, out_dir: Path,
-                 verbose: bool = False, clock: Clock | None = None, out=None):
+                 verbose: bool = False, clock: Clock | None = None, out=None, on_test=None):
         self.spec = spec
         self.s = spec.settings
         self.driver = driver
@@ -47,6 +47,7 @@ class Runner:
         self.verbose = verbose
         self.clock = clock or Clock()
         self.out = out or sys.stdout
+        self.on_test = on_test  # called with each test's result as it finishes
         self.expect_running = False
         self.shot_n = 0
         self.lines: list[str] = []
@@ -75,6 +76,11 @@ class Runner:
     def settle(self):
         """Wait until the UI stops changing (the driver reacts to the device; no fixed sleep)."""
         self.driver.wait_idle(self.s.settle)
+
+    def value(self, text: str) -> str:
+        """`text` with its ${NAME} values filled in. Only for doing and comparing: logs, reports and
+        Jev's goals keep the ${NAME}, so secrets stay out of them."""
+        return fill(text, self.spec.variables)
 
     def screen(self) -> Screen:
         return self.driver.screen()
@@ -110,14 +116,20 @@ class Runner:
             self.driver.wait_change(left)
 
     def locate(self, target: str, timeout: float, editable: bool = False) -> Element:
+        wanted = self.value(target)
+
         def attempt(screen):
-            return self.brain.locate(target, screen, screen.editable if editable else None)
+            return self.brain.locate(wanted, screen, screen.editable if editable else None)
         what = "text field" if editable else "element"
         return self.poll(attempt, timeout, f"Could not find {what} '{target}' on screen")
 
     # --- tests -------------------------------------------------------------------
     def run(self) -> dict:
-        results = [self.run_test(t) for t in self.spec.tests]
+        results = []
+        for t in self.spec.tests:
+            results.append(self.run_test(t))
+            if self.on_test:
+                self.on_test(results[-1])
         passed = sum(r["status"] == "pass" for r in results)
         return {"passed": passed, "failed": len(results) - passed, "tests": results}
 
@@ -229,12 +241,13 @@ class Runner:
     def check(self, kind: str, text: str, timeout: float) -> str | None:
         """expect: Jev judges the statement. see / not_see: exact text. Retries until timeout."""
         last = {}
+        wanted = self.value(text)
 
         def attempt(screen):
             if kind == "expect":
-                p = last["p"] = self.brain.check(text, screen)
+                p = last["p"] = self.brain.check(wanted, screen)
                 return f"Jev {p:.2f}" if p > self.s.threshold else None
-            found = any(text.lower() in t.lower() for t in screen.texts())
+            found = any(wanted.lower() in t.lower() for t in screen.texts())
             return "" if found == (kind == "see") else None
 
         failure = {"see": "not on screen", "not_see": "still on screen"}.get(kind, "")
@@ -296,7 +309,7 @@ class Runner:
         """Scroll until the text is on screen: matched in code, like `see:` (a model asked whether
         absent text is there tends to pick something similar)."""
         direction = step.opts.get("direction", "down")
-        wanted = step.value.lower()
+        wanted = self.value(step.value).lower()
         for _i in range(step.opts.get("max_scrolls", 15)):
             screen = self.screen()
             if any(wanted in t.lower() for t in screen.texts()):
@@ -326,10 +339,10 @@ class Runner:
 
     def act_type(self, step, _):
         if "into" not in step.opts:
-            self.driver.type_text(step.value)
+            self.driver.type_text(self.value(step.value))
             return None
         el = self.locate(step.opts["into"], step.opts.get("timeout", self.s.timeout), editable=True)
-        self.driver.type_text(step.value, at=el.center)  # the driver focuses the field
+        self.driver.type_text(self.value(step.value), at=el.center)  # the driver focuses the field
         return f"into {el.label()}"
 
     def act_rotate(self, step, _):
@@ -339,7 +352,7 @@ class Runner:
         self.driver.set_location(*step.value)
 
     def act_open_url(self, step, _):
-        self.driver.open_url(step.value)
+        self.driver.open_url(self.value(step.value))
 
     def act_screenshot(self, step, _):
         return f"saved {self.screenshot(step.value)}"
@@ -390,7 +403,7 @@ class Runner:
             d.swipe(a.split("_")[1], el=el)
         elif a == "type":  # a field that has focus with the keyboard up is ready; tapping would move the caret
             ready = el.focused and screen.keyboard_visible
-            d.type_text(dec.text, at=None if ready else el.center)
+            d.type_text(self.value(dec.text), at=None if ready else el.center)
         elif a == "clear":
             d.clear_text(el)
         elif a.startswith("scroll_"):
@@ -421,19 +434,21 @@ def failure_of(steps: list) -> str:
     return "failed"
 
 
-def write_junit(path: Path, suite: str, results: dict):
-    """JUnit XML: the format CI systems (GitHub Actions, GitLab, Jenkins, ...) display."""
-    tests = results["tests"]
+def write_junit(path: Path, suites: list[tuple[str, dict]]):
+    """JUnit XML: the format CI systems (GitHub Actions, GitLab, Jenkins, ...) display.
+    One <testsuite> per (name, results): a file on one device."""
     root = ET.Element("testsuites")
-    ts = ET.SubElement(root, "testsuite", name=suite, tests=str(len(tests)),
-                       failures=str(results["failed"]), errors="0",
-                       time=f"{sum(t['seconds'] for t in tests):.1f}")
-    for t in tests:
-        tc = ET.SubElement(ts, "testcase", classname=suite, name=t["name"], time=f"{t['seconds']:.1f}")
-        log = "\n".join(t["log"])
-        if t["status"] != "pass":
-            ET.SubElement(tc, "failure", message=t["failure"]).text = log
-        ET.SubElement(tc, "system-out").text = log
+    for suite, results in suites:
+        tests = results["tests"]
+        ts = ET.SubElement(root, "testsuite", name=suite, tests=str(len(tests)),
+                           failures=str(results["failed"]), errors="0",
+                           time=f"{sum(t['seconds'] for t in tests):.1f}")
+        for t in tests:
+            tc = ET.SubElement(ts, "testcase", classname=suite, name=t["name"], time=f"{t['seconds']:.1f}")
+            log = "\n".join(t["log"])
+            if t["status"] != "pass":
+                ET.SubElement(tc, "failure", message=t["failure"]).text = log
+            ET.SubElement(tc, "system-out").text = log
     ET.indent(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)

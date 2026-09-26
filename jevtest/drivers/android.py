@@ -9,6 +9,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -102,7 +103,16 @@ def http_get(url: str, timeout: float) -> str:
         return resp.read().decode()
 
 
+# Devices tested at the same time share the cached agent: one builds it, the others wait for it.
+AGENT_LOCK = threading.Lock()
+
+
 def build_agent() -> Path:
+    with AGENT_LOCK:
+        return _build_agent()
+
+
+def _build_agent() -> Path:
     """Compile the on-device agent with the SDK's own tools (no Gradle). Cached by source hash."""
     version = digest(AGENT_SRC)
     apk = cache_dir() / f"android-agent-{version}.apk"
