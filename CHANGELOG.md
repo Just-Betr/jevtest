@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.1
 
 **Exact text matching.** A step's text is matched exactly: the whole text, never part of a longer text (case
 still doesn't matter, since platforms show the same text in different case). This changes behaviour: a test that
