@@ -11,7 +11,6 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-import plistlib
 import shutil
 import socket
 import subprocess
@@ -23,7 +22,7 @@ from base64 import b64decode
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import TypedDict, cast
 
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
@@ -31,6 +30,7 @@ from jevtest.domain.screen import Element, Point, Screen
 
 from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
 from .ios_screen import AgentTree, parse_tree
+from .tool_output import Object, as_list, as_object, as_text, dig, parse_json, parse_plist, text_at, texts
 
 AGENT_SRC = Path(__file__).resolve().parent / "ios_agent"
 AGENT_CALL_TIMEOUT = 150
@@ -50,13 +50,13 @@ def simctl(*args: str, timeout: float = 120, check: bool = True) -> str:
     return run(["xcrun", "simctl", *args], timeout=timeout, check=check)
 
 
-def devicectl(*args: str, timeout: float = 300) -> dict[str, Any]:
+def devicectl(*args: str, timeout: float = 300) -> Object:
     """Run ``xcrun devicectl ...`` and return its JSON result."""
+    what = f"devicectl {' '.join(args[:3])}"
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "out.json"
         run(["xcrun", "devicectl", *args, "--json-output", str(out)], timeout=timeout)
-        result: dict[str, Any] = json.loads(out.read_text()).get("result", {})
-        return result
+        return as_object(dig(parse_json(out.read_text(), what), "result") or {}, what)
 
 
 def _runtime_version(runtime: str) -> tuple[int, ...]:
@@ -64,23 +64,48 @@ def _runtime_version(runtime: str) -> tuple[int, ...]:
     return tuple(int(n) for n in runtime.rsplit("iOS-", 1)[-1].split("-") if n.isdigit())
 
 
-def simulators() -> list[dict[str, Any]]:
+class Simulator(TypedDict):
+    """An available simulator, as simctl lists it."""
+
+    udid: str
+    name: str
+    state: str
+    runtime: str
+
+
+class Phone(TypedDict):
+    """A connected iPhone, as devicectl lists it."""
+
+    udid: str
+    name: str
+
+
+def simulators() -> list[Simulator]:
     """Available iOS simulators, newest runtime first, then by name."""
-    data = json.loads(simctl("list", "devices", "available", "-j"))
-    runtimes = sorted((r for r in data["devices"] if ".iOS-" in r), key=_runtime_version, reverse=True)
-    return [dict(d, runtime=r.rsplit(".", 1)[-1])
-            for r in runtimes for d in sorted(data["devices"][r], key=lambda d: (d["name"], d["udid"]))]
+    what = "simctl list devices"
+    by_runtime = as_object(dig(parse_json(simctl("list", "devices", "available", "-j"), what), "devices"), what)
+    runtimes = sorted((r for r in by_runtime if ".iOS-" in r), key=_runtime_version, reverse=True)
+    return [sim for r in runtimes
+            for sim in sorted((_simulator(d, r) for d in as_list(by_runtime[r], what)),
+                              key=lambda d: (d["name"], d["udid"]))]
 
 
-def phones() -> list[dict[str, str]]:
+def _simulator(raw: object, runtime: str) -> Simulator:
+    d = as_object(raw, "a simctl device")
+    return {"udid": as_text(d.get("udid"), "a simulator's udid"), "name": as_text(d.get("name"), "a simulator's name"),
+            "state": as_text(d.get("state"), "a simulator's state"), "runtime": runtime.rsplit(".", 1)[-1]}
+
+
+def phones() -> list[Phone]:
     """Real iPhones connected to this Mac (paired, with a live connection)."""
-    found = []
-    for d in devicectl("list", "devices").get("devices", []):
-        hw, props = d.get("hardwareProperties", {}), d.get("deviceProperties", {})
-        conn = d.get("connectionProperties", {})
-        if hw.get("reality") == "physical" and hw.get("platform") == "iOS" and conn.get("tunnelState") == "connected":
-            found.append({"udid": hw.get("udid", ""), "name": props.get("name", "")})
-    return found
+    listed = as_list(devicectl("list", "devices").get("devices", []), "devicectl's device list")
+    return [{"udid": text_at(d, "hardwareProperties", "udid"), "name": text_at(d, "deviceProperties", "name")}
+            for d in listed if _connected_iphone(d)]
+
+
+def _connected_iphone(d: object) -> bool:
+    return (text_at(d, "hardwareProperties", "reality"), text_at(d, "hardwareProperties", "platform"),
+            text_at(d, "connectionProperties", "tunnelState")) == ("physical", "iOS", "connected")
 
 
 @dataclass(frozen=True)
@@ -118,9 +143,10 @@ def _running_targets() -> list[Target]:
 def xcode_team(team: str) -> str:
     """Check the app's team is signed into Xcode (Settings > Accounts), so jevtest can sign its agent."""
     raw = run(["defaults", "export", "com.apple.dt.Xcode", "-"], check=False)
-    prefs = plistlib.loads(raw.encode()) if raw.strip() else {}
-    teams = [t for account in prefs.get("IDEProvisioningTeamByIdentifier", {}).values() for t in account]
-    ids = sorted({t["teamID"] for t in teams if "teamID" in t})
+    what = "Xcode's signed-in teams"
+    prefs = parse_plist(raw.encode(), what) if raw.strip() else {}
+    accounts = as_object(prefs.get("IDEProvisioningTeamByIdentifier", {}), what)
+    ids = sorted({text_at(t, "teamID") for account in accounts.values() for t in as_list(account, what)} - {""})
     if team not in ids:
         signed_in = ", ".join(ids) or "none"
         raise DeviceError(f"The app is signed by team {team}, which is not signed into Xcode (signed in: "
@@ -129,22 +155,19 @@ def xcode_team(team: str) -> str:
     return team
 
 
-def profile(app: Path) -> dict[str, Any] | None:
+def profile(app: Path) -> Object | None:
     """An app's embedded provisioning profile, decoded; None for a simulator build (it has none)."""
     path = app / "embedded.mobileprovision"
     if not path.exists():
         return None
     raw = run_bytes(["security", "cms", "-D", "-i", str(path)], check=False)
-    try:
-        decoded: dict[str, Any] = plistlib.loads(raw)
-    except plistlib.InvalidFileException:
-        raise DeviceError(f"{app.name}'s embedded.mobileprovision can't be read") from None
-    return decoded
+    return parse_plist(raw, f"{app.name}'s embedded.mobileprovision")
 
 
 def provisioned_devices(app: Path) -> set[str]:
     """The device UDIDs an app's embedded provisioning profile allows."""
-    return set((profile(app) or {}).get("ProvisionedDevices", []))
+    prof = profile(app) or {}
+    return set(texts(prof.get("ProvisionedDevices", []), f"{app.name}'s provisioned devices"))
 
 
 def app_team(app: Path) -> str:
@@ -153,11 +176,11 @@ def app_team(app: Path) -> str:
     if prof is None:
         raise DeviceError(f"{app.name} is not signed for a real iPhone (it has no provisioning profile). "
                           "Build it for the device, signed with your team.")
-    teams = prof.get("TeamIdentifier", [])
+    teams = texts(prof.get("TeamIdentifier", []), f"{app.name}'s team")
     if len(teams) != 1:
         raise DeviceError(f"{app.name}'s provisioning profile names {len(teams)} teams ({', '.join(teams)}); "
                           "expected one")
-    return str(teams[0])
+    return teams[0]
 
 
 # Devices tested at the same time share the agent build: one builds and starts it at a time.
@@ -185,13 +208,13 @@ def app_bundle(app_path: Path, workdir: Path) -> Path:
     raise DeviceError(f"iOS needs an .app (or a .zip/.ipa containing one), got {app_path.name}")
 
 
-def http_post(url: str, body: Mapping[str, object], timeout: float) -> dict[str, Any]:
+def http_post(url: str, body: Mapping[str, object], timeout: float) -> Object:
     """A POST to the agent; its JSON reply."""
     req = urllib.request.Request(url, method="POST", data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        reply: dict[str, Any] = json.loads(resp.read())
-    return reply
+        raw: bytes = resp.read()
+    return as_object(parse_json(raw, "the iOS agent's reply"), "the iOS agent's reply")
 
 
 class IOSDevice(BaseDevice):
@@ -279,8 +302,8 @@ class IOSDevice(BaseDevice):
 
     def _tunnel_host(self) -> str:
         """The phone's address on the USB tunnel Xcode keeps to it. Changes when the phone relocks."""
-        conn = devicectl("device", "info", "details", "--device", self.udid).get("connectionProperties", {})
-        address = conn.get("tunnelIPAddress")
+        address = text_at(devicectl("device", "info", "details", "--device", self.udid),
+                          "connectionProperties", "tunnelIPAddress")
         if not address:
             raise DeviceError(f"No connection to {self.name}: unlock it and keep it plugged in")
         return f"[{address}]" if ":" in address else address
@@ -293,7 +316,7 @@ class IOSDevice(BaseDevice):
         """The end of the agent's log, for error messages."""
         return self.agent_log.read_text()[-1500:] if self.agent_log.exists() else "(no log)"
 
-    def _call(self, path: str, **body: object) -> dict[str, Any]:
+    def _call(self, path: str, **body: object) -> Object:
         """Call the agent; on an iPhone, find the tunnel again once if the call fails (it moves on relock).
 
         Raises:
@@ -347,10 +370,11 @@ class IOSDevice(BaseDevice):
         """Install a simulator or device build (an .app, or a .zip/.ipa containing one); return its bundle id."""
         bundle = app_bundle(app_path, Path(self._tmp.name) / "app")
         try:
-            info = plistlib.loads((bundle / "Info.plist").read_bytes())
-        except (OSError, plistlib.InvalidFileException) as e:
+            raw = (bundle / "Info.plist").read_bytes()
+        except OSError as e:
             raise DeviceError(f"{app_path.name} has no readable Info.plist ({e})") from None
-        platforms = info.get("CFBundleSupportedPlatforms", [])
+        info = parse_plist(raw, f"{app_path.name}'s Info.plist")
+        platforms = texts(info.get("CFBundleSupportedPlatforms", []), f"{app_path.name}'s supported platforms")
         needed = "iPhoneOS" if self.physical else "iPhoneSimulator"
         if platforms and needed not in platforms:
             where = f"a real iPhone ({self.name})" if self.physical else "the iOS Simulator"
@@ -359,7 +383,7 @@ class IOSDevice(BaseDevice):
         if "CFBundleIdentifier" not in info:
             raise DeviceError(f"{app_path.name} Info.plist has no CFBundleIdentifier")
         self.app_path = bundle
-        self.app_id = str(info["CFBundleIdentifier"])
+        self.app_id = as_text(info["CFBundleIdentifier"], f"{app_path.name}'s bundle id")
         self._install_bundle()
         return self.app_id
 
@@ -384,8 +408,8 @@ class IOSDevice(BaseDevice):
 
     def app_state(self) -> AppState:
         """Where the app is, from XCUITest's state."""
-        state = self._call("/state")["state"]
-        if state not in APP_STATES:
+        state = self._call("/state").get("state")
+        if not isinstance(state, int) or state not in APP_STATES:
             raise DeviceError(f"The iOS agent reported an app state jevtest doesn't know: {state!r}")
         return APP_STATES[state]
 
@@ -417,7 +441,7 @@ class IOSDevice(BaseDevice):
     def screenshot(self, path: Path) -> None:
         """Save a PNG of the screen."""
         if self.physical:
-            path.write_bytes(b64decode(self._call("/screenshot")["png"]))
+            path.write_bytes(b64decode(as_text(self._call("/screenshot").get("png"), "the agent's screenshot")))
         else:
             simctl("io", self.udid, "screenshot", str(path))
 

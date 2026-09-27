@@ -13,9 +13,11 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Protocol
 
 from jevtest.domain.failures import ModelError
+
+from .wire import RawAnswers
 
 API_URL = "https://openrouter.ai/api/v1/systemone"
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504, 529})
@@ -43,7 +45,7 @@ class Reply:
         cost: What the request cost in US dollars.
     """
 
-    answers: Mapping[str, Mapping[str, Any]]
+    answers: RawAnswers
     ms: int
     served_by: str | None
     cost: float
@@ -97,11 +99,15 @@ class JevClient:
         if not isinstance(answers, dict) or set(answers) != set(questions):
             got = sorted(answers) if isinstance(answers, dict) else answers
             raise ModelError(f"Jev returned answers for {got}, expected {sorted(questions)}")
-        usage = data.get("usage") or {}
-        return Reply(answers, round((time.monotonic() - started) * 1000), data.get("model"),
-                     float(usage.get("cost", 0)))
+        if not all(isinstance(a, dict) for a in answers.values()):
+            raise ModelError(f"Jev returned an answer that isn't a JSON object: {answers!r}")
+        served_by, usage = data.get("model"), data.get("usage")
+        cost = usage.get("cost", 0) if isinstance(usage, dict) else 0
+        return Reply(answers, round((time.monotonic() - started) * 1000),
+                     served_by if isinstance(served_by, str) else None,
+                     float(cost) if isinstance(cost, int | float) else 0.0)
 
-    def _post(self, body: bytes) -> dict[str, Any]:
+    def _post(self, body: bytes) -> dict[str, object]:
         for attempt in range(self.retries + 1):
             last = attempt == self.retries
             req = urllib.request.Request(self.url, data=body, method="POST", headers={
@@ -124,7 +130,7 @@ class JevClient:
                     continue
                 raise ModelError(f"Jev unreachable: {e}") from None
             try:
-                data = json.loads(raw)
+                data: object = json.loads(raw)
             except json.JSONDecodeError:
                 raise ModelError(f"Jev returned invalid JSON: {raw[:200]!r}") from None
             if not isinstance(data, dict):

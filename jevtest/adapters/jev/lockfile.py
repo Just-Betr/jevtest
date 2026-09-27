@@ -13,13 +13,13 @@ import threading
 from collections.abc import Callable, Mapping, Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 from jevtest.domain.failures import ModelError
 from jevtest.domain.model import Answer, ModelCall, Question, State
 
 from .client import JevClient, Reply
-from .wire import answers_from_wire, questions_to_wire
+from .wire import RawAnswers, answers_from_wire, questions_to_wire
 
 VERSION = 1
 """The lockfile format version."""
@@ -45,23 +45,50 @@ def request_key(model: str, state: object, questions: Mapping[str, object]) -> s
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+class Entry(TypedDict):
+    """One recorded decision: Jev's answers, as it sent them, and the model version that gave them."""
+
+    served_by: str | None
+    answers: RawAnswers
+
+
+def _entries(data: object, name: str) -> dict[str, Entry]:
+    """The recorded decisions of a parsed lockfile, checked.
+
+    Raises:
+        ModelError: It isn't a jevtest lockfile of this version.
+    """
+    bad = ModelError(f"{name} is not a jevtest v{VERSION} lockfile; delete it to re-record")
+    if not isinstance(data, dict) or data.get("version") != VERSION:
+        raise bad
+    decisions = data.get("decisions", {})
+    if not isinstance(decisions, dict):
+        raise bad
+    entries: dict[str, Entry] = {}
+    for key, entry in decisions.items():
+        answers = entry.get("answers") if isinstance(entry, dict) else None
+        if not isinstance(answers, dict) or not all(isinstance(a, dict) for a in answers.values()):
+            raise bad
+        served_by = entry.get("served_by")
+        entries[str(key)] = {"served_by": served_by if isinstance(served_by, str) else None, "answers": answers}
+    return entries
+
+
 class _Store:
     """The recorded decisions of one lockfile, shared by every device testing that file at once."""
 
     def __init__(self, path: Path, mode: LockMode) -> None:
         self.path = path
         self.lock = threading.Lock()
-        self.entries: dict[str, dict[str, Any]] = {}
+        self.entries: dict[str, Entry] = {}
         self.used: set[str] = set()
         self.dirty = False
         if mode is not LockMode.OFF and path.exists():
             try:
-                data = json.loads(path.read_text())
+                data: object = json.loads(path.read_text())
             except json.JSONDecodeError as e:
                 raise ModelError(f"{path.name} is not valid JSON ({e}); delete it to re-record") from None
-            if not isinstance(data, dict) or data.get("version") != VERSION:
-                raise ModelError(f"{path.name} is not a jevtest v{VERSION} lockfile; delete it to re-record")
-            self.entries = data.get("decisions", {})
+            self.entries = _entries(data, path.name)
 
 
 class LockedModel:

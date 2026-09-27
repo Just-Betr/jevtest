@@ -130,3 +130,19 @@ def test_missing_key_is_not_looked_up_elsewhere(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")  # only the key it is given counts
     with pytest.raises(ModelError, match="OPENROUTER_API_KEY is not set: put it in the .env next to the test file"):
         JevClient(MODEL, None, LOGGED.append)
+
+
+def test_an_answer_that_is_not_an_object():
+    j, _ = client({"answers": {"q": "a"}})
+    with pytest.raises(ModelError, match="an answer that isn't a JSON object"):
+        j.ask("s", Q)
+
+
+@pytest.mark.parametrize(("extra", "served_by", "cost"), [
+    ({"model": 5, "usage": "free"}, None, 0.0),
+    ({"usage": {"cost": "lots"}}, None, 0.0),
+])
+def test_odd_metadata_is_ignored_not_trusted(extra, served_by, cost):
+    j, _ = client({"answers": {"q": {"type": "choice", "choice": "a"}}, **extra})
+    reply = j.ask("s", Q)
+    assert (reply.served_by, reply.cost) == (served_by, cost)
