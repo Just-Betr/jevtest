@@ -20,6 +20,8 @@ from pathlib import Path
 
 from jevtest import __version__
 from jevtest.adapters.clock import SystemClock
+from jevtest.adapters.devices.android import AndroidDevice
+from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.adapters.jev.client import JevClient
 from jevtest.adapters.jev.lockfile import LockMode
 from jevtest.domain.failures import JevtestError
@@ -32,9 +34,7 @@ from .run import MakeClient, MakeDevice, RunOptions, run_command
 def make_device(platform: Platform, device: str, app: Path, progress: Callable[[str], None]) -> Device:
     """The real device for a platform."""
     if platform is Platform.ANDROID:
-        from jevtest.adapters.devices.android import AndroidDevice  # noqa: PLC0415 - loads adb helpers only if used
         return AndroidDevice(device, progress)
-    from jevtest.adapters.devices.ios import IOSDevice  # noqa: PLC0415 - loads Xcode helpers only if used
     return IOSDevice(device, app, progress)
 
 

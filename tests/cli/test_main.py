@@ -404,9 +404,8 @@ def test_prune_lock_needs_a_full_run_with_a_lockfile(project, fakes, capsys, arg
 # --- wiring -------------------------------------------------------------------------------------------
 
 def test_make_device_picks_the_platform(monkeypatch):
-    from jevtest.adapters.devices import android, ios
-    monkeypatch.setattr(android, "AndroidDevice", lambda d, progress: ("android", d))
-    monkeypatch.setattr(ios, "IOSDevice", lambda d, app, progress: ("ios", d, app))
+    monkeypatch.setattr(cli, "AndroidDevice", lambda d, progress: ("android", d))
+    monkeypatch.setattr(cli, "IOSDevice", lambda d, app, progress: ("ios", d, app))
     assert cli.make_device(Platform.ANDROID, "x", Path("a.apk"), print) == ("android", "x")
     assert cli.make_device(Platform.IOS, "BH", Path("R.app"), print) == ("ios", "BH", Path("R.app"))
 
