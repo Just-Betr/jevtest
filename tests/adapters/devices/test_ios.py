@@ -9,26 +9,32 @@ from jevtest.adapters.devices import ios
 from jevtest.adapters.devices.ios import IOSDevice, app_bundle
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.screen import Element
-
-from ...conftest import PROGRESS
-from .test_android import Adb
+from tests.adapters.devices.test_android import Adb
+from tests.conftest import PROGRESS
 
 FIX = Path(__file__).parent / "fixtures"
-SIMS = {"devices": {
-    "com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
-        {"name": "iPhone 17", "udid": "B", "state": "Shutdown"},
-        {"name": "iPad Air", "udid": "C", "state": "Shutdown"}],
-    "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [{"name": "iPhone 16", "udid": "A", "state": "Booted"}],
-    "com.apple.CoreSimulator.SimRuntime.watchOS-11-0": [{"name": "Watch", "udid": "W", "state": "Booted"}],
-}}
+SIMS = {
+    "devices": {
+        "com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
+            {"name": "iPhone 17", "udid": "B", "state": "Shutdown"},
+            {"name": "iPad Air", "udid": "C", "state": "Shutdown"},
+        ],
+        "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [{"name": "iPhone 16", "udid": "A", "state": "Booted"}],
+        "com.apple.CoreSimulator.SimRuntime.watchOS-11-0": [{"name": "Watch", "udid": "W", "state": "Booted"}],
+    }
+}
 
 
 class Agent:
     """Stands in for the XCUITest agent's HTTP API."""
 
     def __init__(self):
-        self.replies: dict[str, object] = {"/status": {"ok": True}, "/state": {"state": 4},
-                                           "/rotate": {"raw": 1}, "/appearance": {"raw": 1}}
+        self.replies: dict[str, object] = {
+            "/status": {"ok": True},
+            "/state": {"state": 4},
+            "/rotate": {"raw": 1},
+            "/appearance": {"raw": 1},
+        }
         self.calls: list[tuple[str, dict]] = []
 
     def __call__(self, url, body, timeout):
@@ -87,6 +93,7 @@ def env(monkeypatch, tmp_path):
     def start_process(cmd, ready, log, timeout, env):
         procs.append((cmd, ready, env))
         return "proc"
+
     monkeypatch.setattr(ios, "start_process", start_process)
     monkeypatch.setattr(ios, "stop_process", lambda proc: procs.append(("stopped", proc)))
     monkeypatch.setattr(ios, "devicectl", DeviceCtl())
@@ -114,10 +121,14 @@ def drv(env, tmp_path):
 
 # --- simulators -------------------------------------------------------------------------------------
 
+
 def test_simulators_sorted_newest_first(env):
     sims = ios.simulators()
     assert [(d["name"], d["runtime"]) for d in sims] == [
-        ("iPad Air", "iOS-26-5"), ("iPhone 17", "iOS-26-5"), ("iPhone 16", "iOS-18-0")]
+        ("iPad Air", "iOS-26-5"),
+        ("iPhone 17", "iOS-26-5"),
+        ("iPhone 16", "iOS-18-0"),
+    ]
 
 
 def test_uses_the_named_booted_simulator_and_never_boots_or_opens_one(env):
@@ -135,9 +146,16 @@ def test_find_by_exact_name_or_udid_and_it_must_be_booted(env):
 
 
 def test_a_name_two_devices_share_is_an_error(env):
-    env[0].rules["list devices"] = json.dumps({"devices": {"com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
-        {"name": "iPhone 17 Pro", "udid": "X", "state": "Booted"},
-        {"name": "iPhone 17 Pro", "udid": "Y", "state": "Booted"}]}})
+    env[0].rules["list devices"] = json.dumps(
+        {
+            "devices": {
+                "com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
+                    {"name": "iPhone 17 Pro", "udid": "X", "state": "Booted"},
+                    {"name": "iPhone 17 Pro", "udid": "Y", "state": "Booted"},
+                ]
+            }
+        }
+    )
     with pytest.raises(DeviceError, match=r"Several devices are called 'iPhone 17 Pro' \(X, Y\): name one by its UDID"):
         ios.find_target("iPhone 17 Pro")
 
@@ -153,6 +171,7 @@ def test_free_port_is_usable():
 
 
 # --- app bundles ----------------------------------------------------------------------------------
+
 
 def test_app_bundle_from_dir_zip_and_ipa(tmp_path):
     app = make_app(tmp_path / "src")
@@ -175,9 +194,8 @@ def test_app_bundle_rejects_bad_input(tmp_path):
             app_bundle(path, tmp_path / "w")
 
 
-
-
 # --- agent lifecycle --------------------------------------------------------------------------------
+
 
 def test_starts_agent_on_simulator(env):
     _, _, procs = env
@@ -199,6 +217,7 @@ def test_agent_is_built_when_missing(env, monkeypatch, tmp_path):
             out.mkdir(parents=True)
             (out / "x.xctestrun").write_text("")
         return sim(cmd, **kw)
+
     monkeypatch.setattr(ios, "run", build)
     IOSDevice("A", Path("Demo.app"), PROGRESS)
     assert any("build-for-testing" in c for c in sim.cmds)
@@ -210,12 +229,6 @@ def test_agent_build_without_output_fails(env, monkeypatch, tmp_path):
         IOSDevice("A", Path("Demo.app"), PROGRESS)
 
 
-
-
-
-
-
-
 def test_requires_xcode(env, monkeypatch):
     monkeypatch.setattr(ios.shutil, "which", lambda n: None)
     with pytest.raises(DeviceError, match="Xcode"):
@@ -225,8 +238,6 @@ def test_requires_xcode(env, monkeypatch):
 def test_close_stops_agent(env):
     IOSDevice("A", Path("Demo.app"), PROGRESS).close()
     assert env[2][-1] == ("stopped", "proc")
-
-
 
 
 def test_lost_agent_is_a_driver_error(drv, env):
@@ -256,6 +267,7 @@ def test_http_post_roundtrip(monkeypatch):
 
         def __exit__(self, *a):
             return False
+
     seen = []
     monkeypatch.setattr(ios.urllib.request, "urlopen", lambda req, timeout: seen.append((req, timeout)) or R())
     assert ios.http_post("http://127.0.0.1:1/x", {"a": 1}, timeout=3) == {"ok": True}
@@ -264,6 +276,7 @@ def test_http_post_roundtrip(monkeypatch):
 
 # --- app lifecycle ----------------------------------------------------------------------------------
 
+
 def test_install(env, tmp_path):
     sim = env[0]
     d = IOSDevice("A", Path("Demo.app"), PROGRESS)
@@ -271,9 +284,13 @@ def test_install(env, tmp_path):
     assert any("simctl install A" in c for c in sim.cmds)
 
 
-@pytest.mark.parametrize(("kwargs", "message"), [
-    ({"platforms": ("iPhoneOS",)}, "built for iPhoneOS, not the iOS Simulator"),
-    ({"bundle_id": None}, "no CFBundleIdentifier")])
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"platforms": ("iPhoneOS",)}, "built for iPhoneOS, not the iOS Simulator"),
+        ({"bundle_id": None}, "no CFBundleIdentifier"),
+    ],
+)
 def test_install_rejects_bad_bundles(env, tmp_path, kwargs, message):
     with pytest.raises(DeviceError, match=message):
         IOSDevice("A", Path("Demo.app"), PROGRESS).install(make_app(tmp_path, **kwargs))
@@ -298,8 +315,9 @@ def test_launch_reports_an_app_that_never_shows(drv, env):
         drv.launch()
 
 
-@pytest.mark.parametrize(("raw", "state"), [(4, "foreground"), (3, "background"), (2, "background"),
-                                             (1, "not_running"), (0, "not_running")])
+@pytest.mark.parametrize(
+    ("raw", "state"), [(4, "foreground"), (3, "background"), (2, "background"), (1, "not_running"), (0, "not_running")]
+)
 def test_app_state(drv, env, raw, state):
     env[1].replies["/state"] = {"state": raw}
     assert drv.app_state() == state
@@ -329,6 +347,7 @@ def test_screen_and_screenshot(drv, env, tmp_path):
 
 # --- touch, keys, device ---------------------------------------------------------------------------
 
+
 def test_agent_commands(drv, env):
     field = Element("text_field", "abc", value="abc", bounds=(0, 0, 10, 10))
     drv.tap(1, 2)
@@ -348,13 +367,27 @@ def test_agent_commands(drv, env):
     drv.wait_change(1.5)
     sent = [(p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in env[1].calls]
     assert sent == [
-        ("/tap", {"x": 1, "y": 2}), ("/double_tap", {"x": 1, "y": 2}), ("/long_press", {"x": 1, "y": 2, "seconds": 2}),
-        ("/drag", {"x1": 1, "y1": 2, "x2": 3, "y2": 4}), ("/type", {"text": "hi"}),
-        ("/tap", {"x": 5, "y": 6}), ("/idle", {"timeout": 3.0}), ("/type", {"text": "hi"}),
-        ("/tap", {"x": 8, "y": 5}), ("/idle", {"timeout": 3}), ("/key", {"key": "delete", "count": 3}),
-        ("/key", {"key": "enter"}), ("/back", {}), ("/home", {}), ("/hide_keyboard", {}),
-        ("/rotate", {}), ("/rotate", {"orientation": "landscape"}), ("/idle", {"timeout": 2}),
-        ("/idle", {"timeout": 2, "quiet": 0.5}), ("/change", {"timeout": 1.5})]
+        ("/tap", {"x": 1, "y": 2}),
+        ("/double_tap", {"x": 1, "y": 2}),
+        ("/long_press", {"x": 1, "y": 2, "seconds": 2}),
+        ("/drag", {"x1": 1, "y1": 2, "x2": 3, "y2": 4}),
+        ("/type", {"text": "hi"}),
+        ("/tap", {"x": 5, "y": 6}),
+        ("/idle", {"timeout": 3.0}),
+        ("/type", {"text": "hi"}),
+        ("/tap", {"x": 8, "y": 5}),
+        ("/idle", {"timeout": 3}),
+        ("/key", {"key": "delete", "count": 3}),
+        ("/key", {"key": "enter"}),
+        ("/back", {}),
+        ("/home", {}),
+        ("/hide_keyboard", {}),
+        ("/rotate", {}),
+        ("/rotate", {"orientation": "landscape"}),
+        ("/idle", {"timeout": 2}),
+        ("/idle", {"timeout": 2, "quiet": 0.5}),
+        ("/change", {"timeout": 1.5}),
+    ]
     assert all(b["bundle_id"] == "dev.demo" for _, b in env[1].calls)
 
 
@@ -368,10 +401,10 @@ def test_simctl_device_commands(drv, env):
 
 def test_what_a_step_changed_is_put_back_on_close(drv, env):
     sim, agent = env[0], env[1]
-    agent.replies["/appearance"] = {"raw": 1}   # light, before the test
-    agent.replies["/rotate"] = {"raw": 1}       # portrait
-    drv.dark_mode(True)
-    drv.dark_mode(False)
+    agent.replies["/appearance"] = {"raw": 1}  # light, before the test
+    agent.replies["/rotate"] = {"raw": 1}  # portrait
+    drv.dark_mode(on=True)
+    drv.dark_mode(on=False)
     drv.rotate("landscape")
     drv.set_location(1.0, 2.0)
     agent.calls.clear()
@@ -388,7 +421,7 @@ def test_nothing_changed_nothing_put_back(drv, env):
 
 
 def test_a_lost_agent_does_not_stop_close(drv, env):
-    drv.dark_mode(True)
+    drv.dark_mode(on=True)
     env[1].replies["/appearance"] = OSError("gone")
     env[0].rules["list devices"] = json.dumps({"devices": {}})  # the simulator went away too
     drv.close()
@@ -409,4 +442,4 @@ def test_agent_waits(drv, env):
 
 def test_network_is_not_supported(drv):
     with pytest.raises(DeviceError, match="can.t turn an iPhone.s or simulator.s network off"):
-        drv.network(False)
+        drv.network(on=False)

@@ -24,9 +24,16 @@ def test_the_expected_shapes_pass_through():
     assert parse_plist(plistlib.dumps({"a": "b"}), "x") == {"a": "b"}
 
 
-@pytest.mark.parametrize(("read", "value"), [
-    (as_object, [1]), (as_list, {"a": 1}), (as_text, 5), (texts, ["a", 1]), (texts, "a"),
-])
+@pytest.mark.parametrize(
+    ("read", "value"),
+    [
+        (as_object, [1]),
+        (as_list, {"a": 1}),
+        (as_text, 5),
+        (texts, ["a", 1]),
+        (texts, "a"),
+    ],
+)
 def test_an_unexpected_shape_says_what_was_expected(read, value):
     with pytest.raises(DeviceError, match="devicectl's list is not what jevtest expects"):
         read(value, "devicectl's list")

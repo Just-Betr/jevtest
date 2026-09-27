@@ -45,34 +45,54 @@ def make_client(model: str, api_key: str | None) -> JevClient:
 
 def parser() -> argparse.ArgumentParser:
     """The command line."""
-    p = argparse.ArgumentParser(prog="jevtest", description="Plain-English end-to-end tests for mobile apps, "
-                                                            "driven by Jev.")
+    p = argparse.ArgumentParser(
+        prog="jevtest", description="Plain-English end-to-end tests for mobile apps, driven by Jev."
+    )
     p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="run test files, or every test file in a folder")
     r.add_argument("paths", nargs="+", metavar="PATH", help="test files and/or folders of them")
     r.add_argument("--test", action="append", default=[], metavar="NAME", help="only run this test (repeatable)")
-    r.add_argument("--lock", required=True, choices=[m.value for m in LockMode],
-                   help="record: use recorded Jev decisions, ask Jev about new screens and record the answers; "
-                        "frozen: only recorded decisions, a new screen fails the run (no key or network needed); "
-                        "refresh: ask Jev again about everything and re-record; off: no lockfile")
-    r.add_argument("--out", required=True, metavar="DIR",
-                   help="results folder (each run adds a timestamped folder in it)")
-    r.add_argument("--prune-lock", action="store_true",
-                   help="after a run where every test passed, drop recorded decisions it didn't use")
+    r.add_argument(
+        "--lock",
+        required=True,
+        choices=[m.value for m in LockMode],
+        help="record: use recorded Jev decisions, ask Jev about new screens and record the answers; "
+        "frozen: only recorded decisions, a new screen fails the run (no key or network needed); "
+        "refresh: ask Jev again about everything and re-record; off: no lockfile",
+    )
+    r.add_argument(
+        "--out", required=True, metavar="DIR", help="results folder (each run adds a timestamped folder in it)"
+    )
+    r.add_argument(
+        "--prune-lock",
+        action="store_true",
+        help="after a run where every test passed, drop recorded decisions it didn't use",
+    )
     r.add_argument("-v", "--verbose", action="store_true", help="print every Jev question and answer")
     return p
 
 
-def main(argv: Sequence[str] | None = None, *, devices: MakeDevice = make_device, client: MakeClient = make_client,
-         clock: Clock | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    devices: MakeDevice = make_device,
+    client: MakeClient = make_client,
+    clock: Clock | None = None,
+) -> int:
     """Run the command line; return the exit code.
 
     The keyword arguments are the implementations to use; tests pass fakes.
     """
     args = parser().parse_args(argv)
-    options = RunOptions(tuple(args.paths), LockMode(args.lock), Path(args.out), tuple(args.test),
-                         prune_lock=args.prune_lock, verbose=args.verbose)
+    options = RunOptions(
+        tuple(args.paths),
+        LockMode(args.lock),
+        Path(args.out),
+        tuple(args.test),
+        prune_lock=args.prune_lock,
+        verbose=args.verbose,
+    )
     try:
         return run_command(options, devices, client, clock or SystemClock())
     except JevtestError as e:

@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, Self
 
 from jevtest.domain.failures import ModelError
 
@@ -27,7 +27,7 @@ KEY_HELP = "Create a key at https://openrouter.ai/keys"
 
 class _Response(Protocol):
     def read(self) -> bytes: ...
-    def __enter__(self) -> _Response: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, *exc: object) -> None: ...
 
 
@@ -71,12 +71,23 @@ class JevClient:
         ModelError: `api_key` is empty.
     """
 
-    def __init__(self, model: str, api_key: str | None, log: Callable[[str], None], *, url: str = API_URL,
-                 timeout: float = 30, retries: int = 4, sleep: Callable[[float], None] = time.sleep,
-                 urlopen: UrlOpen = urllib.request.urlopen) -> None:
+    def __init__(
+        self,
+        model: str,
+        api_key: str | None,
+        log: Callable[[str], None],
+        *,
+        url: str = API_URL,
+        timeout: float = 30,
+        retries: int = 4,
+        sleep: Callable[[float], None] = time.sleep,
+        urlopen: UrlOpen = urllib.request.urlopen,
+    ) -> None:
         if not api_key:
-            raise ModelError("OPENROUTER_API_KEY is not set: put it in the .env next to the test file, or in the "
-                             f"environment. {KEY_HELP}")
+            raise ModelError(
+                "OPENROUTER_API_KEY is not set: put it in the .env next to the test file, or in the "
+                f"environment. {KEY_HELP}"
+            )
         self.api_key = api_key
         self.model = model
         self.url = url
@@ -103,17 +114,25 @@ class JevClient:
             raise ModelError(f"Jev returned an answer that isn't a JSON object: {answers!r}")
         served_by, usage = data.get("model"), data.get("usage")
         cost = usage.get("cost", 0) if isinstance(usage, dict) else 0
-        return Reply(answers, round((time.monotonic() - started) * 1000),
-                     served_by if isinstance(served_by, str) else None,
-                     float(cost) if isinstance(cost, int | float) else 0.0)
+        return Reply(
+            answers,
+            round((time.monotonic() - started) * 1000),
+            served_by if isinstance(served_by, str) else None,
+            float(cost) if isinstance(cost, int | float) else 0.0,
+        )
 
     def _post(self, body: bytes) -> dict[str, object]:
         for attempt in range(self.retries + 1):
             last = attempt == self.retries
-            req = urllib.request.Request(self.url, data=body, method="POST", headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            })
+            req = urllib.request.Request(
+                self.url,
+                data=body,
+                method="POST",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
             try:
                 with self._urlopen(req, timeout=self.timeout) as resp:
                     raw = resp.read()
@@ -139,6 +158,6 @@ class JevClient:
         raise AssertionError("unreachable")  # pragma: no cover
 
     def _retry(self, why: str, attempt: int) -> None:
-        wait = 0.5 * 2 ** attempt
+        wait = 0.5 * 2**attempt
         self._log(f"Jev {why}: trying again in {wait:g}s (retry {attempt + 1} of {self.retries})")
         self._sleep(wait)

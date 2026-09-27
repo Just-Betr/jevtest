@@ -127,7 +127,7 @@ class Device(Protocol):
         """Open a deep link or URL."""
         ...
 
-    def dark_mode(self, on: bool) -> None:
+    def dark_mode(self, *, on: bool) -> None:
         """Switch dark appearance on or off. Put back when the device is closed."""
         ...
 
@@ -135,7 +135,7 @@ class Device(Protocol):
         """Grant the app a runtime permission."""
         ...
 
-    def network(self, on: bool) -> None:
+    def network(self, *, on: bool) -> None:
         """Switch Wi-Fi and mobile data on or off. Put back when the device is closed."""
         ...
 
@@ -187,8 +187,8 @@ class RunListener(Protocol):
         """A test is starting."""
         ...
 
-    def start_failed(self, test: Test, reason: str) -> None:
-        """The app could not be started for a test."""
+    def start_failed(self, reason: str) -> None:
+        """The app could not be started for the test that just started."""
         ...
 
     def use_started(self, name: str, depth: int) -> None:

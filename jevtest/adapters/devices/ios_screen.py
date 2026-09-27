@@ -61,8 +61,13 @@ def parse_tree(tree: AgentTree) -> Screen:
         el = _element(raw, width, height)
         if el is not None:  # XCUITest often reports a wrapper and its child: keep the first
             elements.setdefault((el.kind, el.text, el.bounds), el)
-    return Screen(width=width, height=height, elements=tuple(elements.values()),
-                  keyboard_visible=tree.get("keyboard", False), keyboard_top=int(tree.get("keyboard_top", 0)))
+    return Screen(
+        width=width,
+        height=height,
+        elements=tuple(elements.values()),
+        keyboard_visible=tree.get("keyboard", False),
+        keyboard_top=int(tree.get("keyboard_top", 0)),
+    )
 
 
 def _element(raw: AgentElement, width: int, height: int) -> Element | None:
@@ -78,11 +83,18 @@ def _element(raw: AgentElement, width: int, height: int) -> Element | None:
         return None
     editable = kind in EDITABLE
     return Element(
-        kind="text" if kind == "other" else kind, text=text, hint=raw.get("placeholder", ""),
-        value=value if editable else "", resource_id=identifier, bounds=bounds,
-        enabled=raw.get("enabled", True), editable=editable, clickable=kind in TOUCHABLE,
+        kind="text" if kind == "other" else kind,
+        text=text,
+        hint=raw.get("placeholder", ""),
+        value=value if editable else "",
+        resource_id=identifier,
+        bounds=bounds,
+        enabled=raw.get("enabled", True),
+        editable=editable,
+        clickable=kind in TOUCHABLE,
         focused=editable and raw.get("focused", False),  # web views mark everything focused
-        selected=raw.get("selected", False), checked=_checked(kind, value),
+        selected=raw.get("selected", False),
+        checked=_checked(kind, value),
     )
 
 

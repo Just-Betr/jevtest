@@ -88,8 +88,11 @@ def answer_from_wire(qid: str, raw: Mapping[str, object], question: Question) ->
     if not isinstance(chosen, str) or chosen not in question.options:
         raise ModelError(f"Jev answered {chosen!r} for {qid}, which is not one of the options")
     confidence, probabilities = raw.get("confidence"), raw.get("probabilities")
-    if not _is_number(confidence) or not isinstance(probabilities, dict) \
-            or not all(isinstance(k, str) and _is_number(v) for k, v in probabilities.items()):
+    if (
+        not _is_number(confidence)
+        or not isinstance(probabilities, dict)
+        or not all(isinstance(k, str) and _is_number(v) for k, v in probabilities.items())
+    ):
         raise ModelError(f"Jev's answer for {qid} has no confidence or probabilities")
     return Picked(chosen, float(confidence), {str(k): float(v) for k, v in probabilities.items()})
 
@@ -98,8 +101,12 @@ def answer_to_wire(answer: Answer) -> WireAnswer:
     """One answer as Jev sends it (for the lockfile and reports)."""
     if isinstance(answer, Probability):
         return {"type": "noul", "noul": answer.yes}
-    return {"type": "choice", "choice": answer.choice, "confidence": answer.confidence,
-            "probabilities": dict(answer.probabilities)}
+    return {
+        "type": "choice",
+        "choice": answer.choice,
+        "confidence": answer.confidence,
+        "probabilities": dict(answer.probabilities),
+    }
 
 
 def _is_number(value: object) -> TypeGuard[float]:

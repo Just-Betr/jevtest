@@ -24,23 +24,43 @@ from .android_screen import has_empty_webview, keyboard_up, parse_screen
 from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
 
 KEYCODES = {
-    "enter": 66, "delete": 67, "backspace": 67, "tab": 61, "escape": 111, "space": 62,
-    "back": 4, "home": 3, "menu": 82, "search": 84, "dpad_up": 19, "dpad_down": 20,
-    "dpad_left": 21, "dpad_right": 22, "volume_up": 24, "volume_down": 25, "power": 26,
-    "app_switch": 187, "move_end": 123, "move_home": 122,
+    "enter": 66,
+    "delete": 67,
+    "backspace": 67,
+    "tab": 61,
+    "escape": 111,
+    "space": 62,
+    "back": 4,
+    "home": 3,
+    "menu": 82,
+    "search": 84,
+    "dpad_up": 19,
+    "dpad_down": 20,
+    "dpad_left": 21,
+    "dpad_right": 22,
+    "volume_up": 24,
+    "volume_down": 25,
+    "power": 26,
+    "app_switch": 187,
+    "move_end": 123,
+    "move_home": 122,
 }
-ROTATIONS = {Orientation.PORTRAIT: 0, Orientation.LANDSCAPE: 1, Orientation.PORTRAIT_UPSIDE_DOWN: 2,
-             Orientation.LANDSCAPE_RIGHT: 3}
-DOUBLE_TAP_GAP = 0.1      # Android and Flutter ignore taps < 40 ms apart and > 300 ms apart
-DRAG_STEPS = 10           # finger positions along a drag
-DRAG_HOLD = 0.1           # seconds the finger rests before lifting, so nothing flings
+ROTATIONS = {
+    Orientation.PORTRAIT: 0,
+    Orientation.LANDSCAPE: 1,
+    Orientation.PORTRAIT_UPSIDE_DOWN: 2,
+    Orientation.LANDSCAPE_RIGHT: 3,
+}
+DOUBLE_TAP_GAP = 0.1  # Android and Flutter ignore taps < 40 ms apart and > 300 ms apart
+DRAG_STEPS = 10  # finger positions along a drag
+DRAG_HOLD = 0.1  # seconds the finger rests before lifting, so nothing flings
 AGENT_START_TIMEOUT = 30
 TOP_ACTIVITY = re.compile(r"topResumedActivity=ActivityRecord\{\S+ \S+ ([\w.]+)/")
 PERMISSION_PROMPT = re.compile(r"com\.(google\.)?android\.permissioncontroller")
 AGENT_SRC = Path(__file__).resolve().parent / "android_agent"
 AGENT_ID = "dev.jevtest.agent"
 AGENT_STOP_TIMEOUT = 10  # seconds for the agent to finish after /quit
-AGENT_PORT = 7912         # on the device; adb forwards a free local port to it
+AGENT_PORT = 7912  # on the device; adb forwards a free local port to it
 
 
 def sdk_root() -> Path | None:
@@ -98,8 +118,9 @@ def pick_device(wanted: str, serials: list[str]) -> str:
     if not matches:
         raise DeviceError(f"No connected Android device called '{wanted}' (names are exact). Connected: {listed}")
     if len(matches) > 1:
-        raise DeviceError(f"Several connected Android devices are called '{wanted}' ({', '.join(matches)}): "
-                          "name one by its serial")
+        raise DeviceError(
+            f"Several connected Android devices are called '{wanted}' ({', '.join(matches)}): name one by its serial"
+        )
     return matches[0]
 
 
@@ -135,23 +156,83 @@ def _build_agent(progress: Progress) -> Path:
     progress("building the Android agent (one time, a few seconds)")
     with tempfile.TemporaryDirectory() as tmp:
         t = Path(tmp)
-        run(["javac", "--release", "11", "-cp", jar, "-d", str(t / "classes"),
-             *map(str, sorted(AGENT_SRC.rglob("*.java")))])
-        run([str(bt / "d8"), "--min-api", "24", "--lib", jar, "--output", tmp,
-             *map(str, sorted((t / "classes").rglob("*.class")))])
-        run([str(bt / "aapt2"), "link", "--manifest", str(AGENT_SRC / "AndroidManifest.xml"), "-I", jar,
-             "--version-name", version, "-o", str(t / "base.apk")])
+        run(
+            [
+                "javac",
+                "--release",
+                "11",
+                "-cp",
+                jar,
+                "-d",
+                str(t / "classes"),
+                *map(str, sorted(AGENT_SRC.rglob("*.java"))),
+            ]
+        )
+        run(
+            [
+                str(bt / "d8"),
+                "--min-api",
+                "24",
+                "--lib",
+                jar,
+                "--output",
+                tmp,
+                *map(str, sorted((t / "classes").rglob("*.class"))),
+            ]
+        )
+        run(
+            [
+                str(bt / "aapt2"),
+                "link",
+                "--manifest",
+                str(AGENT_SRC / "AndroidManifest.xml"),
+                "-I",
+                jar,
+                "--version-name",
+                version,
+                "-o",
+                str(t / "base.apk"),
+            ]
+        )
         with zipfile.ZipFile(t / "base.apk", "a") as z:
             z.write(t / "classes.dex", "classes.dex")
         run([str(bt / "zipalign"), "-f", "4", str(t / "base.apk"), str(t / "aligned.apk")])
         apk.parent.mkdir(parents=True, exist_ok=True)
         keystore = cache_dir() / "jevtest-debug.keystore"
         if not keystore.exists():
-            run(["keytool", "-genkeypair", "-keystore", str(keystore), "-storepass", "android",
-                 "-alias", "jevtest", "-keypass", "android", "-keyalg", "RSA", "-validity", "10000",
-                 "-dname", "CN=jevtest"])
-        run([str(bt / "apksigner"), "sign", "--ks", str(keystore), "--ks-pass", "pass:android",
-             "--out", str(apk), str(t / "aligned.apk")])
+            run(
+                [
+                    "keytool",
+                    "-genkeypair",
+                    "-keystore",
+                    str(keystore),
+                    "-storepass",
+                    "android",
+                    "-alias",
+                    "jevtest",
+                    "-keypass",
+                    "android",
+                    "-keyalg",
+                    "RSA",
+                    "-validity",
+                    "10000",
+                    "-dname",
+                    "CN=jevtest",
+                ]
+            )
+        run(
+            [
+                str(bt / "apksigner"),
+                "sign",
+                "--ks",
+                str(keystore),
+                "--ks-pass",
+                "pass:android",
+                "--out",
+                str(apk),
+                str(t / "aligned.apk"),
+            ]
+        )
     return apk
 
 
@@ -189,9 +270,24 @@ class AndroidDevice(BaseDevice):
         self.sh(f"am force-stop {AGENT_ID}")  # a previous run's agent would hold the port
         self.port = int(run([self.adb, "-s", self.serial, "forward", "tcp:0", f"tcp:{AGENT_PORT}"]).strip())
         self.agent = start_process(
-            [self.adb, "-s", self.serial, "shell", "am", "instrument", "-r", "-w", "-e", "port", str(AGENT_PORT),
-             f"{AGENT_ID}/.Agent"],
-            ready="ready=1", log=cache_dir() / f"android-agent-{self.serial}.log", timeout=AGENT_START_TIMEOUT)
+            [
+                self.adb,
+                "-s",
+                self.serial,
+                "shell",
+                "am",
+                "instrument",
+                "-r",
+                "-w",
+                "-e",
+                "port",
+                str(AGENT_PORT),
+                f"{AGENT_ID}/.Agent",
+            ],
+            ready="ready=1",
+            log=cache_dir() / f"android-agent-{self.serial}.log",
+            timeout=AGENT_START_TIMEOUT,
+        )
 
     def _agent(self, path: str, wait_ms: int = 0, extra: str = "") -> str:
         """Call the agent. `wait_ms` is how long it may wait for the screen before answering."""
@@ -270,14 +366,31 @@ class AndroidDevice(BaseDevice):
         bundletool = shutil.which("bundletool")
         if not bundletool:
             raise DeviceError("bundletool is required to install .aab files (brew install bundletool)")
-        self.app_id = run([bundletool, "dump", "manifest", "--bundle", str(app_path),
-                           "--xpath", "/manifest/@package"]).strip()
+        self.app_id = run(
+            [bundletool, "dump", "manifest", "--bundle", str(app_path), "--xpath", "/manifest/@package"]
+        ).strip()
         with tempfile.TemporaryDirectory() as tmp:
             apks = Path(tmp) / "app.apks"
-            run([bundletool, "build-apks", "--bundle", str(app_path), "--output", str(apks),
-                 "--connected-device", "--device-id", self.serial, "--adb", self.adb], timeout=600)
-            run([bundletool, "install-apks", "--apks", str(apks), "--device-id", self.serial,
-                 "--adb", self.adb], timeout=300)
+            run(
+                [
+                    bundletool,
+                    "build-apks",
+                    "--bundle",
+                    str(app_path),
+                    "--output",
+                    str(apks),
+                    "--connected-device",
+                    "--device-id",
+                    self.serial,
+                    "--adb",
+                    self.adb,
+                ],
+                timeout=600,
+            )
+            run(
+                [bundletool, "install-apks", "--apks", str(apks), "--device-id", self.serial, "--adb", self.adb],
+                timeout=300,
+            )
 
     def launch(self) -> None:
         """Start the app's launcher activity and wait until it's shown."""
@@ -304,16 +417,17 @@ class AndroidDevice(BaseDevice):
 
     def check_ready(self) -> None:
         """A phone that is asleep or locked shows no app to test. Say so; never wake or unlock it."""
-        out = self.sh("dumpsys power | grep -m1 mWakefulness=; dumpsys window | grep -m1 -E 'isKeyguardShowing='",
-                      check=False)
+        out = self.sh(
+            "dumpsys power | grep -m1 mWakefulness=; dumpsys window | grep -m1 -E 'isKeyguardShowing='", check=False
+        )
         if "mWakefulness=Awake" not in out or "isKeyguardShowing=true" in out:
-            raise DeviceError(f"Android device {self.serial} is asleep or locked: unlock it and keep it awake "
-                              "during the run")
+            raise DeviceError(
+                f"Android device {self.serial} is asleep or locked: unlock it and keep it awake during the run"
+            )
 
     def app_state(self) -> AppState:
         """Where the app is: running at all, and whether it or its own permission prompt is on top."""
-        out = self.sh(f"pidof {self.app_id}; dumpsys activity activities | grep -m1 topResumedActivity",
-                      check=False)
+        out = self.sh(f"pidof {self.app_id}; dumpsys activity activities | grep -m1 topResumedActivity", check=False)
         if not re.match(r"\d+", out.strip()):
             return AppState.NOT_RUNNING
         top = TOP_ACTIVITY.search(out)
@@ -379,11 +493,13 @@ class AndroidDevice(BaseDevice):
         """Press, move, hold still, lift."""
         # Press, move in steps, hold still, lift: the content stops where the finger stops. A plain
         # `input swipe` lifts while moving, so the content flings on and a scroll lands anywhere.
-        steps = [(x1 + (x2 - x1) * i // DRAG_STEPS, y1 + (y2 - y1) * i // DRAG_STEPS)
-                 for i in range(1, DRAG_STEPS + 1)]
+        steps = [(x1 + (x2 - x1) * i // DRAG_STEPS, y1 + (y2 - y1) * i // DRAG_STEPS) for i in range(1, DRAG_STEPS + 1)]
         moves = [f"input motionevent MOVE {x} {y}" for x, y in steps]
-        self.sh("; ".join([f"input motionevent DOWN {x1} {y1}", *moves, f"sleep {DRAG_HOLD}",
-                           f"input motionevent UP {x2} {y2}"]))
+        self.sh(
+            "; ".join(
+                [f"input motionevent DOWN {x1} {y1}", *moves, f"sleep {DRAG_HOLD}", f"input motionevent UP {x2} {y2}"]
+            )
+        )
 
     def type_text(self, text: str, at: Point | None = None) -> None:
         """Type into the focused field, or first focus the field at `at`."""
@@ -431,8 +547,9 @@ class AndroidDevice(BaseDevice):
     def rotate(self, orientation: Orientation) -> None:
         """Rotate the screen; auto-rotate and the orientation are put back on close."""
         if "rotation" not in self._restore:  # rotating needs auto-rotate off; close() puts both back
-            self._restore["rotation"] = (f"{self._setting('system', 'user_rotation')}; "
-                                         f"{self._setting('system', 'accelerometer_rotation')}")
+            self._restore["rotation"] = (
+                f"{self._setting('system', 'user_rotation')}; {self._setting('system', 'accelerometer_rotation')}"
+            )
         self.sh("settings put system accelerometer_rotation 0")
         self.sh(f"settings put system user_rotation {ROTATIONS[orientation]}")
 
@@ -453,7 +570,7 @@ class AndroidDevice(BaseDevice):
         """Open a deep link or URL."""
         self.sh(f"am start -W -a android.intent.action.VIEW -d {shlex.quote(url)}")
 
-    def dark_mode(self, on: bool) -> None:
+    def dark_mode(self, *, on: bool) -> None:
         """Switch dark mode; the previous setting is put back on close."""
         if "dark_mode" not in self._restore:
             now = self.sh("cmd uimode night", check=False).strip().removeprefix("Night mode: ")
@@ -465,16 +582,18 @@ class AndroidDevice(BaseDevice):
     def grant(self, permission: str) -> None:
         """Grant the app a runtime permission, by its full name."""
         if not permission.startswith("android.permission."):
-            raise DeviceError(f"'{permission}': give the full Android permission name, "
-                              f"e.g. android.permission.{permission.upper()}")
+            raise DeviceError(
+                f"'{permission}': give the full Android permission name, e.g. android.permission.{permission.upper()}"
+            )
         self.sh(f"pm grant {self.app_id} {permission}")
 
-    def network(self, on: bool) -> None:
+    def network(self, *, on: bool) -> None:
         """Switch Wi-Fi and mobile data; their previous state is put back on close."""
         if "network" not in self._restore:
             wifi = self.sh("settings get global wifi_on", check=False).strip() not in ("0", "")
             data = self.sh("settings get global mobile_data", check=False).strip() == "1"
-            self._restore["network"] = (f"svc wifi {'enable' if wifi else 'disable'}; "
-                                        f"svc data {'enable' if data else 'disable'}")
+            self._restore["network"] = (
+                f"svc wifi {'enable' if wifi else 'disable'}; svc data {'enable' if data else 'disable'}"
+            )
         state = "enable" if on else "disable"
         self.sh(f"svc wifi {state}; svc data {state}")

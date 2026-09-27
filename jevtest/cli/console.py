@@ -82,7 +82,7 @@ class ConsoleListener:
         self._current = []
         self._emit(f"\n▶ {test.name}")
 
-    def start_failed(self, test: Test, reason: str) -> None:
+    def start_failed(self, reason: str) -> None:
         """The app couldn't be started."""
         self._emit(f"  ✗ could not start app: {reason}")
 
@@ -124,7 +124,9 @@ def summary(result: RunResult, calls: Sequence[ModelCall], out: Path) -> list[st
     share = f" ({jev_s / result.seconds:.0%} of run time)" if result.seconds else ""
     lines = [f"\n{result.passed}/{len(result.tests)} passed in {result.seconds:.0f}s"]
     lines += [f"  FAILED {t.name}: {t.failure}" for t in result.tests if t.status is Status.FAIL]
-    lines.append(f"Jev: {len(calls)} decision{'' if len(calls) == 1 else 's'}, {len(calls) - len(live)} from "
-                 f"lockfile, {len(live)} asked live in {jev_s:.1f}s{share}, ${cost:.4f}")
+    lines.append(
+        f"Jev: {len(calls)} decision{'' if len(calls) == 1 else 's'}, {len(calls) - len(live)} from "
+        f"lockfile, {len(live)} asked live in {jev_s:.1f}s{share}, ${cost:.4f}"
+    )
     lines.append(f"Results: {out}")
     return lines

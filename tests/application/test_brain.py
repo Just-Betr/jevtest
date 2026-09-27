@@ -5,8 +5,7 @@ from jevtest.domain.decisions import PressEnter, TypeInto, WaitForScreen
 from jevtest.domain.failures import ModelError
 from jevtest.domain.model import Picked, Probability
 from jevtest.domain.screen import Screen
-
-from ..conftest import FakeModel, act, confirm, el, login_screen, pick, yes
+from tests.conftest import FakeModel, act, confirm, el, login_screen, pick, yes
 
 # --- what the model is shown ------------------------------------------------------------
 
@@ -16,27 +15,52 @@ def test_the_screen_is_described_in_words_not_numbers():
 
 
 def test_the_description_includes_only_meaningful_flags():
-    s = Screen(300, 300, (
-        el("switch", "Wifi", checked=False, bounds=(0, 0, 10, 10)),
-        el("button", "Go", enabled=False, focused=True, selected=True, scrollable=True,
-           resource_id="go", bounds=(290, 290, 300, 300)),
-    ))
+    s = Screen(
+        300,
+        300,
+        (
+            el("switch", "Wifi", checked=False, bounds=(0, 0, 10, 10)),
+            el(
+                "button",
+                "Go",
+                enabled=False,
+                focused=True,
+                selected=True,
+                scrollable=True,
+                resource_id="go",
+                bounds=(290, 290, 300, 300),
+            ),
+        ),
+    )
     first, second = describe(s)
     assert first == {"id": "e1", "type": "switch", "text": "Wifi", "position": "top-left", "checked": False}
-    assert second == {"id": "e2", "type": "button", "text": "Go", "resource_id": "go", "position": "bottom-right",
-                      "enabled": False, "focused": True, "selected": True, "scrollable": True}
+    assert second == {
+        "id": "e2",
+        "type": "button",
+        "text": "Go",
+        "resource_id": "go",
+        "position": "bottom-right",
+        "enabled": False,
+        "focused": True,
+        "selected": True,
+        "scrollable": True,
+    }
 
 
-@pytest.mark.parametrize(("goal", "values"), [
-    ('email "a@b.c" and password “x y”', ["a@b.c", "x y"]),
-    ("no quotes here", []),
-    ('empty "" is ignored', []),
-])
+@pytest.mark.parametrize(
+    ("goal", "values"),
+    [
+        ('email "a@b.c" and password “x y”', ["a@b.c", "x y"]),
+        ("no quotes here", []),
+        ('empty "" is ignored', []),
+    ],
+)
 def test_quoted_values(goal, values):
     assert quoted_values(goal) == values
 
 
 # --- next_action -----------------------------------------------------------------------
+
 
 def test_next_action_type_picks_field_and_value():
     model = FakeModel(act("type", field="e2", value="v1"))
@@ -55,8 +79,8 @@ def test_next_action_offers_only_possible_actions():
     d = Brain(model).next_action("Press sign in", login_screen(), ["tap x"])
     assert d.move.describe() == "tap button 'Sign in'"
     options = model.asked[0][1]["action"]["criteria"]
-    assert "type" not in options                     # no quoted values
-    assert "clear" in options                        # there are fields
+    assert "type" not in options  # no quoted values
+    assert "clear" in options  # there are fields
     assert "press_enter" not in options and "hide_keyboard" not in options  # keyboard hidden
     assert model.asked[0][0]["actions_taken"] == ["tap x"]
 
@@ -80,10 +104,19 @@ def test_next_action_on_empty_screen_offers_no_touch():
     assert d.move == WaitForScreen()
 
 
-@pytest.mark.parametrize(("action", "described"), [
-    ("clear", "clear text_field 'Email'"), ("swipe_left_on", "swipe_left button 'Sign in'"),
-    ("swipe_right_on", "swipe_right button 'Sign in'"), ("scroll_up", "scroll up"), ("back", "back"),
-    ("hide_keyboard", "hide keyboard"), ("impossible", "impossible"), ("long_press", "long_press button 'Sign in'")])
+@pytest.mark.parametrize(
+    ("action", "described"),
+    [
+        ("clear", "clear text_field 'Email'"),
+        ("swipe_left_on", "swipe_left button 'Sign in'"),
+        ("swipe_right_on", "swipe_right button 'Sign in'"),
+        ("scroll_up", "scroll up"),
+        ("back", "back"),
+        ("hide_keyboard", "hide keyboard"),
+        ("impossible", "impossible"),
+        ("long_press", "long_press button 'Sign in'"),
+    ],
+)
 def test_each_action_becomes_its_move(action, described):
     model = FakeModel(act(action, target="e3", field="e1"))
     d = Brain(model).next_action("x", login_screen(keyboard_visible=True), [])
@@ -98,8 +131,14 @@ def test_options_are_capped_for_the_model_limit():
 
 
 def test_option_descriptions_mention_state():
-    s = Screen(10, 10, (el("switch", "Wifi", checked=True, bounds=(0, 0, 10, 10)),
-                        el("switch", "BT", checked=False, enabled=False, bounds=(0, 0, 10, 10))))
+    s = Screen(
+        10,
+        10,
+        (
+            el("switch", "Wifi", checked=True, bounds=(0, 0, 10, 10)),
+            el("switch", "BT", checked=False, enabled=False, bounds=(0, 0, 10, 10)),
+        ),
+    )
     model = FakeModel(act("tap"))
     Brain(model).next_action("x", s, [])
     target = model.asked[0][1]["target"]["criteria"]
@@ -120,6 +159,7 @@ def test_quoted_values_are_capped():
 
 # --- locate / check --------------------------------------------------------------------
 
+
 def test_locate_exact_unique_match_skips_the_model():
     model = FakeModel()
     b = Brain(model)
@@ -129,16 +169,28 @@ def test_locate_exact_unique_match_skips_the_model():
 
 
 def test_locate_by_contained_text_skips_the_model():
-    s = Screen(10, 10, (el("text", "Here is more content from the page.", bounds=(0, 0, 10, 10)),
-                        el("button", "Show more", clickable=True, bounds=(0, 0, 10, 10))))
+    s = Screen(
+        10,
+        10,
+        (
+            el("text", "Here is more content from the page.", bounds=(0, 0, 10, 10)),
+            el("button", "Show more", clickable=True, bounds=(0, 0, 10, 10)),
+        ),
+    )
     model = FakeModel()
     assert Brain(model).locate("here is more content", s).kind == "text" and not model.asked
 
 
 def test_locate_asks_the_model_only_among_elements_that_contain_the_text():
-    s = Screen(10, 10, (el("button", "Delete account", clickable=True, bounds=(0, 0, 10, 10)),
-                        el("button", "Delete photo", clickable=True, bounds=(0, 0, 10, 10)),
-                        el("button", "Cancel", clickable=True, bounds=(0, 0, 10, 10))))
+    s = Screen(
+        10,
+        10,
+        (
+            el("button", "Delete account", clickable=True, bounds=(0, 0, 10, 10)),
+            el("button", "Delete photo", clickable=True, bounds=(0, 0, 10, 10)),
+            el("button", "Cancel", clickable=True, bounds=(0, 0, 10, 10)),
+        ),
+    )
     model = FakeModel(pick("e2"), confirm())
     assert Brain(model).locate("delete", s).text == "Delete photo"
     assert set(model.asked[0][1]["element"]["criteria"]) == {"e1", "e2", "not_on_screen"}
@@ -150,8 +202,14 @@ def test_locate_by_resource_id():
 
 
 def test_locate_prefers_the_one_actionable_exact_match():
-    s = Screen(10, 10, (el("text", "Dark theme", bounds=(0, 0, 10, 10)),
-                        el("switch", "Dark theme", clickable=True, bounds=(0, 0, 10, 10))))
+    s = Screen(
+        10,
+        10,
+        (
+            el("text", "Dark theme", bounds=(0, 0, 10, 10)),
+            el("switch", "Dark theme", clickable=True, bounds=(0, 0, 10, 10)),
+        ),
+    )
     model = FakeModel()
     assert Brain(model).locate("Dark theme", s).kind == "switch" and not model.asked
 
@@ -197,6 +255,7 @@ def test_check_returns_probability():
 
 
 # --- answers of the wrong kind ----------------------------------------------------------------
+
 
 def test_answers_must_be_of_the_kind_asked():
     assert _picked(Picked("a", 1.0)).choice == "a" and _yes(Probability(0.5)) == 0.5

@@ -253,9 +253,32 @@ class HideKeyboard(_Action):
 
 
 Action = (
-    Do | Use | Touch | Clear | TypeText | Scroll | Swipe | ScrollTo | Key | Wait | Background | Rotate | Location
-    | OpenUrl | DarkMode | Grant | Network | Screenshot | Launch | Stop | Restart | ClearData | Reinstall | Back
-    | Home | HideKeyboard
+    Do
+    | Use
+    | Touch
+    | Clear
+    | TypeText
+    | Scroll
+    | Swipe
+    | ScrollTo
+    | Key
+    | Wait
+    | Background
+    | Rotate
+    | Location
+    | OpenUrl
+    | DarkMode
+    | Grant
+    | Network
+    | Screenshot
+    | Launch
+    | Stop
+    | Restart
+    | ClearData
+    | Reinstall
+    | Back
+    | Home
+    | HideKeyboard
 )
 """Everything a step can do."""
 
@@ -369,13 +392,17 @@ class Scope:
 
 
 SETTING_SCOPES: Mapping[str, Scope] = {
-    "timeout": Scope("a step that finds an element or has checks",
-                     lambda action, checks: bool(checks) or (action is not None and action.finds_element)),
-    "settle": Scope("a step whose action changes the screen",
-                    lambda action, _: action is not None and action.watches_screen),
+    "timeout": Scope(
+        "a step that finds an element or has checks",
+        lambda action, checks: bool(checks) or (action is not None and action.finds_element),
+    ),
+    "settle": Scope(
+        "a step whose action changes the screen", lambda action, _: action is not None and action.watches_screen
+    ),
     "max_actions": Scope("a do: step", lambda action, _: isinstance(action, Do)),
     "max_scrolls": Scope("a scroll_to: step", lambda action, _: isinstance(action, ScrollTo)),
-    "confidence": Scope("a step with an expect: check",
-                        lambda _, checks: any(isinstance(check, Expect) for check in checks)),
+    "confidence": Scope(
+        "a step with an expect: check", lambda _, checks: any(isinstance(check, Expect) for check in checks)
+    ),
 }
 """Each setting a step can change for itself, and the steps it means something for."""

@@ -37,8 +37,13 @@ def test_minimal_file(tmp_path):
 
 
 def test_example_files_load():
-    env = {"DEMO_EMAIL": "e", "DEMO_PASSWORD": "p", "ANDROID_DEVICE": "P", "IOS_DEVICE": "BH",  # CI has no .env
-           "IOS_APP": "Runner.app"}
+    env = {
+        "DEMO_EMAIL": "e",
+        "DEMO_PASSWORD": "p",
+        "ANDROID_DEVICE": "P",
+        "IOS_DEVICE": "BH",  # CI has no .env
+        "IOS_APP": "Runner.app",
+    }
     spec = load(EXAMPLES / "demo.yaml", env)
     assert spec.devices == {"android": ("P",), "ios": ("BH",)}
     assert set(spec.apps) == {"android", "ios"}
@@ -47,8 +52,15 @@ def test_example_files_load():
 
 def test_both_platforms_and_several_devices(tmp_path):
     (tmp_path / "x.zip").write_text("")
-    spec = load(write(tmp_path, minimal(device="device: {android: [Pixel 4a, Pixel 8], ios: BH}\n")
-                      .replace("app: a.apk", "app: {android: a.apk, ios: x.zip}")), {})
+    spec = load(
+        write(
+            tmp_path,
+            minimal(device="device: {android: [Pixel 4a, Pixel 8], ios: BH}\n").replace(
+                "app: a.apk", "app: {android: a.apk, ios: x.zip}"
+            ),
+        ),
+        {},
+    )
     assert list(spec.apps) == ["android", "ios"]
     assert spec.devices == {"android": ("Pixel 4a", "Pixel 8"), "ios": ("BH",)}
 
@@ -59,9 +71,11 @@ def test_no_settings_means_the_defaults(tmp_path):
 
 
 def test_a_files_settings_apply_to_every_step_and_a_step_can_change_its_own(tmp_path):
-    body = minimal(tests="  - {name: T, fresh: true, steps: [back, {tap: x, timeout: 30}]}\n",
-                   extra="settings: {model: typesafe/jev-2, timeout: 20, settle: 5, max_actions: 20, "
-                         "max_scrolls: 100, confidence: 0.8}\n")
+    body = minimal(
+        tests="  - {name: T, fresh: true, steps: [back, {tap: x, timeout: 30}]}\n",
+        extra="settings: {model: typesafe/jev-2, timeout: 20, settle: 5, max_actions: 20, "
+        "max_scrolls: 100, confidence: 0.8}\n",
+    )
     suite = load(write(tmp_path, body), {})
     expected = Settings("typesafe/jev-2", 20, 5, 20, 100, 0.8)
     back, tap = suite.tests[0].steps
@@ -90,49 +104,57 @@ def test_every_bad_setting_is_reported_at_once(tmp_path):
     assert "`model` must be a Jev model" in str(e.value)
 
 
-@pytest.mark.parametrize(("settings", "message"), [
-    ("settings: 5", "`settings` must be a mapping of model, confidence, max_actions, max_scrolls, settle, timeout"),
-    ("settings: {}", "`settings` must be a mapping"),
-    ("settings: {wait: 5}", "`settings` has an unknown key: wait (it takes model, confidence"),
-    ("settings: {model: gpt-5}", "`model` must be a Jev model (typesafe/jev-...), got 'gpt-5'"),
-    ("settings: {model: 5}", "`model` needs text"),
-    ("settings: {timeout: 1000}", "`timeout` must be from 1 to 300, got 1000"),
-    ("settings: {timeout: '5'}", "`timeout` must be a number, got '5' (remove the quotes)"),
-])
+@pytest.mark.parametrize(
+    ("settings", "message"),
+    [
+        ("settings: 5", "`settings` must be a mapping of model, confidence, max_actions, max_scrolls, settle, timeout"),
+        ("settings: {}", "`settings` must be a mapping"),
+        ("settings: {wait: 5}", "`settings` has an unknown key: wait (it takes model, confidence"),
+        ("settings: {model: gpt-5}", "`model` must be a Jev model (typesafe/jev-...), got 'gpt-5'"),
+        ("settings: {model: 5}", "`model` needs text"),
+        ("settings: {timeout: 1000}", "`timeout` must be from 1 to 300, got 1000"),
+        ("settings: {timeout: '5'}", "`timeout` must be a number, got '5' (remove the quotes)"),
+    ],
+)
 def test_bad_settings_are_rejected(tmp_path, settings, message):
     with pytest.raises(TestFileError, match=re.escape(message)):
         load(write(tmp_path, minimal(extra=settings + "\n")), {})
 
 
-@pytest.mark.parametrize(("body", "message"), [
-    ("", "must be a YAML mapping"),
-    ("app: [", "not valid YAML"),
-    (minimal().replace("app: a.apk\n", ""), "Missing `app:`"),
-    (minimal().replace("a.apk", "a.txt"), "Unknown app type"),
-    (minimal().replace("app: a.apk", "app: {android: b.aab, ios: a.apk}"), "app.ios points at a android build"),
-    (minimal().replace("app: a.apk", "app: {web: a.apk}"), "must be android and/or ios"),
-    (minimal(extra="extra: 1\n"), "Unknown top-level keys: extra"),
-    # device: required for every platform
-    (minimal(device=""), r"Missing `device:`.*e\.g\. \{android: Pixel 4a"),
-    (minimal(device="device: Pixel\n"), "must name a device per platform"),
-    (minimal(device="device: {web: x}\n"), "keys must be android and/or ios"),
-    (minimal(device="device: {android: P, ios: BH}\n"), "names an ios device, but `app` has no ios build"),
-    (minimal(device="device: {android: ''}\n"), "device.android needs text"),
-    (minimal(device="device: {android: []}\n"), "at least one device"),
-    (minimal(device="device: {android: [A, A]}\n"), "lists a device twice"),
-    (minimal(device="device: {}\n"), "`device` has no android device, but `app` has an android build"),
-    # tests
-    (minimal(tests="  []\n"), "No tests found"),
-    (minimal(tests="  - {name: T, steps: [back]}\n"), r"needs `name`, `fresh` \(true: start from a clean install"),
-    (minimal(tests="  - {fresh: true, steps: [back]}\n"), "needs `name`, `fresh`"),
-    (minimal(tests="  - {name: 7, fresh: true, steps: [back]}\n"), "Test #1 in t.yaml: name needs text"),
-    (minimal(tests="  - {name: T, fresh: true, steps: []}\n"), "at least one step"),
-    (minimal(tests="  - {name: T, fresh: true, steps: [back], tags: [x]}\n"), "unknown keys: tags"),
-    (minimal(tests="  - {name: T, fresh: true, steps: [{wait: x}]}\n"),
-     r"Test 'T', step 1: 'wait' must be a number, got 'x'$"),
-    (minimal(tests="  - {name: T, fresh: sometimes, steps: [back]}\n"), "Test 'T': fresh must be on or off"),
-    (minimal(tests="  - {name: T, fresh: true, steps: [back]}\n" * 2), "unique .*: T"),
-])
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ("", "must be a YAML mapping"),
+        ("app: [", "not valid YAML"),
+        (minimal().replace("app: a.apk\n", ""), "Missing `app:`"),
+        (minimal().replace("a.apk", "a.txt"), "Unknown app type"),
+        (minimal().replace("app: a.apk", "app: {android: b.aab, ios: a.apk}"), "app.ios points at a android build"),
+        (minimal().replace("app: a.apk", "app: {web: a.apk}"), "must be android and/or ios"),
+        (minimal(extra="extra: 1\n"), "Unknown top-level keys: extra"),
+        # device: required for every platform
+        (minimal(device=""), r"Missing `device:`.*e\.g\. \{android: Pixel 4a"),
+        (minimal(device="device: Pixel\n"), "must name a device per platform"),
+        (minimal(device="device: {web: x}\n"), "keys must be android and/or ios"),
+        (minimal(device="device: {android: P, ios: BH}\n"), "names an ios device, but `app` has no ios build"),
+        (minimal(device="device: {android: ''}\n"), "device.android needs text"),
+        (minimal(device="device: {android: []}\n"), "at least one device"),
+        (minimal(device="device: {android: [A, A]}\n"), "lists a device twice"),
+        (minimal(device="device: {}\n"), "`device` has no android device, but `app` has an android build"),
+        # tests
+        (minimal(tests="  []\n"), "No tests found"),
+        (minimal(tests="  - {name: T, steps: [back]}\n"), r"needs `name`, `fresh` \(true: start from a clean install"),
+        (minimal(tests="  - {fresh: true, steps: [back]}\n"), "needs `name`, `fresh`"),
+        (minimal(tests="  - {name: 7, fresh: true, steps: [back]}\n"), "Test #1 in t.yaml: name needs text"),
+        (minimal(tests="  - {name: T, fresh: true, steps: []}\n"), "at least one step"),
+        (minimal(tests="  - {name: T, fresh: true, steps: [back], tags: [x]}\n"), "unknown keys: tags"),
+        (
+            minimal(tests="  - {name: T, fresh: true, steps: [{wait: x}]}\n"),
+            r"Test 'T', step 1: 'wait' must be a number, got 'x'$",
+        ),
+        (minimal(tests="  - {name: T, fresh: sometimes, steps: [back]}\n"), "Test 'T': fresh must be on or off"),
+        (minimal(tests="  - {name: T, fresh: true, steps: [back]}\n" * 2), "unique .*: T"),
+    ],
+)
 def test_bad_files_are_rejected(tmp_path, body, message):
     with pytest.raises(TestFileError, match=message):
         load(write(tmp_path, body), {})
@@ -145,7 +167,10 @@ def test_every_problem_is_reported_at_once(tmp_path):
     lines = str(e.value).splitlines()
     assert lines[0] == "t.yaml has 3 problems:"
     assert [line.split(":")[0] for line in lines[1:]] == [
-        "  - Missing `device", "  - Test #1 in t.yaml needs `name`, `fresh` (true", "  - Test 'B', step 2"]
+        "  - Missing `device",
+        "  - Test #1 in t.yaml needs `name`, `fresh` (true",
+        "  - Test 'B', step 2",
+    ]
 
 
 def test_uses_are_checked_once_the_tests_are_valid(tmp_path):
@@ -156,7 +181,7 @@ def test_uses_are_checked_once_the_tests_are_valid(tmp_path):
 
 
 def test_unquoted_variable_in_braces_gets_a_hint(tmp_path):
-    with pytest.raises(TestFileError, match=r'(?s)not valid YAML.*\nA value starting with \$\{ must be quoted'):
+    with pytest.raises(TestFileError, match=r"(?s)not valid YAML.*\nA value starting with \$\{ must be quoted"):
         load(write(tmp_path, "app: a.apk\ndevice: {android: ${PHONE}}\n"), {})
 
 
@@ -166,40 +191,63 @@ def test_missing_file(tmp_path):
 
 
 def test_use_links_tests(tmp_path):
-    spec = load(write(tmp_path, minimal(tests="""
+    spec = load(
+        write(
+            tmp_path,
+            minimal(
+                tests="""
   - name: Sign in
     fresh: true
     steps: [{do: sign in}]
   - name: Counter
     fresh: false
     steps: [{use: Sign in}, {do: tap add, see: "Taps: 1"}]
-""")), {})
+"""
+            ),
+        ),
+        {},
+    )
     assert spec.tests[1].steps[0].action == Use("Sign in") and spec.library["Sign in"] is spec.tests[0]
     assert spec.tests[1].fresh is False
 
 
 def test_use_nests(tmp_path):
-    spec = load(write(tmp_path, minimal(tests="""
+    spec = load(
+        write(
+            tmp_path,
+            minimal(
+                tests="""
   - {name: A, fresh: true, steps: [back]}
   - {name: B, fresh: true, steps: [{use: A}]}
   - {name: C, fresh: true, steps: [{use: B}, {use: A}]}
-""")), {})
+"""
+            ),
+        ),
+        {},
+    )
     assert [s.action for s in spec.tests[2].steps] == [Use("B"), Use("A")]
 
 
-@pytest.mark.parametrize(("tests", "message"), [
-    ("  - {name: A, fresh: true, steps: [{use: Nope}]}\n", "no test has that name"),
-    ("  - {name: A, fresh: true, steps: [{use: A}]}\n", "loop: A -> A"),
-    ("  - {name: A, fresh: true, steps: [{use: B}]}\n  - {name: B, fresh: true, steps: [{use: A}]}\n",
-     "loop: A -> B -> A"),
-])
+@pytest.mark.parametrize(
+    ("tests", "message"),
+    [
+        ("  - {name: A, fresh: true, steps: [{use: Nope}]}\n", "no test has that name"),
+        ("  - {name: A, fresh: true, steps: [{use: A}]}\n", "loop: A -> A"),
+        (
+            "  - {name: A, fresh: true, steps: [{use: B}]}\n  - {name: B, fresh: true, steps: [{use: A}]}\n",
+            "loop: A -> B -> A",
+        ),
+    ],
+)
 def test_use_errors(tmp_path, tests, message):
     with pytest.raises(TestFileError, match=message):
         load(write(tmp_path, minimal(tests=tests)), {})
 
 
-@pytest.mark.parametrize(("name", "platform"), [
-    ("x.apk", "android"), ("x.AAB", "android"), ("x.app", "ios"), ("x.zip", "ios"), ("x.ipa", "ios")])
+@pytest.mark.parametrize(
+    ("name", "platform"),
+    [("x.apk", "android"), ("x.AAB", "android"), ("x.app", "ios"), ("x.zip", "ios"), ("x.ipa", "ios")],
+)
 def test_platform_of(name, platform):
     assert platform_of(Path(name)) == platform
 
@@ -211,14 +259,16 @@ def test_platform_of_unknown():
 
 # --- ${NAME} values ----------------------------------------------------------------------
 
-VARS = ("app: ${APP}\ndevice: {android: \"${PHONE}\"}\n" +
-        """tests:
+VARS = (
+    'app: ${APP}\ndevice: {android: "${PHONE}"}\n'
+    """tests:
   - name: Sign in
     fresh: true
     steps:
       - type: {text: "${PASSWORD}", into: Password}
         see: Hi ${USER_NAME}
-""")
+"""
+)
 
 
 def test_variables_come_from_env(tmp_path):
@@ -256,8 +306,9 @@ def test_included_tests_can_be_used_but_do_not_run(tmp_path):
     (tmp_path / "lib" / "auth.yaml").write_text("include: common.yaml\n" + LIB)
     (tmp_path / "lib" / "common.yaml").write_text("tests: [{name: Home, fresh: true, steps: [home]}]\n")
     tests = "  - {name: Counter, fresh: true, steps: [{use: Sign in}, {use: Home}]}\n"
-    spec = load(write(tmp_path, minimal(extra="include: [lib/auth.yaml, lib/common.yaml]\n", tests=tests)),
-                {"PASSWORD": "pw"})
+    spec = load(
+        write(tmp_path, minimal(extra="include: [lib/auth.yaml, lib/common.yaml]\n", tests=tests)), {"PASSWORD": "pw"}
+    )
     assert [t.name for t in spec.tests] == ["Counter"]
     assert [s.action for s in spec.tests[0].steps] == [Use("Sign in"), Use("Home")]
     assert set(spec.library) == {"Counter", "Sign in", "Home"}
@@ -265,17 +316,26 @@ def test_included_tests_can_be_used_but_do_not_run(tmp_path):
     assert [p.name for p in spec.includes] == ["common.yaml", "auth.yaml"]
 
 
-@pytest.mark.parametrize(("files", "message"), [
-    ({"a.yaml": "include: b.yaml\ntests: [{name: A, fresh: true, steps: [back]}]\n",
-      "b.yaml": "include: a.yaml\ntests: [{name: B, fresh: true, steps: [back]}]\n"},
-     "loop: t.yaml -> a.yaml -> b.yaml -> a.yaml"),
-    ({"a.yaml": "app: x.apk\ntests: [{name: A, fresh: true, steps: [back]}]\n"},
-     "can only have `include` and `tests`.*app"),
-    ({"a.yaml": "tests: [{name: T, fresh: true, steps: [back]}]\n"}, "unique .*: T"),
-    ({"a.yaml": "tests: []\n"}, "No tests found under `tests:` in a.yaml"),
-    ({"a.yaml": "include: 3\ntests: [{name: A, fresh: true, steps: [back]}]\n"}, "include in a.yaml needs text"),
-    ({}, "Test file not found: .*a.yaml"),
-])
+@pytest.mark.parametrize(
+    ("files", "message"),
+    [
+        (
+            {
+                "a.yaml": "include: b.yaml\ntests: [{name: A, fresh: true, steps: [back]}]\n",
+                "b.yaml": "include: a.yaml\ntests: [{name: B, fresh: true, steps: [back]}]\n",
+            },
+            "loop: t.yaml -> a.yaml -> b.yaml -> a.yaml",
+        ),
+        (
+            {"a.yaml": "app: x.apk\ntests: [{name: A, fresh: true, steps: [back]}]\n"},
+            "can only have `include` and `tests`.*app",
+        ),
+        ({"a.yaml": "tests: [{name: T, fresh: true, steps: [back]}]\n"}, "unique .*: T"),
+        ({"a.yaml": "tests: []\n"}, "No tests found under `tests:` in a.yaml"),
+        ({"a.yaml": "include: 3\ntests: [{name: A, fresh: true, steps: [back]}]\n"}, "include in a.yaml needs text"),
+        ({}, "Test file not found: .*a.yaml"),
+    ],
+)
 def test_bad_includes(tmp_path, files, message):
     for name, body in files.items():
         (tmp_path / name).write_text(body)

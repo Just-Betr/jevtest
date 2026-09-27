@@ -12,17 +12,31 @@ from jevtest.domain.steps import See
 
 TAP = parse_step({"tap": "X", "see": "X"})
 PASSED = TestResult("A", Status.PASS, 1.25, (StepResult(parse_step("back"), Status.PASS, 1.0),))
-FAILED = TestResult("B <x>", Status.FAIL, 2.0, (StepResult(
-    TAP, Status.FAIL, 2.0, "on button 'X'", decisions=(Decision(Finished(), 0.9, {"done": 0.9}),),
-    checks=(CheckResult(See("X"), Status.FAIL, "not on screen"),),
-    steps=(StepResult(parse_step("home"), Status.PASS, 0.1),), screenshot="001_FAIL_B.png"),))
+FAILED = TestResult(
+    "B <x>",
+    Status.FAIL,
+    2.0,
+    (
+        StepResult(
+            TAP,
+            Status.FAIL,
+            2.0,
+            "on button 'X'",
+            decisions=(Decision(Finished(), 0.9, {"done": 0.9}),),
+            checks=(CheckResult(See("X"), Status.FAIL, "not on screen"),),
+            steps=(StepResult(parse_step("home"), Status.PASS, 0.1),),
+            screenshot="001_FAIL_B.png",
+        ),
+    ),
+)
 LOGS = {"A": ["ok"], "B <x>": ["bad"]}
 
 
 def test_junit(tmp_path):
     path = tmp_path / "sub" / "junit.xml"
-    write_junit(path, [Suite("jevtest.ios", RunResult((PASSED, FAILED)), LOGS),
-                       Suite("jevtest.android", RunResult(()), {})])
+    write_junit(
+        path, [Suite("jevtest.ios", RunResult((PASSED, FAILED)), LOGS), Suite("jevtest.android", RunResult(()), {})]
+    )
     suite, other = ET.parse(path).getroot().findall("testsuite")
     assert other.attrib["name"] == "jevtest.android"
     assert suite.attrib == {"name": "jevtest.ios", "tests": "2", "failures": "1", "errors": "0", "time": "3.2"}
@@ -33,11 +47,16 @@ def test_junit(tmp_path):
 
 
 def test_json_report(tmp_path):
-    calls = [ModelCall({"screen": []}, {"a": Choice({"q": "?"}, {"x": "X"}), "b": YesNo({"q": "?"})},
-                       {"a": Picked("x", 1.0, {"x": 1.0}), "b": Probability(0.7)}, recorded=True)]
+    calls = [
+        ModelCall(
+            {"screen": []},
+            {"a": Choice({"q": "?"}, {"x": "X"}), "b": YesNo({"q": "?"})},
+            {"a": Picked("x", 1.0, {"x": 1.0}), "b": Probability(0.7)},
+            recorded=True,
+        )
+    ]
     start_failed = TestResult("C", Status.FAIL, 0.0, start_failure="locked", screenshot="002_FAIL_C.png")
-    write_report(tmp_path / "report.json", {"platform": "ios"}, RunResult((PASSED, FAILED, start_failed)), LOGS,
-                 calls)
+    write_report(tmp_path / "report.json", {"platform": "ios"}, RunResult((PASSED, FAILED, start_failed)), LOGS, calls)
     report = json.loads((tmp_path / "report.json").read_text())
     assert (report["platform"], report["passed"], report["failed"]) == ("ios", 1, 2)
     step = report["tests"][1]["steps"][0]
@@ -48,5 +67,7 @@ def test_json_report(tmp_path):
     assert report["tests"][2]["failure"] == "(start app) — locked" and report["tests"][2]["screenshot"]
     [call] = report["model_calls"]
     assert call["from_lockfile"] is True and call["answers"] == {
-        "a": {"choice": "x", "confidence": 1.0, "probabilities": {"x": 1.0}}, "b": {"yes": 0.7}}
+        "a": {"choice": "x", "confidence": 1.0, "probabilities": {"x": 1.0}},
+        "b": {"yes": 0.7},
+    }
     assert call["questions"]["a"]["choose_from"] == {"x": "X"} and call["questions"]["b"]["yes_or_no"] is True

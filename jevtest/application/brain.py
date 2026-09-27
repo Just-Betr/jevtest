@@ -39,7 +39,7 @@ CONFIRM = 0.5  # yes-probability needed to accept an element the model located
 
 ACTIONS = {
     "done": "The goal is already fully achieved. Pick this when `actions_taken` already did "
-            "everything the goal asks, or the screen already shows the result the goal wants.",
+    "everything the goal asks, or the screen already shows the result the goal wants.",
     "tap": "Tap (click, press, select, open, toggle) an element on the screen.",
     "double_tap": "Double tap an element. Only when the goal asks for a double tap.",
     "long_press": "Long press (press and hold) an element. Only when the goal asks to hold or long press.",
@@ -48,23 +48,29 @@ ACTIONS = {
     "type": "Type one of the goal's quoted values into a text field.",
     "clear": "Erase the existing text in a text field.",
     "scroll_down": "Scroll down: the element the goal needs is not in `screen` and may be further down "
-                   "(or under the keyboard).",
+    "(or under the keyboard).",
     "scroll_up": "Scroll up: the element the goal needs is not on screen and may be further up.",
     "scroll_left": "Scroll left to reveal content to the left.",
     "scroll_right": "Scroll right to reveal content to the right.",
     "back": "Go back to the previous screen, or dismiss the current dialog or menu.",
     "press_enter": "Press the Enter / Return key to submit what was typed.",
     "hide_keyboard": "Close the on-screen keyboard. It covers the lower part of the screen, so an element the goal "
-                     "needs that is not in `screen` may be hidden under it.",
+    "needs that is not in `screen` may be hidden under it.",
     "wait": "Wait: the screen is still loading or animating.",
     "impossible": "The goal cannot be achieved at all: the keyboard is closed, and neither scrolling nor going "
-                  "back could reveal what the goal needs.",
+    "back could reveal what the goal needs.",
 }
 TOUCH = {"tap": Gesture.TAP, "double_tap": Gesture.DOUBLE_TAP, "long_press": Gesture.LONG_PRESS}
 SWIPE_ON = {"swipe_left_on": Direction.LEFT, "swipe_right_on": Direction.RIGHT}
 SCROLL = {f"scroll_{d}": d for d in Direction}
-SIMPLE: dict[str, Move] = {"done": Finished(), "impossible": Impossible(), "wait": WaitForScreen(),
-                           "back": GoBack(), "press_enter": PressEnter(), "hide_keyboard": CloseKeyboard()}
+SIMPLE: dict[str, Move] = {
+    "done": Finished(),
+    "impossible": Impossible(),
+    "wait": WaitForScreen(),
+    "back": GoBack(),
+    "press_enter": PressEnter(),
+    "hide_keyboard": CloseKeyboard(),
+}
 
 
 def quoted_values(goal: str) -> list[str]:
@@ -174,23 +180,35 @@ def _offered_actions(screen: Screen, values: Sequence[str]) -> dict[str, str]:
 def _goal_questions(goal: str, screen: Screen, values: Sequence[str]) -> dict[str, Question]:
     """The questions for one move: the action, and the element, field and value it may need."""
     kinds = _offered_actions(screen, values)
-    questions: dict[str, Question] = {"action": Choice(
-        {"goal": goal, "question": "What is the single next action needed to achieve `goal`?"}, kinds)}
+    questions: dict[str, Question] = {
+        "action": Choice({"goal": goal, "question": "What is the single next action needed to achieve `goal`?"}, kinds)
+    }
     if screen.elements:
         questions["target"] = Choice(
-            {"goal": goal, "question": "If the next action toward `goal` is to tap, double tap, "
-                                       "long press or swipe an element, which element?"},
-            _element_options(screen, screen.elements))
+            {
+                "goal": goal,
+                "question": "If the next action toward `goal` is to tap, double tap, "
+                "long press or swipe an element, which element?",
+            },
+            _element_options(screen, screen.elements),
+        )
     if "type" in kinds or "clear" in kinds:
         questions["field"] = Choice(
-            {"goal": goal, "question": "If the next action toward `goal` is to type into or clear "
-                                       "a text field, which text field?"},
-            _element_options(screen, screen.editable))
+            {
+                "goal": goal,
+                "question": "If the next action toward `goal` is to type into or clear a text field, which text field?",
+            },
+            _element_options(screen, screen.editable),
+        )
     if "type" in kinds:
         questions["value"] = Choice(
-            {"goal": goal, "question": "Which value from `goal` should be typed next? "
-                                       "Skip values already typed in `actions_taken`."},
-            {f"v{i}": f'"{v}"' for i, v in enumerate(values)})
+            {
+                "goal": goal,
+                "question": "Which value from `goal` should be typed next? "
+                "Skip values already typed in `actions_taken`.",
+            },
+            {f"v{i}": f'"{v}"' for i, v in enumerate(values)},
+        )
     return questions
 
 
@@ -214,8 +232,9 @@ class Brain:
         questions = _goal_questions(goal, screen, values)
         answers = self.model.ask(_state(screen, actions_taken=list(actions_taken) or ["(none yet)"]), questions)
         action = _picked(answers["action"])
-        return Decision(self._move(action.choice, answers, screen, values), action.confidence,
-                        dict(action.probabilities))
+        return Decision(
+            self._move(action.choice, answers, screen, values), action.confidence, dict(action.probabilities)
+        )
 
     @staticmethod
     def _move(action: str, answers: Mapping[str, Answer], screen: Screen, values: Sequence[str]) -> Move:
@@ -251,17 +270,36 @@ class Brain:
         """The model picks the element `target` describes from `pool`, then must confirm it."""
         options = _element_options(screen, pool)
         options["not_on_screen"] = "No element on the screen is `target`."
-        pick = _picked(self.model.ask(_state(screen), {"element": Choice(
-            {"target": target, "question": "Which element on the screen is `target`?"}, options)})["element"])
+        pick = _picked(
+            self.model.ask(
+                _state(screen),
+                {
+                    "element": Choice(
+                        {"target": target, "question": "Which element on the screen is `target`?"}, options
+                    )
+                },
+            )["element"]
+        )
         if pick.choice == "not_on_screen":
             return None
-        confirm = self.model.ask(_state(screen), {"is_target": YesNo(
-            {"target": target, "element": options[pick.choice],
-             "question": "Is `element` the element described by `target`?"})})
+        confirm = self.model.ask(
+            _state(screen),
+            {
+                "is_target": YesNo(
+                    {
+                        "target": target,
+                        "element": options[pick.choice],
+                        "question": "Is `element` the element described by `target`?",
+                    }
+                )
+            },
+        )
         return screen.by_id(pick.choice) if _yes(confirm["is_target"]) > CONFIRM else None
 
     def check(self, statement: str, screen: Screen) -> float:
         """The model's probability that `statement` is true of the screen."""
-        answers = self.model.ask(_state(screen), {"check": YesNo(
-            {"statement": statement, "question": "Is `statement` true of the current `screen`?"})})
+        answers = self.model.ask(
+            _state(screen),
+            {"check": YesNo({"statement": statement, "question": "Is `statement` true of the current `screen`?"})},
+        )
         return _yes(answers["check"])

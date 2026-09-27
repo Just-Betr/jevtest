@@ -95,8 +95,10 @@ def read_yaml(path: Path) -> Document:
     except yaml.YAMLError as e:
         hint = ""
         if "${" in str(e):
-            hint = ('\nA value starting with ${ must be quoted inside { } or [ ]: {android: "${PHONE}"}, '
-                    'not {android: ${PHONE}}')
+            hint = (
+                '\nA value starting with ${ must be quoted inside { } or [ ]: {android: "${PHONE}"}, '
+                "not {android: ${PHONE}}"
+            )
         raise TestFileError(f"{path.name} is not valid YAML: {e}{hint}") from None
     if not isinstance(data, dict):
         raise TestFileError(f"{path.name} must be a YAML mapping")
@@ -139,8 +141,9 @@ def load(path: str | Path, env: Mapping[str, str]) -> Suite:
     shared = [t for lib, doc in libraries.items() for t in _tests(doc.get("tests"), lib.name, settings, problems)]
     _check_names(tests + shared, problems)
     problems.check(path.name)
-    return Suite(path, apps, devices, tuple(tests), {t.name: t for t in tests + shared}, variables,
-                 tuple(libraries), settings)
+    return Suite(
+        path, apps, devices, tuple(tests), {t.name: t for t in tests + shared}, variables, tuple(libraries), settings
+    )
 
 
 def _names(keys: Iterable[object]) -> str:
@@ -148,6 +151,7 @@ def _names(keys: Iterable[object]) -> str:
 
 
 # --- app, device, settings ---------------------------------------------------------------------------------------
+
 
 def _apps(raw: object, base: Path) -> dict[Platform, Path]:
     if raw is None:
@@ -165,8 +169,9 @@ def _apps(raw: object, base: Path) -> dict[Platform, Path]:
     return apps
 
 
-def _devices(raw: object, apps: Mapping[Platform, Path],
-             variables: Mapping[str, str]) -> dict[Platform, tuple[str, ...]]:
+def _devices(
+    raw: object, apps: Mapping[Platform, Path], variables: Mapping[str, str]
+) -> dict[Platform, tuple[str, ...]]:
     """Which device(s) each platform runs on. Several devices share the tests and run at the same time."""
     if raw is None:
         raise TestFileError(f"Missing `device:`. Name the device for each platform in `app:`, e.g. {DEVICE_EXAMPLE}")
@@ -178,13 +183,15 @@ def _devices(raw: object, apps: Mapping[Platform, Path],
     devices = {Platform(key): _device_names(key, names, apps, variables) for key, names in raw.items()}
     missing = [p.value for p in apps if p not in devices]
     if missing:
-        raise TestFileError(f"`device` has no {' or '.join(missing)} device, "
-                            f"but `app` has an {' and '.join(missing)} build")
+        raise TestFileError(
+            f"`device` has no {' or '.join(missing)} device, but `app` has an {' and '.join(missing)} build"
+        )
     return devices
 
 
-def _device_names(key: str, names: object, apps: Mapping[Platform, Path],
-                  variables: Mapping[str, str]) -> tuple[str, ...]:
+def _device_names(
+    key: str, names: object, apps: Mapping[Platform, Path], variables: Mapping[str, str]
+) -> tuple[str, ...]:
     if Platform(key) not in apps:
         raise TestFileError(f"`device` names an {key} device, but `app` has no {key} build")
     listed = names if isinstance(names, list) else [names]
@@ -202,8 +209,9 @@ def _settings(raw: object, problems: Problems) -> Settings:
         return DEFAULTS
     allowed = ["model", *sorted(STEP_SETTINGS)]
     if not isinstance(raw, dict) or not raw:
-        problems.add(f"`settings` must be a mapping of {', '.join(allowed)}; got {raw!r} "
-                     "(leave it out to use the defaults)")
+        problems.add(
+            f"`settings` must be a mapping of {', '.join(allowed)}; got {raw!r} (leave it out to use the defaults)"
+        )
         return DEFAULTS
     settings, changes = DEFAULTS, dict[str, float]()
     for name, value in raw.items():
@@ -218,6 +226,7 @@ def _settings(raw: object, problems: Problems) -> Settings:
 
 
 # --- tests -------------------------------------------------------------------------------------------------------
+
 
 def _tests(raw: object, where: str, settings: Settings, problems: Problems) -> list[Test]:
     """The tests under `tests:`. Every bad test and bad step is a problem, so all are reported."""
@@ -236,8 +245,10 @@ def _tests(raw: object, where: str, settings: Settings, problems: Problems) -> l
 def _test(raw: object, where: str, settings: Settings, problems: Problems) -> Test | None:
     """One test, or None when a step is bad (each bad step is a problem)."""
     if not isinstance(raw, dict) or not raw.keys() >= TEST_KEYS:
-        raise TestFileError(f"{where} needs `name`, `fresh` (true: start from a clean install, "
-                            "false: carry on from the previous test) and `steps`")
+        raise TestFileError(
+            f"{where} needs `name`, `fresh` (true: start from a clean install, "
+            "false: carry on from the previous test) and `steps`"
+        )
     name = text(raw["name"], f"{where}: name")
     unknown = raw.keys() - TEST_KEYS
     if unknown:
@@ -289,6 +300,7 @@ def _uses(test: Test) -> list[str]:
 
 # --- include and ${NAME} -----------------------------------------------------------------------------------------
 
+
 def _included(data: Document, path: Path, chain: tuple[Path, ...]) -> dict[Path, Document]:
     """The library files a test file includes (and those include), in order, each once."""
     raw = data.get("include") or []
@@ -300,8 +312,10 @@ def _included(data: Document, path: Path, chain: tuple[Path, ...]) -> dict[Path,
         doc = read_yaml(lib)
         unknown = doc.keys() - LIBRARY_TOP_LEVEL
         if unknown:
-            raise TestFileError(f"{lib.name} is included, so it can only have `include` and `tests` "
-                                f"(found {_names(unknown)}); its tests run with the settings of the file being run")
+            raise TestFileError(
+                f"{lib.name} is included, so it can only have `include` and `tests` "
+                f"(found {_names(unknown)}); its tests run with the settings of the file being run"
+            )
         for nested, nested_doc in [*_included(doc, lib, (*chain, lib)).items(), (lib, doc)]:
             found.setdefault(nested, nested_doc)
     return found
@@ -323,8 +337,10 @@ def _variables(documents: Sequence[Document], env: Mapping[str, str]) -> dict[st
     names = sorted({name for doc in documents for s in _strings(doc) for name in VARIABLE.findall(s)})
     missing = [n for n in names if n not in env]
     if missing:
-        raise TestFileError(f"Not set: {', '.join('${' + n + '}' for n in missing)}. "
-                            "Add them to .env next to the test file, or to the environment (e.g. CI secrets)")
+        raise TestFileError(
+            f"Not set: {', '.join('${' + n + '}' for n in missing)}. "
+            "Add them to .env next to the test file, or to the environment (e.g. CI secrets)"
+        )
     return {n: env[n] for n in names}
 
 

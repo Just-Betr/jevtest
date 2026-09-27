@@ -64,13 +64,22 @@ line-length = 120
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "C90", "D", "N", "PL", "PERF", "PT", "RET", "RUF", "TRY"]
+select = ["ALL"]
 ignore = [
+    # Deliberate choices, each with its reason:
     "D105",    # magic methods explain themselves
     "D107",    # __init__ arguments are documented on the class
-    "TRY003",  # messages say what to fix, and are written where the knowledge is
+    "TRY003",  # an error message says what to fix, so it's written where the knowledge is
+    "EM101",   # (same) messages are written at the raise, not assigned to a variable first
+    "EM102",   # (same)
     "PLR0913", # constructors take their collaborators explicitly
     "N818",    # StepFailed is a test failure, not an error: the domain names the difference
+    "TC001",   # `from __future__ import annotations` everywhere: typing-only imports cost nothing at runtime,
+    "TC002",   # and keeping every import at the top reads better than TYPE_CHECKING blocks
+    "TC003",
+    "CPY001",  # the licence is in LICENSE, not in a header on every file
+    "S603",    # subprocess always gets an argument list, never a shell string
+    "COM812",  # conflicts with the formatter
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -80,7 +89,21 @@ convention = "google"
 max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["D", "PLR2004", "PLR0915", "PLR0917", "PT011", "C90", "PLC0415", "RUF043", "PT018"]
+"jevtest/cli/**" = ["T201"]  # the command line prints
+"jevtest/domain/kinds.py" = ["S105"]  # Status.PASS is a test outcome, not a password
+# URLs are built by jevtest (the agents on localhost, the Jev API), never taken from input
+"jevtest/adapters/devices/{android,ios}.py" = ["S310"]
+"jevtest/adapters/jev/client.py" = ["S310"]
+# The XML is the Android agent's own dump; Python's expat never resolves external entities
+"jevtest/adapters/devices/{android,android_screen}.py" = ["S314"]
+"tests/**" = [
+    "D", "ANN", "S101", "PLR2004", "PLR0915", "PLR0917", "PT011", "C90", "PLC0415", "RUF043", "PT018",
+    "ARG", "SLF001", "FBT", "INP001", "S108", "S105", "S106", "S314", "PLW0108", "N802", "E501",
+]
+
+[tool.ruff.format]
+line-ending = "lf"
+exclude = ["*.md"]  # the docs hold hand-aligned sketches, not code to format
 
 [tool.mypy]
 strict = true

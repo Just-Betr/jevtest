@@ -43,10 +43,15 @@ def test_timeout():
 
 # --- agents: start on their ready signal, stop cleanly ------------------------------------------
 
+
 def test_start_process_returns_when_ready(tmp_path):
     log = tmp_path / "logs" / "agent.log"
-    proc = start_process(py("import time; print('booting'); print('READY now', flush=True); time.sleep(30)"),
-                         ready="READY", log=log, timeout=10)
+    proc = start_process(
+        py("import time; print('booting'); print('READY now', flush=True); time.sleep(30)"),
+        ready="READY",
+        log=log,
+        timeout=10,
+    )
     try:
         assert proc.poll() is None
         assert "booting" in log.read_text()
@@ -62,8 +67,10 @@ def test_start_process_reports_an_early_exit(tmp_path):
 
 def test_log_errors_shows_the_error_lines(tmp_path):
     log = tmp_path / "a.log"
-    log.write_text("building\n    t = 1.0s Ignoring failure to get hierarchy\nTesting failed:\n\terror: no signing\n"
-                   "Testing failed:\nnoise\n")
+    log.write_text(
+        "building\n    t = 1.0s Ignoring failure to get hierarchy\nTesting failed:\n\terror: no signing\n"
+        "Testing failed:\nnoise\n"
+    )
     assert log_errors(log) == f"Its log says:\n  Testing failed:\n  error: no signing\nFull log: {log}"
 
 
@@ -73,8 +80,12 @@ def test_start_process_times_out(tmp_path):
 
 
 def test_stop_process_kills_what_ignores_terminate():
-    proc = subprocess.Popen(py("import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
-                               "print('x', flush=True); time.sleep(60)"), stdout=subprocess.PIPE)
+    proc = subprocess.Popen(
+        py(
+            "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print('x', flush=True); time.sleep(60)"
+        ),
+        stdout=subprocess.PIPE,
+    )
     proc.stdout.readline()  # handler installed
 
     class Impatient:  # same process, shorter wait so the test is fast
@@ -83,6 +94,7 @@ def test_stop_process_kills_what_ignores_terminate():
 
         def wait(self, timeout):
             return proc.wait(0.2)
+
     stop_process(Impatient())
     assert proc.wait(5) is not None
 

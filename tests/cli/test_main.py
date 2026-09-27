@@ -11,8 +11,7 @@ from jevtest.cli import main as cli
 from jevtest.cli.run import slug
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Platform
-
-from ..conftest import FakeDevice, act, screen_with, yes
+from tests.conftest import FakeDevice, act, screen_with, yes
 
 TWO_TESTS = """  - name: Sign in
     fresh: true
@@ -27,8 +26,15 @@ TWO_TESTS = """  - name: Sign in
 """
 
 
-def spec_file(folder, rel="t.yaml", *, tests="  - {name: T, fresh: true, steps: [back]}\n",
-              device="device: {android: emulator-5554}\n", app="app: a.apk\n", extra=""):
+def spec_file(
+    folder,
+    rel="t.yaml",
+    *,
+    tests="  - {name: T, fresh: true, steps: [back]}\n",
+    device="device: {android: emulator-5554}\n",
+    app="app: a.apk\n",
+    extra="",
+):
     f = folder / rel
     f.parent.mkdir(parents=True, exist_ok=True)
     (f.parent / "a.apk").write_text("")
@@ -53,8 +59,7 @@ class FakeJevClient:
     @staticmethod
     def _first_option(question):
         """Real Jev answers every question; a test only scripts the ones it cares about."""
-        return {"type": "choice", "choice": next(iter(question["criteria"])), "confidence": 1.0,
-                "probabilities": {}}
+        return {"type": "choice", "choice": next(iter(question["criteria"])), "confidence": 1.0, "probabilities": {}}
 
 
 class Fakes:
@@ -83,8 +88,9 @@ class Fakes:
         return self.clients
 
     def run(self, *args, files=("t.yaml",), lock="record"):
-        return cli.main(["run", *files, "--out", "res", "--lock", lock, *args],
-                        devices=self._device, client=self.client)
+        return cli.main(
+            ["run", *files, "--out", "res", "--lock", lock, *args], devices=self._device, client=self.client
+        )
 
     def _device(self, platform, device, app, progress):
         return self.make_device(platform, device, app, progress)  # looked up per call: tests swap it
@@ -109,6 +115,7 @@ def stamp_of(tmp_path):
 
 
 # --- one file ---------------------------------------------------------------------------------------
+
 
 def test_run_writes_report_junit_and_lockfile(project, fakes, capsys):
     clients = fakes.script(act("done"), yes(0.95))
@@ -141,8 +148,11 @@ def test_second_run_replays_lockfile_without_jev(project, fakes, capsys):
 
 
 def test_the_files_model_asks_jev_and_is_reported(tmp_path, monkeypatch, fakes, capsys):
-    spec_file(tmp_path, tests="  - {name: T, fresh: true, steps: [{expect: Home is showing}]}\n",
-              extra="settings: {model: typesafe/jev-2}\n")
+    spec_file(
+        tmp_path,
+        tests="  - {name: T, fresh: true, steps: [{expect: Home is showing}]}\n",
+        extra="settings: {model: typesafe/jev-2}\n",
+    )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     fakes.script(yes(0.95))
@@ -170,11 +180,14 @@ def test_all_pass_exits_zero(project, fakes, capsys):
     assert "jev action: done" in out and f"jevtest {__version__} · android · emulator-5554" in out
 
 
-@pytest.mark.parametrize(("args", "message"), [
-    (["run", "t.yaml", "--out", "res"], "the following arguments are required: --lock"),
-    (["run", "t.yaml", "--lock", "record"], "the following arguments are required: --out"),
-    (["run", "t.yaml", "--out", "res", "--lock", "maybe"], "invalid choice: 'maybe'"),
-])
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (["run", "t.yaml", "--out", "res"], "the following arguments are required: --lock"),
+        (["run", "t.yaml", "--lock", "record"], "the following arguments are required: --out"),
+        (["run", "t.yaml", "--out", "res", "--lock", "maybe"], "invalid choice: 'maybe'"),
+    ],
+)
 def test_lock_and_out_must_be_given(project, capsys, args, message):
     with pytest.raises(SystemExit) as e:
         cli.main(args)
@@ -183,8 +196,11 @@ def test_lock_and_out_must_be_given(project, capsys, args, message):
 
 def test_the_file_chooses_platforms_and_devices(tmp_path, monkeypatch, fakes, capsys):
     (tmp_path / "A.app").mkdir()
-    spec_file(tmp_path, app="app: {android: a.apk, ios: A.app}\n",
-              device="device: {android: emulator-5554, ios: iPhone 17 Pro}\n")
+    spec_file(
+        tmp_path,
+        app="app: {android: a.apk, ios: A.app}\n",
+        device="device: {android: emulator-5554, ios: iPhone 17 Pro}\n",
+    )
     monkeypatch.chdir(tmp_path)
     asked = []
 
@@ -194,8 +210,10 @@ def test_the_file_chooses_platforms_and_devices(tmp_path, monkeypatch, fakes, ca
 
     fakes.make_device = make_device
     assert fakes.run() == 0
-    assert sorted(asked) == [(Platform.ANDROID, "emulator-5554", tmp_path / "a.apk"),
-                             (Platform.IOS, "iPhone 17 Pro", tmp_path / "A.app")]
+    assert sorted(asked) == [
+        (Platform.ANDROID, "emulator-5554", tmp_path / "a.apk"),
+        (Platform.IOS, "iPhone 17 Pro", tmp_path / "A.app"),
+    ]
     assert sorted(p.name for p in stamp_of(tmp_path).iterdir()) == ["android", "ios", "junit.xml"]
     out = capsys.readouterr().out
     assert "[android · emulator-5554] 1/1 passed" in out and "[ios · iPhone 17 Pro] 1/1 passed" in out
@@ -274,13 +292,19 @@ def test_only_the_env_next_to_the_test_file_is_read(tmp_path, monkeypatch, fakes
 
 # --- folders -----------------------------------------------------------------------------------------
 
+
 def test_running_a_folder(tmp_path, monkeypatch, fakes, capsys):
-    spec_file(tmp_path, "suite/login.yaml", tests="  - {name: Login, fresh: true, steps: [{use: Home}]}\n",
-              extra="include: shared/nav.yaml\n")
+    spec_file(
+        tmp_path,
+        "suite/login.yaml",
+        tests="  - {name: Login, fresh: true, steps: [{use: Home}]}\n",
+        extra="include: shared/nav.yaml\n",
+    )
     (tmp_path / "suite" / "shared").mkdir()
     (tmp_path / "suite" / "shared" / "nav.yaml").write_text("tests: [{name: Home, fresh: true, steps: [home]}]\n")
-    spec_file(tmp_path, "suite/cart/checkout.yaml",
-              tests="  - {name: Pay, fresh: true, steps: [{see: Nope, timeout: 1}]}\n")
+    spec_file(
+        tmp_path, "suite/cart/checkout.yaml", tests="  - {name: Pay, fresh: true, steps: [{see: Nope, timeout: 1}]}\n"
+    )
     monkeypatch.chdir(tmp_path)
     assert fakes.run(files=("suite",)) == 1
     out = capsys.readouterr().out
@@ -325,6 +349,7 @@ def test_each_file_gets_its_own_env(tmp_path, monkeypatch, fakes, capsys):
 
 # --- several devices ------------------------------------------------------------------------------------
 
+
 def test_tests_are_split_across_devices_and_run_at_once(tmp_path, monkeypatch, fakes, capsys):
     tests = "".join(f"  - {{name: T{i}, fresh: true, steps: [back]}}\n" for i in range(3))
     f = spec_file(tmp_path, tests=tests, device="device: {android: [Pixel 4a, Pixel 8, Pixel 9, Pixel 10]}\n")
@@ -347,8 +372,7 @@ def test_tests_are_split_across_devices_and_run_at_once(tmp_path, monkeypatch, f
 
 
 @pytest.mark.parametrize(("error", "code"), [(DeviceError("no such phone"), 2), (RuntimeError("bug"), None)])
-def test_a_device_that_fails_to_start_is_reported_after_the_others(tmp_path, monkeypatch, fakes, capsys, error,
-                                                                   code):
+def test_a_device_that_fails_to_start_is_reported_after_the_others(tmp_path, monkeypatch, fakes, capsys, error, code):
     tests = "  - {name: A, fresh: true, steps: [back]}\n  - {name: B, fresh: true, steps: [back]}\n"
     f = spec_file(tmp_path, tests=tests, device="device: {android: [Good, Bad]}\n")
     monkeypatch.chdir(tmp_path)
@@ -374,6 +398,7 @@ def test_slug():
 
 
 # --- pruning the lockfile ----------------------------------------------------------------------------
+
 
 def test_prune_lock_after_a_passing_run(project, fakes, capsys):
     fakes.script(act("done"), yes(0.95))
@@ -403,6 +428,7 @@ def test_prune_lock_needs_a_full_run_with_a_lockfile(project, fakes, capsys, arg
 
 # --- wiring -------------------------------------------------------------------------------------------
 
+
 def test_make_device_picks_the_platform(monkeypatch):
     monkeypatch.setattr(cli, "AndroidDevice", lambda d, progress: ("android", d))
     monkeypatch.setattr(cli, "IOSDevice", lambda d, app, progress: ("ios", d, app))
@@ -425,6 +451,7 @@ def test_version(capsys):
 
 def test_module_entry_point(monkeypatch):
     import runpy
+
     monkeypatch.setattr("sys.argv", ["jevtest", "run", "missing.yaml", "--lock", "off", "--out", "x"])
     with pytest.raises(SystemExit) as exit_info:
         runpy.run_module("jevtest", run_name="__main__")

@@ -13,11 +13,23 @@ from collections.abc import Callable, Mapping
 from jevtest.domain.screen import Element, Screen
 
 KINDS: Mapping[str, str] = {
-    "EditText": "text_field", "AutoCompleteTextView": "text_field", "Button": "button",
-    "ImageButton": "button", "CheckBox": "checkbox", "Switch": "switch", "ToggleButton": "switch",
-    "RadioButton": "radio", "ImageView": "image", "TextView": "text", "SeekBar": "slider",
-    "ProgressBar": "progress", "Spinner": "dropdown", "WebView": "webview",
-    "RecyclerView": "list", "ListView": "list", "ScrollView": "scroll_view",
+    "EditText": "text_field",
+    "AutoCompleteTextView": "text_field",
+    "Button": "button",
+    "ImageButton": "button",
+    "CheckBox": "checkbox",
+    "Switch": "switch",
+    "ToggleButton": "switch",
+    "RadioButton": "radio",
+    "ImageView": "image",
+    "TextView": "text",
+    "SeekBar": "slider",
+    "ProgressBar": "progress",
+    "Spinner": "dropdown",
+    "WebView": "webview",
+    "RecyclerView": "list",
+    "ListView": "list",
+    "ScrollView": "scroll_view",
 }
 """Android view classes, in jevtest's words."""
 
@@ -43,8 +55,13 @@ def parse_screen(xml: str, size: Size) -> Screen:
     """The screen the XML describes, at the size its rotation gives."""
     root = ET.fromstring(xml)
     width, height = size(int(root.get("rotation", "0")))
-    return Screen(width=width, height=height, elements=tuple(parse_hierarchy(root, width, height)),
-                  keyboard_visible=keyboard_up(root), keyboard_top=int(root.get("ime-top", "0")))
+    return Screen(
+        width=width,
+        height=height,
+        elements=tuple(parse_hierarchy(root, width, height)),
+        keyboard_visible=keyboard_up(root),
+        keyboard_top=int(root.get("ime-top", "0")),
+    )
 
 
 def keyboard_up(root: ET.Element) -> bool:
@@ -54,8 +71,10 @@ def keyboard_up(root: ET.Element) -> bool:
 
 def has_empty_webview(xml: str) -> bool:
     """Whether a WebView is on screen with no content yet (its page reaches the tree a moment later)."""
-    return any(node.get("class") == "android.webkit.WebView" and node.find(".//node") is None
-               for node in ET.fromstring(xml).iter("node"))
+    return any(
+        node.get("class") == "android.webkit.WebView" and node.find(".//node") is None
+        for node in ET.fromstring(xml).iter("node")
+    )
 
 
 def parse_hierarchy(root: ET.Element, width: int, height: int) -> list[Element]:
@@ -79,10 +98,17 @@ def _element(a: Attributes, width: int, height: int) -> Element | None:
         return None  # nothing a test could find it by or do with it
     return Element(
         kind=_kind(cls, clickable=clickable, password=editable and _true(a, "password")),
-        text=" ".join(label.split()), hint=a.get("hint", ""), resource_id=rid, bounds=bounds,
-        enabled=a.get("enabled", "true") == "true", editable=editable, clickable=clickable,
-        scrollable=_true(a, "scrollable"), focused=_true(a, "focused"),
-        checked=_true(a, "checked") if checkable else None, selected=_true(a, "selected"),
+        text=" ".join(label.split()),
+        hint=a.get("hint", ""),
+        resource_id=rid,
+        bounds=bounds,
+        enabled=a.get("enabled", "true") == "true",
+        editable=editable,
+        clickable=clickable,
+        scrollable=_true(a, "scrollable"),
+        focused=_true(a, "focused"),
+        checked=_true(a, "checked") if checkable else None,
+        selected=_true(a, "selected"),
         value=text if editable else "",
     )
 

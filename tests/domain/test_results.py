@@ -11,8 +11,12 @@ def test_a_passing_step_has_no_failure():
 
 
 def test_the_failure_is_the_first_failing_check():
-    step = StepResult(BACK, Status.FAIL, 1.0, checks=(CheckResult(See("A"), Status.PASS),
-                                                      CheckResult(NotSee("B"), Status.FAIL, "still on screen")))
+    step = StepResult(
+        BACK,
+        Status.FAIL,
+        1.0,
+        checks=(CheckResult(See("A"), Status.PASS), CheckResult(NotSee("B"), Status.FAIL, "still on screen")),
+    )
     assert step.failure == "not_see: B — still on screen"
 
 

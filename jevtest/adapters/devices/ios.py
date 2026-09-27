@@ -41,8 +41,13 @@ APP_WAIT = 10.0
 AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator or phone
 # XCUIApplication.State raw values.
 # XCUIApplication.State: unknown, notRunning, runningBackgroundSuspended, runningBackground, runningForeground
-APP_STATES = {0: AppState.NOT_RUNNING, 1: AppState.NOT_RUNNING, 2: AppState.BACKGROUND, 3: AppState.BACKGROUND,
-              4: AppState.FOREGROUND}
+APP_STATES = {
+    0: AppState.NOT_RUNNING,
+    1: AppState.NOT_RUNNING,
+    2: AppState.BACKGROUND,
+    3: AppState.BACKGROUND,
+    4: AppState.FOREGROUND,
+}
 
 
 def simctl(*args: str, timeout: float = 120, check: bool = True) -> str:
@@ -85,27 +90,41 @@ def simulators() -> list[Simulator]:
     what = "simctl list devices"
     by_runtime = as_object(dig(parse_json(simctl("list", "devices", "available", "-j"), what), "devices"), what)
     runtimes = sorted((r for r in by_runtime if ".iOS-" in r), key=_runtime_version, reverse=True)
-    return [sim for r in runtimes
-            for sim in sorted((_simulator(d, r) for d in as_list(by_runtime[r], what)),
-                              key=lambda d: (d["name"], d["udid"]))]
+    return [
+        sim
+        for r in runtimes
+        for sim in sorted(
+            (_simulator(d, r) for d in as_list(by_runtime[r], what)), key=lambda d: (d["name"], d["udid"])
+        )
+    ]
 
 
 def _simulator(raw: object, runtime: str) -> Simulator:
     d = as_object(raw, "a simctl device")
-    return {"udid": as_text(d.get("udid"), "a simulator's udid"), "name": as_text(d.get("name"), "a simulator's name"),
-            "state": as_text(d.get("state"), "a simulator's state"), "runtime": runtime.rsplit(".", 1)[-1]}
+    return {
+        "udid": as_text(d.get("udid"), "a simulator's udid"),
+        "name": as_text(d.get("name"), "a simulator's name"),
+        "state": as_text(d.get("state"), "a simulator's state"),
+        "runtime": runtime.rsplit(".", 1)[-1],
+    }
 
 
 def phones() -> list[Phone]:
     """Real iPhones connected to this Mac (paired, with a live connection)."""
     listed = as_list(devicectl("list", "devices").get("devices", []), "devicectl's device list")
-    return [{"udid": text_at(d, "hardwareProperties", "udid"), "name": text_at(d, "deviceProperties", "name")}
-            for d in listed if _connected_iphone(d)]
+    return [
+        {"udid": text_at(d, "hardwareProperties", "udid"), "name": text_at(d, "deviceProperties", "name")}
+        for d in listed
+        if _connected_iphone(d)
+    ]
 
 
 def _connected_iphone(d: object) -> bool:
-    return (text_at(d, "hardwareProperties", "reality"), text_at(d, "hardwareProperties", "platform"),
-            text_at(d, "connectionProperties", "tunnelState")) == ("physical", "iOS", "connected")
+    return (
+        text_at(d, "hardwareProperties", "reality"),
+        text_at(d, "hardwareProperties", "platform"),
+        text_at(d, "connectionProperties", "tunnelState"),
+    ) == ("physical", "iOS", "connected")
 
 
 @dataclass(frozen=True)
@@ -126,11 +145,13 @@ def find_target(wanted: str) -> Target:
     matches = [t for t in running if wanted in (t.udid, t.name)]
     if not matches:
         listed = ", ".join(f"{t.name} ({t.udid})" for t in running) or "none"
-        raise DeviceError(f"No booted simulator or connected iPhone called '{wanted}' (names are exact). "
-                          f"Running: {listed}")
+        raise DeviceError(
+            f"No booted simulator or connected iPhone called '{wanted}' (names are exact). Running: {listed}"
+        )
     if len(matches) > 1:
-        raise DeviceError(f"Several devices are called '{wanted}' ({', '.join(t.udid for t in matches)}): "
-                          "name one by its UDID")
+        raise DeviceError(
+            f"Several devices are called '{wanted}' ({', '.join(t.udid for t in matches)}): name one by its UDID"
+        )
     return matches[0]
 
 
@@ -149,9 +170,11 @@ def xcode_team(team: str) -> str:
     ids = sorted({text_at(t, "teamID") for account in accounts.values() for t in as_list(account, what)} - {""})
     if team not in ids:
         signed_in = ", ".join(ids) or "none"
-        raise DeviceError(f"The app is signed by team {team}, which is not signed into Xcode (signed in: "
-                          f"{signed_in}). jevtest signs its agent with the app's team: in Xcode, Settings > "
-                          "Accounts, add the Apple Account for that team.")
+        raise DeviceError(
+            f"The app is signed by team {team}, which is not signed into Xcode (signed in: "
+            f"{signed_in}). jevtest signs its agent with the app's team: in Xcode, Settings > "
+            "Accounts, add the Apple Account for that team."
+        )
     return team
 
 
@@ -174,12 +197,15 @@ def app_team(app: Path) -> str:
     """The Apple team that signed a device build: jevtest signs its agent with the same team."""
     prof = profile(app)
     if prof is None:
-        raise DeviceError(f"{app.name} is not signed for a real iPhone (it has no provisioning profile). "
-                          "Build it for the device, signed with your team.")
+        raise DeviceError(
+            f"{app.name} is not signed for a real iPhone (it has no provisioning profile). "
+            "Build it for the device, signed with your team."
+        )
     teams = texts(prof.get("TeamIdentifier", []), f"{app.name}'s team")
     if len(teams) != 1:
-        raise DeviceError(f"{app.name}'s provisioning profile names {len(teams)} teams ({', '.join(teams)}); "
-                          "expected one")
+        raise DeviceError(
+            f"{app.name}'s provisioning profile names {len(teams)} teams ({', '.join(teams)}); expected one"
+        )
     return teams[0]
 
 
@@ -210,8 +236,9 @@ def app_bundle(app_path: Path, workdir: Path) -> Path:
 
 def http_post(url: str, body: Mapping[str, object], timeout: float) -> Object:
     """A POST to the agent; its JSON reply."""
-    req = urllib.request.Request(url, method="POST", data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(
+        url, method="POST", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
+    )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw: bytes = resp.read()
     return as_object(parse_json(raw, "the iOS agent's reply"), "the iOS agent's reply")
@@ -247,9 +274,23 @@ class IOSDevice(BaseDevice):
     # --- agent ------------------------------------------------------------------
     def _xcodebuild(self, out: Path, destination: str, signing: list[str]) -> None:
         """Build the agent for `destination` into `out`."""
-        run(["xcodebuild", "build-for-testing", "-project", str(AGENT_SRC / "JevAgent.xcodeproj"),
-             "-scheme", "JevAgent", "-destination", destination, "-derivedDataPath", str(out), "-quiet", *signing],
-            timeout=900)
+        run(
+            [
+                "xcodebuild",
+                "build-for-testing",
+                "-project",
+                str(AGENT_SRC / "JevAgent.xcodeproj"),
+                "-scheme",
+                "JevAgent",
+                "-destination",
+                destination,
+                "-derivedDataPath",
+                str(out),
+                "-quiet",
+                *signing,
+            ],
+            timeout=900,
+        )
 
     def _build_agent(self) -> Path:
         """The agent's .xctestrun: built once per source version (and team, and phone, for iPhones)."""
@@ -267,10 +308,16 @@ class IOSDevice(BaseDevice):
         else:
             # Built for this phone, so Xcode registers it with the team and puts it in the profile.
             self._progress(f"building and signing the iOS agent for {self.name} (team {self.team})")
-            signing = ["-allowProvisioningUpdates", "-allowProvisioningDeviceRegistration",
-                       f"DEVELOPMENT_TEAM={self.team}", "CODE_SIGN_STYLE=Automatic", "CODE_SIGNING_ALLOWED=YES",
-                       "CODE_SIGNING_REQUIRED=YES", "CODE_SIGN_IDENTITY=Apple Development",
-                       f"JEVTEST_TEAM_SUFFIX=.{self.team}"]
+            signing = [
+                "-allowProvisioningUpdates",
+                "-allowProvisioningDeviceRegistration",
+                f"DEVELOPMENT_TEAM={self.team}",
+                "CODE_SIGN_STYLE=Automatic",
+                "CODE_SIGNING_ALLOWED=YES",
+                "CODE_SIGNING_REQUIRED=YES",
+                "CODE_SIGN_IDENTITY=Apple Development",
+                f"JEVTEST_TEAM_SUFFIX=.{self.team}",
+            ]
             try:
                 self._xcodebuild(out, f"id={self.udid}", signing)
             except DeviceError:  # a first build can race Xcode replacing the provisioning profile
@@ -287,23 +334,35 @@ class IOSDevice(BaseDevice):
             xctestrun = self._build_agent()
             try:
                 self.agent = start_process(
-                    ["xcodebuild", "test-without-building", "-xctestrun", str(xctestrun),
-                     "-destination", f"id={self.udid}"],
-                    ready="JEVTEST_AGENT_READY", log=self.agent_log, timeout=AGENT_START_TIMEOUT, env=env)
+                    [
+                        "xcodebuild",
+                        "test-without-building",
+                        "-xctestrun",
+                        str(xctestrun),
+                        "-destination",
+                        f"id={self.udid}",
+                    ],
+                    ready="JEVTEST_AGENT_READY",
+                    log=self.agent_log,
+                    timeout=AGENT_START_TIMEOUT,
+                    env=env,
+                )
             except DeviceError as e:
                 if "enabling automation mode" in self.agent_log.read_text(errors="replace"):
                     raise DeviceError(
-                        f"{self.name} did not allow UI automation (\"Timed out while enabling automation mode\"). "
+                        f'{self.name} did not allow UI automation ("Timed out while enabling automation mode"). '
                         "Unlock it and keep the screen on, check Settings > Developer > Enable UI Automation is on, "
-                        "and answer any prompt on its screen; then run again.") from e
+                        "and answer any prompt on its screen; then run again."
+                    ) from e
                 raise
         if self.physical:
             self.host = self._tunnel_host()
 
     def _tunnel_host(self) -> str:
         """The phone's address on the USB tunnel Xcode keeps to it. Changes when the phone relocks."""
-        address = text_at(devicectl("device", "info", "details", "--device", self.udid),
-                          "connectionProperties", "tunnelIPAddress")
+        address = text_at(
+            devicectl("device", "info", "details", "--device", self.udid), "connectionProperties", "tunnelIPAddress"
+        )
         if not address:
             raise DeviceError(f"No connection to {self.name}: unlock it and keep it plugged in")
         return f"[{address}]" if ":" in address else address
@@ -327,14 +386,17 @@ class IOSDevice(BaseDevice):
             data = http_post(self._url(path), body, timeout=AGENT_CALL_TIMEOUT)
         except OSError as e:
             if not self.physical:
-                raise DeviceError(f"Lost the iOS agent during {path} ({e}). Agent log tail:\n{self._log_tail()}") \
-                    from None
+                raise DeviceError(
+                    f"Lost the iOS agent during {path} ({e}). Agent log tail:\n{self._log_tail()}"
+                ) from None
             try:  # the phone's tunnel address changes when it relocks: look it up again, once
                 self.host = self._tunnel_host()
                 data = http_post(self._url(path), body, timeout=AGENT_CALL_TIMEOUT)
             except (OSError, DeviceError) as again:
-                raise DeviceError(f"Lost the agent on {self.name} during {path} ({again}). "
-                                  f"Is it unlocked and plugged in? Agent log tail:\n{self._log_tail()}") from None
+                raise DeviceError(
+                    f"Lost the agent on {self.name} during {path} ({again}). "
+                    f"Is it unlocked and plugged in? Agent log tail:\n{self._log_tail()}"
+                ) from None
         if "error" in data:
             raise DeviceError(f"iOS agent {path}: {data['error']}")
         return data
@@ -436,7 +498,7 @@ class IOSDevice(BaseDevice):
     # --- observe --------------------------------------------------------------------
     def screen(self) -> Screen:
         """What's on the screen now."""
-        return parse_tree(cast(AgentTree, self._call("/tree")))  # the agent's own JSON
+        return parse_tree(cast("AgentTree", self._call("/tree")))  # the agent's own JSON
 
     def screenshot(self, path: Path) -> None:
         """Save a PNG of the screen."""
@@ -524,7 +586,7 @@ class IOSDevice(BaseDevice):
         else:
             simctl("openurl", self.udid, url)
 
-    def dark_mode(self, on: bool) -> None:
+    def dark_mode(self, *, on: bool) -> None:
         """Switch the appearance; the previous one is put back on close."""
         self._remember("/appearance")
         self._call("/appearance", dark=on)
@@ -536,6 +598,6 @@ class IOSDevice(BaseDevice):
         # simctl services: all, calendar, contacts, location, location-always, photos, microphone, ...
         simctl("privacy", self.udid, "grant", permission, self.app_id)
 
-    def network(self, on: bool) -> None:
+    def network(self, *, on: bool) -> None:
         """Not possible on iOS: always an error."""
-        raise DeviceError("jevtest can't turn an iPhone's or simulator's network off")
+        raise DeviceError(f"jevtest can't turn an iPhone's or simulator's network {'on' if on else 'off'}")

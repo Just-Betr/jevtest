@@ -12,8 +12,7 @@ from jevtest.domain.kinds import AppState, Status
 from jevtest.domain.screen import Screen
 from jevtest.domain.settings import Settings
 from jevtest.domain.steps import Expect, Suite, Test
-
-from ..conftest import (
+from tests.conftest import (
     FakeClock,
     FakeDevice,
     FakeModel,
@@ -32,11 +31,9 @@ def make_test(name, *steps, fresh=True):
     return Test(name, fresh, tuple(parse_step(s) for s in steps))
 
 
-def make(tmp_path, clock, out, *steps, device=None, model=None, verbose=False, tests=None, library=(),
-         variables=None):
+def make(tmp_path, clock, out, *steps, device=None, model=None, verbose=False, tests=None, library=(), variables=None):
     tests = tests or [make_test("T", *steps)]
-    suite = Suite(tmp_path / "t.yaml", {}, {}, tuple(tests), {t.name: t for t in (*tests, *library)},
-                  variables or {})
+    suite = Suite(tmp_path / "t.yaml", {}, {}, tuple(tests), {t.name: t for t in (*tests, *library)}, variables or {})
     device = device or FakeDevice()
     device.clock = clock
     model = model or FakeModel()
@@ -50,6 +47,7 @@ def run1(tmp_path, clock, out, *steps, **kw):
 
 
 # --- test lifecycle ------------------------------------------------------------------
+
 
 def test_fresh_test_resets_app(tmp_path, clock, out):
     runner, d, _ = make(tmp_path, clock, out, "back")
@@ -65,8 +63,13 @@ def test_not_fresh_keeps_running_app(tmp_path, clock, out):
 
 
 def test_not_fresh_launches_closed_app(tmp_path, clock, out):
-    res, d, _ = run1(tmp_path, clock, out, tests=[make_test("T", {"see": "Sign in"}, fresh=False)],
-                     device=FakeDevice(state=AppState.NOT_RUNNING))
+    res, d, _ = run1(
+        tmp_path,
+        clock,
+        out,
+        tests=[make_test("T", {"see": "Sign in"}, fresh=False)],
+        device=FakeDevice(state=AppState.NOT_RUNNING),
+    )
     assert d.names()[:2] == ["app_state", "launch"]
     assert res.status is Status.PASS
 
@@ -89,8 +92,9 @@ def test_app_that_cannot_start_fails_the_test(tmp_path, clock, out):
 
 
 def test_run_totals(tmp_path, clock, out):
-    runner, _, _ = make(tmp_path, clock, out, tests=[make_test("A", "back"),
-                                                      make_test("B", {"see": "missing", "timeout": 1})])
+    runner, _, _ = make(
+        tmp_path, clock, out, tests=[make_test("A", "back"), make_test("B", {"see": "missing", "timeout": 1})]
+    )
     results = runner.run()
     assert (results.passed, results.failed) == (1, 1)
 
@@ -112,20 +116,24 @@ def test_screenshot_failure_is_reported_not_raised(tmp_path, clock, out):
 
 # --- simple actions -------------------------------------------------------------------
 
-@pytest.mark.parametrize(("step", "call"), [
-    ("launch", ("launch",)),
-    ("back", ("back",)),
-    ("hide_keyboard", ("hide_keyboard",)),
-    ({"key": "enter"}, ("key", "enter")),
-    ({"rotate": "landscape"}, ("rotate", "landscape")),
-    ({"location": [1, 2]}, ("set_location", 1.0, 2.0)),
-    ({"open_url": "app://x"}, ("open_url", "app://x")),
-    ({"dark_mode": True}, ("dark_mode", True)),
-    ({"grant": "CAMERA"}, ("grant", "CAMERA")),
-    ({"network": False}, ("network", False)),
-    ({"swipe": "up"}, ("drag", 500, 1600, 500, 400)),
-    ({"scroll": "down"}, ("drag", 500, 1600, 500, 400)),
-])
+
+@pytest.mark.parametrize(
+    ("step", "call"),
+    [
+        ("launch", ("launch",)),
+        ("back", ("back",)),
+        ("hide_keyboard", ("hide_keyboard",)),
+        ({"key": "enter"}, ("key", "enter")),
+        ({"rotate": "landscape"}, ("rotate", "landscape")),
+        ({"location": [1, 2]}, ("set_location", 1.0, 2.0)),
+        ({"open_url": "app://x"}, ("open_url", "app://x")),
+        ({"dark_mode": True}, ("dark_mode", True)),
+        ({"grant": "CAMERA"}, ("grant", "CAMERA")),
+        ({"network": False}, ("network", False)),
+        ({"swipe": "up"}, ("drag", 500, 1600, 500, 400)),
+        ({"scroll": "down"}, ("drag", 500, 1600, 500, 400)),
+    ],
+)
 def test_simple_actions_call_the_device(tmp_path, clock, out, step, call):
     res, d, _ = run1(tmp_path, clock, out, step)
     assert res.status is Status.PASS, res
@@ -136,8 +144,18 @@ def test_lifecycle_actions(tmp_path, clock, out):
     res, d, _ = run1(tmp_path, clock, out, "stop", "clear_data", "reinstall", "launch", "restart", "home")
     assert res.status is Status.PASS
     names = [n for n in d.names() if n != "wait_idle"]
-    assert names[4:] == ["stop", "stop", "clear_data", "reinstall", "launch", "app_state",
-                         "stop", "launch", "app_state", "home"]
+    assert names[4:] == [
+        "stop",
+        "stop",
+        "clear_data",
+        "reinstall",
+        "launch",
+        "app_state",
+        "stop",
+        "launch",
+        "app_state",
+        "home",
+    ]
 
 
 def test_wait_and_background_use_the_clock(tmp_path, clock, out):
@@ -166,6 +184,7 @@ def test_screenshot_name_falls_back(tmp_path, clock, out):
 
 # --- element actions ----------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("kind", ["tap", "double_tap", "long_press"])
 def test_touch_actions_find_the_element(tmp_path, clock, out, kind):
     res, d, _ = run1(tmp_path, clock, out, {kind: "Sign in"})
@@ -180,15 +199,17 @@ def test_tap_asks_the_model_when_no_exact_match(tmp_path, clock, out):
 
 def test_tap_waits_for_the_element(tmp_path, clock, out):
     d = FakeDevice(screen_with("Loading"), screen_with("Loading"), login_screen())
-    res, d, model = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=d,
-                         model=FakeModel(pick("not_on_screen")))  # the unchanged second screen is not re-asked
+    res, d, model = run1(
+        tmp_path, clock, out, {"tap": "Sign in"}, device=d, model=FakeModel(pick("not_on_screen"))
+    )  # the unchanged second screen is not re-asked
     assert res.status is Status.PASS
     assert d.names().count("wait_change") == 2 and len(model.asked) == 1
 
 
 def test_tap_gives_up_after_timeout(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"tap": "Ghost", "timeout": 1},
-                     model=FakeModel(*[pick("not_on_screen")] * 10))
+    res, _, _ = run1(
+        tmp_path, clock, out, {"tap": "Ghost", "timeout": 1}, model=FakeModel(*[pick("not_on_screen")] * 10)
+    )
     assert res.status is Status.FAIL
     assert res.failure == "tap: Ghost (timeout: 1) — Could not find element 'Ghost' on screen"
 
@@ -212,8 +233,13 @@ def test_type_into_field(tmp_path, clock, out):
 
 
 def test_type_into_missing_field(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"type": {"text": "a", "into": "Phone"}, "timeout": 1},
-                     model=FakeModel(pick("not_on_screen")))
+    res, _, _ = run1(
+        tmp_path,
+        clock,
+        out,
+        {"type": {"text": "a", "into": "Phone"}, "timeout": 1},
+        model=FakeModel(pick("not_on_screen")),
+    )
     assert "Could not find text field 'Phone'" in res.failure
 
 
@@ -271,8 +297,10 @@ def test_steps_wait_10_seconds_unless_they_say_otherwise(tmp_path, clock, out):
 
 # --- crash / foreground detection ---------------------------------------------------------
 
-@pytest.mark.parametrize(("state", "message"), [
-    (AppState.NOT_RUNNING, "no longer running"), (AppState.BACKGROUND, "left the foreground")])
+
+@pytest.mark.parametrize(
+    ("state", "message"), [(AppState.NOT_RUNNING, "no longer running"), (AppState.BACKGROUND, "left the foreground")]
+)
 def test_app_leaving_fails_the_step(tmp_path, clock, out, state, message):
     res, _, _ = run1(tmp_path, clock, out, "back")
     assert res.status is Status.PASS
@@ -281,8 +309,9 @@ def test_app_leaving_fails_the_step(tmp_path, clock, out, state, message):
 
 
 def test_leaving_the_app_on_purpose_is_allowed(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, "home", {"open_url": "https://x"}, "stop",
-                     device=FakeDevice(state=AppState.BACKGROUND))
+    res, _, _ = run1(
+        tmp_path, clock, out, "home", {"open_url": "https://x"}, "stop", device=FakeDevice(state=AppState.BACKGROUND)
+    )
     assert res.status is Status.PASS
 
 
@@ -295,6 +324,7 @@ def test_device_errors_fail_the_step(tmp_path, clock, out):
 
 
 # --- checks ---------------------------------------------------------------------------------
+
 
 def test_see_and_not_see(tmp_path, clock, out):
     res, _, _ = run1(tmp_path, clock, out, {"see": ["sign IN", "Email"], "not_see": "Error"})
@@ -350,16 +380,18 @@ def test_output_nests_checks_under_actions(tmp_path, clock, out):
     run1(tmp_path, clock, out, {"tap": "Sign in", "see": "Email"}, {"see": "Password"})
     lines = out.getvalue().splitlines()
     assert any(line.startswith("  ✓ tap: Sign in") for line in lines)
-    assert "      ✓ see: Email" in lines     # under its action
-    assert "  ✓ see: Password" in lines      # checks-only step
+    assert "      ✓ see: Email" in lines  # under its action
+    assert "  ✓ see: Password" in lines  # checks-only step
 
 
 # --- use -----------------------------------------------------------------------------------
 
+
 def test_use_runs_the_other_tests_steps(tmp_path, clock, out):
     sign_in = make_test("Sign in", "back")
-    runner, _, _ = make(tmp_path, clock, out, tests=[make_test("Main", {"use": "Sign in", "see": "Email"}, "home")],
-                        library=[sign_in])
+    runner, _, _ = make(
+        tmp_path, clock, out, tests=[make_test("Main", {"use": "Sign in", "see": "Email"}, "home")], library=[sign_in]
+    )
     res = runner.run().tests[0]
     assert res.status is Status.PASS
     assert res.steps[0].steps[0].step.label == "back"
@@ -376,6 +408,7 @@ def test_failure_inside_use_is_reported(tmp_path, clock, out):
 
 # --- the goal loop ----------------------------------------------------------------------------
 
+
 def _login(*, focused: bool, keyboard: bool) -> Screen:
     s = login_screen(keyboard_visible=keyboard)
     email = dataclasses.replace(s.elements[0], focused=focused)
@@ -383,12 +416,20 @@ def _login(*, focused: bool, keyboard: bool) -> Screen:
 
 
 def test_do_types_and_taps_until_done(tmp_path, clock, out):
-    screens = (_login(focused=False, keyboard=False), _login(focused=True, keyboard=True),
-               _login(focused=True, keyboard=False))  # the last: e.g. a web view, where everything reports focus
-    model = FakeModel(act("type", field="e1", value="v0"), act("type", field="e1", value="v1"),
-                      act("type", field="e1", value="v0"), act("done"))
-    res, d, _ = run1(tmp_path, clock, out, {"do": 'Type "a" then "b" into email'}, device=FakeDevice(*screens),
-                     model=model)
+    screens = (
+        _login(focused=False, keyboard=False),
+        _login(focused=True, keyboard=True),
+        _login(focused=True, keyboard=False),
+    )  # the last: e.g. a web view, where everything reports focus
+    model = FakeModel(
+        act("type", field="e1", value="v0"),
+        act("type", field="e1", value="v1"),
+        act("type", field="e1", value="v0"),
+        act("done"),
+    )
+    res, d, _ = run1(
+        tmp_path, clock, out, {"do": 'Type "a" then "b" into email'}, device=FakeDevice(*screens), model=model
+    )
     assert res.status is Status.PASS and res.steps[0].detail == "3 action(s)"
     typed = [c for c in d.calls if c[0] == "type_text"]
     # focused with the keyboard up: type without tapping (tapping would move the caret)
@@ -397,24 +438,35 @@ def test_do_types_and_taps_until_done(tmp_path, clock, out):
     assert "→ done  (confidence 0.90)" in out.getvalue()
 
 
-@pytest.mark.parametrize(("action", "call"), [
-    ("tap", ("tap", 500, 450)), ("double_tap", ("double_tap", 500, 450)),
-    ("long_press", ("long_press", 500, 450)), ("swipe_left_on", ("drag", 850, 450, 150, 450)),
-    ("swipe_right_on", ("drag", 150, 450, 850, 450)), ("clear", ("clear_text", "Email")),
-    ("scroll_down", ("drag", 500, 1600, 500, 400)), ("back", ("back",)), ("press_enter", ("key", "enter")),
-    ("hide_keyboard", ("hide_keyboard",))])
+@pytest.mark.parametrize(
+    ("action", "call"),
+    [
+        ("tap", ("tap", 500, 450)),
+        ("double_tap", ("double_tap", 500, 450)),
+        ("long_press", ("long_press", 500, 450)),
+        ("swipe_left_on", ("drag", 850, 450, 150, 450)),
+        ("swipe_right_on", ("drag", 150, 450, 850, 450)),
+        ("clear", ("clear_text", "Email")),
+        ("scroll_down", ("drag", 500, 1600, 500, 400)),
+        ("back", ("back",)),
+        ("press_enter", ("key", "enter")),
+        ("hide_keyboard", ("hide_keyboard",)),
+    ],
+)
 def test_do_performs_each_action(tmp_path, clock, out, action, call):
     field = "e1" if action == "clear" else None
     model = FakeModel(act(action, target="e3", field=field), act("done"))
-    res, d, _ = run1(tmp_path, clock, out, {"do": "Do it"}, model=model,
-                     device=FakeDevice(login_screen(keyboard_visible=True)))
+    res, d, _ = run1(
+        tmp_path, clock, out, {"do": "Do it"}, model=model, device=FakeDevice(login_screen(keyboard_visible=True))
+    )
     assert res.status is Status.PASS, res
     assert call in d.calls
 
 
 def test_do_wait_waits_for_a_change(tmp_path, clock, out):
-    model = FakeModel({"action": {"type": "choice", "choice": "wait", "confidence": 1, "probabilities": {}}},
-                      act("done"))
+    model = FakeModel(
+        {"action": {"type": "choice", "choice": "wait", "confidence": 1, "probabilities": {}}}, act("done")
+    )
     _, d, _ = run1(tmp_path, clock, out, {"do": "Do it"}, model=model)
     assert "wait_change" in d.names()
 
@@ -445,9 +497,17 @@ def test_empty_screen_do(tmp_path, clock, out):
 
 # --- verbose -----------------------------------------------------------------------------------
 
+
 def test_verbose_prints_every_model_answer(tmp_path, clock, out):
-    run1(tmp_path, clock, out, {"do": "Press sign in"}, {"expect": "x"}, verbose=True,
-         model=FakeModel(act("done"), yes(0.9)))
+    run1(
+        tmp_path,
+        clock,
+        out,
+        {"do": "Press sign in"},
+        {"expect": "x"},
+        verbose=True,
+        model=FakeModel(act("done"), yes(0.9)),
+    )
     text = out.getvalue()
     assert "jev action: done  [done 0.90, other 0.10]" in text
     assert "jev check: yes=0.90" in text
@@ -475,6 +535,7 @@ def test_quiet_by_default(tmp_path, clock, out):
 
 # --- determinism -------------------------------------------------------------------------------
 
+
 def test_same_inputs_give_identical_runs(tmp_path):
     """Identical screens and model answers give identical logs and results."""
 
@@ -499,15 +560,26 @@ def test_unchanged_screen_is_not_rejudged(tmp_path, clock, out):
 
 # --- ${NAME} values --------------------------------------------------------------------
 
+
 def test_variables_are_filled_only_where_the_app_sees_them(tmp_path, clock, out):
-    steps = [{"type": {"text": "${PASS}", "into": "${FIELD}"}, "see": "${NAME}"},
-             {"type": "${PASS}", "not_see": "${SECRET_ERR}", "expect": "Signed in as ${NAME}"},
-             {"open_url": "app://${HOST}/x"}, {"scroll_to": "${NAME}", "direction": "down"}]
-    screen = Screen(1000, 2000, (el("text_field", "Email", editable=True, bounds=(0, 100, 1000, 180)),
-                                 el("text", "Welcome Ann", bounds=(0, 200, 1000, 280))))
+    steps = [
+        {"type": {"text": "${PASS}", "into": "${FIELD}"}, "see": "${NAME}"},
+        {"type": "${PASS}", "not_see": "${SECRET_ERR}", "expect": "Signed in as ${NAME}"},
+        {"open_url": "app://${HOST}/x"},
+        {"scroll_to": "${NAME}", "direction": "down"},
+    ]
+    screen = Screen(
+        1000,
+        2000,
+        (
+            el("text_field", "Email", editable=True, bounds=(0, 100, 1000, 180)),
+            el("text", "Welcome Ann", bounds=(0, 200, 1000, 280)),
+        ),
+    )
     variables = {"PASS": "hunter2", "FIELD": "Email", "NAME": "Ann", "SECRET_ERR": "Denied", "HOST": "h"}
-    res, d, model = run1(tmp_path, clock, out, *steps, device=FakeDevice(screen), model=FakeModel(yes(0.9)),
-                         variables=variables)
+    res, d, model = run1(
+        tmp_path, clock, out, *steps, device=FakeDevice(screen), model=FakeModel(yes(0.9)), variables=variables
+    )
     assert res.status is Status.PASS
     assert [c[1] for c in d.calls if c[0] == "type_text"] == ["hunter2", "hunter2"]
     assert ("open_url", "app://h/x") in d.calls
@@ -518,19 +590,27 @@ def test_variables_are_filled_only_where_the_app_sees_them(tmp_path, clock, out)
 
 def test_the_model_sees_the_placeholder_and_the_app_gets_the_value(tmp_path, clock, out):
     model = FakeModel(act("type", field="e1", value="v0"), act("done"))
-    res, d, _ = run1(tmp_path, clock, out, {"do": 'Type "${PASS}" into the password'}, model=model,
-                     variables={"PASS": "hunter2"})
+    res, d, _ = run1(
+        tmp_path, clock, out, {"do": 'Type "${PASS}" into the password'}, model=model, variables={"PASS": "hunter2"}
+    )
     assert res.status is Status.PASS and ("type_text", "hunter2", (500, 150)) in d.calls
     assert "hunter2" not in json.dumps(model.asked) and "hunter2" not in out.getvalue()
 
 
 def test_missing_target_is_reported_by_its_placeholder(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"tap": "${WHO}", "timeout": 1}, model=FakeModel(pick("not_on_screen")),
-                     variables={"WHO": "Bob"})
+    res, _, _ = run1(
+        tmp_path,
+        clock,
+        out,
+        {"tap": "${WHO}", "timeout": 1},
+        model=FakeModel(pick("not_on_screen")),
+        variables={"WHO": "Bob"},
+    )
     assert "Could not find element '${WHO}'" in res.failure
 
 
 # --- settings ------------------------------------------------------------------------
+
 
 def test_a_files_settings_reach_launch_and_every_step(tmp_path, clock, out):
     settings = Settings(settle=7)
@@ -566,8 +646,9 @@ def test_scroll_to_can_allow_fewer_scrolls(tmp_path, clock, out):
 
 
 def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"do": "Loop", "max_actions": 1},
-                     model=FakeModel(act("back"), act("tap", target="e3")))
+    res, _, _ = run1(
+        tmp_path, clock, out, {"do": "Loop", "max_actions": 1}, model=FakeModel(act("back"), act("tap", target="e3"))
+    )
     assert res.failure.endswith("Goal not reached after 1 action (max_actions)")
     d = FakeDevice(*[screen_with(f"Item {i}") for i in range(5)])
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 4", "direction": "down", "max_scrolls": 1}, device=d)

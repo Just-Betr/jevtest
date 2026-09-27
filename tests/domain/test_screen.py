@@ -3,8 +3,7 @@ import dataclasses
 import pytest
 
 from jevtest.domain.screen import Element, Screen
-
-from ..conftest import el, login_screen
+from tests.conftest import el, login_screen
 
 
 def test_elements_are_numbered_and_the_callers_are_left_alone():
@@ -36,8 +35,10 @@ def test_screens_are_values():
         login_screen().width = 5  # type: ignore[misc]
 
 
-@pytest.mark.parametrize(("bounds", "region"), [
-    ((0, 0, 10, 10), "top-left"), ((140, 140, 160, 160), "middle-center"), ((290, 290, 300, 300), "bottom-right")])
+@pytest.mark.parametrize(
+    ("bounds", "region"),
+    [((0, 0, 10, 10), "top-left"), ((140, 140, 160, 160), "middle-center"), ((290, 290, 300, 300), "bottom-right")],
+)
 def test_regions(bounds, region):
     s = Screen(300, 300, (el(bounds=bounds),))
     assert s.region(s.elements[0]) == region
@@ -53,7 +54,7 @@ def test_content_height_excludes_the_keyboard():
 def test_element_label_and_points():
     assert Element("button", "OK", bounds=(0, 0, 10, 20)).center == (5, 10)
     assert Element("text_field", bounds=(0, 0, 100, 20)).end == (92, 10)  # just inside the right edge
-    assert Element("text_field", bounds=(0, 0, 4, 20)).end == (3, 10)     # tiny fields stay inside
+    assert Element("text_field", bounds=(0, 0, 4, 20)).end == (3, 10)  # tiny fields stay inside
     assert Element("button", "OK").label() == "button 'OK'"
     assert Element("text_field", hint="Email").label() == "text_field 'Email'"
     assert Element("image", resource_id="logo").label() == "image 'logo'"

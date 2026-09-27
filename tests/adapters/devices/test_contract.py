@@ -17,17 +17,21 @@ from jevtest.domain.settings import DEFAULTS
 PLATFORM = os.environ.get("JEVTEST_DEVICE")
 NAME = os.environ.get("JEVTEST_DEVICE_NAME")
 DEMO = Path(__file__).parents[3] / "demo_app/build"
-APPS = {"android": DEMO / "app/outputs/flutter-apk/app-debug.apk",
-        "ios": DEMO / "ios_sim/Build/Products/Debug-iphonesimulator/Runner.app"}
+APPS = {
+    "android": DEMO / "app/outputs/flutter-apk/app-debug.apk",
+    "ios": DEMO / "ios_sim/Build/Products/Debug-iphonesimulator/Runner.app",
+}
 
-pytestmark = pytest.mark.skipif(PLATFORM not in APPS or not NAME,
-                                reason="set JEVTEST_DEVICE=android|ios and JEVTEST_DEVICE_NAME to run on a device")
+pytestmark = pytest.mark.skipif(
+    PLATFORM not in APPS or not NAME, reason="set JEVTEST_DEVICE=android|ios and JEVTEST_DEVICE_NAME to run on a device"
+)
 
 
 @pytest.fixture(scope="module")
 def device():
     from jevtest.cli.main import make_device
     from jevtest.domain.kinds import Platform
+
     d = make_device(Platform(PLATFORM), NAME, APPS[PLATFORM], print)
     d.install(APPS[PLATFORM])
     yield d

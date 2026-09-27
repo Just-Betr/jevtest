@@ -31,8 +31,15 @@ def write_junit(path: Path, suites: Sequence[Suite]) -> None:
     root = ET.Element("testsuites")
     for suite in suites:
         tests = suite.result.tests
-        ts = ET.SubElement(root, "testsuite", name=suite.name, tests=str(len(tests)),
-                           failures=str(suite.result.failed), errors="0", time=f"{suite.result.seconds:.1f}")
+        ts = ET.SubElement(
+            root,
+            "testsuite",
+            name=suite.name,
+            tests=str(len(tests)),
+            failures=str(suite.result.failed),
+            errors="0",
+            time=f"{suite.result.seconds:.1f}",
+        )
         for t in tests:
             tc = ET.SubElement(ts, "testcase", classname=suite.name, name=t.name, time=f"{t.seconds:.1f}")
             log = "\n".join(suite.logs.get(t.name, ()))

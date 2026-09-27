@@ -15,8 +15,14 @@ from jevtest.domain.settings import JEV_MODELS, LIMITS, WHOLE
 
 E = TypeVar("E", bound=StrEnum)
 
-KINDS: dict[type, str] = {bool: "true/false", int: "a number", float: "a number", str: "text", list: "a list",
-                          dict: "a mapping"}
+KINDS: dict[type, str] = {
+    bool: "true/false",
+    int: "a number",
+    float: "a number",
+    str: "text",
+    list: "a list",
+    dict: "a mapping",
+}
 
 
 def kind(value: object) -> str:

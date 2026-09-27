@@ -31,6 +31,7 @@ def locked(tmp_path, mode=LockMode.RECORD, *answers):
     def connect():
         made.append(FakeClient(*answers))
         return made[-1]
+
     return LockedModel("m", tmp_path / "t.lock.json", mode, connect), made
 
 
@@ -45,8 +46,7 @@ def test_the_key_hashes_exactly_what_jev_is_sent(tmp_path):
     lock.ask("screen", Q)
     assert made[0].asked == [("screen", WIRE_Q)]
     lock.save()
-    assert list(json.loads((tmp_path / "t.lock.json").read_text())["decisions"]) == [
-        request_key("m", "screen", WIRE_Q)]
+    assert list(json.loads((tmp_path / "t.lock.json").read_text())["decisions"]) == [request_key("m", "screen", WIRE_Q)]
 
 
 def test_record_then_replay_is_identical_and_offline(tmp_path):
@@ -129,11 +129,17 @@ def test_a_recorded_answer_that_no_longer_fits_the_question_is_an_error(tmp_path
         rec.ask("s", Q)
 
 
-@pytest.mark.parametrize(("content", "message"), [
-    ("{", "not valid JSON"), ("[]", "not a jevtest v1 lockfile"), ('{"version": 99}', "not a jevtest v1"),
-    ('{"version": 1, "decisions": []}', "not a jevtest v1"),
-    ('{"version": 1, "decisions": {"k": "answers"}}', "not a jevtest v1"),
-    ('{"version": 1, "decisions": {"k": {"answers": {"q": 1}}}}', "not a jevtest v1")])
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("{", "not valid JSON"),
+        ("[]", "not a jevtest v1 lockfile"),
+        ('{"version": 99}', "not a jevtest v1"),
+        ('{"version": 1, "decisions": []}', "not a jevtest v1"),
+        ('{"version": 1, "decisions": {"k": "answers"}}', "not a jevtest v1"),
+        ('{"version": 1, "decisions": {"k": {"answers": {"q": 1}}}}', "not a jevtest v1"),
+    ],
+)
 def test_bad_lockfile(tmp_path, content, message):
     (tmp_path / "t.lock.json").write_text(content)
     with pytest.raises(ModelError, match=message):
@@ -172,7 +178,8 @@ def test_prune_drops_what_this_run_did_not_use(tmp_path):
 
 def test_a_recorded_model_version_that_is_not_text_is_not_trusted(tmp_path):
     key = request_key("m", "s", WIRE_Q)
-    (tmp_path / "t.lock.json").write_text(json.dumps(
-        {"version": VERSION, "decisions": {key: {"served_by": 3, "answers": A1}}}))
+    (tmp_path / "t.lock.json").write_text(
+        json.dumps({"version": VERSION, "decisions": {key: {"served_by": 3, "answers": A1}}})
+    )
     model, _ = locked(tmp_path, LockMode.FROZEN)
     assert model.ask("s", Q) == {"q": Probability(0.9)} and model.calls[0].served_by is None

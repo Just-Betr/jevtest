@@ -10,8 +10,11 @@ from jevtest.domain.failures import ModelError
 MODEL = "typesafe/jev-1.13"
 
 Q = {"q": {"type": "choice", "instructions": "pick", "criteria": {"a": None, "b": None}}}
-GOOD = {"model": "typesafe/jev-1.13-x", "answers": {"q": {"type": "choice", "choice": "a"}},
-        "usage": {"input_tokens": 3, "cost": 0.1}}
+GOOD = {
+    "model": "typesafe/jev-1.13-x",
+    "answers": {"q": {"type": "choice", "choice": "a"}},
+    "usage": {"input_tokens": 3, "cost": 0.1},
+}
 
 
 class Resp:
@@ -38,6 +41,7 @@ def opener(*outcomes):
         if isinstance(o, Exception):
             raise o
         return Resp(o if isinstance(o, bytes) else json.dumps(o).encode())
+
     urlopen.seen = seen
     return urlopen
 
@@ -77,8 +81,10 @@ def test_retries_rate_limits_then_succeeds():
     j, slept = client(http_error(429), http_error(529), GOOD)
     assert j.ask("s", Q).answers == GOOD["answers"]
     assert slept == [0.5, 1.0]
-    assert LOGGED == ["Jev HTTP 429: trying again in 0.5s (retry 1 of 4)",
-                      "Jev HTTP 529: trying again in 1s (retry 2 of 4)"]
+    assert LOGGED == [
+        "Jev HTTP 429: trying again in 0.5s (retry 1 of 4)",
+        "Jev HTTP 529: trying again in 1s (retry 2 of 4)",
+    ]
 
 
 def test_retries_network_errors_then_succeeds():
@@ -102,7 +108,9 @@ def test_unreachable_after_retries():
 
 def test_client_errors_are_not_retried():
     j, slept = client(http_error(401, b"bad key"))
-    with pytest.raises(ModelError, match=r"HTTP 401: bad key \(check the key; Create a key at https://openrouter.ai/keys\)"):
+    with pytest.raises(
+        ModelError, match=r"HTTP 401: bad key \(check the key; Create a key at https://openrouter.ai/keys\)"
+    ):
         j.ask("s", Q)
     assert not slept
 
@@ -138,10 +146,13 @@ def test_an_answer_that_is_not_an_object():
         j.ask("s", Q)
 
 
-@pytest.mark.parametrize(("extra", "served_by", "cost"), [
-    ({"model": 5, "usage": "free"}, None, 0.0),
-    ({"usage": {"cost": "lots"}}, None, 0.0),
-])
+@pytest.mark.parametrize(
+    ("extra", "served_by", "cost"),
+    [
+        ({"model": 5, "usage": "free"}, None, 0.0),
+        ({"usage": {"cost": "lots"}}, None, 0.0),
+    ],
+)
 def test_odd_metadata_is_ignored_not_trusted(extra, served_by, cost):
     j, _ = client({"answers": {"q": {"type": "choice", "choice": "a"}}, **extra})
     reply = j.ask("s", Q)

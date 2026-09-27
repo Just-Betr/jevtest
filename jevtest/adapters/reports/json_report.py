@@ -10,8 +10,13 @@ from jevtest.domain.model import Choice, ModelCall, Picked, Question
 from jevtest.domain.results import CheckResult, RunResult, StepResult, TestResult
 
 
-def write_report(path: Path, about: Mapping[str, object], result: RunResult, logs: Mapping[str, Sequence[str]],
-                 calls: Sequence[ModelCall]) -> None:
+def write_report(
+    path: Path,
+    about: Mapping[str, object],
+    result: RunResult,
+    logs: Mapping[str, Sequence[str]],
+    calls: Sequence[ModelCall],
+) -> None:
     """Write the report.
 
     Args:
@@ -21,15 +26,25 @@ def write_report(path: Path, about: Mapping[str, object], result: RunResult, log
         logs: Each test's console log, by test name.
         calls: Every model request the run made.
     """
-    report = {**about, "passed": result.passed, "failed": result.failed,
-              "tests": [_test(t, logs.get(t.name, ())) for t in result.tests],
-              "model_calls": [_call(c) for c in calls]}
+    report = {
+        **about,
+        "passed": result.passed,
+        "failed": result.failed,
+        "tests": [_test(t, logs.get(t.name, ())) for t in result.tests],
+        "model_calls": [_call(c) for c in calls],
+    }
     path.write_text(json.dumps(report, indent=2, default=str))
 
 
 def _test(t: TestResult, log: Sequence[str]) -> dict[str, object]:
-    out: dict[str, object] = {"name": t.name, "status": t.status.value, "seconds": t.seconds, "failure": t.failure,
-                           "log": list(log), "steps": [_step(s) for s in t.steps]}
+    out: dict[str, object] = {
+        "name": t.name,
+        "status": t.status.value,
+        "seconds": t.seconds,
+        "failure": t.failure,
+        "log": list(log),
+        "steps": [_step(s) for s in t.steps],
+    }
     if t.screenshot:
         out["screenshot"] = t.screenshot
     return out
@@ -40,8 +55,10 @@ def _step(s: StepResult) -> dict[str, object]:
     if s.detail:
         out["detail"] = s.detail
     if s.decisions:
-        out["decisions"] = [{"did": d.move.describe(), "confidence": d.confidence,
-                             "probabilities": dict(d.probabilities)} for d in s.decisions]
+        out["decisions"] = [
+            {"did": d.move.describe(), "confidence": d.confidence, "probabilities": dict(d.probabilities)}
+            for d in s.decisions
+        ]
     if s.checks:
         out["checks"] = [_check(c) for c in s.checks]
     if s.steps:
@@ -57,10 +74,18 @@ def _check(c: CheckResult) -> dict[str, object]:
 
 def _call(c: ModelCall) -> dict[str, object]:
     return {
-        "from_lockfile": c.recorded, "ms": c.ms, "cost": c.cost, "served_by": c.served_by, "state": c.state,
+        "from_lockfile": c.recorded,
+        "ms": c.ms,
+        "cost": c.cost,
+        "served_by": c.served_by,
+        "state": c.state,
         "questions": {qid: _question(q) for qid, q in c.questions.items()},
-        "answers": {qid: {"choice": a.choice, "confidence": a.confidence, "probabilities": dict(a.probabilities)}
-                    if isinstance(a, Picked) else {"yes": a.yes} for qid, a in c.answers.items()},
+        "answers": {
+            qid: {"choice": a.choice, "confidence": a.confidence, "probabilities": dict(a.probabilities)}
+            if isinstance(a, Picked)
+            else {"yes": a.yes}
+            for qid, a in c.answers.items()
+        },
     }
 
 

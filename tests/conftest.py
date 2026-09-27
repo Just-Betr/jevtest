@@ -37,16 +37,23 @@ class FakeModel:
         if isinstance(scripted, Exception):
             raise scripted
         answers = {qid: answer_from_wire(qid, raw, questions[qid]) for qid, raw in scripted.items() if qid in questions}
-        self.calls.append(ModelCall(state, questions, answers, recorded=False, ms=7, cost=0.0001,
-                                    served_by="typesafe/jev-1.13-test"))
+        self.calls.append(
+            ModelCall(state, questions, answers, recorded=False, ms=7, cost=0.0001, served_by="typesafe/jev-1.13-test")
+        )
         return answers
 
 
 def act(action, target=None, field=None, value=None, confidence=0.9):
     """Jev's answers for Brain.next_action."""
-    out = {"action": {"type": "choice", "choice": action, "confidence": confidence,
-                      "probabilities": {action: confidence, "other": round(1 - confidence, 2)}},
-           "target": {"type": "choice", "choice": target or "e1", "confidence": 1, "probabilities": {}}}
+    out = {
+        "action": {
+            "type": "choice",
+            "choice": action,
+            "confidence": confidence,
+            "probabilities": {action: confidence, "other": round(1 - confidence, 2)},
+        },
+        "target": {"type": "choice", "choice": target or "e1", "confidence": 1, "probabilities": {}},
+    }
     if field or value:
         out["field"] = {"type": "choice", "choice": field or "e1", "confidence": 1, "probabilities": {}}
     if value:
@@ -85,16 +92,22 @@ def el(kind="button", text="", **kw) -> Element:
 
 
 def login_screen(**kw) -> Screen:
-    return Screen(1000, 2000, (
-        el("text_field", hint="Email", editable=True, bounds=(0, 100, 1000, 200)),
-        el("password_field", hint="Password", editable=True, bounds=(0, 250, 1000, 350)),
-        el("button", "Sign in", clickable=True, bounds=(0, 400, 1000, 500)),
-    ), **kw)
+    return Screen(
+        1000,
+        2000,
+        (
+            el("text_field", hint="Email", editable=True, bounds=(0, 100, 1000, 200)),
+            el("password_field", hint="Password", editable=True, bounds=(0, 250, 1000, 350)),
+            el("button", "Sign in", clickable=True, bounds=(0, 400, 1000, 500)),
+        ),
+        **kw,
+    )
 
 
 def screen_with(*texts, **kw) -> Screen:
-    return Screen(1000, 2000, tuple(el("text", t, bounds=(0, 100 * i, 1000, 100 * i + 80))
-                                    for i, t in enumerate(texts, 1)), **kw)
+    return Screen(
+        1000, 2000, tuple(el("text", t, bounds=(0, 100 * i, 1000, 100 * i + 80)) for i, t in enumerate(texts, 1)), **kw
+    )
 
 
 class FakeDevice(BaseDevice):
@@ -189,13 +202,13 @@ class FakeDevice(BaseDevice):
     def open_url(self, url):
         self._rec("open_url", url)
 
-    def dark_mode(self, on):
+    def dark_mode(self, *, on):
         self._rec("dark_mode", on)
 
     def grant(self, permission):
         self._rec("grant", permission)
 
-    def network(self, on):
+    def network(self, *, on):
         self._rec("network", on)
 
     def check_ready(self):  # not logged: only matters when a test makes it fail
@@ -220,7 +233,7 @@ class FakeDevice(BaseDevice):
 PROGRESS_MESSAGES: list[str] = []
 
 
-def PROGRESS(message: str) -> None:  # noqa: N802 - a constant-like callback the device tests pass
+def PROGRESS(message: str) -> None:
     """Collects the devices' progress messages (building an agent, ...)."""
     PROGRESS_MESSAGES.append(message)
 
@@ -244,6 +257,19 @@ def out():
     return io.StringIO()
 
 
-__all__ = ["PROGRESS", "PROGRESS_MESSAGES", "DeviceError", "FakeClock", "FakeDevice", "FakeModel", "act", "confirm",
-           "console", "el", "login_screen",
-           "pick", "screen_with", "yes"]
+__all__ = [
+    "PROGRESS",
+    "PROGRESS_MESSAGES",
+    "DeviceError",
+    "FakeClock",
+    "FakeDevice",
+    "FakeModel",
+    "act",
+    "confirm",
+    "console",
+    "el",
+    "login_screen",
+    "pick",
+    "screen_with",
+    "yes",
+]

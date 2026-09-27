@@ -96,8 +96,9 @@ def _touch(key: str, value: object, _: Options) -> Action:
 
 def _type(_: str, value: object, options: Options) -> Action:
     if not isinstance(value, str):
-        raise TestFileError(f"'type' needs text (`type: hello` or `type: {{text: hello, into: Email}}`), "
-                            f"got {kind(value)}")
+        raise TestFileError(
+            f"'type' needs text (`type: hello` or `type: {{text: hello, into: Email}}`), got {kind(value)}"
+        )
     into = options.get("into")
     return TypeText(value, None if into is None else text(into, "into"))  # typed exactly as written
 
@@ -202,8 +203,10 @@ def _bare_word(raw: str, settings: Settings) -> Step:
     if not raw.strip():
         raise TestFileError("Empty step")
     if raw not in BARE_WORDS:
-        raise TestFileError(f"Unknown step {raw!r}. A bare word must be one of {', '.join(BARE_WORDS)}; "
-                            f"for a plain-English goal write `- do: {raw.strip()}`")
+        raise TestFileError(
+            f"Unknown step {raw!r}. A bare word must be one of {', '.join(BARE_WORDS)}; "
+            f"for a plain-English goal write `- do: {raw.strip()}`"
+        )
     return Step(ACTIONS[raw].parse(raw, None, {}), settings=settings, label=raw)
 
 

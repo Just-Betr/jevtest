@@ -62,23 +62,27 @@ def digest(src: Path) -> str:
     return h.hexdigest()[:12]
 
 
-def start_process(cmd: list[str], ready: str, log: Path, timeout: float,
-                  env: dict[str, str] | None = None) -> subprocess.Popen[str]:
+def start_process(
+    cmd: list[str], ready: str, log: Path, timeout: float, env: dict[str, str] | None = None
+) -> subprocess.Popen[str]:
     """Start a long-running helper and return as soon as it prints `ready`. Its output goes to `log`.
 
     Raises:
         DeviceError: It didn't get ready within `timeout` seconds, or exited first. The message quotes its log.
     """
     log.parent.mkdir(parents=True, exist_ok=True)
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
-                            start_new_session=True)
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env, start_new_session=True
+    )
+    output = proc.stdout
+    if output is None:  # pragma: no cover - stdout=PIPE always gives a pipe
+        raise DeviceError(f"{cmd[0]} started without an output pipe")
     done = threading.Event()
     state = {"ready": False}
 
     def pump() -> None:
-        assert proc.stdout is not None  # stdout=PIPE
         with log.open("w") as f:
-            for line in proc.stdout:
+            for line in output:
                 f.write(line)
                 f.flush()
                 if ready in line and not state["ready"]:
@@ -179,6 +183,10 @@ class BaseDevice(ABC):
 
     def scroll(self, direction: Direction, screen: Screen | None = None) -> None:
         """Scroll so more of the content in `direction` comes into view: the finger moves the other way."""
-        finger = {Direction.DOWN: Direction.UP, Direction.UP: Direction.DOWN,
-                  Direction.LEFT: Direction.RIGHT, Direction.RIGHT: Direction.LEFT}
+        finger = {
+            Direction.DOWN: Direction.UP,
+            Direction.UP: Direction.DOWN,
+            Direction.LEFT: Direction.RIGHT,
+            Direction.RIGHT: Direction.LEFT,
+        }
         self.swipe(finger[Direction(direction)], screen=screen)

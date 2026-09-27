@@ -8,14 +8,15 @@ from jevtest.adapters.devices.android import AndroidDevice
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction, Orientation
 from jevtest.domain.screen import Element
-
-from ...conftest import PROGRESS, PROGRESS_MESSAGES
+from tests.conftest import PROGRESS, PROGRESS_MESSAGES
 
 FIX = Path(__file__).parent / "fixtures"
 LOGIN = (FIX / "android_login.xml").read_text()
 WEB = (FIX / "android_webview.xml").read_text()
-EMPTY_WEB = ('<hierarchy rotation="0"><node class="android.widget.FrameLayout" bounds="[0,0][100,100]">'
-             '<node class="android.webkit.WebView" bounds="[0,0][100,100]"/></node></hierarchy>')
+EMPTY_WEB = (
+    '<hierarchy rotation="0"><node class="android.widget.FrameLayout" bounds="[0,0][100,100]">'
+    '<node class="android.webkit.WebView" bounds="[0,0][100,100]"/></node></hierarchy>'
+)
 
 
 class Adb:
@@ -88,6 +89,7 @@ def agent(monkeypatch):
     def start_process(cmd, ready, log, timeout):
         fake.started.append((cmd, ready))
         return Proc()
+
     monkeypatch.setattr(android, "start_process", start_process)
     monkeypatch.setattr(android, "stop_process", lambda proc: fake.started.append(("stopped",)))
     return fake
@@ -95,12 +97,16 @@ def agent(monkeypatch):
 
 @pytest.fixture
 def adb(monkeypatch, agent):
-    fake = Adb({"adb devices": "List of devices attached\nemulator-5554\tdevice\nR58N\tunauthorized\n",
-                "wm size": "Physical size: 1080x2424\n",
-                "aapt2": "dev.demo\n",
-                "resolve-activity": "priority=0\ndev.demo/.MainActivity\n",
-                "forward tcp:0": "7000\n",
-                "dumpsys package dev.jevtest.agent": "    versionName=abc123\n"})
+    fake = Adb(
+        {
+            "adb devices": "List of devices attached\nemulator-5554\tdevice\nR58N\tunauthorized\n",
+            "wm size": "Physical size: 1080x2424\n",
+            "aapt2": "dev.demo\n",
+            "resolve-activity": "priority=0\ndev.demo/.MainActivity\n",
+            "forward tcp:0": "7000\n",
+            "dumpsys package dev.jevtest.agent": "    versionName=abc123\n",
+        }
+    )
     monkeypatch.setattr(android, "run", fake)
     monkeypatch.setattr(android, "run_bytes", fake.run_bytes)
     monkeypatch.setattr(android.shutil, "which", lambda name: f"/bin/{name}")
@@ -116,6 +122,7 @@ def drv(adb):
 
 
 # --- parsing real dumps ------------------------------------------------------------------
+
 
 def test_sdk_root(monkeypatch, tmp_path):
     monkeypatch.setenv("ANDROID_HOME", str(tmp_path))
@@ -151,19 +158,8 @@ def test_devices_only_lists_ready_ones(adb):
     assert android.devices() == ["emulator-5554"]
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 # --- driver setup ---------------------------------------------------------------------------
+
 
 def test_uses_the_named_device(adb):
     assert AndroidDevice("emulator-5554", PROGRESS).serial == "emulator-5554"
@@ -234,14 +230,19 @@ def test_install_needs_launcher_activity(adb, reply):
 
 # --- lifecycle ---------------------------------------------------------------------------------
 
+
 def test_lifecycle_commands(drv, adb):
     drv.launch()
     drv.resume()
     drv.stop()
     drv.clear_data()
     # launching never touches device settings
-    assert adb.shell() == ["am start -W -n dev.demo/.MainActivity",
-                           "am start -W -n dev.demo/.MainActivity", "am force-stop dev.demo", "pm clear dev.demo"]
+    assert adb.shell() == [
+        "am start -W -n dev.demo/.MainActivity",
+        "am start -W -n dev.demo/.MainActivity",
+        "am force-stop dev.demo",
+        "pm clear dev.demo",
+    ]
 
 
 def test_reinstall(drv, adb):
@@ -250,11 +251,15 @@ def test_reinstall(drv, adb):
     assert any("install -r" in c for c in adb.cmds)
 
 
-@pytest.mark.parametrize(("reply", "ready"), [
-    ("  mWakefulness=Awake\n    isKeyguardShowing=false\n", True),
-    ("  mWakefulness=Dozing\n    isKeyguardShowing=true\n", False),
-    ("  mWakefulness=Awake\n    isKeyguardShowing=true\n", False),   # awake on the lock screen
-    ("  mWakefulness=Asleep\n    isKeyguardShowing=false\n", False)])
+@pytest.mark.parametrize(
+    ("reply", "ready"),
+    [
+        ("  mWakefulness=Awake\n    isKeyguardShowing=false\n", True),
+        ("  mWakefulness=Dozing\n    isKeyguardShowing=true\n", False),
+        ("  mWakefulness=Awake\n    isKeyguardShowing=true\n", False),  # awake on the lock screen
+        ("  mWakefulness=Asleep\n    isKeyguardShowing=false\n", False),
+    ],
+)
 def test_check_ready_reports_a_locked_or_sleeping_phone(drv, adb, reply, ready):
     adb.rules["dumpsys power"] = reply
     if ready:
@@ -265,20 +270,30 @@ def test_check_ready_reports_a_locked_or_sleeping_phone(drv, adb, reply, ready):
     assert not any("keyevent" in c for c in adb.shell())  # never wakes or unlocks it
 
 
-@pytest.mark.parametrize(("reply", "state"), [
-    ("1234\n  topResumedActivity=ActivityRecord{1 u0 dev.demo/.MainActivity t9}\n", "foreground"),
-    ("1234\n  topResumedActivity=ActivityRecord{1 u0 com.launcher/.Home t1}\n", "background"),
-    ("1234\n  topResumedActivity=ActivityRecord{2 u0 com.google.android.permissioncontroller/"
-     "com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t9}\n", "foreground"),
-    ("1234\n  topResumedActivity=ActivityRecord{2 u0 com.android.permissioncontroller/.Grant t9}\n", "foreground"),
-    ("1234\n", "foreground"),  # between screens: nobody on top yet, the app has not left
-    ("\n", "not_running")])
+@pytest.mark.parametrize(
+    ("reply", "state"),
+    [
+        ("1234\n  topResumedActivity=ActivityRecord{1 u0 dev.demo/.MainActivity t9}\n", "foreground"),
+        ("1234\n  topResumedActivity=ActivityRecord{1 u0 com.launcher/.Home t1}\n", "background"),
+        (
+            (
+                "1234\n  topResumedActivity=ActivityRecord{2 u0 com.google.android.permissioncontroller/"
+                "com.android.permissioncontroller.permission.ui.GrantPermissionsActivity t9}\n"
+            ),
+            "foreground",
+        ),
+        ("1234\n  topResumedActivity=ActivityRecord{2 u0 com.android.permissioncontroller/.Grant t9}\n", "foreground"),
+        ("1234\n", "foreground"),  # between screens: nobody on top yet, the app has not left
+        ("\n", "not_running"),
+    ],
+)
 def test_app_state(drv, adb, reply, state):
     adb.rules["pidof"] = reply
     assert drv.app_state() == state
 
 
 # --- observe ------------------------------------------------------------------------------------
+
 
 def test_screen_reads_the_agent_tree(drv, agent):
     agent.replies["/tree"] = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"')
@@ -355,6 +370,7 @@ def test_screenshot(drv, adb, tmp_path):
 
 # --- touch & keys -------------------------------------------------------------------------------
 
+
 def test_touch_commands(drv, adb):
     drv.tap(1, 2)
     drv.double_tap(3, 4)
@@ -370,7 +386,8 @@ FOCUSED = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime=
     'focused="false" scrollable="false" long-clickable="false" password="false" selected="false" '
     'bounds="[63,352][1017,499]"',
     'focused="true" scrollable="false" long-clickable="false" password="false" selected="false" '
-    'bounds="[63,352][1017,499]"')
+    'bounds="[63,352][1017,499]"',
+)
 
 
 def test_type_into_field_waits_for_focus_and_keyboard(drv, adb, agent):
@@ -438,6 +455,7 @@ def test_hide_keyboard_only_presses_back_when_open(drv, adb, agent, ime, pressed
 
 # --- device ----------------------------------------------------------------------------------------
 
+
 def test_device_commands(drv, adb):
     adb.rules["settings get system accelerometer_rotation"] = "1\n"
     adb.rules["settings get system user_rotation"] = "0\n"
@@ -446,36 +464,46 @@ def test_device_commands(drv, adb):
     adb.rules["settings get global mobile_data"] = "0\n"
     drv.rotate("landscape")
     drv.open_url("https://x.dev/a b")
-    drv.dark_mode(True)
-    drv.dark_mode(False)
+    drv.dark_mode(on=True)
+    drv.dark_mode(on=False)
     drv.grant("android.permission.CAMERA")
-    drv.network(False)
-    drv.network(True)
+    drv.network(on=False)
+    drv.network(on=True)
     assert adb.shell() == [
-        "settings get system user_rotation", "settings get system accelerometer_rotation",
-        "settings put system accelerometer_rotation 0", "settings put system user_rotation 1",
+        "settings get system user_rotation",
+        "settings get system accelerometer_rotation",
+        "settings put system accelerometer_rotation 0",
+        "settings put system user_rotation 1",
         "am start -W -a android.intent.action.VIEW -d 'https://x.dev/a b'",
-        "cmd uimode night", "cmd uimode night yes", "cmd uimode night no",
+        "cmd uimode night",
+        "cmd uimode night yes",
+        "cmd uimode night no",
         "pm grant dev.demo android.permission.CAMERA",
-        "settings get global wifi_on", "settings get global mobile_data",
-        "svc wifi disable; svc data disable", "svc wifi enable; svc data enable"]
+        "settings get global wifi_on",
+        "settings get global mobile_data",
+        "svc wifi disable; svc data disable",
+        "svc wifi enable; svc data enable",
+    ]
     n = len(adb.shell())
     drv.close()  # everything the steps changed goes back to how it was
     assert adb.shell()[n:][-3:] == [
         "settings put system user_rotation 0; settings put system accelerometer_rotation 1",
-        "cmd uimode night auto", "svc wifi enable; svc data disable"]
+        "cmd uimode night auto",
+        "svc wifi enable; svc data disable",
+    ]
 
 
 def test_grant_needs_the_full_permission_name(drv):
-    with pytest.raises(DeviceError, match="'camera': give the full Android permission name, "
-                                          "e.g. android.permission.CAMERA"):
+    with pytest.raises(
+        DeviceError, match="'camera': give the full Android permission name, e.g. android.permission.CAMERA"
+    ):
         drv.grant("camera")
 
 
 def test_unreadable_dark_mode_is_an_error_not_a_guess(drv, adb):
     adb.rules["cmd uimode night"] = "\n"
     with pytest.raises(DeviceError, match="Can't read the device's dark mode setting"):
-        drv.dark_mode(True)
+        drv.dark_mode(on=True)
 
 
 def test_rotation_restores_the_users_auto_rotate(drv, adb, agent):
@@ -497,6 +525,7 @@ def test_location_on_emulator_only(drv, adb):
 
 # --- shared helpers from the base class --------------------------------------------------------------
 
+
 def test_swipe_and_scroll_geometry(drv, adb):
     drv.swipe(Direction.LEFT, element=Element("text", bounds=(0, 0, 100, 100)))
     drv.scroll(Direction.DOWN)
@@ -505,6 +534,7 @@ def test_swipe_and_scroll_geometry(drv, adb):
 
 
 # --- agent -----------------------------------------------------------------------------------------
+
 
 def test_agent_started_on_the_forwarded_port(adb, agent):
     d = AndroidDevice("emulator-5554", PROGRESS)
@@ -557,6 +587,7 @@ def test_build_agent_is_cached(monkeypatch, tmp_path):
 
 def test_build_agent_with_sdk_tools(monkeypatch, tmp_path):
     import zipfile
+
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "cache"))
     sdk = tmp_path / "sdk"
     (sdk / "build-tools/37.0.0").mkdir(parents=True)
@@ -583,6 +614,7 @@ def test_build_agent_with_sdk_tools(monkeypatch, tmp_path):
         elif cmd[0].endswith("apksigner"):
             Path(cmd[cmd.index("--out") + 1]).write_bytes(Path(cmd[-1]).read_bytes())
         return ""
+
     monkeypatch.setattr(android, "run", fake_run)
     apk = android.build_agent(PROGRESS)
     assert seen == ["javac", "d8", "aapt2", "zipalign", "keytool", "apksigner"]
@@ -611,6 +643,7 @@ def test_http_get(monkeypatch):
 
         def __exit__(self, *a):
             return False
+
     monkeypatch.setattr(android.urllib.request, "urlopen", lambda url, timeout: R())
     assert android.http_get("http://x", timeout=1) == "ok"
 

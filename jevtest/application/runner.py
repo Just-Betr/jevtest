@@ -103,8 +103,9 @@ class TestRunner:
 
     __test__ = False  # not a pytest test class
 
-    def __init__(self, suite: Suite, device: Device, brain: Brain, screenshots: Path, *, clock: Clock,
-                 listener: RunListener) -> None:
+    def __init__(
+        self, suite: Suite, device: Device, brain: Brain, screenshots: Path, *, clock: Clock, listener: RunListener
+    ) -> None:
         self.suite = suite
         self.device = device
         self.brain = brain
@@ -124,11 +125,16 @@ class TestRunner:
         self.listener.test_started(test)
         started = self.clock.now()
         try:
-            self._start_app(test.fresh)
+            self._start_app(fresh=test.fresh)
         except DeviceError as e:
-            self.listener.start_failed(test, str(e))
-            result = TestResult(test.name, Status.FAIL, self._since(started), start_failure=str(e),
-                                screenshot=self._screenshot(f"FAIL_{test.name}"))
+            self.listener.start_failed(str(e))
+            result = TestResult(
+                test.name,
+                Status.FAIL,
+                self._since(started),
+                start_failure=str(e),
+                screenshot=self._screenshot(f"FAIL_{test.name}"),
+            )
             self.listener.test_done(result)
             return result
         steps, status = self._run_steps(test.steps, 0)
@@ -138,7 +144,7 @@ class TestRunner:
         self.listener.test_done(result)
         return result
 
-    def _start_app(self, fresh: bool) -> None:
+    def _start_app(self, *, fresh: bool) -> None:
         self.device.check_ready()
         if fresh:
             self.device.restore()  # an earlier test's rotate: or dark_mode: must not leak into this one
@@ -402,11 +408,11 @@ class TestRunner:
             case Location(latitude, longitude):
                 d.set_location(latitude, longitude)
             case DarkMode(on):
-                d.dark_mode(on)
+                d.dark_mode(on=on)
             case Grant(permission):
                 d.grant(permission)
             case Network(on):
-                d.network(on)
+                d.network(on=on)
             case _:  # pragma: no cover - every device setting is handled above
                 assert_never(action)
 
@@ -435,8 +441,9 @@ class TestRunner:
             if screen.shows(wanted):
                 return f"{scrolls} scroll(s)" if scrolls else None
             if scrolls == settings.max_scrolls:
-                raise StepFailed(f"Scrolled {direction} {_count(scrolls, 'time')} (max_scrolls) "
-                                 f"but never found '{text}'")
+                raise StepFailed(
+                    f"Scrolled {direction} {_count(scrolls, 'time')} (max_scrolls) but never found '{text}'"
+                )
             self.device.scroll(direction, screen=screen)
             self._settle(settings)
             before, screen = screen, self.device.screen()

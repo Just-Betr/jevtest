@@ -132,19 +132,34 @@ class Runs:
     def one(self, job: Job, model: LockedModel, printer: Printer) -> JobResult:
         """Run a job's tests on its device and write its report."""
         job.out.mkdir(parents=True, exist_ok=True)
-        device = self.make_device(job.platform, job.device, job.app,
-                                  lambda message: printer.block(job.tag, [f"  {message}..."]))
+        device = self.make_device(
+            job.platform, job.device, job.app, lambda message: printer.block(job.tag, [f"  {message}..."])
+        )
         listener = ConsoleListener(printer, job.tag, verbose=self.verbose)
         try:
             app_id = device.install(job.app)
-            printer.block(job.tag, [f"jevtest {__version__} · {job.tag} · {app_id} · {job.suite.settings.model} · "
-                                    f"lockfile: {model.mode.value}"])
+            header = (
+                f"jevtest {__version__} · {job.tag} · {app_id} · {job.suite.settings.model} · "
+                f"lockfile: {model.mode.value}"
+            )
+            printer.block(job.tag, [header])
             result = TestRunner(job.suite, device, Brain(model), job.out, clock=self.clock, listener=listener).run()
         finally:
             device.close()
-        write_report(job.out / "report.json", {"file": str(job.suite.path), "platform": job.platform.value,
-                                                "device": job.device, "app": str(job.app), "app_id": app_id,
-                                                "model": job.suite.settings.model}, result, listener.logs, model.calls)
+        write_report(
+            job.out / "report.json",
+            {
+                "file": str(job.suite.path),
+                "platform": job.platform.value,
+                "device": job.device,
+                "app": str(job.app),
+                "app_id": app_id,
+                "model": job.suite.settings.model,
+            },
+            result,
+            listener.logs,
+            model.calls,
+        )
         printer.block(job.tag, summary(result, model.calls, job.out))
         return JobResult(job, result, listener.logs)
 
@@ -155,29 +170,32 @@ class Runs:
         """
         if len(jobs) == 1:
             return [self.one(jobs[0], model.fork(), printer)]
-        outcomes: list[JobResult | BaseException | None] = [None] * len(jobs)
+        outcomes: dict[int, JobResult | Exception] = {}
 
         def work(i: int, job: Job, fork: LockedModel) -> None:
             try:
                 outcomes[i] = self.one(job, fork, printer)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - handed to the main thread, which raises it
                 outcomes[i] = e
 
-        threads = [threading.Thread(target=work, args=(i, job, model.fork()), daemon=True)
-                   for i, job in enumerate(jobs)]
+        # Daemon threads, so Ctrl-C ends the run at once instead of waiting for every device.
+        threads = [
+            threading.Thread(target=work, args=(i, job, model.fork()), daemon=True) for i, job in enumerate(jobs)
+        ]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        results: list[JobResult] = []
-        for job, outcome in zip(jobs, outcomes, strict=True):
-            if isinstance(outcome, TestFileError | DeviceError | ModelError):
-                raise type(outcome)(f"{job.tag}: {outcome}")
-            if isinstance(outcome, BaseException):
-                raise outcome
-            assert outcome is not None
-            results.append(outcome)
-        return results
+        return [_result(job, outcomes[i]) for i, job in enumerate(jobs)]
+
+
+def _result(job: Job, outcome: JobResult | Exception) -> JobResult:
+    """A job's result, or its error raised, naming the device (a jevtest error) or as it was (a bug)."""
+    if isinstance(outcome, TestFileError | DeviceError | ModelError):
+        raise type(outcome)(f"{job.tag}: {outcome}")
+    if isinstance(outcome, Exception):
+        raise outcome
+    return outcome
 
 
 def run_command(options: RunOptions, make_device: MakeDevice, make_client: MakeClient, clock: Clock) -> int:
@@ -197,8 +215,15 @@ def run_command(options: RunOptions, make_device: MakeDevice, make_client: MakeC
     suites: list[JunitSuite] = []
     for suite, env in loaded:  # one file at a time; its devices at the same time
         label = suite.path.relative_to(root).with_suffix("").as_posix() if len(loaded) > 1 else ""
-        done = _run_file(suite, env, label=label, out=out / label if label else out, runs=runs, options=options,
-                         make_client=make_client)
+        done = _run_file(
+            suite,
+            env,
+            label=label,
+            out=out / label if label else out,
+            runs=runs,
+            options=options,
+            make_client=make_client,
+        )
         suites += [JunitSuite("jevtest." + r.job.tag.replace(" · ", "."), r.result, r.logs) for r in done]
     write_junit(out / "junit.xml", suites)
     return _report_all(suites, files=len(loaded), junit=out / "junit.xml")
@@ -221,8 +246,9 @@ def _report_all(suites: Sequence[JunitSuite], *, files: int, junit: Path) -> int
     passed = sum(s.result.passed for s in suites)
     failed = sum(s.result.failed for s in suites)
     if len(suites) > 1:
-        print(f"\nAll: {passed}/{passed + failed} passed ({files} file(s), {len(suites)} device run(s)). "
-              f"JUnit: {junit}")
+        print(
+            f"\nAll: {passed}/{passed + failed} passed ({files} file(s), {len(suites)} device run(s)). JUnit: {junit}"
+        )
     return 0 if failed == 0 else 1
 
 
@@ -238,8 +264,10 @@ def _load(files: Sequence[Path], others: Sequence[Path]) -> Loaded:
     included = {lib for suite, _ in loaded for lib in suite.includes}
     stray = [f for f in others if f not in included]
     if stray:
-        raise TestFileError(f"{', '.join(str(f) for f in stray)}: no `app:` and not included by any test file. "
-                            "Add `app:` to run it, include it from a test file, or move it out of the folder")
+        raise TestFileError(
+            f"{', '.join(str(f) for f in stray)}: no `app:` and not included by any test file. "
+            "Add `app:` to run it, include it from a test file, or move it out of the folder"
+        )
     return loaded
 
 
@@ -257,8 +285,16 @@ def _named(tests: Sequence[Test], names: Sequence[str]) -> tuple[Test, ...]:
     return tuple(t for t in tests if t.name in names)
 
 
-def _run_file(suite: Suite, env: dict[str, str], *, label: str, out: Path, runs: Runs, options: RunOptions,
-              make_client: MakeClient) -> list[JobResult]:
+def _run_file(
+    suite: Suite,
+    env: dict[str, str],
+    *,
+    label: str,
+    out: Path,
+    runs: Runs,
+    options: RunOptions,
+    make_client: MakeClient,
+) -> list[JobResult]:
     """Run one file on its devices, with its lockfile; prune the lockfile if asked."""
     printer = Printer(parallel=sum(len(suite.devices[p]) for p in suite.apps) > 1)
     if label:

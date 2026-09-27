@@ -40,8 +40,12 @@ class LockMode(StrEnum):
 
 def request_key(model: str, state: object, questions: Mapping[str, object]) -> str:
     """The lockfile key for one request: a hash of exactly what Jev would be sent."""
-    canonical = json.dumps({"model": model, "state": state, "questions": questions},
-                           sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    canonical = json.dumps(
+        {"model": model, "state": state, "questions": questions},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
@@ -105,8 +109,9 @@ class LockedModel:
     same recorded decisions, guarded by one lock.
     """
 
-    def __init__(self, model: str, path: Path, mode: LockMode, connect: Callable[[], JevClient],
-                 *, _store: _Store | None = None) -> None:
+    def __init__(
+        self, model: str, path: Path, mode: LockMode, connect: Callable[[], JevClient], *, _store: _Store | None = None
+    ) -> None:
         self.model = model
         self.mode = mode
         self._connect = connect
@@ -145,13 +150,18 @@ class LockedModel:
             self._calls.append(ModelCall(state, questions, answers, recorded=True, served_by=entry.get("served_by")))
             return answers
         if self.mode is LockMode.FROZEN:
-            raise ModelError(f"This screen and question are not in {store.path.name}, and --lock frozen only "
-                             "replays recorded decisions. Run with --lock record to record it, then commit the "
-                             "lockfile.")
+            raise ModelError(
+                f"This screen and question are not in {store.path.name}, and --lock frozen only "
+                "replays recorded decisions. Run with --lock record to record it, then commit the "
+                "lockfile."
+            )
         reply = self._ask_jev(state, wire)
         answers = answers_from_wire(reply.answers, questions)
-        self._calls.append(ModelCall(state, questions, answers, recorded=False, ms=reply.ms, cost=reply.cost,
-                                     served_by=reply.served_by))
+        self._calls.append(
+            ModelCall(
+                state, questions, answers, recorded=False, ms=reply.ms, cost=reply.cost, served_by=reply.served_by
+            )
+        )
         if self.mode is not LockMode.OFF:
             with store.lock:
                 store.entries[key] = {"served_by": reply.served_by, "answers": dict(reply.answers)}

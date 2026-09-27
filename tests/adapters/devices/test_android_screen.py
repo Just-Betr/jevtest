@@ -6,15 +6,20 @@ from jevtest.adapters.devices.android_screen import has_empty_webview, parse_hie
 FIX = Path(__file__).parent / "fixtures"
 LOGIN = (FIX / "android_login.xml").read_text()
 WEB = (FIX / "android_webview.xml").read_text()
-EMPTY_WEB = ('<hierarchy rotation="0"><node class="android.widget.FrameLayout" bounds="[0,0][100,100]">'
-             '<node class="android.webkit.WebView" bounds="[0,0][100,100]"/></node></hierarchy>')
+EMPTY_WEB = (
+    '<hierarchy rotation="0"><node class="android.widget.FrameLayout" bounds="[0,0][100,100]">'
+    '<node class="android.webkit.WebView" bounds="[0,0][100,100]"/></node></hierarchy>'
+)
 
 
 def test_parse_login_screen():
     els = parse_hierarchy(ET.fromstring(LOGIN), 1080, 2424)
     assert [(e.kind, e.text, e.hint) for e in els] == [
-        ("text", "Sign in", ""), ("text_field", "", "Email"), ("password_field", "", "Password"),
-        ("button", "Sign in", "")]
+        ("text", "Sign in", ""),
+        ("text_field", "", "Email"),
+        ("password_field", "", "Password"),
+        ("button", "Sign in", ""),
+    ]
     email = els[1]
     assert email.editable and email.enabled and email.bounds == (63, 352, 1017, 499)
     assert email.value == ""
@@ -23,8 +28,12 @@ def test_parse_login_screen():
 def test_parse_webview_content():
     els = parse_hierarchy(ET.fromstring(WEB), 1080, 2424)
     kinds = {(e.kind, e.text or e.hint) for e in els}
-    assert {("text", "Web Greeter"), ("text_field", "Your name"), ("button", "Say hello"),
-            ("checkbox", "I agree to the terms")} <= kinds
+    assert {
+        ("text", "Web Greeter"),
+        ("text_field", "Your name"),
+        ("button", "Say hello"),
+        ("checkbox", "I agree to the terms"),
+    } <= kinds
     assert next(e for e in els if e.kind == "checkbox").checked is False
 
 
@@ -47,8 +56,15 @@ def test_parse_rules():
     </hierarchy>"""
     els = parse_hierarchy(ET.fromstring(xml), 1080, 2424)
     assert [(e.kind, e.text) for e in els] == [
-        ("text", "Partly off"), ("button", "Go (Go now)"), ("switch", "Wifi"), ("button", "Card"), ("text", "Label"),
-        ("list", ""), ("thing", ""), ("text", "lots of space")]
+        ("text", "Partly off"),
+        ("button", "Go (Go now)"),
+        ("switch", "Wifi"),
+        ("button", "Card"),
+        ("text", "Label"),
+        ("list", ""),
+        ("thing", ""),
+        ("text", "lots of space"),
+    ]
     assert els[0].bounds == (0, 10, 60, 40)
     assert els[1].enabled is False and els[2].checked is True and els[5].scrollable
     assert els[6].resource_id == "thing"
@@ -64,8 +80,10 @@ def test_empty_webview_detection():
 
 
 def test_parse_screen_sizes_by_rotation_and_reads_the_keyboard():
-    xml = ('<hierarchy rotation="1" ime="true" ime-top="700">'
-           '<node class="android.widget.Button" text="OK" bounds="[0,0][100,100]"/></hierarchy>')
+    xml = (
+        '<hierarchy rotation="1" ime="true" ime-top="700">'
+        '<node class="android.widget.Button" text="OK" bounds="[0,0][100,100]"/></hierarchy>'
+    )
     screen = parse_screen(xml, lambda rotation: (2000, 1000) if rotation == 1 else (1000, 2000))
     assert (screen.width, screen.height, screen.keyboard_visible, screen.keyboard_top) == (2000, 1000, True, 700)
     assert [e.text for e in screen.elements] == ["OK"]
