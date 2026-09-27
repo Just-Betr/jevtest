@@ -15,78 +15,7 @@ from typing import TextIO
 from jevtest.domain.kinds import Status
 from jevtest.domain.model import ModelCall, Picked
 from jevtest.domain.results import CheckResult, RunResult, StepResult, TestResult
-from jevtest.domain.steps import (
-    Action,
-    Background,
-    Clear,
-    DarkMode,
-    Do,
-    Grant,
-    Key,
-    Location,
-    Network,
-    OpenUrl,
-    Rotate,
-    Screenshot,
-    Scroll,
-    ScrollTo,
-    Step,
-    Swipe,
-    Test,
-    Touch,
-    TypeText,
-    Use,
-    Wait,
-)
-
-BARE_NAMES = {"Launch": "launch", "Stop": "stop", "Restart": "restart", "ClearData": "clear_data",
-              "Reinstall": "reinstall", "Back": "back", "Home": "home", "HideKeyboard": "hide_keyboard"}
-
-
-def describe_action(action: Action) -> str:  # noqa: C901, PLR0911, PLR0912 - one case per action type
-    """An action as the user wrote it, e.g. ``tap: Save`` or ``type: Bret into='Nickname'``."""
-    match action:
-        case Do(goal):
-            return f"do: {goal}"
-        case Use(test):
-            return f"use: {test}"
-        case Touch(gesture, target):
-            return f"{gesture}: {target}"
-        case Clear(target):
-            return f"clear: {target}"
-        case TypeText(text, into):
-            return f"type: {text}" + (f" into={into!r}" if into is not None else "")
-        case Scroll(direction):
-            return f"scroll: {direction}"
-        case Swipe(direction, target):
-            return f"swipe: {direction}" + (f" target={target!r}" if target is not None else "")
-        case ScrollTo(text, direction):
-            return f"scroll_to: {text} direction={direction.value!r}"
-        case Key(name):
-            return f"key: {name}"
-        case Wait(seconds):
-            return f"wait: {seconds}"
-        case Background(seconds):
-            return f"background: {seconds}"
-        case Rotate(orientation):
-            return f"rotate: {orientation}"
-        case Location(latitude, longitude):
-            return f"location: {latitude},{longitude}"
-        case OpenUrl(url):
-            return f"open_url: {url}"
-        case DarkMode(on) | Network(on):
-            return f"{'dark_mode' if isinstance(action, DarkMode) else 'network'}: {'on' if on else 'off'}"
-        case Grant(permission):
-            return f"grant: {permission}"
-        case Screenshot(name):
-            return f"screenshot: {name}"
-        case _:
-            return BARE_NAMES[type(action).__name__]
-
-
-def describe_step(step: Step) -> str:
-    """A step's action as the user wrote it; empty for a step that only checks."""
-    return "" if step.action is None else describe_action(step.action)
+from jevtest.domain.steps import Test
 
 
 class Printer:
@@ -166,7 +95,7 @@ class ConsoleListener:
         pad = "  " * (depth + 1)
         mark = "✓" if result.status is Status.PASS else "✗"
         extra = f" — {result.detail}" if result.detail else ""
-        self._emit(f"{pad}{mark} {describe_step(result.step)} ({result.seconds}s){extra}")
+        self._emit(f"{pad}{mark} {result.step.label} ({result.seconds}s){extra}")
         for d in result.decisions:
             self._emit(f"{pad}    → {d.move.describe()}  (confidence {d.confidence:.2f})")
         self._calls(pad, result.model_calls)

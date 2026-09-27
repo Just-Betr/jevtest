@@ -17,10 +17,11 @@ from jevtest.domain.decisions import (
     ClearField,
     CloseKeyboard,
     Decision,
+    ElementMove,
     Finished,
     GoBack,
     Impossible,
-    Move,
+    PageMove,
     PressEnter,
     ScrollPage,
     SwipeElement,
@@ -73,12 +74,6 @@ from jevtest.domain.steps import (
 from jevtest.domain.variables import fill
 
 from .brain import Brain
-
-APP_MAY_LEAVE = (Stop, ClearData, Reinstall, Home, OpenUrl)
-"""Actions after which the app may be closed or in the background."""
-
-NO_SETTLE = (Stop, ClearData, Reinstall, Home, Wait, Screenshot, ScrollTo, Do, Use)
-"""Actions that do their own waiting, or change nothing on screen."""
 
 LAUNCH_QUIET = 0.5
 """Seconds without a change that count as "the app has finished starting" (apps pause longer while starting)."""
@@ -185,7 +180,7 @@ class TestRunner:
         status, detail = Status.PASS, None
         try:
             detail = self._act(step, action, decisions)
-            if not isinstance(action, NO_SETTLE):
+            if action.settles:
                 self._settle(step.settings)
             self._check_app(action)
         except (StepFailed, DeviceError, ModelError) as e:
@@ -263,7 +258,7 @@ class TestRunner:
 
     def _check_app(self, action: Action) -> None:
         """Fail if the app crashed or left the foreground during the action."""
-        if not self._app_should_run or isinstance(action, APP_MAY_LEAVE):
+        if not self._app_should_run or action.app_may_leave:
             return
         state = self.device.app_state()
         if state is AppState.NOT_RUNNING:
@@ -295,87 +290,125 @@ class TestRunner:
         return self._poll(seen, timeout, failure) or None
 
     # --- actions -----------------------------------------------------------------------------------------------
-    def _act(  # noqa: C901, PLR0911, PLR0912, PLR0915 - one flat case per action type is the clearest form
-        self, step: Step, action: Action, decisions: list[Decision],
-    ) -> str | None:
+    def _act(self, step: Step, action: Action, decisions: list[Decision]) -> str | None:
         """Do one action; return what it acted on, for the log."""
+        match action:
+            case Launch() | Stop() | Restart() | ClearData() | Reinstall():
+                self._lifecycle(action)
+            case Touch() | Clear() | TypeText() | Swipe():
+                return self._on_element(action, step.settings.timeout)
+            case Wait() | Background():
+                self._pause(action)
+            case ScrollTo(text, direction):
+                return self._scroll_to(text, direction, step.settings)
+            case Do(goal):
+                return self._achieve(goal, decisions, step.settings)
+            case Screenshot(name):
+                return f"saved {self._screenshot(name)}"
+            case Back() | Home() | HideKeyboard() | Key() | Scroll() | OpenUrl():
+                self._navigate(action)
+            case Rotate() | Location() | DarkMode() | Grant() | Network():
+                self._set_device(action)
+            case Use():  # pragma: no cover - `use:` steps are run by _run_step
+                raise AssertionError("use: steps are not actions")
+            case _:  # pragma: no cover - every action is handled above
+                assert_never(action)
+        return None
+
+    def _pause(self, action: Wait | Background) -> None:
+        """Let time pass: in the app (`wait:`), or with the app in the background (`background:`)."""
+        match action:
+            case Wait(seconds):
+                self.clock.sleep(seconds)
+            case Background(seconds):
+                self.device.home()
+                self.clock.sleep(seconds)
+                self.device.resume()
+            case _:  # pragma: no cover - both pauses are handled above
+                assert_never(action)
+
+    def _lifecycle(self, action: Launch | Stop | Restart | ClearData | Reinstall) -> None:
+        """Start, stop or reset the app, and remember whether it should now be running."""
         d = self.device
         match action:
             case Launch():
                 d.launch()
-                self._app_should_run = True
             case Stop():
                 d.stop()
-                self._app_should_run = False
             case Restart():
                 d.stop()
                 d.launch()
-                self._app_should_run = True
             case ClearData():
                 d.stop()
                 d.clear_data()
-                self._app_should_run = False
             case Reinstall():
                 d.reinstall()
-                self._app_should_run = False
+            case _:  # pragma: no cover - every lifecycle action is handled above
+                assert_never(action)
+        self._app_should_run = isinstance(action, Launch | Restart)
+
+    def _on_element(self, action: Touch | Clear | TypeText | Swipe, timeout: float) -> str | None:
+        """An action on an element the step names: find it (waiting up to `timeout`), then act on it."""
+        d = self.device
+        match action:
+            case Touch(gesture, target):
+                el = self._locate(target, timeout)
+                self._touch(gesture, el)
+            case Clear(target):
+                el = self._locate(target, timeout, editable=True)
+                d.clear_text(el)
+            case TypeText(text, into):
+                if into is None:
+                    d.type_text(self._value(text))
+                    return None
+                el = self._locate(into, timeout, editable=True)
+                d.type_text(self._value(text), at=el.center)  # the device focuses the field
+                return f"into {el.label()}"
+            case Swipe(direction, target):
+                if target is None:
+                    d.swipe(direction)
+                    return None
+                el = self._locate(target, timeout)
+                d.swipe(direction, element=el)
+            case _:  # pragma: no cover - every element action is handled above
+                assert_never(action)
+        return f"on {el.label()}"
+
+    def _navigate(self, action: Back | Home | HideKeyboard | Key | Scroll | OpenUrl) -> None:
+        """Move around the app or the system: one device call each."""
+        d = self.device
+        match action:
             case Back():
                 d.back()
             case Home():
                 d.home()
             case HideKeyboard():
                 d.hide_keyboard()
-            case Wait(seconds):
-                self.clock.sleep(seconds)
-            case Background(seconds):
-                d.home()
-                self.clock.sleep(seconds)
-                d.resume()
             case Key(name):
                 d.key(name)
             case Scroll(direction):
                 d.scroll(direction)
-            case Swipe(direction, target):
-                el = self._locate(target, step.settings.timeout) if target is not None else None
-                d.swipe(direction, element=el)
-                return f"on {el.label()}" if el else None
-            case ScrollTo(text, direction):
-                return self._scroll_to(text, direction, step.settings)
-            case Touch(gesture, target):
-                el = self._locate(target, step.settings.timeout)
-                self._touch(gesture, el)
-                return f"on {el.label()}"
-            case Clear(target):
-                el = self._locate(target, step.settings.timeout, editable=True)
-                d.clear_text(el)
-                return f"on {el.label()}"
-            case TypeText(text, into):
-                if into is None:
-                    d.type_text(self._value(text))
-                    return None
-                el = self._locate(into, step.settings.timeout, editable=True)
-                d.type_text(self._value(text), at=el.center)  # the device focuses the field
-                return f"into {el.label()}"
+            case OpenUrl(url):
+                d.open_url(self._value(url))
+            case _:  # pragma: no cover - every navigation is handled above
+                assert_never(action)
+
+    def _set_device(self, action: Rotate | Location | DarkMode | Grant | Network) -> None:
+        """Change a device setting; the device puts each back at the end of the run."""
+        d = self.device
+        match action:
             case Rotate(orientation):
                 d.rotate(orientation)
             case Location(latitude, longitude):
                 d.set_location(latitude, longitude)
-            case OpenUrl(url):
-                d.open_url(self._value(url))
-            case Screenshot(name):
-                return f"saved {self._screenshot(name)}"
             case DarkMode(on):
                 d.dark_mode(on)
             case Grant(permission):
                 d.grant(permission)
             case Network(on):
                 d.network(on)
-            case Do(goal):
-                return self._achieve(goal, decisions, step.settings)
-            case Use():  # pragma: no cover - `use:` steps are run by _run_step
-                raise AssertionError("use: steps are not actions")
-            case _:  # pragma: no cover
+            case _:  # pragma: no cover - every device setting is handled above
                 assert_never(action)
-        return None
 
     def _touch(self, gesture: Gesture, el: Element) -> None:
         x, y = el.center
@@ -433,7 +466,7 @@ class TestRunner:
             taken.append(move.describe())
             self._settle(settings)
 
-    def _make(self, move: Move, screen: Screen, settings: Settings) -> None:
+    def _make(self, move: ElementMove | PageMove, screen: Screen, settings: Settings) -> None:
         """Make one of the model's moves on the device."""
         d = self.device
         match move:
@@ -447,6 +480,12 @@ class TestRunner:
                 d.type_text(self._value(text), at=None if ready else element.center)
             case ClearField(element):
                 d.clear_text(element)
+            case _:
+                self._make_on_page(move, screen, settings)
+
+    def _make_on_page(self, move: PageMove, screen: Screen, settings: Settings) -> None:
+        d = self.device
+        match move:
             case ScrollPage(direction):
                 d.scroll(direction, screen=screen)
             case GoBack():
@@ -457,7 +496,5 @@ class TestRunner:
                 d.hide_keyboard()
             case WaitForScreen():
                 d.wait_change(settings.settle)
-            case Finished() | Impossible():  # pragma: no cover - _achieve ends before making these
-                raise AssertionError(f"{move} is not made on the device")
-            case _:  # pragma: no cover - every move is handled above
+            case _:  # pragma: no cover - every page move is handled above
                 assert_never(move)

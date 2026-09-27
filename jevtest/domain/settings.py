@@ -35,6 +35,21 @@ class Settings:
     max_scrolls: int = 50
     confidence: float = 0.5
 
+    def changed(self, values: Mapping[str, float]) -> Settings:
+        """These settings with some numeric ones changed (by name); a count is kept a whole number."""
+        unknown = values.keys() - LIMITS.keys()
+        if unknown:
+            raise KeyError(f"Not numeric settings: {', '.join(sorted(unknown))}")
+        get = values.get
+        return Settings(
+            model=self.model,
+            timeout=get("timeout", self.timeout),
+            settle=get("settle", self.settle),
+            max_actions=int(get("max_actions", self.max_actions)),
+            max_scrolls=int(get("max_scrolls", self.max_scrolls)),
+            confidence=get("confidence", self.confidence),
+        )
+
 
 LIMITS: Mapping[str, tuple[float, float]] = {
     "timeout": (1, 300),

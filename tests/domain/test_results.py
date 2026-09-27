@@ -1,4 +1,4 @@
-from jevtest.adapters.testfile.loader import parse_step
+from jevtest.adapters.testfile.steps import parse_step
 from jevtest.domain.kinds import Status
 from jevtest.domain.results import CheckResult, RunResult, StepResult, TestResult
 from jevtest.domain.steps import NotSee, See

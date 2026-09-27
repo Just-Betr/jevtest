@@ -37,7 +37,7 @@ def _test(t: TestResult, log: Sequence[str]) -> dict[str, Any]:
 
 
 def _step(s: StepResult) -> dict[str, Any]:
-    out: dict[str, Any] = {"step": s.step.source, "status": s.status.value, "seconds": s.seconds}
+    out: dict[str, Any] = {"step": s.step.label, "status": s.status.value, "seconds": s.seconds}
     if s.detail:
         out["detail"] = s.detail
     if s.decisions:

@@ -126,11 +126,14 @@ class ClearField:
         return f"clear {self.element.label()}"
 
 
-Move = (
-    Finished | Impossible | WaitForScreen | GoBack | PressEnter | CloseKeyboard | ScrollPage | TouchElement
-    | SwipeElement | TypeInto | ClearField
-)
-"""Every move Jev can pick."""
+ElementMove = TouchElement | SwipeElement | TypeInto | ClearField
+"""A move on one element of the screen."""
+
+PageMove = WaitForScreen | GoBack | PressEnter | CloseKeyboard | ScrollPage
+"""A move on the screen as a whole."""
+
+Move = Finished | Impossible | ElementMove | PageMove
+"""Every move Jev can pick: `Finished` and `Impossible` end the goal, the rest are made on the device."""
 
 
 @dataclass(frozen=True)

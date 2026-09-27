@@ -64,7 +64,7 @@ class StepResult:
         for check in self.checks:
             if check.status is Status.FAIL:
                 return f"{check.check.name}: {check.check.text} — {check.detail}"
-        return f"{self.step.source} — {self.detail or ''}"
+        return f"{self.step.label} — {self.detail or ''}"
 
 
 @dataclass(frozen=True)

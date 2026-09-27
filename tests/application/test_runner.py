@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from jevtest.adapters.testfile.loader import parse_step
+from jevtest.adapters.testfile.steps import parse_step
 from jevtest.application.brain import Brain
 from jevtest.application.runner import TestRunner
 from jevtest.domain.failures import DeviceError, ModelError
@@ -190,7 +190,7 @@ def test_tap_gives_up_after_timeout(tmp_path, clock, out):
     res, _, _ = run1(tmp_path, clock, out, {"tap": "Ghost", "timeout": 1},
                      model=FakeModel(*[pick("not_on_screen")] * 10))
     assert res.status is Status.FAIL
-    assert res.failure == "{'tap': 'Ghost', 'timeout': 1} — Could not find element 'Ghost' on screen"
+    assert res.failure == "tap: Ghost (timeout: 1) — Could not find element 'Ghost' on screen"
 
 
 def test_swipe_on_element(tmp_path, clock, out):
@@ -290,7 +290,7 @@ def test_device_errors_fail_the_step(tmp_path, clock, out):
     d = FakeDevice()
     d.fail["rotate"] = DeviceError("no sensor")
     res, _, _ = run1(tmp_path, clock, out, {"rotate": "landscape"}, device=d)
-    assert res.failure == "{'rotate': 'landscape'} — no sensor"
+    assert res.failure == "rotate: landscape — no sensor"
     assert "✗ rotate: landscape" in out.getvalue()
 
 
@@ -362,7 +362,7 @@ def test_use_runs_the_other_tests_steps(tmp_path, clock, out):
                         library=[sign_in])
     res = runner.run().tests[0]
     assert res.status is Status.PASS
-    assert res.steps[0].steps[0].step.source == "back"
+    assert res.steps[0].steps[0].step.label == "back"
     assert "  ▸ use: Sign in" in out.getvalue() and "    ✓ back" in out.getvalue()
 
 
@@ -513,7 +513,7 @@ def test_variables_are_filled_only_where_the_app_sees_them(tmp_path, clock, out)
     assert ("open_url", "app://h/x") in d.calls
     assert "Signed in as Ann" in json.dumps(model.asked[0][1])  # the model judges the real statement
     log = out.getvalue()
-    assert "hunter2" not in log and "type: ${PASS} into='${FIELD}'" in log and "see: ${NAME}" in log
+    assert "hunter2" not in log and "type: ${PASS} (into: ${FIELD})" in log and "see: ${NAME}" in log
 
 
 def test_the_model_sees_the_placeholder_and_the_app_gets_the_value(tmp_path, clock, out):

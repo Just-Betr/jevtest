@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 
 from jevtest.adapters.reports.json_report import write_report
 from jevtest.adapters.reports.junit import Suite, write_junit
-from jevtest.adapters.testfile.loader import parse_step
+from jevtest.adapters.testfile.steps import parse_step
 from jevtest.domain.decisions import Decision, Finished
 from jevtest.domain.kinds import Status
 from jevtest.domain.model import Choice, ModelCall, Picked, Probability, YesNo
@@ -41,7 +41,7 @@ def test_json_report(tmp_path):
     report = json.loads((tmp_path / "report.json").read_text())
     assert (report["platform"], report["passed"], report["failed"]) == ("ios", 1, 2)
     step = report["tests"][1]["steps"][0]
-    assert step["step"] == {"tap": "X", "see": "X"} and step["detail"] == "on button 'X'"
+    assert step["step"] == "tap: X" and step["detail"] == "on button 'X'"
     assert step["decisions"] == [{"did": "done", "confidence": 0.9, "probabilities": {"done": 0.9}}]
     assert step["checks"] == [{"check": "see", "text": "X", "status": "fail", "detail": "not on screen"}]
     assert step["steps"][0]["step"] == "home" and step["screenshot"] == "001_FAIL_B.png"
