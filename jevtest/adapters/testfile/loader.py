@@ -7,12 +7,13 @@ anything missing, misspelled or of the wrong type is an error.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Generator, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
 import yaml
 
+from jevtest.adapters.shapes import is_list, is_mapping
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.settings import DEFAULTS, STEP_SETTINGS, Settings
@@ -22,8 +23,8 @@ from jevtest.domain.variables import VARIABLE, fill
 from .steps import parse_step
 from .values import model, on_off, setting, text
 
-Document = Mapping[str, object]
-"""A YAML file's top-level mapping."""
+Document = Mapping[object, object]
+"""A YAML file's top-level mapping. YAML keys can be numbers or dates too, so they're checked, not assumed."""
 
 ANDROID_EXT = frozenset({".apk", ".aab"})
 IOS_EXT = frozenset({".app", ".zip", ".ipa"})
@@ -45,7 +46,7 @@ class Problems:
         self._found.append(problem)
 
     @contextmanager
-    def collect(self, prefix: str = "") -> Iterator[None]:
+    def collect(self, prefix: str = "") -> Generator[None]:
         """Note a `TestFileError` raised inside the block, instead of stopping at it."""
         try:
             yield
@@ -100,7 +101,7 @@ def read_yaml(path: Path) -> Document:
                 "not {android: ${PHONE}}"
             )
         raise TestFileError(f"{path.name} is not valid YAML: {e}{hint}") from None
-    if not isinstance(data, dict):
+    if not is_mapping(data):
         raise TestFileError(f"{path.name} must be a YAML mapping")
     return data
 
@@ -156,7 +157,7 @@ def _names(keys: Iterable[object]) -> str:
 def _apps(raw: object, base: Path) -> dict[Platform, Path]:
     if raw is None:
         raise TestFileError("Missing `app:` (path to .apk/.aab/.app/.zip/.ipa, or {android: ..., ios: ...})")
-    pairs = raw.items() if isinstance(raw, dict) else [(None, raw)]
+    pairs = raw.items() if is_mapping(raw) else [(None, raw)]
     apps: dict[Platform, Path] = {}
     for named, value in pairs:
         if named is not None and named not in PLATFORMS:
@@ -175,12 +176,13 @@ def _devices(
     """Which device(s) each platform runs on. Several devices share the tests and run at the same time."""
     if raw is None:
         raise TestFileError(f"Missing `device:`. Name the device for each platform in `app:`, e.g. {DEVICE_EXAMPLE}")
-    if not isinstance(raw, dict):
+    if not is_mapping(raw):
         raise TestFileError(f"`device` must name a device per platform, e.g. {DEVICE_EXAMPLE}")
     unknown = raw.keys() - PLATFORMS
     if unknown:
         raise TestFileError(f"`device` keys must be android and/or ios, got {_names(unknown)}")
-    devices = {Platform(key): _device_names(key, names, apps, variables) for key, names in raw.items()}
+    named = {key: names for key, names in raw.items() if isinstance(key, str)}  # every key, now known to be text
+    devices = {Platform(key): _device_names(key, names, apps, variables) for key, names in named.items()}
     missing = [p.value for p in apps if p not in devices]
     if missing:
         raise TestFileError(
@@ -194,7 +196,7 @@ def _device_names(
 ) -> tuple[str, ...]:
     if Platform(key) not in apps:
         raise TestFileError(f"`device` names an {key} device, but `app` has no {key} build")
-    listed = names if isinstance(names, list) else [names]
+    listed = names if is_list(names) else [names]
     if not listed:
         raise TestFileError(f"device.{key} needs at least one device")
     found = tuple(fill(text(n, f"device.{key}"), variables) for n in listed)
@@ -208,7 +210,7 @@ def _settings(raw: object, problems: Problems) -> Settings:
     if raw is None:
         return DEFAULTS
     allowed = ["model", *sorted(STEP_SETTINGS)]
-    if not isinstance(raw, dict) or not raw:
+    if not is_mapping(raw) or not raw:
         problems.add(
             f"`settings` must be a mapping of {', '.join(allowed)}; got {raw!r} (leave it out to use the defaults)"
         )
@@ -216,12 +218,12 @@ def _settings(raw: object, problems: Problems) -> Settings:
     settings, changes = DEFAULTS, dict[str, float]()
     for name, value in raw.items():
         with problems.collect():
+            if not isinstance(name, str) or name not in allowed:
+                raise TestFileError(f"`settings` has an unknown key: {name} (it takes {', '.join(allowed)})")
             if name == "model":
                 settings = Settings(model=model(value))
-            elif name in STEP_SETTINGS:
-                changes[name] = setting(name, value)
             else:
-                raise TestFileError(f"`settings` has an unknown key: {name} (it takes {', '.join(allowed)})")
+                changes[name] = setting(name, value)
     return settings.changed(changes)
 
 
@@ -230,7 +232,7 @@ def _settings(raw: object, problems: Problems) -> Settings:
 
 def _tests(raw: object, where: str, settings: Settings, problems: Problems) -> list[Test]:
     """The tests under `tests:`. Every bad test and bad step is a problem, so all are reported."""
-    if not isinstance(raw, list) or not raw:
+    if not is_list(raw) or not raw:
         problems.add(f"No tests found under `tests:` in {where}")
         return []
     tests: list[Test] = []
@@ -244,7 +246,7 @@ def _tests(raw: object, where: str, settings: Settings, problems: Problems) -> l
 
 def _test(raw: object, where: str, settings: Settings, problems: Problems) -> Test | None:
     """One test, or None when a step is bad (each bad step is a problem)."""
-    if not isinstance(raw, dict) or not raw.keys() >= TEST_KEYS:
+    if not is_mapping(raw) or not raw.keys() >= TEST_KEYS:
         raise TestFileError(
             f"{where} needs `name`, `fresh` (true: start from a clean install, "
             "false: carry on from the previous test) and `steps`"
@@ -254,7 +256,7 @@ def _test(raw: object, where: str, settings: Settings, problems: Problems) -> Te
     if unknown:
         raise TestFileError(f"Test '{name}' has unknown keys: {_names(unknown)}")
     written = raw["steps"]
-    if not isinstance(written, list) or not written:
+    if not is_list(written) or not written:
         raise TestFileError(f"Test '{name}' needs at least one step")
     before = len(problems)
     steps: list[Step] = []
@@ -303,9 +305,10 @@ def _uses(test: Test) -> list[str]:
 
 def _included(data: Document, path: Path, chain: tuple[Path, ...]) -> dict[Path, Document]:
     """The library files a test file includes (and those include), in order, each once."""
-    raw = data.get("include") or []
+    raw = data.get("include")
+    entries: list[object] = raw if is_list(raw) else ([] if raw is None else [raw])
     found: dict[Path, Document] = {}
-    for entry in raw if isinstance(raw, list) else [raw]:
+    for entry in entries:
         lib = (path.parent / text(entry, f"include in {path.name}")).resolve()
         if lib in chain:
             raise TestFileError("Files include each other in a loop: " + " -> ".join(p.name for p in (*chain, lib)))
@@ -324,11 +327,11 @@ def _included(data: Document, path: Path, chain: tuple[Path, ...]) -> dict[Path,
 def _strings(value: object) -> Iterator[str]:
     if isinstance(value, str):
         yield value
-    elif isinstance(value, dict):
+    elif is_mapping(value):
         for k, v in value.items():
             yield from _strings(k)
             yield from _strings(v)
-    elif isinstance(value, list):
+    elif is_list(value):
         for v in value:
             yield from _strings(v)
 
@@ -347,6 +350,6 @@ def _variables(documents: Sequence[Document], env: Mapping[str, str]) -> dict[st
 def _fill_all(value: object, variables: Mapping[str, str]) -> object:
     if isinstance(value, str):
         return fill(value, variables)
-    if isinstance(value, dict):
+    if is_mapping(value):
         return {k: _fill_all(v, variables) for k, v in value.items()}
     return value

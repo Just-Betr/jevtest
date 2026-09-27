@@ -15,6 +15,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol, Self
 
+from jevtest.adapters.shapes import is_json_object, objects_by_key
 from jevtest.domain.failures import ModelError
 
 from .wire import RawAnswers
@@ -106,14 +107,15 @@ class JevClient:
         body = json.dumps({"model": self.model, "state": state, "questions": questions}).encode()
         started = time.monotonic()
         data = self._post(body)
-        answers = data.get("answers")
-        if not isinstance(answers, dict) or set(answers) != set(questions):
-            got = sorted(answers) if isinstance(answers, dict) else answers
+        raw_answers = data.get("answers")
+        if not is_json_object(raw_answers) or set(raw_answers) != set(questions):
+            got = sorted(raw_answers) if is_json_object(raw_answers) else raw_answers
             raise ModelError(f"Jev returned answers for {got}, expected {sorted(questions)}")
-        if not all(isinstance(a, dict) for a in answers.values()):
-            raise ModelError(f"Jev returned an answer that isn't a JSON object: {answers!r}")
+        answers = objects_by_key(raw_answers)
+        if answers is None:
+            raise ModelError(f"Jev returned an answer that isn't a JSON object: {raw_answers!r}")
         served_by, usage = data.get("model"), data.get("usage")
-        cost = usage.get("cost", 0) if isinstance(usage, dict) else 0
+        cost = usage.get("cost", 0) if is_json_object(usage) else 0
         return Reply(
             answers,
             round((time.monotonic() - started) * 1000),
@@ -153,7 +155,7 @@ class JevClient:
                 data: object = json.loads(raw)
             except json.JSONDecodeError:
                 raise ModelError(f"Jev returned invalid JSON: {raw[:200]!r}") from None
-            if not isinstance(data, dict):
+            if not is_json_object(data):
                 raise ModelError(f"Jev returned {type(data).__name__}, expected a JSON object")
             return data
         raise AssertionError("unreachable")  # pragma: no cover

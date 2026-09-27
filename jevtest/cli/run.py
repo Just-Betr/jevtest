@@ -103,7 +103,7 @@ def slug(text: str) -> str:
 
 def plan(suite: Suite, out: Path, label: str, printer: Printer) -> list[Job]:
     """One job per device, each with its share of the file's tests."""
-    jobs = []
+    jobs: list[Job] = []
     for platform in suite.apps:
         devices = suite.devices[platform]
         for device, tests in zip(devices, shard(suite.tests, len(devices)), strict=True):

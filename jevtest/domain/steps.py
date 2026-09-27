@@ -31,11 +31,6 @@ class _Action:
     watches_screen: ClassVar[bool] = True
     app_may_leave: ClassVar[bool] = False
 
-    @property
-    def finds_element(self) -> bool:
-        """The action looks for an element first, so it can wait (`timeout`) for one to appear."""
-        return False
-
 
 class _Still(_Action):
     """An action that changes nothing to wait for on screen."""
@@ -73,22 +68,12 @@ class Touch(_Action):
     gesture: Gesture
     target: str
 
-    @property
-    def finds_element(self) -> bool:
-        """Always: the target is found first."""
-        return True
-
 
 @dataclass(frozen=True)
 class Clear(_Action):
     """Erase a text field."""
 
     target: str
-
-    @property
-    def finds_element(self) -> bool:
-        """Always: the field is found first."""
-        return True
 
 
 @dataclass(frozen=True)
@@ -97,11 +82,6 @@ class TypeText(_Action):
 
     text: str
     into: str | None = None
-
-    @property
-    def finds_element(self) -> bool:
-        """When it names a field."""
-        return self.into is not None
 
 
 @dataclass(frozen=True)
@@ -117,11 +97,6 @@ class Swipe(_Action):
 
     direction: Direction
     target: str | None = None
-
-    @property
-    def finds_element(self) -> bool:
-        """When it names an element."""
-        return self.target is not None
 
 
 @dataclass(frozen=True)
@@ -282,6 +257,20 @@ Action = (
 )
 """Everything a step can do."""
 
+
+def finds_element(action: Action) -> bool:
+    """Whether the action looks for an element first, so it can wait (`timeout`) for one to appear."""
+    match action:
+        case Touch() | Clear():
+            return True
+        case TypeText(_, into):
+            return into is not None
+        case Swipe(_, target):
+            return target is not None
+        case _:
+            return False
+
+
 # --- checks ----------------------------------------------------------------------------------------------------
 
 
@@ -394,7 +383,7 @@ class Scope:
 SETTING_SCOPES: Mapping[str, Scope] = {
     "timeout": Scope(
         "a step that finds an element or has checks",
-        lambda action, checks: bool(checks) or (action is not None and action.finds_element),
+        lambda action, checks: bool(checks) or (action is not None and finds_element(action)),
     ),
     "settle": Scope(
         "a step whose action changes the screen", lambda action, _: action is not None and action.watches_screen

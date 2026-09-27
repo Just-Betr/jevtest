@@ -28,6 +28,10 @@ def test_answers_become_typed_and_back():
         ({"action": PICKED}, r"Jev answered \['action'\], expected \['action', 'check'\]"),
         ({"action": {**PICKED, "choice": "fly"}, "check": {"noul": 0.5}}, "'fly' for action, which is not one of"),
         ({"action": {"choice": "tap"}, "check": {"noul": 0.5}}, "answer for action has no confidence or probabilities"),
+        (
+            {"action": {**PICKED, "probabilities": {"tap": "high"}}, "check": {"noul": 0.5}},
+            "answer for action has no confidence or probabilities",
+        ),
         ({"action": PICKED, "check": {"noul": True}}, "True for the yes/no question check"),
         ({"action": PICKED, "check": {"noul": 1.5}}, "1.5 for the yes/no question check"),
         ({"action": PICKED, "check": {"noul": "yes"}}, "'yes' for the yes/no question check"),

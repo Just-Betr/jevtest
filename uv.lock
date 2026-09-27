@@ -682,6 +682,7 @@ name = "jevtest"
 source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
 ]
 
 [package.dev-dependencies]
@@ -705,7 +706,10 @@ docs = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyyaml", specifier = ">=6" }]
+requires-dist = [
+    { name = "pyyaml", specifier = ">=6" },
+    { name = "typing-extensions", marker = "python_full_version < '3.12'", specifier = ">=4.5" },
+]
 
 [package.metadata.requires-dev]
 dev = [

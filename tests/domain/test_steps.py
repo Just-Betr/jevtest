@@ -31,6 +31,7 @@ from jevtest.domain.steps import (
     TypeText,
     Use,
     Wait,
+    finds_element,
 )
 
 EVERY_ACTION = [
@@ -72,7 +73,7 @@ def test_every_action_says_what_it_is(action):
     watches = not isinstance(action, Stop | ClearData | Reinstall | Home | Wait | Screenshot | Use)
     leaves = isinstance(action, Stop | ClearData | Reinstall | Home | OpenUrl)
     finds = isinstance(action, Touch | Clear) or action in (TypeText("a", "Email"), Swipe(Direction.LEFT, "Row"))
-    assert (action.settles, action.watches_screen, action.app_may_leave, action.finds_element) == (
+    assert (action.settles, action.watches_screen, action.app_may_leave, finds_element(action)) == (
         settles,
         watches,
         leaves,

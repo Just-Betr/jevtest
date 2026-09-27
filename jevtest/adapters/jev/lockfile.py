@@ -15,6 +15,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TypedDict
 
+from jevtest.adapters.shapes import is_json_object, objects_by_key
 from jevtest.domain.failures import ModelError
 from jevtest.domain.model import Answer, ModelCall, Question, State
 
@@ -63,18 +64,18 @@ def _entries(data: object, name: str) -> dict[str, Entry]:
         ModelError: It isn't a jevtest lockfile of this version.
     """
     bad = ModelError(f"{name} is not a jevtest v{VERSION} lockfile; delete it to re-record")
-    if not isinstance(data, dict) or data.get("version") != VERSION:
+    if not is_json_object(data) or data.get("version") != VERSION:
         raise bad
     decisions = data.get("decisions", {})
-    if not isinstance(decisions, dict):
+    if not is_json_object(decisions):
         raise bad
     entries: dict[str, Entry] = {}
     for key, entry in decisions.items():
-        answers = entry.get("answers") if isinstance(entry, dict) else None
-        if not isinstance(answers, dict) or not all(isinstance(a, dict) for a in answers.values()):
+        answers = objects_by_key(entry.get("answers")) if is_json_object(entry) else None
+        if answers is None or not is_json_object(entry):
             raise bad
         served_by = entry.get("served_by")
-        entries[str(key)] = {"served_by": served_by if isinstance(served_by, str) else None, "answers": answers}
+        entries[key] = {"served_by": served_by if isinstance(served_by, str) else None, "answers": answers}
     return entries
 
 

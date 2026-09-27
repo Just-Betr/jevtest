@@ -28,6 +28,7 @@ from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
 
+from ._typing import override
 from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
 from .ios_screen import AgentTree, parse_tree
 from .tool_output import Object, as_list, as_object, as_text, dig, parse_json, parse_plist, text_at, texts
@@ -165,7 +166,7 @@ def xcode_team(team: str) -> str:
     """Check the app's team is signed into Xcode (Settings > Accounts), so jevtest can sign its agent."""
     raw = run(["defaults", "export", "com.apple.dt.Xcode", "-"], check=False)
     what = "Xcode's signed-in teams"
-    prefs = parse_plist(raw.encode(), what) if raw.strip() else {}
+    prefs: Object = parse_plist(raw.encode(), what) if raw.strip() else {}
     accounts = as_object(prefs.get("IDEProvisioningTeamByIdentifier", {}), what)
     ids = sorted({text_at(t, "teamID") for account in accounts.values() for t in as_list(account, what)} - {""})
     if team not in ids:
@@ -405,12 +406,14 @@ class IOSDevice(BaseDevice):
             raise DeviceError(f"iOS agent {path}: {data['error']}")
         return data
 
+    @override
     def close(self) -> None:
         """Put back anything a step changed, then stop the agent."""
         self.restore()
         stop_process(self.agent)
         self._tmp.cleanup()
 
+    @override
     def restore(self) -> None:
         """Put back what steps changed (appearance, orientation, a simulator's location)."""
         for path, body in self._restore.items():
@@ -426,30 +429,31 @@ class IOSDevice(BaseDevice):
         if path not in self._restore:
             self._restore[path] = {"raw": self._call(path)["raw"]}
 
+    @override
     def check_ready(self) -> None:
         """An iPhone that is locked can't be tested: say so; never unlock it."""
         if self.physical and devicectl("device", "info", "lockState", "--device", self.udid).get("passcodeRequired"):
             raise DeviceError(f"{self.name} is locked: unlock it and keep it unlocked during the run")
 
     # --- lifecycle ----------------------------------------------------------------
-    def install(self, app_path: Path) -> str:
+    def install(self, app: Path) -> str:
         """Install a simulator or device build (an .app, or a .zip/.ipa containing one); return its bundle id."""
-        bundle = app_bundle(app_path, Path(self._tmp.name) / "app")
+        bundle = app_bundle(app, Path(self._tmp.name) / "app")
         try:
             raw = (bundle / "Info.plist").read_bytes()
         except OSError as e:
-            raise DeviceError(f"{app_path.name} has no readable Info.plist ({e})") from None
-        info = parse_plist(raw, f"{app_path.name}'s Info.plist")
-        platforms = texts(info.get("CFBundleSupportedPlatforms", []), f"{app_path.name}'s supported platforms")
+            raise DeviceError(f"{app.name} has no readable Info.plist ({e})") from None
+        info = parse_plist(raw, f"{app.name}'s Info.plist")
+        platforms = texts(info.get("CFBundleSupportedPlatforms", []), f"{app.name}'s supported platforms")
         needed = "iPhoneOS" if self.physical else "iPhoneSimulator"
         if platforms and needed not in platforms:
             where = f"a real iPhone ({self.name})" if self.physical else "the iOS Simulator"
             how = "a device build signed with your team" if self.physical else "a build with `-sdk iphonesimulator`"
-            raise DeviceError(f"{app_path.name} is built for {', '.join(platforms)}, not {where}. Use {how}.")
+            raise DeviceError(f"{app.name} is built for {', '.join(platforms)}, not {where}. Use {how}.")
         if "CFBundleIdentifier" not in info:
-            raise DeviceError(f"{app_path.name} Info.plist has no CFBundleIdentifier")
+            raise DeviceError(f"{app.name} Info.plist has no CFBundleIdentifier")
         self.app_path = bundle
-        self.app_id = as_text(info["CFBundleIdentifier"], f"{app_path.name}'s bundle id")
+        self.app_id = as_text(info["CFBundleIdentifier"], f"{app.name}'s bundle id")
         self._install_bundle()
         return self.app_id
 
@@ -500,6 +504,7 @@ class IOSDevice(BaseDevice):
         self._install_bundle()
 
     # --- observe --------------------------------------------------------------------
+    @override
     def screen(self) -> Screen:
         """What's on the screen now."""
         return parse_tree(cast("AgentTree", self._call("/tree")))  # the agent's own JSON
@@ -524,10 +529,12 @@ class IOSDevice(BaseDevice):
         """Press and hold a point."""
         self._call("/long_press", x=x, y=y, seconds=seconds)
 
+    @override
     def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
         """Press, move, lift."""
         self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2)
 
+    @override
     def wait_idle(self, timeout: float, quiet: float | None = None) -> None:
         """Return once the screen has stopped changing (for `quiet` seconds), or after `timeout` seconds."""
         if quiet is None:
@@ -535,6 +542,7 @@ class IOSDevice(BaseDevice):
         else:
             self._call("/idle", timeout=timeout, quiet=quiet)
 
+    @override
     def wait_change(self, timeout: float) -> None:
         """Return as soon as the screen changes, or after `timeout` seconds."""
         self._call("/change", timeout=timeout)

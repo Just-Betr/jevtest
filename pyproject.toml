@@ -11,7 +11,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Bret Hagen" }]
 requires-python = ">=3.11"
-dependencies = ["pyyaml>=6"]
+dependencies = ["pyyaml>=6", "typing-extensions>=4.5; python_version < '3.12'"]
 keywords = ["testing", "e2e", "mobile", "android", "ios", "flutter", "react-native", "webview", "ai", "jev",
             "xcuitest", "uiautomator"]
 classifiers = [
@@ -121,6 +121,17 @@ exclude = ["*.md"]  # the docs hold hand-aligned sketches, not code to format
 strict = true
 python_version = "3.11"
 files = ["jevtest"]
+warn_unreachable = true
+enable_error_code = [
+    "ignore-without-code", "redundant-expr", "truthy-bool", "truthy-iterable", "possibly-undefined",
+    "redundant-self", "unused-awaitable", "explicit-override", "mutable-override", "narrowed-type-not-subtype",
+]
+
+[tool.pyright]
+include = ["jevtest"]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportUnnecessaryTypeIgnoreComment = "error"
 
 [tool.importlinter]
 root_package = "jevtest"

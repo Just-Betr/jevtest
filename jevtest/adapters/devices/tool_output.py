@@ -10,6 +10,7 @@ import json
 import plistlib
 from collections.abc import Mapping
 
+from jevtest.adapters.shapes import is_json_object, is_list
 from jevtest.domain.failures import DeviceError
 
 Object = Mapping[str, object]
@@ -28,7 +29,7 @@ def as_object(value: object, what: str) -> Object:
     Raises:
         DeviceError: It's anything else.
     """
-    if not isinstance(value, dict):
+    if not is_json_object(value):
         raise unexpected(what, value)
     return value
 
@@ -39,7 +40,7 @@ def as_list(value: object, what: str) -> list[object]:
     Raises:
         DeviceError: It's anything else.
     """
-    if not isinstance(value, list):
+    if not is_list(value):
         raise unexpected(what, value)
     return value
 
@@ -67,7 +68,7 @@ def texts(value: object, what: str) -> list[str]:
 def dig(value: object, *path: str) -> object:
     """The value at `path` through nested objects, or None where the path stops (an optional field)."""
     for key in path:
-        if not isinstance(value, dict):
+        if not is_json_object(value):
             return None
         value = value.get(key)
     return value

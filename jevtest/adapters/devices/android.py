@@ -20,6 +20,7 @@ from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
 
+from ._typing import override
 from .android_screen import has_empty_webview, keyboard_up, parse_screen
 from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
 
@@ -297,6 +298,7 @@ class AndroidDevice(BaseDevice):
         except OSError as e:
             raise DeviceError(f"Lost the Android agent during {path} ({e})") from None
 
+    @override
     def close(self) -> None:
         """Stop the agent, remove the port forward, and put back what steps changed."""
         if self.agent and self.agent.poll() is None:
@@ -310,17 +312,20 @@ class AndroidDevice(BaseDevice):
         run([self.adb, "-s", self.serial, "forward", "--remove", f"tcp:{self.port}"], check=False)
         self.restore()
 
+    @override
     def restore(self) -> None:
         """Put back what steps changed (rotation, dark mode, network), as the device was before them."""
         for command in self._restore.values():
             self.sh(command, check=False)
         self._restore.clear()
 
+    @override
     def wait_idle(self, timeout: float, quiet: float | None = None) -> None:
         """Return once the screen has stopped changing (for `quiet` seconds), or after `timeout` seconds."""
         extra = f"&quiet={int(quiet * 1000)}" if quiet is not None else ""
         self._agent("/idle", int(timeout * 1000), extra)
 
+    @override
     def wait_change(self, timeout: float) -> None:
         """Return as soon as the screen changes, or after `timeout` seconds."""
         self._agent("/change", int(timeout * 1000))
@@ -342,18 +347,18 @@ class AndroidDevice(BaseDevice):
         return (h, w) if rotation in (1, 3) else (w, h)
 
     # --- lifecycle -------------------------------------------------------------
-    def install(self, app_path: Path) -> str:
+    def install(self, app: Path) -> str:
         """Install an .apk or .aab and return its package name."""
-        self.app_path = app_path
-        suffix = app_path.suffix.lower()
+        self.app_path = app
+        suffix = app.suffix.lower()
         if suffix == ".apk":
-            self.app_id = run([aapt2_path(), "dump", "packagename", str(app_path)]).strip()
+            self.app_id = run([aapt2_path(), "dump", "packagename", str(app)]).strip()
             # No -g: permissions start ungranted, like a real install. Use a `grant:` step to pre-grant.
-            run([self.adb, "-s", self.serial, "install", "-r", "-t", str(app_path)], timeout=300)
+            run([self.adb, "-s", self.serial, "install", "-r", "-t", str(app)], timeout=300)
         elif suffix == ".aab":
-            self._install_bundle(app_path)
+            self._install_bundle(app)
         else:
-            raise DeviceError(f"Android needs an .apk or .aab, got {app_path.name}")
+            raise DeviceError(f"Android needs an .apk or .aab, got {app.name}")
         out = self.sh(f"cmd package resolve-activity --brief -c android.intent.category.LAUNCHER {self.app_id}")
         lines = out.strip().splitlines()
         self.activity = lines[-1].strip() if lines else ""
@@ -415,6 +420,7 @@ class AndroidDevice(BaseDevice):
         self.sh(f"pm uninstall {self.app_id}", check=False)
         self.install(self.app_path)
 
+    @override
     def check_ready(self) -> None:
         """A phone that is asleep or locked shows no app to test. Say so; never wake or unlock it."""
         out = self.sh(
@@ -467,6 +473,7 @@ class AndroidDevice(BaseDevice):
             xml = self._agent("/tree")
         return xml
 
+    @override
     def screen(self) -> Screen:
         """What's on the screen now."""
         return parse_screen(self.tree(), self.size)
@@ -489,6 +496,7 @@ class AndroidDevice(BaseDevice):
         """Press and hold a point."""
         self.sh(f"input swipe {x} {y} {x} {y} {int(seconds * 1000)}")
 
+    @override
     def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
         """Press, move, hold still, lift."""
         # Press, move in steps, hold still, lift: the content stops where the finger stops. A plain

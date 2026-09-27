@@ -80,7 +80,7 @@ def quoted_values(goal: str) -> list[str]:
 
 def describe(screen: Screen) -> list[dict[str, object]]:
     """The screen as the model reads it: one short record per element, positions in words."""
-    out = []
+    out: list[dict[str, object]] = []
     for el in screen.elements:
         d: dict[str, object] = {"id": el.id, "type": el.kind}
         if el.text:
@@ -109,7 +109,7 @@ def _state(screen: Screen, **extra: object) -> State:
 
 
 def _element_options(screen: Screen, elements: Sequence[Element]) -> dict[str, str]:
-    opts = {}
+    opts: dict[str, str] = {}
     for el in elements[:MAX_OPTIONS]:
         desc = f"The {el.label()} at the {screen.region(el)} of the screen"
         if el.checked is not None:

@@ -148,4 +148,4 @@ class Decision:
 
     move: Move
     confidence: float
-    probabilities: Mapping[str, float] = field(default_factory=dict)
+    probabilities: Mapping[str, float] = field(default_factory=dict[str, float])

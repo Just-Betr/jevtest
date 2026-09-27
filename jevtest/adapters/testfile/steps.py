@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
+from jevtest.adapters.shapes import is_list, is_mapping
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Direction, Gesture, Orientation
 from jevtest.domain.settings import DEFAULTS, STEP_SETTINGS, Settings
@@ -115,7 +116,7 @@ def _swipe(key: str, value: object, options: Options) -> Action:
 
 
 def _location(_: str, value: object, __: Options) -> Action:
-    if not isinstance(value, list) or len(value) != len(("latitude", "longitude")):
+    if not is_list(value) or len(value) != len(("latitude", "longitude")):
         raise TestFileError(f"location must be [latitude, longitude], e.g. [37.77, -122.41]; got {value!r}")
     lat = number(value[0], "latitude", minimum=-MAX_LATITUDE)
     lon = number(value[1], "longitude", minimum=-MAX_LONGITUDE)
@@ -158,7 +159,7 @@ ACTIONS: Mapping[str, ActionSpec] = {
 
 BARE_WORDS = sorted(key for key, spec in ACTIONS.items() if not spec.takes_value)
 CHECKS: Mapping[str, Callable[[str], Check]] = {"expect": Expect, "see": See, "not_see": NotSee}
-OPTIONS = frozenset().union(*(spec.options for spec in ACTIONS.values())) | STEP_SETTINGS
+OPTIONS = frozenset[str]().union(*(spec.options for spec in ACTIONS.values())) | STEP_SETTINGS
 TYPE_KEYS = frozenset({"text", "into"})
 
 
@@ -170,33 +171,36 @@ def parse_step(raw: object, settings: Settings = DEFAULTS) -> Step:
     """
     if isinstance(raw, str):
         return _bare_word(raw, settings)
-    if not isinstance(raw, dict):
+    if not is_mapping(raw):
         raise TestFileError(f"Step must be an action word or a mapping, got {raw!r}")
-    keys = _action_keys(raw)
-    checks = _checks(raw)
-    options = {k: v for k, v in raw.items() if k in OPTIONS}
+    step = _step_keys(raw)
+    keys = [k for k in step if k in ACTIONS]
+    checks = _checks(step)
+    options = {k: v for k, v in step.items() if k in OPTIONS}
     if not keys:
         if not checks:
             raise TestFileError(f"Step {raw!r} has no action or check")
         _check_options(None, options)
         return Step(None, checks, _settings(None, checks, options, settings))
     key = keys[0]
-    value = _unpack_type(raw[key], options) if key == "type" else raw[key]
+    value = _unpack_type(step[key], options) if key == "type" else step[key]
     action = _action(key, value, options)
     return Step(action, checks, _settings(action, checks, options, settings), label(key, value, options))
 
 
-def _action_keys(raw: Mapping[object, object]) -> list[str]:
-    """The step's action key (at most one), after checking every key is one a step can have."""
-    unknown = raw.keys() - ACTIONS.keys() - CHECKS.keys() - OPTIONS - {"text"}
-    if unknown:
-        raise TestFileError(f"Step {raw!r} has unknown keys: {', '.join(sorted(map(str, unknown)))}")
+def _step_keys(raw: Mapping[object, object]) -> dict[str, object]:
+    """The step with its keys as text, after checking each is one a step can have, with one action at most."""
     if "text" in raw:
         raise TestFileError("`text` goes inside type: `type: {text: hello, into: Email}`")
-    keys = [k for k in raw if isinstance(k, str) and k in ACTIONS]  # in the order written
-    if len(keys) > 1:
-        raise TestFileError(f"Step {raw!r} has more than one action ({', '.join(keys)}); split it into two steps")
-    return keys
+    known = ACTIONS.keys() | CHECKS.keys() | OPTIONS
+    unknown = [k for k in raw if not isinstance(k, str) or k not in known]
+    if unknown:
+        raise TestFileError(f"Step {raw!r} has unknown keys: {', '.join(sorted(map(str, unknown)))}")
+    step = {k: v for k, v in raw.items() if isinstance(k, str)}
+    actions = [k for k in step if k in ACTIONS]  # in the order written
+    if len(actions) > 1:
+        raise TestFileError(f"Step {raw!r} has more than one action ({', '.join(actions)}); split it into two steps")
+    return step
 
 
 def _bare_word(raw: str, settings: Settings) -> Step:
@@ -218,7 +222,7 @@ def _action(key: str, value: object, options: Options) -> Action:
 
 def _check_options(key: str | None, options: Options) -> None:
     """Each option that isn't a setting belongs to this action (None: a step that only checks)."""
-    takes = ACTIONS[key].options if key is not None else frozenset()
+    takes = ACTIONS[key].options if key is not None else frozenset[str]()
     stray = sorted(options.keys() - STEP_SETTINGS - takes)
     if stray:
         owners = " / ".join(sorted(k for k, s in ACTIONS.items() if stray[0] in s.options))
@@ -230,7 +234,7 @@ def _checks(raw: Mapping[str, object]) -> tuple[Check, ...]:
     checks: list[Check] = []
     for key, value in raw.items():
         if key in CHECKS:
-            values = value if isinstance(value, list) else [value]
+            values = value if is_list(value) else [value]
             if not values:
                 raise TestFileError(f"'{key}' needs at least one value")
             checks += [CHECKS[key](text(v, f"'{key}'")) for v in values]
@@ -250,7 +254,7 @@ def _settings(action: Action | None, checks: tuple[Check, ...], options: Options
 
 def _unpack_type(value: object, options: dict[str, object]) -> object:
     """`type: {text: .., into: ..}` into the text, with `into` moved to the options; any other value as it is."""
-    if not isinstance(value, dict):
+    if not is_mapping(value):
         return value
     bad = set(value) - TYPE_KEYS
     if bad:
@@ -276,6 +280,6 @@ def _shown(value: object) -> str:
         return "on" if value else "off"
     if isinstance(value, float):
         return f"{value:g}"
-    if isinstance(value, list):
+    if is_list(value):
         return ", ".join(_shown(v) for v in value)
     return str(value)

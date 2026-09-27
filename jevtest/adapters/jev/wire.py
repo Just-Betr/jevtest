@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Literal, TypedDict, TypeGuard
 
+from jevtest.adapters.shapes import is_json_object
 from jevtest.domain.failures import ModelError
 from jevtest.domain.model import Answer, Choice, Picked, Probability, Question, YesNo
 
@@ -88,13 +89,15 @@ def answer_from_wire(qid: str, raw: Mapping[str, object], question: Question) ->
     if not isinstance(chosen, str) or chosen not in question.options:
         raise ModelError(f"Jev answered {chosen!r} for {qid}, which is not one of the options")
     confidence, probabilities = raw.get("confidence"), raw.get("probabilities")
-    if (
-        not _is_number(confidence)
-        or not isinstance(probabilities, dict)
-        or not all(isinstance(k, str) and _is_number(v) for k, v in probabilities.items())
-    ):
-        raise ModelError(f"Jev's answer for {qid} has no confidence or probabilities")
-    return Picked(chosen, float(confidence), {str(k): float(v) for k, v in probabilities.items()})
+    missing = ModelError(f"Jev's answer for {qid} has no confidence or probabilities")
+    if not _is_number(confidence) or not is_json_object(probabilities):
+        raise missing
+    checked: dict[str, float] = {}
+    for option, p in probabilities.items():
+        if not _is_number(p):
+            raise missing
+        checked[option] = float(p)
+    return Picked(chosen, float(confidence), checked)
 
 
 def answer_to_wire(answer: Answer) -> WireAnswer:
