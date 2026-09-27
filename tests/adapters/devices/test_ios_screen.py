@@ -95,3 +95,11 @@ def test_parse_rules():
     assert s.elements[2].focused and s.elements[5].checked is True
     assert [e.value for e in s.elements if e.editable] == ["a@b.c", "typed", "•••"]
     assert s.keyboard_visible and s.keyboard_top == 150
+    # a text that joins a label and a value keeps each, so either can be matched exactly on its own
+    parts = {e.text: e.parts for e in s.elements if e.parts}
+    assert parts == {
+        "Email: a@b.c": ("Email", "a@b.c"),
+        "Country: Canada": ("Country", "Canada"),
+        "Size: Large": ("Size", "Large"),
+    }
+    assert s.elements[3].parts == ()  # a value with no label is the whole text

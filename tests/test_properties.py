@@ -20,8 +20,10 @@ from jevtest.adapters.jev.wire import answers_from_wire, questions_to_wire
 from jevtest.adapters.testfile.env import read_env
 from jevtest.adapters.testfile.loader import load
 from jevtest.adapters.testfile.steps import ACTIONS, CHECKS, OPTIONS, parse_step
+from jevtest.application.brain import Brain
 from jevtest.domain.failures import ModelError, TestFileError
-from jevtest.domain.model import Choice, YesNo
+from jevtest.domain.model import Choice, Picked, YesNo
+from jevtest.domain.screen import Element, Screen
 
 SETTINGS = settings(max_examples=300, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
 
@@ -160,3 +162,41 @@ def test_any_ios_tree_parses_to_distinct_elements_on_screen(elements):
     keys = [(e.kind, e.text, e.bounds) for e in screen.elements]
     assert len(keys) == len(set(keys))
     assert all(0 <= e.bounds[0] < e.bounds[2] <= 402 and 0 <= e.bounds[1] < e.bounds[3] <= 874 for e in screen.elements)
+
+
+tiny_text = st.text(alphabet="aAb :", max_size=4)
+elements = st.builds(
+    lambda kind, text, parts, hint, rid: Element(
+        kind=kind, text=text, parts=parts, hint=hint, resource_id=rid, bounds=(0, 0, 10, 10), clickable=True
+    ),
+    st.sampled_from(["button", "text", "text_field"]),
+    tiny_text,
+    st.lists(tiny_text, max_size=2).map(tuple),
+    tiny_text,
+    tiny_text,
+)
+
+
+class NeverAsked:
+    """A decision model for the exact path: asking it at all is a failure, except for a true description."""
+
+    def __init__(self) -> None:
+        self.calls: list[object] = []
+
+    def ask(self, state, questions):
+        self.calls.append(questions)
+        return {"element": Picked("not_on_screen", 1.0, {})}
+
+
+@SETTINGS
+@given(st.lists(elements, max_size=6), tiny_text.filter(bool))
+def test_a_target_is_matched_only_by_an_element_that_says_it_exactly(els, target):
+    screen = Screen(10, 10, tuple(els))
+    says_it = [el for el in screen.elements if target in (el.text, *el.parts, el.hint, el.resource_id)]
+    assert screen.shows(target) == bool(says_it)
+    model = NeverAsked()
+    found = Brain(model).locate(target, screen)
+    if found is not None and found.chosen is None:
+        assert found.element in says_it  # matched in code: only ever an exact match
+    if not says_it and screen.near(target):
+        assert found is None and not model.calls  # a near match is never used, and Jev is never asked

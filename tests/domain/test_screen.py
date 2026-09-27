@@ -17,14 +17,37 @@ def test_lookups():
     assert [e.id for e in s.elements] == ["e1", "e2", "e3"]
     assert s.by_id("e3").text == "Sign in"
     assert [e.hint for e in s.editable] == ["Email", "Password"]
-    assert s.texts() == ["Email", "Password", "Sign in"]
     with pytest.raises(KeyError):
         s.by_id("e9")
 
 
-def test_shows_ignores_case_and_matches_part_of_a_text():
+def test_shows_only_an_exact_text_of_one_element():
     s = login_screen()
-    assert s.shows("sign IN") and s.shows("mail") and not s.shows("Welcome")
+    assert s.shows("Sign in") and s.shows("Email")  # a text, a hint
+    assert not s.shows("sign in") and not s.shows("mail") and not s.shows("Sign")
+
+
+@pytest.mark.parametrize(
+    ("wanted", "on_screen"),
+    [("Taps: 2", "Taps: 20"), ("Save", "Unsaved changes"), ("Save", "Save draft"), ("Welcome", "welcome")],
+)
+def test_see_never_passes_on_a_longer_or_differently_cased_text(wanted, on_screen):
+    assert not Screen(10, 10, (el("text", on_screen),)).shows(wanted)
+
+
+def test_an_element_says_its_text_parts_hint_and_id_exactly():
+    field = el("text_field", "Email: a@b.c", parts=("Email", "a@b.c"), hint="you@example.com", resource_id="email")
+    assert all(field.says(t) for t in ("Email: a@b.c", "Email", "a@b.c", "you@example.com", "email"))
+    assert not any(field.says(t) for t in ("email: a@b.c", "a@b", "Email:", ""))
+    assert field.names() == ("Email: a@b.c", "Email", "a@b.c", "you@example.com", "email")
+
+
+def test_near_lists_other_case_and_longer_texts_only():
+    s = Screen(10, 10, tuple(el("text", t) for t in ("Save draft", "save", "Unsaved changes", "Cancel", "Save")))
+    assert s.near("Save") == ("Save draft", "save", "Unsaved changes")
+    assert Screen(10, 10, tuple(el("text", f"Save {i}") for i in range(9))).near("Save") == tuple(
+        f"Save {i}" for i in range(5)
+    )
 
 
 def test_screens_are_values():

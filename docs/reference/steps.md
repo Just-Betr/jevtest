@@ -15,8 +15,8 @@ A few actions take no value. Write them as a bare word (`- back`), or as a key w
 | Check | Passes when |
 |---|---|
 | `expect: statement` | Jev finds the statement more likely true than false on the current screen (yes-probability above the [`confidence`](test-file.md#settings-optional) setting, 0.5 by default) |
-| `see: text` | some element's text or hint contains the text (case-insensitive, no model) |
-| `not_see: text` | no element's text or hint contains it |
+| `see: text` | an element says exactly the text ([matching](#matching)), no model |
+| `not_see: text` | no element says exactly the text |
 
 Each takes one value or a list. Checks keep trying for up to 10 seconds, or the step's `timeout:` ([settings](test-file.md#settings-optional)). They look again only when the screen changes, so Jev is never asked the same question about the same screen twice.
 
@@ -38,9 +38,31 @@ Each takes one value or a list. Checks keep trying for up to 10 seconds, or the 
 | `long_press: target` | Presses and holds it. |
 | `swipe: up\|down\|left\|right` | Swipes across the screen, or on an element with `target:`. |
 | `scroll: up\|down\|left\|right` | Scrolls the content one page. |
-| `scroll_to: text` | Scrolls in `direction:` (required) until the text is on screen. Fails when the content stops moving (the end) or after `max_scrolls` (50 by default). |
+| `scroll_to: text` | Scrolls in `direction:` (required) until an element says exactly the text. Fails when the content stops moving (the end) or after `max_scrolls` (50 by default). |
 
-**Targets** are found by their visible text: an element whose text, hint or id is exactly the target; otherwise one whose text or hint contains it (both in code). Only a description that isn't on-screen text goes to Jev, which picks an element and then must confirm it. If several elements match, Jev chooses among those only. A target that can't be found fails the step after 10 seconds, or the step's `timeout:`.
+**Targets** are found by their exact text ([matching](#matching)). If several elements match, the one you can act on wins (a switch over its label); if that still leaves several, Jev chooses among those only, and the step says `(chosen by Jev among 2 exact matches)`. A target that is a description rather than on-screen text (`tap: the red delete icon`) goes to Jev, which picks an element and must then confirm it; the step says `(chosen by Jev)`. A target that can't be found fails the step after 10 seconds, or the step's `timeout:`.
+
+### Matching
+
+Text is matched **exactly**, never as part of a longer text, and case matters. An element matches a target when one of these is exactly the target:
+
+| | Example: the element | matches |
+|---|---|---|
+| its text, as shown | an iOS field showing `Email: a@b.c` | `Email: a@b.c` |
+| each part its text is made of | the same field | `Email`, and `a@b.c` |
+| | an Android button with text `Go` and description `Go now`, shown `Go (Go now)` | `Go (Go now)`, `Go`, `Go now` |
+| its hint (placeholder) | a field with the hint `Search` | `Search` |
+| its id (resource id or accessibility identifier) | `login_button` | `login_button` |
+
+So `tap: Save` never taps *Unsaved changes* or *Save draft*, and `see: "Taps: 2"` never passes on *Taps: 20*. Spaces inside a screen's text are collapsed to one, as the parsers read it.
+
+When nothing matches exactly but something is close (the same text in another case, or a longer text containing the target), the step fails and lists what's there, so you can fix the test file. A close text is never used:
+
+```
+✗ tap: Save — Could not find element 'Save' on screen; close but not exact: 'Unsaved changes', 'Save draft'
+```
+
+`not_see:` is exact too: `not_see: Error` passes while the screen shows *Error: none*. To check that no error of any wording is showing, use `expect:`.
 
 ### Text
 

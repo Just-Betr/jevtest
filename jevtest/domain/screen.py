@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 Bounds = tuple[int, int, int, int]
@@ -18,7 +19,10 @@ class Element:
 
     Attributes:
         kind: What it is: button, text_field, password_field, text, switch, checkbox, image, cell, ...
-        text: Its visible label, content description or value.
+        text: What it shows, as one line: its label, content description or value, or several of them together.
+        parts: The separate texts `text` is made of, when it's made of more than one: an iOS label and value
+            (``Email: a@b.c``), an Android text and content description (``Go (Go now)``). Each can be matched
+            on its own.
         hint: Placeholder or hint text.
         resource_id: The Android resource id or iOS accessibility identifier.
         bounds: Where it is on the screen.
@@ -35,6 +39,7 @@ class Element:
 
     kind: str
     text: str = ""
+    parts: tuple[str, ...] = ()
     hint: str = ""
     resource_id: str = ""
     bounds: Bounds = (0, 0, 0, 0)
@@ -59,6 +64,14 @@ class Element:
         """A point just inside the right edge: tapping there puts the text cursor after the text."""
         x1, y1, x2, y2 = self.bounds
         return x2 - max(1, min(8, (x2 - x1) // 4)), (y1 + y2) // 2
+
+    def says(self, target: str) -> bool:
+        """Whether the element's text, one of its parts, its hint or its id is exactly `target` (case matters)."""
+        return target in self.names()
+
+    def names(self) -> tuple[str, ...]:
+        """Every text a test can name the element by, in order: text, parts, hint, id."""
+        return tuple(dict.fromkeys(t for t in (self.text, *self.parts, self.hint, self.resource_id) if t))
 
     def label(self) -> str:
         """A short description for logs and for Jev, e.g. ``button 'Sign in'``."""
@@ -111,14 +124,13 @@ class Screen:
                 return el
         raise KeyError(element_id)
 
-    def texts(self) -> list[str]:
-        """Every visible text and hint on the screen."""
-        return [t for el in self.elements for t in (el.text, el.hint) if t]
-
     def shows(self, text: str) -> bool:
-        """Whether any text or hint on the screen contains `text`, ignoring case."""
-        wanted = text.lower()
-        return any(wanted in t.lower() for t in self.texts())
+        """Whether an element says exactly `text` (see `Element.says`). Never a part of a longer text."""
+        return any(el.says(text) for el in self.elements)
+
+    def near(self, text: str) -> tuple[str, ...]:
+        """What the screen says that `text` may have meant, for the error when it isn't there. Never matched."""
+        return near_names(text, self.elements)
 
     def region(self, el: Element) -> str:
         """Where an element is, in words (``top-left`` ... ``bottom-right``): Jev reads words better than numbers."""
@@ -126,3 +138,17 @@ class Screen:
         v = "top" if cy < self.height / 3 else "bottom" if cy > self.height * 2 / 3 else "middle"
         h = "left" if cx < self.width / 3 else "right" if cx > self.width * 2 / 3 else "center"
         return f"{v}-{h}"
+
+
+NEAR_LIMIT = 5
+"""How many near matches an error lists."""
+
+
+def near_names(target: str, elements: Sequence[Element]) -> tuple[str, ...]:
+    """Names on these elements that differ from `target` only in case, or contain it, ignoring case.
+
+    Only for error messages, so the user can fix the test file: a near match is never matched.
+    """
+    wanted = target.lower()
+    found = (name for el in elements for name in el.names() if name != target and wanted in name.lower())
+    return tuple(dict.fromkeys(found))[:NEAR_LIMIT]

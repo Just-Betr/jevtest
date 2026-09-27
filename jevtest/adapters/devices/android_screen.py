@@ -98,7 +98,8 @@ def _element(a: Attributes, width: int, height: int) -> Element | None:
         return None  # nothing a test could find it by or do with it
     return Element(
         kind=_kind(cls, clickable=clickable, password=editable and _true(a, "password")),
-        text=" ".join(label.split()),
+        text=_collapsed(label),
+        parts=_parts(a),
         hint=a.get("hint", ""),
         resource_id=rid,
         bounds=bounds,
@@ -133,6 +134,16 @@ def _label(a: Attributes) -> str:
     """What the element says, as written: its text, its description, or both when they differ."""
     text, desc = a.get("text", ""), a.get("content-desc", "")
     return f"{text} ({desc})" if text and desc and text != desc else (text or desc)
+
+
+def _parts(a: Attributes) -> tuple[str, ...]:
+    """The text and the description on their own, when the element shows both (``Go (Go now)``)."""
+    text, desc = a.get("text", ""), a.get("content-desc", "")
+    return (_collapsed(text), _collapsed(desc)) if text and desc and text != desc else ()
+
+
+def _collapsed(text: str) -> str:
+    return " ".join(text.split())
 
 
 def _resource_id(a: Attributes) -> str:

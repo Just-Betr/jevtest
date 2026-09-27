@@ -77,7 +77,7 @@ def _element(raw: AgentElement, width: int, height: int) -> Element | None:
     if bounds is None or kind == "application" or SCROLL_INDICATOR.match(label):
         return None
     value = _value(kind, raw)
-    text = _text(kind, label, value)
+    text, parts = _text(kind, label, value)
     identifier = raw.get("identifier", "")
     if kind in CONTAINERS and not (text or identifier):
         return None
@@ -85,6 +85,7 @@ def _element(raw: AgentElement, width: int, height: int) -> Element | None:
     return Element(
         kind="text" if kind == "other" else kind,
         text=text,
+        parts=parts,
         hint=raw.get("placeholder", ""),
         value=value if editable else "",
         resource_id=identifier,
@@ -118,8 +119,18 @@ def _bounds(raw: AgentElement, width: int, height: int) -> tuple[int, int, int, 
     return x1, y1, x2, y2
 
 
-def _text(kind: str, label: str, value: str) -> str:
-    """The label, plus any value that says something the label doesn't (a web <select>'s choice, a field's text)."""
+def _text(kind: str, label: str, value: str) -> tuple[str, tuple[str, ...]]:
+    """The label, plus any value that says something the label doesn't (a web <select>'s choice, a field's text).
+
+    Returns the text as shown (``Email: a@b.c``) and, when it joins a label and a value, each on its own.
+    """
     shown = value.strip() and kind not in HIDDEN_VALUE and value.strip() != label.strip()
-    text = (f"{label}: {value}" if label else value) if shown else label
+    if not shown:
+        return _collapsed(label), ()
+    if not label:
+        return _collapsed(value), ()
+    return _collapsed(f"{label}: {value}"), (_collapsed(label), _collapsed(value))
+
+
+def _collapsed(text: str) -> str:
     return " ".join(text.split())

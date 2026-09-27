@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from jevtest.domain.decisions import (
     ClearField,
@@ -31,7 +32,7 @@ from jevtest.domain.failures import ModelError
 from jevtest.domain.kinds import Direction, Gesture
 from jevtest.domain.model import Answer, Choice, Picked, Probability, Question, State, YesNo
 from jevtest.domain.ports import DecisionModel
-from jevtest.domain.screen import Element, Screen
+from jevtest.domain.screen import Element, Screen, near_names
 
 QUOTED = re.compile(r'"([^"]+)"|“([^”]+)”')
 MAX_OPTIONS = 250  # the model allows 255 options per Choice
@@ -132,29 +133,6 @@ def _yes(answer: Answer) -> float:
     return answer.yes
 
 
-def _by_text(target: str, pool: Sequence[Element]) -> Element | list[Element]:
-    """The element whose text is `target`, else the one containing it.
-
-    When several match, those are returned for the model to choose among; when none do, an empty list.
-    """
-    t = target.strip().lower()
-    for matches in (_exact(t, pool), _containing(t, pool)):
-        found = _prefer_actionable(matches)
-        if len(found) == 1:
-            return found[0]
-        if found:
-            return found
-    return []
-
-
-def _exact(t: str, pool: Sequence[Element]) -> list[Element]:
-    return [el for el in pool if t in (el.text.lower(), el.hint.lower(), el.resource_id.lower())]
-
-
-def _containing(t: str, pool: Sequence[Element]) -> list[Element]:
-    return [el for el in pool if t in el.text.lower() or t in el.hint.lower()]
-
-
 def _prefer_actionable(matches: list[Element]) -> list[Element]:
     """Of several matches, the ones a user can act on: a label beside its switch means the switch."""
     actionable = [el for el in matches if el.clickable or el.editable]
@@ -212,6 +190,23 @@ def _goal_questions(goal: str, screen: Screen, values: Sequence[str]) -> dict[st
     return questions
 
 
+@dataclass(frozen=True)
+class Located:
+    """The element a target names, and how it was found.
+
+    Attributes:
+        element: The element.
+        chosen: None when its text is the target; otherwise how Jev chose it, for the step's output.
+    """
+
+    element: Element
+    chosen: str | None = None
+
+    def describe(self) -> str:
+        """E.g. ``button 'Save'``, or ``button 'Gear' (chosen by Jev)``."""
+        return self.element.label() + (f" ({self.chosen})" if self.chosen else "")
+
+
 class Brain:
     """jevtest's judgement: the next move toward a goal, which element a target means, and checks.
 
@@ -253,18 +248,28 @@ class Brain:
             return ClearField(field)
         return TypeInto(field, values[int(_picked(get("value")).choice[1:])])
 
-    def locate(self, target: str, screen: Screen, candidates: Sequence[Element] | None = None) -> Element | None:
+    def locate(self, target: str, screen: Screen, candidates: Sequence[Element] | None = None) -> Located | None:
         """The element the test file names, or None if it isn't on the screen.
 
-        Text is matched in code first: an exact label, then an element containing the text. Only a
-        description that isn't on-screen text goes to the model, which picks an element and then must
-        confirm it (a Choice always picks the closest option, even when the target isn't there).
+        Only an exact match counts: an element whose text, one of its parts, its hint or its id is the target,
+        case and all (`Element.says`). If several match, Jev chooses among those only. If none does but some text
+        is close (different case, or longer text containing the target), that's a mistake in the test file, and
+        nothing is chosen: the caller reports the close texts. Only a target unlike any text on the screen (a
+        description) goes to Jev, which picks an element and must then confirm it.
         """
         pool: Sequence[Element] = screen.elements if candidates is None else candidates
-        found = _by_text(target, pool)
-        if isinstance(found, Element):
-            return found
-        return self._ask_which(target, screen, found or pool) if (found or pool) else None
+        exact = _prefer_actionable([el for el in pool if el.says(target)])
+        if len(exact) == 1:
+            return Located(exact[0])
+        if exact:
+            return self._chosen(target, screen, exact, f"chosen by Jev among {len(exact)} exact matches")
+        if not pool or near_names(target, pool):
+            return None
+        return self._chosen(target, screen, pool, "chosen by Jev")
+
+    def _chosen(self, target: str, screen: Screen, pool: Sequence[Element], how: str) -> Located | None:
+        element = self._ask_which(target, screen, pool)
+        return None if element is None else Located(element, how)
 
     def _ask_which(self, target: str, screen: Screen, pool: Sequence[Element]) -> Element | None:
         """The model picks the element `target` describes from `pool`, then must confirm it."""

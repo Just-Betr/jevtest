@@ -1,6 +1,8 @@
+import dataclasses
+
 import pytest
 
-from jevtest.application.brain import ACTIONS, MAX_OPTIONS, Brain, _picked, _yes, describe, quoted_values
+from jevtest.application.brain import ACTIONS, MAX_OPTIONS, Brain, Located, _picked, _yes, describe, quoted_values
 from jevtest.domain.decisions import PressEnter, TypeInto, WaitForScreen
 from jevtest.domain.failures import ModelError
 from jevtest.domain.model import Picked, Probability
@@ -160,70 +162,74 @@ def test_quoted_values_are_capped():
 # --- locate / check --------------------------------------------------------------------
 
 
+def screen_of(*elements):
+    return Screen(10, 10, tuple(dataclasses.replace(e, bounds=(0, 0, 10, 10)) for e in elements))
+
+
 def test_locate_exact_unique_match_skips_the_model():
     model = FakeModel()
     b = Brain(model)
-    assert b.locate("sign in", login_screen()).text == "Sign in"
-    assert b.locate("EMAIL", login_screen()).hint == "Email"
+    assert b.locate("Sign in", login_screen()) == Located(login_screen().elements[2])
+    assert b.locate("Email", login_screen()).element.hint == "Email"
     assert not model.asked
 
 
-def test_locate_by_contained_text_skips_the_model():
-    s = Screen(
-        10,
-        10,
-        (
-            el("text", "Here is more content from the page.", bounds=(0, 0, 10, 10)),
-            el("button", "Show more", clickable=True, bounds=(0, 0, 10, 10)),
-        ),
-    )
+@pytest.mark.parametrize(
+    ("target", "on_screen"),
+    [
+        ("Save", ["Unsaved changes", "Save draft"]),  # the target inside longer texts
+        ("sign in", ["Sign in"]),  # different case
+        ("Taps: 2", ["Taps: 20"]),
+        ("Delete", ["Delete account", "Delete photo"]),
+    ],
+)
+def test_a_near_match_is_never_used_and_jev_is_not_asked(target, on_screen):
     model = FakeModel()
-    assert Brain(model).locate("here is more content", s).kind == "text" and not model.asked
+    s = screen_of(*(el("button", text, clickable=True) for text in on_screen))
+    assert Brain(model).locate(target, s) is None
+    assert not model.asked
 
 
-def test_locate_asks_the_model_only_among_elements_that_contain_the_text():
-    s = Screen(
-        10,
-        10,
-        (
-            el("button", "Delete account", clickable=True, bounds=(0, 0, 10, 10)),
-            el("button", "Delete photo", clickable=True, bounds=(0, 0, 10, 10)),
-            el("button", "Cancel", clickable=True, bounds=(0, 0, 10, 10)),
-        ),
-    )
-    model = FakeModel(pick("e2"), confirm())
-    assert Brain(model).locate("delete", s).text == "Delete photo"
-    assert set(model.asked[0][1]["element"]["criteria"]) == {"e1", "e2", "not_on_screen"}
+@pytest.mark.parametrize("target", ["Email: a@b.c", "Email", "a@b.c"])
+def test_an_ios_label_and_value_each_match_exactly(target):
+    field = el("text_field", "Email: a@b.c", parts=("Email", "a@b.c"), editable=True)
+    assert Brain(FakeModel()).locate(target, screen_of(field)).element.text == "Email: a@b.c"
+
+
+@pytest.mark.parametrize("target", ["Go (Go now)", "Go", "Go now"])
+def test_an_android_text_and_description_each_match_exactly(target):
+    button = el("button", "Go (Go now)", parts=("Go", "Go now"), clickable=True)
+    assert Brain(FakeModel()).locate(target, screen_of(button)).element.text == "Go (Go now)"
 
 
 def test_locate_by_resource_id():
     s = Screen(10, 10, (el("image", resource_id="logo", bounds=(0, 0, 10, 10)),))
-    assert Brain(FakeModel()).locate("logo", s).resource_id == "logo"
+    assert Brain(FakeModel()).locate("logo", s).element.resource_id == "logo"
 
 
 def test_locate_prefers_the_one_actionable_exact_match():
-    s = Screen(
-        10,
-        10,
-        (
-            el("text", "Dark theme", bounds=(0, 0, 10, 10)),
-            el("switch", "Dark theme", clickable=True, bounds=(0, 0, 10, 10)),
-        ),
-    )
+    s = screen_of(el("text", "Dark theme"), el("switch", "Dark theme", clickable=True))
     model = FakeModel()
-    assert Brain(model).locate("Dark theme", s).kind == "switch" and not model.asked
+    assert Brain(model).locate("Dark theme", s).element.kind == "switch" and not model.asked
 
 
-def test_locate_ambiguous_exact_match_asks_the_model():
-    s = Screen(10, 10, (el("text", "Sign in", bounds=(0, 0, 10, 10)), el("button", "Sign in", bounds=(0, 0, 10, 10))))
+def test_several_exact_matches_jev_chooses_among_those_only():
+    s = screen_of(
+        el("button", "Delete", clickable=True),
+        el("button", "Delete", clickable=True),
+        el("button", "Delete account", clickable=True),
+    )
     model = FakeModel(pick("e2"), confirm())
-    assert Brain(model).locate("Sign in", s).kind == "button"
-    assert "not_on_screen" in model.asked[0][1]["element"]["criteria"]
+    found = Brain(model).locate("Delete", s)
+    assert found == Located(s.elements[1], "chosen by Jev among 2 exact matches")
+    assert set(model.asked[0][1]["element"]["criteria"]) == {"e1", "e2", "not_on_screen"}
+    assert found.describe() == "button 'Delete' (chosen by Jev among 2 exact matches)"
 
 
-def test_locate_confirms_the_pick():
+def test_a_description_goes_to_jev_which_must_confirm_and_says_so():
     model = FakeModel(pick("e3"), confirm(0.9))
-    assert Brain(model).locate("the login button", login_screen()).text == "Sign in"
+    found = Brain(model).locate("the login button", login_screen())
+    assert found.element.text == "Sign in" and found.describe() == "button 'Sign in' (chosen by Jev)"
     question = model.asked[1][1]["is_target"]
     assert question["type"] == "noul" and question["instructions"]["target"] == "the login button"
 

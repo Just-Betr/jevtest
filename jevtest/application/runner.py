@@ -34,7 +34,7 @@ from jevtest.domain.kinds import AppState, Direction, Gesture, Status
 from jevtest.domain.model import ModelCall
 from jevtest.domain.ports import Clock, Device, RunListener
 from jevtest.domain.results import CheckResult, RunResult, StepResult, TestResult
-from jevtest.domain.screen import Element, Screen
+from jevtest.domain.screen import Element, Screen, near_names
 from jevtest.domain.settings import Settings
 from jevtest.domain.steps import (
     Action,
@@ -73,7 +73,7 @@ from jevtest.domain.steps import (
 )
 from jevtest.domain.variables import fill
 
-from .brain import Brain
+from .brain import Brain, Located
 
 LAUNCH_QUIET = 0.5
 """Seconds without a change that count as "the app has finished starting" (apps pause longer while starting)."""
@@ -233,11 +233,12 @@ class TestRunner:
             return f"(screenshot failed: {e})"
         return path.name
 
-    def _poll(self, attempt: Callable[[Screen], T | None], timeout: float, failure: str) -> T:
+    def _poll(self, attempt: Callable[[Screen], T | None], timeout: float, failure: Callable[[Screen], str]) -> T:
         """Call `attempt` until it returns something, or time runs out.
 
         `attempt` runs again only when the screen has changed, so an unchanged screen is never judged
-        twice. Between reads it waits for the next change.
+        twice. Between reads it waits for the next change. When time runs out, `failure` says why, from the
+        last screen.
         """
         deadline = self.clock.now() + timeout
         last: Screen | None = None
@@ -250,17 +251,40 @@ class TestRunner:
                     return result
             left = deadline - self.clock.now()
             if left <= 0:
-                raise StepFailed(failure)
+                raise StepFailed(failure(screen))
             self.device.wait_change(left)
 
-    def _locate(self, target: str, timeout: float, *, editable: bool = False) -> Element:
+    def _near(self, text: str, elements: Sequence[Element]) -> str:
+        """The close-but-not-exact texts on screen, for an error. Never matched: shown so the test can be fixed.
+
+        A ``${NAME}`` value in them is shown as its name, like everywhere else in the output.
+        """
+        near = near_names(text, elements)
+        if not near:
+            return ""
+        return "; close but not exact: " + ", ".join(f"'{self._masked(n)}'" for n in near)
+
+    def _masked(self, text: str) -> str:
+        for name, value in self.suite.variables.items():
+            if value:
+                text = text.replace(value, f"${{{name}}}")
+        return text
+
+    def _locate(self, target: str, timeout: float, *, editable: bool = False) -> Located:
         wanted = self._value(target)
 
-        def attempt(screen: Screen) -> Element | None:
-            return self.brain.locate(wanted, screen, screen.editable if editable else None)
+        def pool(screen: Screen) -> Sequence[Element]:
+            return screen.editable if editable else screen.elements
+
+        def attempt(screen: Screen) -> Located | None:
+            return self.brain.locate(wanted, screen, pool(screen))
 
         what = "text field" if editable else "element"
-        return self._poll(attempt, timeout, f"Could not find {what} '{target}' on screen")
+        return self._poll(
+            attempt,
+            timeout,
+            lambda screen: f"Could not find {what} '{target}' on screen{self._near(wanted, pool(screen))}",
+        )
 
     def _check_app(self, action: Action) -> None:
         """Fail if the app crashed or left the foreground during the action."""
@@ -283,16 +307,15 @@ class TestRunner:
                 last.append(self.brain.check(wanted, screen))
                 return f"Jev {last[-1]:.2f}" if last[-1] > settings.confidence else None
 
-            try:
-                return self._poll(judged, timeout, "")
-            except StepFailed:
-                raise StepFailed(f"Jev says false ({last[-1]:.2f})") from None
+            return self._poll(judged, timeout, lambda _: f"Jev says false ({last[-1]:.2f})")
         present = isinstance(check, See)
 
         def seen(screen: Screen) -> str | None:
             return "" if screen.shows(wanted) == present else None
 
-        failure = "not on screen" if present else "still on screen"
+        def failure(screen: Screen) -> str:
+            return f"not on screen{self._near(wanted, screen.elements)}" if present else "still on screen"
+
         return self._poll(seen, timeout, failure) or None
 
     # --- actions -----------------------------------------------------------------------------------------------
@@ -358,27 +381,27 @@ class TestRunner:
         d = self.device
         match action:
             case Touch(gesture, target):
-                el = self._locate(target, timeout)
-                self._touch(gesture, el)
+                found = self._locate(target, timeout)
+                self._touch(gesture, found.element)
             case Clear(target):
-                el = self._locate(target, timeout, editable=True)
-                d.clear_text(el)
+                found = self._locate(target, timeout, editable=True)
+                d.clear_text(found.element)
             case TypeText(text, into):
                 if into is None:
                     d.type_text(self._value(text))
                     return None
-                el = self._locate(into, timeout, editable=True)
-                d.type_text(self._value(text), at=el.center)  # the device focuses the field
-                return f"into {el.label()}"
+                found = self._locate(into, timeout, editable=True)
+                d.type_text(self._value(text), at=found.element.center)  # the device focuses the field
+                return f"into {found.describe()}"
             case Swipe(direction, target):
                 if target is None:
                     d.swipe(direction)
                     return None
-                el = self._locate(target, timeout)
-                d.swipe(direction, element=el)
+                found = self._locate(target, timeout)
+                d.swipe(direction, element=found.element)
             case _:  # pragma: no cover - every element action is handled above
                 assert_never(action)
-        return f"on {el.label()}"
+        return f"on {found.describe()}"
 
     def _navigate(self, action: Back | Home | HideKeyboard | Key | Scroll | OpenUrl) -> None:
         """Move around the app or the system: one device call each."""
@@ -429,10 +452,10 @@ class TestRunner:
                 assert_never(gesture)
 
     def _scroll_to(self, text: str, direction: Direction, settings: Settings) -> str | None:
-        """Scroll until the text is on screen, or the content stops moving, or `max_scrolls` scrolls.
+        """Scroll until an element says exactly the text, or the content stops moving, or `max_scrolls` scrolls.
 
-        The text is matched in code, like `see:`: a model asked whether absent text is there tends to pick
-        something similar.
+        The text is matched in code, exactly, like `see:`: a model asked whether absent text is there tends to
+        pick something similar.
         """
         wanted = self._value(text)
         screen = self.device.screen()
@@ -443,13 +466,16 @@ class TestRunner:
             if scrolls == settings.max_scrolls:
                 raise StepFailed(
                     f"Scrolled {direction} {_count(scrolls, 'time')} (max_scrolls) but never found '{text}'"
+                    f"{self._near(wanted, screen.elements)}"
                 )
             self.device.scroll(direction, screen=screen)
             self._settle(settings)
             before, screen = screen, self.device.screen()
             scrolls, unmoved = scrolls + 1, (unmoved + 1 if screen == before else 0)
             if unmoved == END_OF_CONTENT:
-                raise StepFailed(f"Scrolled {direction} to the end but never found '{text}'")
+                raise StepFailed(
+                    f"Scrolled {direction} to the end but never found '{text}'{self._near(wanted, screen.elements)}"
+                )
 
     # --- the goal loop -----------------------------------------------------------------------------------------
     def _achieve(self, goal: str, decisions: list[Decision], settings: Settings) -> str:

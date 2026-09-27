@@ -68,6 +68,8 @@ def test_parse_rules():
     assert els[0].bounds == (0, 10, 60, 40)
     assert els[1].enabled is False and els[2].checked is True and els[5].scrollable
     assert els[6].resource_id == "thing"
+    # a text and a different description are both shown, and each can be matched exactly on its own
+    assert els[1].parts == ("Go", "Go now") and els[2].parts == ()
 
 
 def test_empty_webview_detection():

@@ -48,14 +48,13 @@ def fresh(device):
 
 
 def find(driver, name, timeout=5, **match):
-    """The element named `name` (label, label prefix as iOS shows "Email: value", or hint),
-    waiting for it the way the runner does: re-read when the screen changes."""
+    """The element that says exactly `name` (its text, a part of it such as iOS's label in "Email: value", its
+    hint or id), waiting for it the way the runner does: re-read when the screen changes."""
     deadline = time.monotonic() + timeout
     while True:
         elements = driver.screen().elements
         for el in elements:
-            named = el.text.lower() == name.lower() or el.text.startswith(f"{name}:") or el.hint == name
-            if named and all(getattr(el, k) == v for k, v in match.items()):
+            if el.says(name) and all(getattr(el, k) == v for k, v in match.items()):
                 return el
         if time.monotonic() >= deadline:
             raise AssertionError(f"{name!r} not on screen: {[e.text or e.hint for e in elements]}")

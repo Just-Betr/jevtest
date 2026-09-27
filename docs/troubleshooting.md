@@ -55,7 +55,8 @@ error: t.yaml has 2 problems:
 
 ## Tests that fail
 
-- **`Could not find element 'X' on screen`**: the text isn't on screen within `timeout`. Check the failure screenshot; maybe it's below the fold (`scroll_to:` first) or labelled differently.
+- **`Could not find element 'X' on screen`**: no element says exactly *X* within `timeout`. Check the failure screenshot; maybe it's below the fold (`scroll_to:` first) or labelled differently.
+- **`…; close but not exact: 'Save draft', 'Unsaved changes'`**: the screen has texts close to the target (another case, or longer text containing it). Matching is exact, so write the text as the screen shows it: `tap: Save draft`. Close texts are only listed, never used.
 - **`Jev says the goal is impossible from this screen`**: the goal can't be done from where the app is. Often a previous step didn't land; add a `see:` after it.
 - **`Goal not reached after 10 actions (max_actions)`**: split the `do:` into smaller goals, one per step, or give a long form a higher `max_actions:`.
 - **`Scrolled down to the end but never found 'X'`**: the text isn't in the list, or it's the other way (`direction: up`).

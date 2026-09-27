@@ -44,14 +44,14 @@ Values can come from `.env` or the environment with `${NAME}`: `do: Sign in with
 - back
 ```
 
-Exact steps don't ask Jev what to do. They still find elements by their visible text: an exact label first, then an element containing the text, both in code. Only a description that isn't on-screen text (`tap: the red delete icon`) asks Jev which element it means, and Jev must then confirm its pick.
+Exact steps don't ask Jev what to do. They find elements by their exact text, in code: `tap: Save` taps the element that says *Save*, never *Save draft* ([matching](reference/steps.md#matching)). Only a description that isn't on-screen text (`tap: the red delete icon`) asks Jev which element it means; Jev must then confirm its pick, and the step's output says `(chosen by Jev)`.
 
 ## Checks
 
 | Check | Passes when |
 |---|---|
 | `expect: statement` | Jev judges the statement more likely true than false on the screen |
-| `see: text` | the text is on screen (case-insensitive substring, no model) |
+| `see: text` | an element says exactly the text (no model) |
 | `not_see: text` | the text is not on screen |
 
 Several of the same kind take a list: `see: [Welcome, Log out]`.

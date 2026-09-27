@@ -249,8 +249,8 @@ def test_type_into_focused_field(tmp_path, clock, out):
 
 
 def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Item 1"), screen_with("Item 10"), screen_with("Item 30 is here"))
-    res, d, model = run1(tmp_path, clock, out, {"scroll_to": "item 30", "direction": "down"}, device=d)
+    d = FakeDevice(screen_with("Item 1"), screen_with("Item 300"), screen_with("Item 30"))
+    res, d, model = run1(tmp_path, clock, out, {"scroll_to": "Item 30", "direction": "down"}, device=d)
     assert res.status is Status.PASS and res.steps[0].detail == "2 scroll(s)"
     assert d.names().count("drag") == 2
     assert not model.asked  # matched in code, never by the model
@@ -327,7 +327,7 @@ def test_device_errors_fail_the_step(tmp_path, clock, out):
 
 
 def test_see_and_not_see(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"see": ["sign IN", "Email"], "not_see": "Error"})
+    res, _, _ = run1(tmp_path, clock, out, {"see": ["Sign in", "Email"], "not_see": "Error"})
     assert res.status is Status.PASS
     assert [c.check.name for c in res.steps[0].checks] == ["see", "see", "not_see"]
 
@@ -573,7 +573,7 @@ def test_variables_are_filled_only_where_the_app_sees_them(tmp_path, clock, out)
         2000,
         (
             el("text_field", "Email", editable=True, bounds=(0, 100, 1000, 180)),
-            el("text", "Welcome Ann", bounds=(0, 200, 1000, 280)),
+            el("text", "Ann", bounds=(0, 200, 1000, 280)),
         ),
     )
     variables = {"PASS": "hunter2", "FIELD": "Email", "NAME": "Ann", "SECRET_ERR": "Denied", "HOST": "h"}
@@ -653,3 +653,55 @@ def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
     d = FakeDevice(*[screen_with(f"Item {i}") for i in range(5)])
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 4", "direction": "down", "max_scrolls": 1}, device=d)
     assert res.failure.endswith("Scrolled down 1 time (max_scrolls) but never found 'Item 4'")
+
+
+# --- exact matching ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("step", "on_screen", "failure"),
+    [
+        (
+            {"tap": "Save", "timeout": 1},
+            ["Unsaved changes", "Save draft"],
+            "Could not find element 'Save' on screen; close but not exact: 'Unsaved changes', 'Save draft'",
+        ),
+        ({"see": "Taps: 2", "timeout": 1}, ["Taps: 20"], "not on screen; close but not exact: 'Taps: 20'"),
+        ({"see": "Sign in", "timeout": 1}, ["sign in"], "not on screen; close but not exact: 'sign in'"),
+        (
+            {"scroll_to": "Item 3", "direction": "down"},
+            ["Item 30"],
+            "Scrolled down to the end but never found 'Item 3'; close but not exact: 'Item 30'",
+        ),
+    ],
+)
+def test_a_near_match_fails_and_says_what_is_there(tmp_path, clock, out, step, on_screen, failure):
+    screen = Screen(1000, 2000, tuple(el("button", t, clickable=True, bounds=(0, 0, 100, 100)) for t in on_screen))
+    res, d, model = run1(tmp_path, clock, out, step, device=FakeDevice(screen))
+    assert res.status is Status.FAIL and res.failure.endswith(failure)
+    assert "tap" not in d.names() and not model.asked
+
+
+def test_not_see_passes_when_only_a_longer_text_is_there(tmp_path, clock, out):
+    screen = Screen(1000, 2000, (el("text", "Error: none", bounds=(0, 0, 100, 100)),))
+    res, _, _ = run1(tmp_path, clock, out, {"not_see": "Error"}, device=FakeDevice(screen))
+    assert res.status is Status.PASS
+
+
+def test_a_value_in_a_near_match_is_shown_by_its_name(tmp_path, clock, out):
+    screen = Screen(1000, 2000, (el("text", "Welcome Ann", bounds=(0, 0, 100, 100)),))
+    res, _, _ = run1(
+        tmp_path,
+        clock,
+        out,
+        {"see": "Welcome", "timeout": 1},
+        device=FakeDevice(screen),
+        variables={"NAME": "Ann", "EMPTY": ""},
+    )
+    assert res.failure.endswith("close but not exact: 'Welcome ${NAME}'") and "Ann" not in out.getvalue()
+
+
+def test_the_output_says_when_jev_chose_the_element(tmp_path, clock, out):
+    res, _, _ = run1(tmp_path, clock, out, {"tap": "the login button"}, model=FakeModel(pick("e3"), confirm()))
+    assert res.steps[0].detail == "on button 'Sign in' (chosen by Jev)"
+    assert "✓ tap: the login button" in out.getvalue() and "(chosen by Jev)" in out.getvalue()
