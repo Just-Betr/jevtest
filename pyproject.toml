@@ -104,7 +104,7 @@ max-complexity = 10
 "jevtest/cli/**" = ["T201"]  # the command line prints
 "jevtest/domain/kinds.py" = ["S105"]  # Status.PASS is a test outcome, not a password
 # URLs are built by jevtest (the agents on localhost, the Jev API), never taken from input
-"jevtest/adapters/devices/{android,ios}.py" = ["S310"]
+"jevtest/adapters/devices/{android_tools,ios_tools}.py" = ["S310"]
 "jevtest/adapters/jev/client.py" = ["S310"]
 # The XML is the Android agent's own dump; Python's expat never resolves external entities
 "jevtest/adapters/devices/{android,android_screen}.py" = ["S314"]

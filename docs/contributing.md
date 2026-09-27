@@ -53,7 +53,7 @@ The package follows the [architecture](architecture.md): dependencies point inwa
 |---|---|
 | `jevtest/domain/` | What jevtest is: steps, screen, decisions, results, failures, settings, and the ports. Standard library only. |
 | `jevtest/application/` | How tests run: `runner.py` (the use case), `brain.py` (the questions for Jev), `planning.py` (sharding). |
-| `jevtest/adapters/devices/` | Android (`adb` + a Java agent) and iOS (Xcode tools + a Swift XCUITest agent). Regenerate the iOS agent's project with `ruby scripts/generate_ios_agent_project.rb` after adding targets. |
+| `jevtest/adapters/devices/` | Android (`adb` + a Java agent) and iOS (Xcode tools + a Swift XCUITest agent). Per platform: the `Device` (`android.py`, `ios.py`), its tooling on the computer (`android_tools.py`, `ios_tools.py`: finding devices, signing, building the agent), and its screen parser (`android_screen.py`, `ios_screen.py`). Regenerate the iOS agent's project with `ruby scripts/generate_ios_agent_project.rb` after adding targets. |
 | `jevtest/adapters/jev/` | The Jev HTTP client, its wire format, and the lockfile. |
 | `jevtest/adapters/testfile/` | YAML test files into domain types: `values.py` (single values), `steps.py` (the `ACTIONS` table), `loader.py` (the file), plus `.env` files and finding test files in folders. |
 | `jevtest/adapters/reports/` | JUnit XML and the JSON report. |

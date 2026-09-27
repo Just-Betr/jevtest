@@ -1,113 +1,16 @@
 import json
-import plistlib
-import zipfile
 from pathlib import Path
 
 import pytest
 
 from jevtest.adapters.devices import ios
-from jevtest.adapters.devices.ios import IOSDevice, app_bundle
+from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.screen import Element
-from tests.adapters.devices.test_android import Adb
+from tests.adapters.devices.conftest import make_app, swap
 from tests.conftest import PROGRESS
 
 FIX = Path(__file__).parent / "fixtures"
-SIMS = {
-    "devices": {
-        "com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
-            {"name": "iPhone 17", "udid": "B", "state": "Shutdown"},
-            {"name": "iPad Air", "udid": "C", "state": "Shutdown"},
-        ],
-        "com.apple.CoreSimulator.SimRuntime.iOS-18-0": [{"name": "iPhone 16", "udid": "A", "state": "Booted"}],
-        "com.apple.CoreSimulator.SimRuntime.watchOS-11-0": [{"name": "Watch", "udid": "W", "state": "Booted"}],
-    }
-}
-
-
-class Agent:
-    """Stands in for the XCUITest agent's HTTP API."""
-
-    def __init__(self):
-        self.replies: dict[str, object] = {
-            "/status": {"ok": True},
-            "/state": {"state": 4},
-            "/rotate": {"raw": 1},
-            "/appearance": {"raw": 1},
-        }
-        self.calls: list[tuple[str, dict]] = []
-
-    def __call__(self, url, body, timeout):
-        path = url.split("8123", 1)[1]
-        self.calls.append((path, body))
-        reply = self.replies.get(path, {"ok": True})
-        if isinstance(reply, list):
-            reply = reply.pop(0)
-        if isinstance(reply, Exception):
-            raise reply
-        return reply
-
-    def paths(self):
-        return [p for p, _ in self.calls]
-
-
-class DeviceCtl:
-    """Stands in for `xcrun devicectl`: replies by subcommand, records every call."""
-
-    def __init__(self):
-        self.phones: list[dict] = []
-        self.replies: dict[str, object] = {
-            "info details": {"connectionProperties": {"tunnelIPAddress": "fd00::1"}},
-            "info lockState": {"passcodeRequired": False, "unlockedSinceBoot": True},
-        }
-        self.calls: list[tuple] = []
-
-    def __call__(self, *args, timeout=300):
-        self.calls.append(args)
-        line = " ".join(args)
-        if line.startswith("list devices"):
-            return {"devices": self.phones}
-        for key, reply in self.replies.items():
-            if key in line:
-                answer = reply.pop(0) if isinstance(reply, list) else reply
-                if isinstance(answer, Exception):
-                    raise answer
-                return answer
-        return {}
-
-
-@pytest.fixture
-def env(monkeypatch, tmp_path):
-    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "cache"))
-    xctestrun = tmp_path / "cache" / f"ios-agent-{ios.digest(ios.AGENT_SRC)}" / "Build/Products/a.xctestrun"
-    xctestrun.parent.mkdir(parents=True)
-    xctestrun.write_text("")
-    sim = Adb({"list devices": json.dumps(SIMS)})
-    agent, procs = Agent(), []
-    monkeypatch.setattr(ios, "run", sim)
-    monkeypatch.setattr(ios, "run_bytes", sim.run_bytes)
-    monkeypatch.setattr(ios, "http_post", agent)
-    monkeypatch.setattr(ios, "free_port", lambda: 8123)
-    monkeypatch.setattr(ios.shutil, "which", lambda n: "/usr/bin/xcrun")
-
-    def start_process(cmd, ready, log, timeout, env):
-        procs.append((cmd, ready, env))
-        return "proc"
-
-    monkeypatch.setattr(ios, "start_process", start_process)
-    monkeypatch.setattr(ios, "stop_process", lambda proc: procs.append(("stopped", proc)))
-    monkeypatch.setattr(ios, "devicectl", DeviceCtl())
-    return sim, agent, procs
-
-
-def make_app(tmp_path, bundle_id="dev.demo", platforms=("iPhoneSimulator",), name="Demo.app") -> Path:
-    app = tmp_path / name
-    app.mkdir(parents=True)
-    info = {"CFBundleSupportedPlatforms": list(platforms)}
-    if bundle_id:
-        info["CFBundleIdentifier"] = bundle_id
-    (app / "Info.plist").write_bytes(plistlib.dumps(info))
-    return app
 
 
 @pytest.fixture
@@ -122,76 +25,7 @@ def drv(env, tmp_path):
 # --- simulators -------------------------------------------------------------------------------------
 
 
-def test_simulators_sorted_newest_first(env):
-    sims = ios.simulators()
-    assert [(d["name"], d["runtime"]) for d in sims] == [
-        ("iPad Air", "iOS-26-5"),
-        ("iPhone 17", "iOS-26-5"),
-        ("iPhone 16", "iOS-18-0"),
-    ]
-
-
-def test_uses_the_named_booted_simulator_and_never_boots_or_opens_one(env):
-    sim = env[0]
-    assert ios.find_target("iPhone 16") == ios.Target("A", "iPhone 16", False)
-    assert not any(" boot " in c or "open -a" in c for c in sim.cmds)
-
-
-def test_find_by_exact_name_or_udid_and_it_must_be_booted(env):
-    assert ios.find_target("A").udid == "A"
-    with pytest.raises(DeviceError, match=r"called 'iphone 16' \(names are exact\). Running: iPhone 16 \(A\)"):
-        ios.find_target("iphone 16")
-    with pytest.raises(DeviceError, match="No booted simulator or connected iPhone called 'iPad Air'"):
-        ios.find_target("iPad Air")  # exists, but is not booted
-
-
-def test_a_name_two_devices_share_is_an_error(env):
-    env[0].rules["list devices"] = json.dumps(
-        {
-            "devices": {
-                "com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
-                    {"name": "iPhone 17 Pro", "udid": "X", "state": "Booted"},
-                    {"name": "iPhone 17 Pro", "udid": "Y", "state": "Booted"},
-                ]
-            }
-        }
-    )
-    with pytest.raises(DeviceError, match=r"Several devices are called 'iPhone 17 Pro' \(X, Y\): name one by its UDID"):
-        ios.find_target("iPhone 17 Pro")
-
-
-def test_find_with_nothing_running(env):
-    env[0].rules["list devices"] = json.dumps({"devices": {}})
-    with pytest.raises(DeviceError, match="called 'A' .*Running: none"):
-        ios.find_target("A")
-
-
-def test_free_port_is_usable():
-    assert 0 < ios.free_port() < 65536
-
-
 # --- app bundles ----------------------------------------------------------------------------------
-
-
-def test_app_bundle_from_dir_zip_and_ipa(tmp_path):
-    app = make_app(tmp_path / "src")
-    assert app_bundle(app, tmp_path / "w") == app
-    for name in ("app.zip", "app.ipa"):
-        archive = tmp_path / name
-        with zipfile.ZipFile(archive, "w") as z:
-            z.write(app / "Info.plist", "Payload/Demo.app/Info.plist")
-        found = app_bundle(archive, tmp_path / f"w-{name}")
-        assert found.name == "Demo.app"
-
-
-def test_app_bundle_rejects_bad_input(tmp_path):
-    (tmp_path / "empty.zip").write_bytes(b"not a zip")
-    empty = tmp_path / "noapp.zip"
-    with zipfile.ZipFile(empty, "w") as z:
-        z.writestr("readme.txt", "x")
-    for path in (tmp_path / "empty.zip", empty, tmp_path / "missing.app", tmp_path / "x.apk"):
-        with pytest.raises(DeviceError, match="needs an .app"):
-            app_bundle(path, tmp_path / "w")
 
 
 # --- agent lifecycle --------------------------------------------------------------------------------
@@ -218,7 +52,7 @@ def test_agent_is_built_when_missing(env, monkeypatch, tmp_path):
             (out / "x.xctestrun").write_text("")
         return sim(cmd, **kw)
 
-    monkeypatch.setattr(ios, "run", build)
+    swap(monkeypatch, "run", build)
     IOSDevice("A", Path("Demo.app"), PROGRESS)
     assert any("build-for-testing" in c for c in sim.cmds)
 
@@ -255,23 +89,6 @@ def test_agent_errors_are_driver_errors(drv, env):
 def test_log_tail_without_log(drv):
     drv.agent_log = Path("/nonexistent/log")
     assert drv._log_tail() == "(no log)"
-
-
-def test_http_post_roundtrip(monkeypatch):
-    class R:
-        def read(self):
-            return b'{"ok": true}'
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            return False
-
-    seen = []
-    monkeypatch.setattr(ios.urllib.request, "urlopen", lambda req, timeout: seen.append((req, timeout)) or R())
-    assert ios.http_post("http://127.0.0.1:1/x", {"a": 1}, timeout=3) == {"ok": True}
-    assert json.loads(seen[0][0].data) == {"a": 1} and seen[0][1] == 3
 
 
 # --- app lifecycle ----------------------------------------------------------------------------------

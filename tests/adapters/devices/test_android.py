@@ -1,4 +1,3 @@
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -8,109 +7,14 @@ from jevtest.adapters.devices.android import AndroidDevice
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction, Orientation
 from jevtest.domain.screen import Element
-from tests.conftest import PROGRESS, PROGRESS_MESSAGES
+from tests.adapters.devices.conftest import FIX, LOGIN
+from tests.conftest import PROGRESS
 
-FIX = Path(__file__).parent / "fixtures"
-LOGIN = (FIX / "android_login.xml").read_text()
 WEB = (FIX / "android_webview.xml").read_text()
 EMPTY_WEB = (
     '<hierarchy rotation="0"><node class="android.widget.FrameLayout" bounds="[0,0][100,100]">'
     '<node class="android.webkit.WebView" bounds="[0,0][100,100]"/></node></hierarchy>'
 )
-
-
-class Adb:
-    """Stands in for `run`: answers by the first matching substring, records every command."""
-
-    def __init__(self, rules=None):
-        self.rules = dict(rules or {})
-        self.cmds: list[str] = []
-
-    def __call__(self, cmd, timeout=120, check=True, binary=False):
-        line = " ".join(map(str, cmd))
-        self.cmds.append(line)
-        for needle, reply in self.rules.items():
-            if needle in line:
-                if isinstance(reply, Exception):
-                    raise reply
-                answer = reply.pop(0) if isinstance(reply, list) else reply
-                return answer.encode() if binary else answer
-        return b"" if binary else ""
-
-    def run_bytes(self, cmd, timeout=120, check=True):
-        return self(cmd, timeout, check, binary=True)
-
-    def shell(self):
-        return [c.split(" shell ", 1)[1] for c in self.cmds if " shell " in c]
-
-
-class AgentHttp:
-    """Stands in for the on-device agent: replies by path, records every request."""
-
-    def __init__(self):
-        self.replies: dict[str, object] = {"/tree": LOGIN, "/idle": "idle", "/change": "changed", "/quit": "bye"}
-        self.urls: list[str] = []
-
-    def __call__(self, url, timeout):
-        self.urls.append(url)
-        reply = self.replies[url.split("7000", 1)[1].split("?")[0]]
-        reply = reply.pop(0) if isinstance(reply, list) else reply
-        if isinstance(reply, Exception):
-            raise reply
-        return reply
-
-    def paths(self):
-        return [u.split("7000", 1)[1] for u in self.urls]
-
-
-class Proc:
-    def __init__(self):
-        self.running = True
-        self.exits_on_quit = True
-        self.waited = []
-
-    def poll(self):
-        return None if self.running else 0
-
-    def wait(self, timeout):
-        self.waited.append(timeout)
-        if not self.exits_on_quit:
-            raise subprocess.TimeoutExpired("am instrument", timeout)
-        self.running = False
-
-
-@pytest.fixture
-def agent(monkeypatch):
-    fake = AgentHttp()
-    fake.started = []
-    monkeypatch.setattr(android, "http_get", fake)
-    monkeypatch.setattr(android, "build_agent", lambda progress: Path("/cache/android-agent-abc123.apk"))
-
-    def start_process(cmd, ready, log, timeout):
-        fake.started.append((cmd, ready))
-        return Proc()
-
-    monkeypatch.setattr(android, "start_process", start_process)
-    monkeypatch.setattr(android, "stop_process", lambda proc: fake.started.append(("stopped",)))
-    return fake
-
-
-@pytest.fixture
-def adb(monkeypatch, agent):
-    fake = Adb(
-        {
-            "adb devices": "List of devices attached\nemulator-5554\tdevice\nR58N\tunauthorized\n",
-            "wm size": "Physical size: 1080x2424\n",
-            "aapt2": "dev.demo\n",
-            "resolve-activity": "priority=0\ndev.demo/.MainActivity\n",
-            "forward tcp:0": "7000\n",
-            "dumpsys package dev.jevtest.agent": "    versionName=abc123\n",
-        }
-    )
-    monkeypatch.setattr(android, "run", fake)
-    monkeypatch.setattr(android, "run_bytes", fake.run_bytes)
-    monkeypatch.setattr(android.shutil, "which", lambda name: f"/bin/{name}")
-    return fake
 
 
 @pytest.fixture
@@ -122,40 +26,6 @@ def drv(adb):
 
 
 # --- parsing real dumps ------------------------------------------------------------------
-
-
-def test_sdk_root(monkeypatch, tmp_path):
-    monkeypatch.setenv("ANDROID_HOME", str(tmp_path))
-    assert android.sdk_root() == tmp_path
-    monkeypatch.delenv("ANDROID_HOME")
-    monkeypatch.delenv("ANDROID_SDK_ROOT", raising=False)
-    monkeypatch.setattr(android.Path, "home", lambda: tmp_path)
-    assert android.sdk_root() is None
-    (tmp_path / "Android/Sdk").mkdir(parents=True)
-    assert android.sdk_root() == tmp_path / "Android/Sdk"
-
-
-def test_tools_found_in_sdk(monkeypatch, tmp_path):
-    monkeypatch.setattr(android.shutil, "which", lambda n: None)
-    monkeypatch.setenv("ANDROID_HOME", str(tmp_path))
-    for version in ("34.0.0", "36.1.0"):
-        (tmp_path / "build-tools" / version).mkdir(parents=True)
-        (tmp_path / "build-tools" / version / "aapt2").write_text("")
-    (tmp_path / "platform-tools").mkdir()
-    (tmp_path / "platform-tools/adb").write_text("")
-    assert android.aapt2_path().endswith("36.1.0/aapt2")
-    assert android.adb_path() == str(tmp_path / "platform-tools/adb")
-
-
-def test_tool_missing(monkeypatch, tmp_path):
-    monkeypatch.setattr(android.shutil, "which", lambda n: None)
-    monkeypatch.setattr(android, "sdk_root", lambda: None)
-    with pytest.raises(DeviceError, match="adb not found"):
-        android.adb_path()
-
-
-def test_devices_only_lists_ready_ones(adb):
-    assert android.devices() == ["emulator-5554"]
 
 
 # --- driver setup ---------------------------------------------------------------------------
@@ -576,76 +446,6 @@ def test_close_when_agent_already_gone(drv, adb, agent):
 def test_close_tolerates_agent_error(drv, agent):
     agent.replies["/quit"] = OSError("gone")
     drv.close()
-
-
-def test_build_agent_is_cached(monkeypatch, tmp_path):
-    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
-    apk = tmp_path / f"android-agent-{android.digest(android.AGENT_SRC)}.apk"
-    apk.write_text("")
-    assert android.build_agent(PROGRESS) == apk
-
-
-def test_build_agent_with_sdk_tools(monkeypatch, tmp_path):
-    import zipfile
-
-    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "cache"))
-    sdk = tmp_path / "sdk"
-    (sdk / "build-tools/37.0.0").mkdir(parents=True)
-    (sdk / "platforms/android-37").mkdir(parents=True)
-    (sdk / "platforms/android-37/android.jar").write_text("")
-    monkeypatch.setattr(android, "sdk_root", lambda: sdk)
-    seen = []
-
-    def fake_run(cmd, **kw):
-        seen.append(Path(cmd[0]).name)
-        if cmd[0] == "javac":
-            out = Path(cmd[cmd.index("-d") + 1])
-            out.mkdir(parents=True)
-            (out / "Agent.class").write_text("")
-        elif cmd[0].endswith("d8"):
-            (Path(cmd[cmd.index("--output") + 1]) / "classes.dex").write_text("dex")
-        elif cmd[0].endswith("aapt2"):
-            with zipfile.ZipFile(cmd[cmd.index("-o") + 1], "w") as z:
-                z.writestr("AndroidManifest.xml", "m")
-        elif cmd[0].endswith("zipalign"):
-            Path(cmd[-1]).write_bytes(Path(cmd[-2]).read_bytes())
-        elif cmd[0] == "keytool":
-            Path(cmd[cmd.index("-keystore") + 1]).write_text("ks")
-        elif cmd[0].endswith("apksigner"):
-            Path(cmd[cmd.index("--out") + 1]).write_bytes(Path(cmd[-1]).read_bytes())
-        return ""
-
-    monkeypatch.setattr(android, "run", fake_run)
-    apk = android.build_agent(PROGRESS)
-    assert seen == ["javac", "d8", "aapt2", "zipalign", "keytool", "apksigner"]
-    assert "classes.dex" in zipfile.ZipFile(apk).namelist()
-    seen.clear()
-    apk.unlink()
-    android.build_agent(PROGRESS)
-    assert "keytool" not in seen  # the keystore is reused
-    assert "building the Android agent (one time, a few seconds)" in PROGRESS_MESSAGES
-
-
-def test_build_agent_needs_sdk(monkeypatch, tmp_path):
-    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
-    monkeypatch.setattr(android, "sdk_root", lambda: None)
-    with pytest.raises(DeviceError, match="build-tools and a platform"):
-        android.build_agent(PROGRESS)
-
-
-def test_http_get(monkeypatch):
-    class R:
-        def read(self):
-            return b"ok"
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            return False
-
-    monkeypatch.setattr(android.urllib.request, "urlopen", lambda url, timeout: R())
-    assert android.http_get("http://x", timeout=1) == "ok"
 
 
 def test_reinstall_needs_an_installed_app(adb):

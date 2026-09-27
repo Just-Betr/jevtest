@@ -10,29 +10,8 @@ import pytest
 from jevtest.adapters.devices import ios
 from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.domain.failures import DeviceError
-from tests.adapters.devices.test_ios import SIMS, make_app
+from tests.adapters.devices.conftest import make_app, swap
 from tests.conftest import PROGRESS
-
-PHONE = {
-    "hardwareProperties": {"reality": "physical", "platform": "iOS", "udid": "00008150-X"},
-    "deviceProperties": {"name": "BH"},
-    "connectionProperties": {"tunnelState": "connected"},
-}
-TEAMS = {"IDEProvisioningTeamByIdentifier": {"acct": [{"teamID": "TEAM1", "isFreeProvisioningTeam": False}]}}
-
-
-@pytest.fixture
-def phone(env, monkeypatch, tmp_path):
-    """The simulator env, plus a connected iPhone 'BH', an Xcode team, and a provisioned agent build."""
-    sim, agent, procs = env
-    ios.devicectl.phones = [PHONE]
-    sim.rules["defaults export"] = plistlib.dumps(TEAMS).decode()
-    out = tmp_path / "cache" / f"ios-agent-{ios.digest(ios.AGENT_SRC)}-TEAM1" / "Build/Products"
-    (out / "Debug-iphoneos/JevAgentUITests-Runner.app").mkdir(parents=True)
-    (out / "a.xctestrun").write_text("")
-    monkeypatch.setattr(ios, "provisioned_devices", lambda app: {"00008150-X"})
-    sim.rules["security cms"] = plistlib.dumps({"TeamIdentifier": ["TEAM1"]}).decode()
-    return sim, agent, procs
 
 
 def signed_app(tmp_path) -> Path:
@@ -52,21 +31,6 @@ def dev(phone, tmp_path):
 
 
 # --- finding phones and teams ----------------------------------------------------------------------
-
-
-def test_phones_lists_connected_real_iphones(env):
-    ios.devicectl.phones = [
-        PHONE,
-        dict(PHONE, connectionProperties={"tunnelState": "disconnected"}),  # not reachable now
-        dict(PHONE, hardwareProperties={"reality": "simulated", "platform": "iOS", "udid": "S"}),
-        dict(PHONE, hardwareProperties={"reality": "physical", "platform": "watchOS", "udid": "W"}),
-    ]
-    assert ios.phones() == [{"udid": "00008150-X", "name": "BH"}]
-
-
-def test_find_target_by_phone_name(phone):
-    assert ios.find_target("BH") == ios.Target("00008150-X", "BH", True)
-    assert ios.find_target("00008150-X").physical is True
 
 
 def teams(*entries):
@@ -108,30 +72,6 @@ def test_the_profile_must_name_one_team(phone, tmp_path, profile, message):
         IOSDevice("BH", signed_app(tmp_path), PROGRESS)
 
 
-def test_provisioned_devices(env, tmp_path):
-    app = tmp_path / "R.app"
-    app.mkdir()
-    assert ios.provisioned_devices(app) == set()  # no profile: a simulator build
-    (app / "embedded.mobileprovision").write_bytes(b"signed")
-    env[0].rules["security cms"] = plistlib.dumps({"ProvisionedDevices": ["U1", "U2"]}).decode()
-    assert ios.provisioned_devices(app) == {"U1", "U2"}
-    env[0].rules["security cms"] = "not a plist"
-    with pytest.raises(DeviceError, match="R.app's embedded.mobileprovision can't be read"):
-        ios.provisioned_devices(app)
-
-
-def test_devicectl_returns_the_json_result(monkeypatch):
-    seen = []
-
-    def fake_run(cmd, timeout):
-        seen.append(cmd)
-        Path(cmd[cmd.index("--json-output") + 1]).write_text(json.dumps({"result": {"devices": [1]}}))
-
-    monkeypatch.setattr(ios, "run", fake_run)
-    assert ios.devicectl("list", "devices") == {"devices": [1]}
-    assert seen[0][:4] == ["xcrun", "devicectl", "list", "devices"]
-
-
 # --- the signed agent ----------------------------------------------------------------------------
 
 
@@ -155,13 +95,13 @@ def test_no_tunnel_is_a_clear_error(tmp_path, phone):
 
 
 def test_agent_is_signed_for_the_phone_when_not_provisioned(phone, monkeypatch, tmp_path):
-    monkeypatch.setattr(ios, "provisioned_devices", lambda app: set())  # a new phone for this build
+    swap(monkeypatch, "provisioned_devices", lambda app: set())  # a new phone for this build
     builds = []
 
-    def fake_build(self, out, destination, signing):
+    def fake_build(out, destination, signing):
         builds.append((destination, signing))
 
-    monkeypatch.setattr(IOSDevice, "_xcodebuild", fake_build)
+    swap(monkeypatch, "build_agent_with_xcodebuild", fake_build)
     IOSDevice("BH", signed_app(tmp_path), PROGRESS)
     [(destination, signing)] = builds
     assert destination == "id=00008150-X"
@@ -170,25 +110,17 @@ def test_agent_is_signed_for_the_phone_when_not_provisioned(phone, monkeypatch, 
 
 
 def test_agent_build_retries_once_when_xcode_swaps_the_profile(tmp_path, phone, monkeypatch):
-    monkeypatch.setattr(ios, "provisioned_devices", lambda app: set())
+    swap(monkeypatch, "provisioned_devices", lambda app: set())
     attempts = []
 
-    def flaky(self, out, destination, signing):
+    def flaky(out, destination, signing):
         attempts.append(destination)
         if len(attempts) == 1:
             raise DeviceError("Build input file cannot be found: ...mobileprovision")
 
-    monkeypatch.setattr(IOSDevice, "_xcodebuild", flaky)
+    swap(monkeypatch, "build_agent_with_xcodebuild", flaky)
     IOSDevice("BH", signed_app(tmp_path), PROGRESS)
     assert len(attempts) == 2
-
-
-def test_agent_build_command(phone, monkeypatch, tmp_path):
-    d = IOSDevice("BH", signed_app(tmp_path), PROGRESS)
-    seen = []
-    monkeypatch.setattr(ios, "run", lambda cmd, timeout: seen.append(cmd))
-    d._xcodebuild(tmp_path / "out", "id=U", ["X=1"])
-    assert seen[0][:2] == ["xcodebuild", "build-for-testing"] and seen[0][-1] == "X=1"
 
 
 # --- talking to it ---------------------------------------------------------------------------------
@@ -266,16 +198,12 @@ def test_permissions_cannot_be_pregranted_on_a_phone(dev):
         dev.grant("camera")
 
 
-def test_sims_constant_still_has_a_booted_simulator():
-    assert any(d["state"] == "Booted" for v in SIMS["devices"].values() for d in v)
-
-
 def test_a_phone_that_refuses_ui_automation_says_what_to_do(tmp_path, phone, monkeypatch):
     def refuse(cmd, ready, log, timeout, env):
         log.write_text("Failed to initialize for UI testing: Timed out while enabling automation mode.\n")
         raise DeviceError("xcodebuild exited before it was ready.")
 
-    monkeypatch.setattr(ios, "start_process", refuse)
+    swap(monkeypatch, "start_process", refuse)
     with pytest.raises(DeviceError, match=r"BH did not allow UI automation .*Enable UI Automation is on"):
         IOSDevice("BH", signed_app(tmp_path), PROGRESS)
 
@@ -285,6 +213,6 @@ def test_other_agent_start_errors_pass_through(tmp_path, phone, monkeypatch):
         log.write_text("error: something else\n")
         raise DeviceError("xcodebuild exited before it was ready.")
 
-    monkeypatch.setattr(ios, "start_process", fail)
+    swap(monkeypatch, "start_process", fail)
     with pytest.raises(DeviceError, match="^xcodebuild exited before it was ready.$"):
         IOSDevice("BH", signed_app(tmp_path), PROGRESS)
