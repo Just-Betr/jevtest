@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
 **Engineering quality.** Test files, commands and lockfiles are unchanged.
 
