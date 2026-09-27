@@ -2,9 +2,10 @@
 
 import sys
 
-if sys.version_info >= (3, 12):
+# Each branch runs only on its own Python version, so neither counts toward one version's coverage.
+if sys.version_info >= (3, 12):  # pragma: no cover
     from typing import override
-else:  # pragma: no cover - the tests run on the newest Python; CI covers 3.11
+else:  # pragma: no cover
     from typing_extensions import override
 
 __all__ = ["override"]
