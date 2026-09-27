@@ -218,3 +218,8 @@ def test_every_action_key_has_a_label_and_every_option_belongs_to_an_action():
         is (key not in {"launch", "stop", "restart", "clear_data", "reinstall", "back", "home", "hide_keyboard"})
         for key, spec in ACTIONS.items()
     )
+
+
+def test_text_that_is_not_valid_unicode_is_an_error():
+    with pytest.raises(TestFileError, match="'tap' has characters that aren't valid Unicode"):
+        parse_step({"tap": "\ud800"})

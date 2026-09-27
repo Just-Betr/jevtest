@@ -67,6 +67,10 @@ def text(value: object, what: str) -> str:
         raise TestFileError(f"{what} needs text, got {kind(value)}{hint}")
     if value.strip() == "" or value != value.strip():
         raise TestFileError(f"{what} needs text without leading or trailing spaces, got {value!r}")
+    try:
+        value.encode()
+    except UnicodeEncodeError:
+        raise TestFileError(f"{what} has characters that aren't valid Unicode: {value!r}") from None
     return value
 
 
