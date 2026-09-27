@@ -190,17 +190,21 @@ def parse_step(raw: object, settings: Settings = DEFAULTS) -> Step:
 
 def _step_keys(raw: Mapping[object, object]) -> dict[str, object]:
     """The step with its keys as text, after checking each is one a step can have, with one action at most."""
+    _reject_unknown_keys(raw)
+    step = {k: v for k, v in raw.items() if isinstance(k, str)}  # every key, now known to be text
+    actions = [k for k in step if k in ACTIONS]  # in the order written
+    if len(actions) > 1:
+        raise TestFileError(f"Step {raw!r} has more than one action ({', '.join(actions)}); split it into two steps")
+    return step
+
+
+def _reject_unknown_keys(raw: Mapping[object, object]) -> None:
     if "text" in raw:
         raise TestFileError("`text` goes inside type: `type: {text: hello, into: Email}`")
     known = ACTIONS.keys() | CHECKS.keys() | OPTIONS
     unknown = [k for k in raw if not isinstance(k, str) or k not in known]
     if unknown:
         raise TestFileError(f"Step {raw!r} has unknown keys: {', '.join(sorted(map(str, unknown)))}")
-    step = {k: v for k, v in raw.items() if isinstance(k, str)}
-    actions = [k for k in step if k in ACTIONS]  # in the order written
-    if len(actions) > 1:
-        raise TestFileError(f"Step {raw!r} has more than one action ({', '.join(actions)}); split it into two steps")
-    return step
 
 
 def _bare_word(raw: str, settings: Settings) -> Step:

@@ -124,7 +124,8 @@ class JevClient:
         )
 
     def _post(self, body: bytes) -> dict[str, object]:
-        for attempt in range(self.retries + 1):
+        attempt = 0
+        while True:
             last = attempt == self.retries
             req = urllib.request.Request(
                 self.url,
@@ -143,12 +144,14 @@ class JevClient:
                     detail = e.read().decode(errors="replace")[:500]
                 if e.code in RETRY_STATUSES and not last:
                     self._retry(f"HTTP {e.code}", attempt)
+                    attempt += 1
                     continue
                 hint = f" (check the key; {KEY_HELP})" if e.code == UNAUTHORIZED else ""
                 raise ModelError(f"Jev HTTP {e.code}: {detail}{hint}") from None
             except (urllib.error.URLError, TimeoutError) as e:
                 if not last:
                     self._retry(f"unreachable ({e})", attempt)
+                    attempt += 1
                     continue
                 raise ModelError(f"Jev unreachable: {e}") from None
             try:
@@ -158,7 +161,6 @@ class JevClient:
             if not is_json_object(data):
                 raise ModelError(f"Jev returned {type(data).__name__}, expected a JSON object")
             return data
-        raise AssertionError("unreachable")  # pragma: no cover
 
     def _retry(self, why: str, attempt: int) -> None:
         wait = 0.5 * 2**attempt

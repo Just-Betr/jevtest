@@ -436,8 +436,8 @@ class TestRunner:
         """
         wanted = self._value(text)
         screen = self.device.screen()
-        unmoved = 0  # scrolls in a row that moved nothing
-        for scrolls in range(settings.max_scrolls + 1):
+        scrolls, unmoved = 0, 0  # unmoved: scrolls in a row that moved nothing
+        while True:
             if screen.shows(wanted):
                 return f"{scrolls} scroll(s)" if scrolls else None
             if scrolls == settings.max_scrolls:
@@ -447,10 +447,9 @@ class TestRunner:
             self.device.scroll(direction, screen=screen)
             self._settle(settings)
             before, screen = screen, self.device.screen()
-            unmoved = unmoved + 1 if screen == before else 0
+            scrolls, unmoved = scrolls + 1, (unmoved + 1 if screen == before else 0)
             if unmoved == END_OF_CONTENT:
                 raise StepFailed(f"Scrolled {direction} to the end but never found '{text}'")
-        raise AssertionError("unreachable")  # pragma: no cover
 
     # --- the goal loop -----------------------------------------------------------------------------------------
     def _achieve(self, goal: str, decisions: list[Decision], settings: Settings) -> str:
