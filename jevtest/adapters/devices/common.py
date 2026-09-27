@@ -122,9 +122,10 @@ Progress = Callable[[str], None]
 
 
 class BaseDevice(ABC):
-    """What the Android and iOS devices share: swipe and scroll geometry, and hooks that default to nothing.
+    """What the Android and iOS devices share: swipe and scroll geometry from the screen and a drag.
 
-    Subclasses implement the rest of the `Device` port.
+    Subclasses implement the rest of the `Device` port; the abstract methods here are the ones this class uses
+    or that every device must think about (putting the device back, releasing what it started).
     """
 
     @abstractmethod
@@ -135,20 +136,25 @@ class BaseDevice(ABC):
     def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
         """Press at (x1, y1), move to (x2, y2), lift."""
 
-    def restore(self) -> None:  # noqa: B027 - optional hook
-        """Put back what steps changed. Default: nothing was changed."""
+    @abstractmethod
+    def restore(self) -> None:
+        """Put back what steps changed on the device."""
 
-    def check_ready(self) -> None:  # noqa: B027 - optional hook
-        """Raise `DeviceError` if the device can't be tested right now. Default: always ready."""
+    @abstractmethod
+    def check_ready(self) -> None:
+        """Raise `DeviceError` if the device can't be tested right now (asleep, locked)."""
 
-    def close(self) -> None:  # noqa: B027 - optional hook
-        """Release what the device started. Default: nothing to release."""
+    @abstractmethod
+    def close(self) -> None:
+        """Release what the device started."""
 
-    def wait_idle(self, timeout: float, quiet: float | None = None) -> None:  # noqa: B027 - optional hook
-        """Return once the screen has stopped changing. Default: return at once."""
+    @abstractmethod
+    def wait_idle(self, timeout: float, quiet: float | None = None) -> None:
+        """Return once the screen has stopped changing, or after `timeout` seconds."""
 
-    def wait_change(self, timeout: float) -> None:  # noqa: B027 - optional hook
-        """Return as soon as the screen may have changed. Default: return at once; callers read the screen again."""
+    @abstractmethod
+    def wait_change(self, timeout: float) -> None:
+        """Return as soon as the screen changes, or after `timeout` seconds."""
 
     def swipe(self, direction: Direction, element: Element | None = None, screen: Screen | None = None) -> None:
         """Finger swipe in `direction`, across an element or across the page.

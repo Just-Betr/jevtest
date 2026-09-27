@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from jevtest.adapters.devices import android
-from jevtest.adapters.devices.android import AndroidDevice, has_empty_webview, parse_hierarchy
+from jevtest.adapters.devices.android import AndroidDevice
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction, Orientation
 from jevtest.domain.screen import Element
@@ -116,58 +116,6 @@ def drv(adb):
 
 
 # --- parsing real dumps ------------------------------------------------------------------
-
-def test_parse_login_screen():
-    els = parse_hierarchy(LOGIN, 1080, 2424)
-    assert [(e.kind, e.text, e.hint) for e in els] == [
-        ("text", "Sign in", ""), ("text_field", "", "Email"), ("password_field", "", "Password"),
-        ("button", "Sign in", "")]
-    email = els[1]
-    assert email.editable and email.enabled and email.bounds == (63, 352, 1017, 499)
-    assert email.value == ""
-
-
-def test_parse_webview_content():
-    els = parse_hierarchy(WEB, 1080, 2424)
-    kinds = {(e.kind, e.text or e.hint) for e in els}
-    assert {("text", "Web Greeter"), ("text_field", "Your name"), ("button", "Say hello"),
-            ("checkbox", "I agree to the terms")} <= kinds
-    assert next(e for e in els if e.kind == "checkbox").checked is False
-
-
-def test_parse_rules():
-    xml = """<hierarchy rotation="0">
-      <node class="android.widget.TextView" package="com.android.systemui" text="12:00" bounds="[0,0][100,50]"/>
-      <node class="android.widget.TextView" text="Off screen" bounds="[0,3000][100,3100]"/>
-      <node class="android.widget.TextView" text="Partly off" bounds="[-50,10][60,40]"/>
-      <node class="android.widget.FrameLayout" bounds="[0,0][100,100]"/>
-      <node class="android.widget.Button" text="Go" content-desc="Go now" clickable="true" enabled="false"
-            bounds="[0,0][100,100]"/>
-      <node class="android.widget.Switch" checkable="true" checked="true" text="Wifi" bounds="[0,0][100,100]"/>
-      <node class="android.view.View" clickable="true" content-desc="Card" bounds="[0,0][100,100]"/>
-      <node class="android.view.View" content-desc="Label" bounds="[0,0][100,100]"/>
-      <node class="androidx.recyclerview.widget.RecyclerView" scrollable="true" bounds="[0,0][100,100]"/>
-      <node class="com.custom.Thing" resource-id="dev.demo:id/thing" bounds="[0,0][100,100]"/>
-      <node class="android.widget.TextView" text="  lots   of
-            space " bounds="[0,0][100,100]"/>
-      <node class="android.widget.TextView" text="no bounds"/>
-    </hierarchy>"""
-    els = parse_hierarchy(xml, 1080, 2424)
-    assert [(e.kind, e.text) for e in els] == [
-        ("text", "Partly off"), ("button", "Go (Go now)"), ("switch", "Wifi"), ("button", "Card"), ("text", "Label"),
-        ("list", ""), ("thing", ""), ("text", "lots of space")]
-    assert els[0].bounds == (0, 10, 60, 40)
-    assert els[1].enabled is False and els[2].checked is True and els[5].scrollable
-    assert els[6].resource_id == "thing"
-
-
-def test_empty_webview_detection():
-    assert has_empty_webview(EMPTY_WEB)
-    assert not has_empty_webview(WEB)
-    assert not has_empty_webview(LOGIN)
-
-
-# --- tools and devices ---------------------------------------------------------------------
 
 def test_sdk_root(monkeypatch, tmp_path):
     monkeypatch.setenv("ANDROID_HOME", str(tmp_path))

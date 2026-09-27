@@ -12,7 +12,6 @@ import contextlib
 import json
 import os
 import plistlib
-import re
 import shutil
 import socket
 import subprocess
@@ -24,13 +23,14 @@ from base64 import b64decode
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
 
 from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
+from .ios_screen import AgentTree, parse_tree
 
 AGENT_SRC = Path(__file__).resolve().parent / "ios_agent"
 AGENT_CALL_TIMEOUT = 150
@@ -39,13 +39,6 @@ SpringBoard to settle (normally well under a second; an iPhone that needs a rest
 APP_WAIT = 10.0
 """Seconds to wait for the app to come to the foreground after a launch or a resume."""
 AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator or phone
-# Container types that only matter when they carry a label or identifier.
-CONTAINERS = {"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"}
-# Kinds whose value is shown some other way: a switch's as on/off, a secure field's is bullets.
-HIDDEN_VALUE = {"switch", "password_field"}
-SCROLL_INDICATOR = re.compile(r"^(Vertical|Horizontal) scroll bar\b")
-TOUCHABLE = {"button", "cell", "link", "switch", "tab", "menu_item", "segmented_control", "dropdown"}
-EDITABLE = {"text_field", "password_field", "text_area"}
 # XCUIApplication.State raw values.
 # XCUIApplication.State: unknown, notRunning, runningBackgroundSuspended, runningBackground, runningForeground
 APP_STATES = {0: AppState.NOT_RUNNING, 1: AppState.NOT_RUNNING, 2: AppState.BACKGROUND, 3: AppState.BACKGROUND,
@@ -104,17 +97,22 @@ def find_target(wanted: str) -> Target:
 
     jevtest never boots, opens or unlocks a device.
     """
-    sims = [Target(d["udid"], d["name"], False) for d in simulators() if d["state"] == "Booted"]
-    real = [Target(d["udid"], d["name"], True) for d in phones()]
-    matches = [t for t in sims + real if wanted in (t.udid, t.name)]
+    running = _running_targets()
+    matches = [t for t in running if wanted in (t.udid, t.name)]
     if not matches:
-        running = ", ".join(f"{t.name} ({t.udid})" for t in sims + real) or "none"
+        listed = ", ".join(f"{t.name} ({t.udid})" for t in running) or "none"
         raise DeviceError(f"No booted simulator or connected iPhone called '{wanted}' (names are exact). "
-                          f"Running: {running}")
+                          f"Running: {listed}")
     if len(matches) > 1:
         raise DeviceError(f"Several devices are called '{wanted}' ({', '.join(t.udid for t in matches)}): "
                           "name one by its UDID")
     return matches[0]
+
+
+def _running_targets() -> list[Target]:
+    """The booted simulators, then the connected iPhones."""
+    sims = [Target(d["udid"], d["name"], physical=False) for d in simulators() if d["state"] == "Booted"]
+    return sims + [Target(d["udid"], d["name"], physical=True) for d in phones()]
 
 
 def xcode_team(team: str) -> str:
@@ -185,57 +183,6 @@ def app_bundle(app_path: Path, workdir: Path) -> Path:
         if found:
             return found[0]
     raise DeviceError(f"iOS needs an .app (or a .zip/.ipa containing one), got {app_path.name}")
-
-
-def parse_tree(data: Mapping[str, Any]) -> Screen:
-    """The agent's /tree reply as the elements a tester cares about, duplicates removed."""
-    w, h = int(data["width"]), int(data["height"])
-    elements: list[Element] = []
-    seen: set[tuple[str, str, tuple[int, int, int, int]]] = set()
-    for d in data["elements"]:
-        el = _element(d, w, h)
-        if el is None:
-            continue
-        key = (el.kind, el.text, el.bounds)  # XCUITest often reports a wrapper and its child
-        if key not in seen:
-            seen.add(key)
-            elements.append(el)
-    return Screen(width=w, height=h, elements=tuple(elements), keyboard_visible=data.get("keyboard", False),
-                  keyboard_top=int(data.get("keyboard_top", 0)))
-
-
-MIN_SIZE = 2  # points: anything thinner is off screen or invisible
-
-
-def _element(d: Mapping[str, Any], width: int, height: int) -> Element | None:
-    """One element of the agent's tree, or None if it's the app itself, a scroll bar, or off screen."""
-    kind: str = d["type"]
-    label: str = d.get("label", "")
-    value: str = d.get("value") or ""
-    placeholder: str = d.get("placeholder", "")
-    if kind == "application" or SCROLL_INDICATOR.match(label):
-        return None
-    x1, y1 = max(int(d["x"]), 0), max(int(d["y"]), 0)
-    x2, y2 = min(int(d["x"] + d["w"]), width), min(int(d["y"] + d["h"]), height)
-    if x2 - x1 < MIN_SIZE or y2 - y1 < MIN_SIZE:
-        return None
-    if kind in EDITABLE and value == placeholder:
-        value = ""  # an empty field reports its placeholder as its value
-    text = label
-    # Any other value that says something the label doesn't (a web <select>'s choice, a field's text).
-    if kind not in HIDDEN_VALUE and value.strip() and value.strip() != label.strip():
-        text = f"{label}: {value}" if label else value
-    text = " ".join(text.split())
-    if kind in CONTAINERS and not (text or d.get("identifier")):
-        return None
-    return Element(
-        kind="text" if kind == "other" else kind, text=text, hint=placeholder,
-        value=value if kind in EDITABLE else "", resource_id=d.get("identifier", ""), bounds=(x1, y1, x2, y2),
-        enabled=d.get("enabled", True), editable=kind in EDITABLE, clickable=kind in TOUCHABLE,
-        focused=kind in EDITABLE and d.get("focused", False),  # web views mark everything focused
-        selected=d.get("selected", False),
-        checked=value in ("1", "true") if kind == "switch" else None,
-    )
 
 
 def http_post(url: str, body: Mapping[str, object], timeout: float) -> dict[str, Any]:
@@ -465,7 +412,7 @@ class IOSDevice(BaseDevice):
     # --- observe --------------------------------------------------------------------
     def screen(self) -> Screen:
         """What's on the screen now."""
-        return parse_tree(self._call("/tree"))
+        return parse_tree(cast(AgentTree, self._call("/tree")))  # the agent's own JSON
 
     def screenshot(self, path: Path) -> None:
         """Save a PNG of the screen."""

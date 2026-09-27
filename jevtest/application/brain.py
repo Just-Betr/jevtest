@@ -126,6 +126,74 @@ def _yes(answer: Answer) -> float:
     return answer.yes
 
 
+def _by_text(target: str, pool: Sequence[Element]) -> Element | list[Element]:
+    """The element whose text is `target`, else the one containing it.
+
+    When several match, those are returned for the model to choose among; when none do, an empty list.
+    """
+    t = target.strip().lower()
+    for matches in (_exact(t, pool), _containing(t, pool)):
+        found = _prefer_actionable(matches)
+        if len(found) == 1:
+            return found[0]
+        if found:
+            return found
+    return []
+
+
+def _exact(t: str, pool: Sequence[Element]) -> list[Element]:
+    return [el for el in pool if t in (el.text.lower(), el.hint.lower(), el.resource_id.lower())]
+
+
+def _containing(t: str, pool: Sequence[Element]) -> list[Element]:
+    return [el for el in pool if t in el.text.lower() or t in el.hint.lower()]
+
+
+def _prefer_actionable(matches: list[Element]) -> list[Element]:
+    """Of several matches, the ones a user can act on: a label beside its switch means the switch."""
+    actionable = [el for el in matches if el.clickable or el.editable]
+    return actionable if len(matches) > 1 and actionable else matches
+
+
+def _offered_actions(screen: Screen, values: Sequence[str]) -> dict[str, str]:
+    """The actions that make sense on this screen: no typing without a field and a value, and so on."""
+    kinds = dict(ACTIONS)
+    if not (values and screen.editable):
+        kinds.pop("type")
+    if not screen.editable:
+        kinds.pop("clear")
+    if not screen.keyboard_visible:
+        kinds.pop("hide_keyboard")
+        kinds.pop("press_enter")
+    if not screen.elements:
+        for k in (*TOUCH, *SWIPE_ON):
+            kinds.pop(k)
+    return kinds
+
+
+def _goal_questions(goal: str, screen: Screen, values: Sequence[str]) -> dict[str, Question]:
+    """The questions for one move: the action, and the element, field and value it may need."""
+    kinds = _offered_actions(screen, values)
+    questions: dict[str, Question] = {"action": Choice(
+        {"goal": goal, "question": "What is the single next action needed to achieve `goal`?"}, kinds)}
+    if screen.elements:
+        questions["target"] = Choice(
+            {"goal": goal, "question": "If the next action toward `goal` is to tap, double tap, "
+                                       "long press or swipe an element, which element?"},
+            _element_options(screen, screen.elements))
+    if "type" in kinds or "clear" in kinds:
+        questions["field"] = Choice(
+            {"goal": goal, "question": "If the next action toward `goal` is to type into or clear "
+                                       "a text field, which text field?"},
+            _element_options(screen, screen.editable))
+    if "type" in kinds:
+        questions["value"] = Choice(
+            {"goal": goal, "question": "Which value from `goal` should be typed next? "
+                                       "Skip values already typed in `actions_taken`."},
+            {f"v{i}": f'"{v}"' for i, v in enumerate(values)})
+    return questions
+
+
 class Brain:
     """jevtest's judgement: the next move toward a goal, which element a target means, and checks.
 
@@ -143,37 +211,7 @@ class Brain:
         action needs them), so each move costs one round trip.
         """
         values = quoted_values(goal)[:MAX_OPTIONS]
-        fields = screen.editable
-        kinds = dict(ACTIONS)
-        if not (values and fields):
-            kinds.pop("type")
-        if not fields:
-            kinds.pop("clear")
-        if not screen.keyboard_visible:
-            kinds.pop("hide_keyboard")
-            kinds.pop("press_enter")
-        if not screen.elements:
-            for k in (*TOUCH, *SWIPE_ON):
-                kinds.pop(k)
-
-        questions: dict[str, Question] = {"action": Choice(
-            {"goal": goal, "question": "What is the single next action needed to achieve `goal`?"}, kinds)}
-        if screen.elements:
-            questions["target"] = Choice(
-                {"goal": goal, "question": "If the next action toward `goal` is to tap, double tap, "
-                                           "long press or swipe an element, which element?"},
-                _element_options(screen, screen.elements))
-        if "type" in kinds or "clear" in kinds:
-            questions["field"] = Choice(
-                {"goal": goal, "question": "If the next action toward `goal` is to type into or clear "
-                                           "a text field, which text field?"},
-                _element_options(screen, fields))
-        if "type" in kinds:
-            questions["value"] = Choice(
-                {"goal": goal, "question": "Which value from `goal` should be typed next? "
-                                           "Skip values already typed in `actions_taken`."},
-                {f"v{i}": f'"{v}"' for i, v in enumerate(values)})
-
+        questions = _goal_questions(goal, screen, values)
         answers = self.model.ask(_state(screen, actions_taken=list(actions_taken) or ["(none yet)"]), questions)
         action = _picked(answers["action"])
         return Decision(self._move(action.choice, answers, screen, values), action.confidence,
@@ -204,20 +242,13 @@ class Brain:
         confirm it (a Choice always picks the closest option, even when the target isn't there).
         """
         pool: Sequence[Element] = screen.elements if candidates is None else candidates
-        t = target.strip().lower()
-        for matches in (
-            [el for el in pool if t in (el.text.lower(), el.hint.lower(), el.resource_id.lower())],
-            [el for el in pool if t in el.text.lower() or t in el.hint.lower()],
-        ):
-            actionable = [el for el in matches if el.clickable or el.editable]
-            found = actionable if len(matches) > 1 and actionable else matches  # a label beside its switch: the switch
-            if len(found) == 1:
-                return found[0]
-            if found:  # several elements carry that text: the model chooses among them only
-                pool = found
-                break
-        if not pool:
-            return None
+        found = _by_text(target, pool)
+        if isinstance(found, Element):
+            return found
+        return self._ask_which(target, screen, found or pool) if (found or pool) else None
+
+    def _ask_which(self, target: str, screen: Screen, pool: Sequence[Element]) -> Element | None:
+        """The model picks the element `target` describes from `pool`, then must confirm it."""
         options = _element_options(screen, pool)
         options["not_on_screen"] = "No element on the screen is `target`."
         pick = _picked(self.model.ask(_state(screen), {"element": Choice(

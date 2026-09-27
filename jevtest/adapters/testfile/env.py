@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 
 from jevtest.domain.failures import TestFileError
 
 ENV_LINE = re.compile(r"(?:export )?([A-Za-z_][A-Za-z0-9_]*)=(.*)")
+QUOTES = "'\""
 
 
 def read_env(folder: Path, environ: Mapping[str, str] = os.environ) -> dict[str, str]:
@@ -25,15 +26,7 @@ def read_env(folder: Path, environ: Mapping[str, str] = os.environ) -> dict[str,
     if not f.is_file():
         return env
     seen: set[str] = set()
-    for n, line in enumerate(f.read_text().splitlines(), 1):
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        m = ENV_LINE.fullmatch(line.strip())
-        if not m:
-            raise TestFileError(f"{f}:{n} is not a KEY=value line")
-        key, value = m.groups()
-        if len(value) >= len("''") and value[0] == value[-1] and value[0] in "'\"":
-            value = value[1:-1]
+    for n, key, value in _entries(f):
         if key in seen:
             raise TestFileError(f"{f}:{n} sets {key} a second time")
         if key in environ and environ[key] != value:
@@ -41,3 +34,21 @@ def read_env(folder: Path, environ: Mapping[str, str] = os.environ) -> dict[str,
         seen.add(key)
         env[key] = value
     return env
+
+
+def _entries(f: Path) -> Iterator[tuple[int, str, str]]:
+    """Each ``KEY=value`` line's number, key and value (quotes around the value removed)."""
+    for n, line in enumerate(f.read_text().splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        m = ENV_LINE.fullmatch(line.strip())
+        if not m:
+            raise TestFileError(f"{f}:{n} is not a KEY=value line")
+        key, value = m.groups()
+        yield n, key, _unquoted(value)
+
+
+def _unquoted(value: str) -> str:
+    if len(value) >= len("''") and value[0] == value[-1] and value[0] in QUOTES:
+        return value[1:-1]
+    return value

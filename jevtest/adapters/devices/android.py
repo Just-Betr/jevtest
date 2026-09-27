@@ -20,6 +20,7 @@ from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
 
+from .android_screen import has_empty_webview, keyboard_up, parse_screen
 from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, digest, run, run_bytes, start_process, stop_process
 
 KEYCODES = {
@@ -30,16 +31,6 @@ KEYCODES = {
 }
 ROTATIONS = {Orientation.PORTRAIT: 0, Orientation.LANDSCAPE: 1, Orientation.PORTRAIT_UPSIDE_DOWN: 2,
              Orientation.LANDSCAPE_RIGHT: 3}
-KINDS = {
-    "EditText": "text_field", "AutoCompleteTextView": "text_field", "Button": "button",
-    "ImageButton": "button", "CheckBox": "checkbox", "Switch": "switch", "ToggleButton": "switch",
-    "RadioButton": "radio", "ImageView": "image", "TextView": "text", "SeekBar": "slider",
-    "ProgressBar": "progress", "Spinner": "dropdown", "WebView": "webview",
-    "RecyclerView": "list", "ListView": "list", "ScrollView": "scroll_view",
-}
-EDITABLE = {"EditText", "AutoCompleteTextView"}
-# Always report on/off for these: WebView checkboxes come through with checkable="false".
-TOGGLES = {"CheckBox", "Switch", "RadioButton", "ToggleButton", "SwitchCompat", "SwitchMaterial"}
 DOUBLE_TAP_GAP = 0.1      # Android and Flutter ignore taps < 40 ms apart and > 300 ms apart
 DRAG_STEPS = 10           # finger positions along a drag
 DRAG_HOLD = 0.1           # seconds the finger rests before lifting, so nothing flings
@@ -162,65 +153,6 @@ def _build_agent(progress: Progress) -> Path:
         run([str(bt / "apksigner"), "sign", "--ks", str(keystore), "--ks-pass", "pass:android",
              "--out", str(apk), str(t / "aligned.apk")])
     return apk
-
-
-def has_empty_webview(xml: str) -> bool:
-    """Whether a WebView is on screen with no content yet (its page reaches the tree a moment later)."""
-    for node in ET.fromstring(xml).iter("node"):
-        if node.get("class") == "android.webkit.WebView" and len(node.findall(".//node")) == 0:
-            return True
-    return False
-
-
-def parse_hierarchy(xml: str, width: int, height: int) -> list[Element]:
-    """The agent's uiautomator-style XML as the elements a tester cares about, in document order."""
-    found = (_element(node.attrib, width, height) for node in ET.fromstring(xml).iter("node"))
-    return [el for el in found if el is not None]
-
-
-MIN_SIZE = 2  # pixels: anything thinner is off screen or invisible
-
-
-def _element(a: dict[str, str], width: int, height: int) -> Element | None:
-    """One node of the tree, or None if it's system UI, off screen, or carries nothing a test could use."""
-    if a.get("package") == "com.android.systemui":  # status bar, navigation bar
-        return None
-    nums = re.findall(r"-?\d+", a.get("bounds", ""))
-    if len(nums) != len("xyxy"):
-        return None
-    x1, y1, x2, y2 = map(int, nums)
-    x1, y1, x2, y2 = max(x1, 0), max(y1, 0), min(x2, width), min(y2, height)
-    if x2 - x1 < MIN_SIZE or y2 - y1 < MIN_SIZE:
-        return None
-    cls = a.get("class", "").split(".")[-1]
-    text, desc = a.get("text", ""), a.get("content-desc", "")
-    label = f"{text} ({desc})" if text and desc and text != desc else (text or desc)
-    editable = cls in EDITABLE
-    clickable = a.get("clickable") == "true" or a.get("long-clickable") == "true"
-    checkable = a.get("checkable") == "true" or cls in TOGGLES
-    scrollable = a.get("scrollable") == "true"
-    full_id = a.get("resource-id", "")
-    rid = "" if full_id.startswith("android:id/") else full_id.split("/")[-1]  # framework ids are structure
-    if not (label or editable or clickable or checkable or scrollable or rid):
-        return None
-    return Element(
-        kind=_kind(cls, clickable=clickable, password=editable and a.get("password") == "true"),
-        text=" ".join(label.split()), hint=a.get("hint", ""), resource_id=rid, bounds=(x1, y1, x2, y2),
-        enabled=a.get("enabled", "true") == "true", editable=editable, clickable=clickable, scrollable=scrollable,
-        focused=a.get("focused") == "true", checked=(a.get("checked") == "true") if checkable else None,
-        selected=a.get("selected") == "true", value=text if editable else "",
-    )
-
-
-def _kind(cls: str, *, clickable: bool, password: bool) -> str:
-    """What an Android view class is, in jevtest's words."""
-    if password:
-        return "password_field"
-    if cls in KINDS:
-        return KINDS[cls]
-    if cls in ("View", ""):  # Flutter and Compose render most widgets as plain Views
-        return "button" if clickable else "text"
-    return cls.lower()
 
 
 class AndroidDevice(BaseDevice):
@@ -400,11 +332,8 @@ class AndroidDevice(BaseDevice):
         """
         deadline = time.monotonic() + FOLLOW_UP
         while True:
-            xml = self._agent("/tree")
-            root = ET.fromstring(xml)
-            w, h = self.size(int(root.get("rotation", "0")))
-            focused = any(el.editable and el.focused for el in parse_hierarchy(xml, w, h))
-            if focused and root.get("ime") == "true":
+            screen = parse_screen(self._agent("/tree"), self.size)
+            if screen.keyboard_visible and any(el.editable and el.focused for el in screen.elements):
                 return
             left = deadline - time.monotonic()
             if left <= 0:
@@ -426,11 +355,7 @@ class AndroidDevice(BaseDevice):
 
     def screen(self) -> Screen:
         """What's on the screen now."""
-        xml = self.tree()
-        root = ET.fromstring(xml)
-        w, h = self.size(int(root.get("rotation", "0")))
-        return Screen(width=w, height=h, elements=tuple(parse_hierarchy(xml, w, h)),
-                      keyboard_visible=root.get("ime") == "true", keyboard_top=int(root.get("ime-top", "0")))
+        return parse_screen(self.tree(), self.size)
 
     def screenshot(self, path: Path) -> None:
         """Save a PNG of the screen."""
@@ -499,7 +424,7 @@ class AndroidDevice(BaseDevice):
     def hide_keyboard(self) -> None:
         """Close the keyboard with Back, if it's up."""
         # Back closes the keyboard, but with no keyboard it leaves the screen: check right before.
-        if ET.fromstring(self._agent("/tree")).get("ime") == "true":
+        if keyboard_up(ET.fromstring(self._agent("/tree"))):
             self.key("back")
 
     # --- device ------------------------------------------------------------------

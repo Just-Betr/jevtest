@@ -171,14 +171,7 @@ def parse_step(raw: object, settings: Settings = DEFAULTS) -> Step:
         return _bare_word(raw, settings)
     if not isinstance(raw, dict):
         raise TestFileError(f"Step must be an action word or a mapping, got {raw!r}")
-    unknown = set(raw) - set(ACTIONS) - set(CHECKS) - OPTIONS - {"text"}
-    if unknown:
-        raise TestFileError(f"Step {raw!r} has unknown keys: {', '.join(sorted(map(str, unknown)))}")
-    if "text" in raw:
-        raise TestFileError("`text` goes inside type: `type: {text: hello, into: Email}`")
-    keys = [k for k in raw if k in ACTIONS]
-    if len(keys) > 1:
-        raise TestFileError(f"Step {raw!r} has more than one action ({', '.join(keys)}); split it into two steps")
+    keys = _action_keys(raw)
     checks = _checks(raw)
     options = {k: v for k, v in raw.items() if k in OPTIONS}
     if not keys:
@@ -190,6 +183,19 @@ def parse_step(raw: object, settings: Settings = DEFAULTS) -> Step:
     value = _unpack_type(raw[key], options) if key == "type" else raw[key]
     action = _action(key, value, options)
     return Step(action, checks, _settings(action, checks, options, settings), label(key, value, options))
+
+
+def _action_keys(raw: Mapping[object, object]) -> list[str]:
+    """The step's action key (at most one), after checking every key is one a step can have."""
+    unknown = raw.keys() - ACTIONS.keys() - CHECKS.keys() - OPTIONS - {"text"}
+    if unknown:
+        raise TestFileError(f"Step {raw!r} has unknown keys: {', '.join(sorted(map(str, unknown)))}")
+    if "text" in raw:
+        raise TestFileError("`text` goes inside type: `type: {text: hello, into: Email}`")
+    keys = [k for k in raw if isinstance(k, str) and k in ACTIONS]  # in the order written
+    if len(keys) > 1:
+        raise TestFileError(f"Step {raw!r} has more than one action ({', '.join(keys)}); split it into two steps")
+    return keys
 
 
 def _bare_word(raw: str, settings: Settings) -> Step:

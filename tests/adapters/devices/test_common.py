@@ -111,15 +111,15 @@ def test_cache_dir(monkeypatch, tmp_path):
     assert cache_dir().name == "jevtest"
 
 
-def test_default_hooks_do_nothing():
+def test_a_device_must_say_how_it_restores_waits_and_closes():
     from jevtest.adapters.devices.common import BaseDevice
 
-    class Minimal(BaseDevice):
+    class Partial(BaseDevice):
         def screen(self):
             raise NotImplementedError
 
         def drag(self, x1, y1, x2, y2):
             raise NotImplementedError
 
-    d = Minimal()
-    assert d.wait_idle(1) is None and d.wait_change(1) is None and d.close() is None and d.check_ready() is None
+    with pytest.raises(TypeError, match="'check_ready', 'close', 'restore', 'wait_change', 'wait_idle'"):
+        Partial()

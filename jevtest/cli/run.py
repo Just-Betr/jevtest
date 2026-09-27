@@ -29,7 +29,7 @@ from jevtest.domain.failures import DeviceError, ModelError, TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 from jevtest.domain.results import RunResult
-from jevtest.domain.steps import Suite
+from jevtest.domain.steps import Suite, Test
 
 from .console import ConsoleListener, Printer, summary
 
@@ -190,13 +190,7 @@ def run_command(options: RunOptions, make_device: MakeDevice, make_client: MakeC
     loaded = _load(files, others)
     if options.tests:
         loaded = _only(loaded, options.tests)
-    for suite, _ in loaded:
-        for app in suite.apps.values():
-            if not app.exists():
-                raise TestFileError(f"App not found: {app}")
-    if options.prune_lock and (options.tests or options.lock is LockMode.OFF):
-        raise TestFileError("--prune-lock needs every test to run (no --test) and a lockfile (not --lock off)")
-
+    _check_runnable(loaded, options)
     root = Path(os.path.commonpath([f.parent for f in files]))
     out = options.out / time.strftime("%Y%m%d-%H%M%S")
     runs = Runs(make_device, clock, verbose=options.verbose)
@@ -207,15 +201,29 @@ def run_command(options: RunOptions, make_device: MakeDevice, make_client: MakeC
                          make_client=make_client)
         suites += [JunitSuite("jevtest." + r.job.tag.replace(" · ", "."), r.result, r.logs) for r in done]
     write_junit(out / "junit.xml", suites)
-    passed = sum(s.result.passed for s in suites)
-    failed = sum(s.result.failed for s in suites)
-    if len(suites) > 1:
-        print(f"\nAll: {passed}/{passed + failed} passed ({len(loaded)} file(s), {len(suites)} device run(s)). "
-              f"JUnit: {out / 'junit.xml'}")
-    return 0 if failed == 0 else 1
+    return _report_all(suites, files=len(loaded), junit=out / "junit.xml")
 
 
 Loaded = list[tuple[Suite, dict[str, str]]]
+
+
+def _check_runnable(loaded: Loaded, options: RunOptions) -> None:
+    """Every app build exists, and --prune-lock has a whole run and a lockfile to prune."""
+    missing = [app for suite, _ in loaded for app in suite.apps.values() if not app.exists()]
+    if missing:
+        raise TestFileError(f"App not found: {missing[0]}")
+    if options.prune_lock and (options.tests or options.lock is LockMode.OFF):
+        raise TestFileError("--prune-lock needs every test to run (no --test) and a lockfile (not --lock off)")
+
+
+def _report_all(suites: Sequence[JunitSuite], *, files: int, junit: Path) -> int:
+    """The exit code; with several device runs, a line totalling them all."""
+    passed = sum(s.result.passed for s in suites)
+    failed = sum(s.result.failed for s in suites)
+    if len(suites) > 1:
+        print(f"\nAll: {passed}/{passed + failed} passed ({files} file(s), {len(suites)} device run(s)). "
+              f"JUnit: {junit}")
+    return 0 if failed == 0 else 1
 
 
 def _load(files: Sequence[Path], others: Sequence[Path]) -> Loaded:
@@ -241,8 +249,12 @@ def _only(loaded: Loaded, names: Sequence[str]) -> Loaded:
     missing = [n for n in names if n not in known]
     if missing:
         raise TestFileError(f"No test named: {', '.join(missing)}")
-    kept = [(replace(s, tests=tuple(t for t in s.tests if t.name in names)), env) for s, env in loaded]
+    kept = [(replace(s, tests=_named(s.tests, names)), env) for s, env in loaded]
     return [(s, env) for s, env in kept if s.tests]
+
+
+def _named(tests: Sequence[Test], names: Sequence[str]) -> tuple[Test, ...]:
+    return tuple(t for t in tests if t.name in names)
 
 
 def _run_file(suite: Suite, env: dict[str, str], *, label: str, out: Path, runs: Runs, options: RunOptions,
