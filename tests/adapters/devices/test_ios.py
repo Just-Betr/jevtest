@@ -1,9 +1,9 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
 
-from jevtest.adapters.devices import ios
 from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.screen import Element
@@ -32,7 +32,7 @@ def drv(env, tmp_path):
 
 
 def test_starts_agent_on_simulator(env):
-    _, _, procs = env
+    procs = env.procs
     d = IOSDevice("A", Path("Demo.app"), PROGRESS)
     cmd, ready, run_env = procs[0]
     assert cmd[:2] == ["xcodebuild", "test-without-building"] and cmd[-1] == "id=A"
@@ -64,7 +64,7 @@ def test_agent_build_without_output_fails(env, monkeypatch, tmp_path):
 
 
 def test_requires_xcode(env, monkeypatch):
-    monkeypatch.setattr(ios.shutil, "which", lambda n: None)
+    monkeypatch.setattr(shutil, "which", lambda n: None)
     with pytest.raises(DeviceError, match="Xcode"):
         IOSDevice("A", Path("Demo.app"), PROGRESS)
 

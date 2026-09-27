@@ -37,21 +37,23 @@ def locked(tmp_path, mode=LockMode.RECORD, *answers):
 
 def test_key_is_canonical():
     assert request_key("m", {"a": 1, "b": 2}, WIRE_Q) == request_key("m", {"b": 2, "a": 1}, WIRE_Q)
-    assert request_key("m", "s", WIRE_Q) != request_key("other", "s", WIRE_Q)
-    assert request_key("m", "s", WIRE_Q) != request_key("m", "t", WIRE_Q)
+    assert request_key("m", {"screen": "s"}, WIRE_Q) != request_key("other", {"screen": "s"}, WIRE_Q)
+    assert request_key("m", {"screen": "s"}, WIRE_Q) != request_key("m", {"screen": "t"}, WIRE_Q)
 
 
 def test_the_key_hashes_exactly_what_jev_is_sent(tmp_path):
     lock, made = locked(tmp_path, LockMode.RECORD, A1)
-    lock.ask("screen", Q)
-    assert made[0].asked == [("screen", WIRE_Q)]
+    lock.ask({"screen": "screen"}, Q)
+    assert made[0].asked == [({"screen": "screen"}, WIRE_Q)]
     lock.save()
-    assert list(json.loads((tmp_path / "t.lock.json").read_text())["decisions"]) == [request_key("m", "screen", WIRE_Q)]
+    assert list(json.loads((tmp_path / "t.lock.json").read_text())["decisions"]) == [
+        request_key("m", {"screen": "screen"}, WIRE_Q)
+    ]
 
 
 def test_record_then_replay_is_identical_and_offline(tmp_path):
     first, _ = locked(tmp_path, LockMode.RECORD, A1)
-    assert first.ask("screen", Q) == {"q": Probability(0.9)}
+    assert first.ask({"screen": "screen"}, Q) == {"q": Probability(0.9)}
     call = first.calls[0]
     assert (call.recorded, call.ms, call.cost, call.served_by) == (False, 12, 0.0002, "typesafe/jev-1.13-x")
     first.save()
@@ -59,16 +61,16 @@ def test_record_then_replay_is_identical_and_offline(tmp_path):
     assert data["version"] == VERSION and len(data["decisions"]) == 1
 
     replay, made = locked(tmp_path, LockMode.RECORD)  # no answers scripted: any live call would fail
-    assert replay.ask("screen", Q) == {"q": Probability(0.9)}
+    assert replay.ask({"screen": "screen"}, Q) == {"q": Probability(0.9)}
     assert replay.calls[0].recorded is True and replay.calls[0].served_by == "typesafe/jev-1.13-x"
     assert not made  # Jev was never even connected to
 
 
 def test_new_screen_is_asked_live_and_added(tmp_path):
     lock, _ = locked(tmp_path, LockMode.RECORD, A1, A2)
-    lock.ask("screen 1", Q)
-    lock.ask("screen 2", Q)
-    lock.ask("screen 1", Q)
+    lock.ask({"screen": "screen 1"}, Q)
+    lock.ask({"screen": "screen 2"}, Q)
+    lock.ask({"screen": "screen 1"}, Q)
     assert [c.recorded for c in lock.calls] == [False, False, True]
     lock.save()
     assert len(json.loads((tmp_path / "t.lock.json").read_text())["decisions"]) == 2
@@ -77,34 +79,34 @@ def test_new_screen_is_asked_live_and_added(tmp_path):
 def test_frozen_fails_on_new_screen(tmp_path):
     lock, made = locked(tmp_path, LockMode.FROZEN)
     with pytest.raises(ModelError, match="--lock frozen only replays recorded decisions. Run with --lock record"):
-        lock.ask("new", Q)
+        lock.ask({"screen": "new"}, Q)
     assert not made
 
 
 def test_frozen_replays_recorded(tmp_path):
     rec, _ = locked(tmp_path, LockMode.RECORD, A1)
-    rec.ask("s", Q)
+    rec.ask({"screen": "s"}, Q)
     rec.save()
     frozen, _ = locked(tmp_path, LockMode.FROZEN)
-    assert frozen.ask("s", Q) == {"q": Probability(0.9)}
+    assert frozen.ask({"screen": "s"}, Q) == {"q": Probability(0.9)}
 
 
 def test_refresh_asks_again_and_overwrites(tmp_path):
     rec, _ = locked(tmp_path, LockMode.RECORD, A1)
-    rec.ask("s", Q)
+    rec.ask({"screen": "s"}, Q)
     rec.save()
     refresh, _ = locked(tmp_path, LockMode.REFRESH, A2)
-    assert refresh.ask("s", Q) == {"q": Probability(0.1)}
+    assert refresh.ask({"screen": "s"}, Q) == {"q": Probability(0.1)}
     refresh.save()
     again, _ = locked(tmp_path, LockMode.RECORD)
-    assert again.ask("s", Q) == {"q": Probability(0.1)}
+    assert again.ask({"screen": "s"}, Q) == {"q": Probability(0.1)}
 
 
 def test_off_never_touches_the_file(tmp_path):
     (tmp_path / "t.lock.json").write_text("not json")  # would fail to load in any other mode
     lock, _ = locked(tmp_path, LockMode.OFF, A1, A1)
-    lock.ask("s", Q)
-    lock.ask("s", Q)
+    lock.ask({"screen": "s"}, Q)
+    lock.ask({"screen": "s"}, Q)
     lock.save()
     assert [c.recorded for c in lock.calls] == [False, False]
     assert (tmp_path / "t.lock.json").read_text() == "not json"
@@ -118,15 +120,15 @@ def test_save_without_changes_writes_nothing(tmp_path):
 
 def test_jev_connected_to_once(tmp_path):
     lock, made = locked(tmp_path, LockMode.RECORD, A1, A2)
-    lock.ask("a", Q)
-    lock.ask("b", Q)
+    lock.ask({"screen": "a"}, Q)
+    lock.ask({"screen": "b"}, Q)
     assert len(made) == 1
 
 
 def test_a_recorded_answer_that_no_longer_fits_the_question_is_an_error(tmp_path):
     rec, _ = locked(tmp_path, LockMode.RECORD, {"q": {"type": "noul", "noul": 7}})
     with pytest.raises(ModelError, match="yes/no question q"):
-        rec.ask("s", Q)
+        rec.ask({"screen": "s"}, Q)
 
 
 @pytest.mark.parametrize(
@@ -177,9 +179,9 @@ def test_prune_drops_what_this_run_did_not_use(tmp_path):
 
 
 def test_a_recorded_model_version_that_is_not_text_is_not_trusted(tmp_path):
-    key = request_key("m", "s", WIRE_Q)
+    key = request_key("m", {"screen": "s"}, WIRE_Q)
     (tmp_path / "t.lock.json").write_text(
         json.dumps({"version": VERSION, "decisions": {key: {"served_by": 3, "answers": A1}}})
     )
     model, _ = locked(tmp_path, LockMode.FROZEN)
-    assert model.ask("s", Q) == {"q": Probability(0.9)} and model.calls[0].served_by is None
+    assert model.ask({"screen": "s"}, Q) == {"q": Probability(0.9)} and model.calls[0].served_by is None

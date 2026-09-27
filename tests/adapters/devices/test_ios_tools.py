@@ -2,6 +2,7 @@
 
 import json
 import plistlib
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -94,13 +95,18 @@ def test_http_post_roundtrip(monkeypatch):
             return False
 
     seen = []
-    monkeypatch.setattr(ios_tools.urllib.request, "urlopen", lambda req, timeout: seen.append((req, timeout)) or R())
+
+    def urlopen(req, timeout):
+        seen.append((req, timeout))
+        return R()
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
     assert ios_tools.http_post("http://127.0.0.1:1/x", {"a": 1}, timeout=3) == {"ok": True}
     assert json.loads(seen[0][0].data) == {"a": 1} and seen[0][1] == 3
 
 
 def test_phones_lists_connected_real_iphones(env):
-    ios_tools.devicectl.phones = [
+    env.ctl.phones = [
         PHONE,
         dict(PHONE, connectionProperties={"tunnelState": "disconnected"}),  # not reachable now
         dict(PHONE, hardwareProperties={"reality": "simulated", "platform": "iOS", "udid": "S"}),

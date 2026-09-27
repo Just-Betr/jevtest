@@ -66,6 +66,50 @@ jobs:
       - name: The wheel installs on its own and runs
         run: uv run --isolated --no-project --with dist/*.whl jevtest --version
 
+  android-agent:
+    name: Android agent compiles (warnings are errors) and builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6  # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+      - run: uv sync --locked
+      - name: Compile with every warning as an error
+        run: |
+          jar="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)/android.jar"
+          javac --release 11 -Xlint:all -Werror -cp "$jar" -d "$RUNNER_TEMP/classes" \
+            $(find jevtest/adapters/devices/android_agent -name '*.java')
+      - name: Build the agent APK the way jevtest does
+        run: uv run python -c "from jevtest.adapters.devices.android_tools import build_agent; print(build_agent(print))"
+        env:
+          JEVTEST_CACHE: ${{ runner.temp }}/jevtest-cache
+
+  ios-agent:
+    name: iOS agent builds (warnings are errors)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+      - run: uv sync --locked
+      - name: Build the agent the way jevtest does, for the simulator
+        run: |
+          uv run python - <<'PY'
+          import os
+          from pathlib import Path
+          from jevtest.adapters.devices.ios_tools import build_agent_with_xcodebuild
+          out = Path(os.environ["RUNNER_TEMP"]) / "ios-agent"
+          strict = ["SWIFT_TREAT_WARNINGS_AS_ERRORS=YES", "GCC_TREAT_WARNINGS_AS_ERRORS=YES"]
+          build_agent_with_xcodebuild(out, "generic/platform=iOS Simulator", strict)
+          assert list((out / "Build/Products").glob("*.xctestrun")), "no .xctestrun"
+          PY
+
   security:
     name: Security (dependencies and workflows)
     runs-on: ubuntu-latest

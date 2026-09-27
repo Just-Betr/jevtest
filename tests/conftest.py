@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+from jevtest.adapters.devices._typing import override
 from jevtest.adapters.devices.common import BaseDevice
 from jevtest.adapters.jev.wire import answer_from_wire, questions_to_wire
 from jevtest.cli.console import ConsoleListener, Printer
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState
-from jevtest.domain.model import ModelCall
+from jevtest.domain.model import ModelCall, State
 from jevtest.domain.screen import Element, Screen
 
 
@@ -25,12 +28,12 @@ class FakeModel:
 
     def __init__(self, *answers, model="typesafe/jev-1.13"):
         self.answers = list(answers)
-        self.asked: list[tuple] = []
+        self.asked: list[tuple[State, dict[str, dict[str, Any]]]] = []  # (state, the questions as Jev's JSON)
         self.calls: list[ModelCall] = []
         self.model = model
 
     def ask(self, state, questions):
-        self.asked.append((state, questions_to_wire(questions)))
+        self.asked.append((state, json.loads(json.dumps(questions_to_wire(questions)))))
         if not self.answers:
             raise AssertionError(f"FakeModel ran out of answers; asked {list(questions)}")
         scripted = self.answers.pop(0)
@@ -117,7 +120,7 @@ class FakeDevice(BaseDevice):
 
     def __init__(self, *screens: Screen, state=AppState.FOREGROUND):
         self.screens = list(screens) or [login_screen()]
-        self.calls: list[tuple] = []
+        self.calls: list[tuple[object, ...]] = []
         self.state = AppState(state)
         self.fail: dict[str, Exception] = {}
         self.app_id = "dev.fake"
@@ -155,6 +158,7 @@ class FakeDevice(BaseDevice):
     def resume(self):
         self._rec("resume")
 
+    @override
     def screen(self):
         self._rec("screen")
         return self.screens.pop(0) if len(self.screens) > 1 else self.screens[0]
@@ -172,6 +176,7 @@ class FakeDevice(BaseDevice):
     def long_press(self, x, y):
         self._rec("long_press", x, y)
 
+    @override
     def drag(self, x1, y1, x2, y2):
         self._rec("drag", x1, y1, x2, y2)
 
@@ -211,21 +216,26 @@ class FakeDevice(BaseDevice):
     def network(self, *, on):
         self._rec("network", on)
 
+    @override
     def check_ready(self):  # not logged: only matters when a test makes it fail
         if "check_ready" in self.fail:
             raise self.fail["check_ready"]
 
+    @override
     def wait_idle(self, timeout, quiet=None):
         self._rec("wait_idle", timeout) if quiet is None else self._rec("wait_idle", timeout, quiet)
 
+    @override
     def wait_change(self, timeout):
         self._rec("wait_change")
         if self.clock:
             self.clock.sleep(min(timeout, self.CHANGE_AFTER))
 
+    @override
     def restore(self):
         self._rec("restore")
 
+    @override
     def close(self):
         self.closed = True
 

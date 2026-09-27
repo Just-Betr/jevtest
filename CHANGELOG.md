@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The Android agent reads the screen's rotation and a checkbox's state with the current Android APIs (the old ones
+  are deprecated), and compiles without a warning.
+- CI builds both on-device agents with warnings as errors, and type-checks the tests as well as the package.
+- Internals: device tooling (finding devices, signing, building the agents) is separate from the `Device`
+  classes; the lockfile and the command line depend on a small `JevAsker` protocol instead of the HTTP client.
+
 ## 0.7.1
 
 **Exact text matching.** A step's text is matched exactly: the whole text, never part of a longer text (case

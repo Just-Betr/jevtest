@@ -1,4 +1,5 @@
 import dataclasses
+from collections.abc import Sequence
 
 import pytest
 
@@ -6,7 +7,7 @@ from jevtest.application.brain import ACTIONS, MAX_OPTIONS, Brain, Located, _pic
 from jevtest.domain.decisions import PressEnter, TypeInto, WaitForScreen
 from jevtest.domain.failures import ModelError
 from jevtest.domain.model import Picked, Probability
-from jevtest.domain.screen import Screen
+from jevtest.domain.screen import Element, Screen
 from tests.conftest import FakeModel, act, confirm, el, login_screen, pick, yes
 
 # --- what the model is shown ------------------------------------------------------------
@@ -162,6 +163,13 @@ def test_quoted_values_are_capped():
 # --- locate / check --------------------------------------------------------------------
 
 
+def located(brain: Brain, target: str, screen: Screen, candidates: Sequence[Element] | None = None) -> Located:
+    """What `Brain.locate` found; the test fails here if it found nothing."""
+    found = brain.locate(target, screen, candidates)
+    assert found is not None
+    return found
+
+
 def screen_of(*elements):
     return Screen(10, 10, tuple(dataclasses.replace(e, bounds=(0, 0, 10, 10)) for e in elements))
 
@@ -170,9 +178,9 @@ def test_locate_exact_unique_match_skips_the_model():
     model = FakeModel()
     b = Brain(model)
     assert b.locate("Sign in", login_screen()) == Located(login_screen().elements[2])
-    assert b.locate("Email", login_screen()).element.hint == "Email"
+    assert located(b, "Email", login_screen()).element.hint == "Email"
     assert b.locate("SIGN IN", login_screen()) == Located(login_screen().elements[2])  # case doesn't matter
-    assert b.locate("don't allow", screen_of(el("button", "Don't Allow"))).element.text == "Don't Allow"
+    assert located(b, "don't allow", screen_of(el("button", "Don't Allow"))).element.text == "Don't Allow"
     assert not model.asked
 
 
@@ -194,24 +202,24 @@ def test_a_near_match_is_never_used_and_jev_is_not_asked(target, on_screen):
 @pytest.mark.parametrize("target", ["Email: a@b.c", "Email", "a@b.c"])
 def test_an_ios_label_and_value_each_match_exactly(target):
     field = el("text_field", "Email: a@b.c", parts=("Email", "a@b.c"), editable=True)
-    assert Brain(FakeModel()).locate(target, screen_of(field)).element.text == "Email: a@b.c"
+    assert located(Brain(FakeModel()), target, screen_of(field)).element.text == "Email: a@b.c"
 
 
 @pytest.mark.parametrize("target", ["Go (Go now)", "Go", "Go now"])
 def test_an_android_text_and_description_each_match_exactly(target):
     button = el("button", "Go (Go now)", parts=("Go", "Go now"), clickable=True)
-    assert Brain(FakeModel()).locate(target, screen_of(button)).element.text == "Go (Go now)"
+    assert located(Brain(FakeModel()), target, screen_of(button)).element.text == "Go (Go now)"
 
 
 def test_locate_by_resource_id():
     s = Screen(10, 10, (el("image", resource_id="logo", bounds=(0, 0, 10, 10)),))
-    assert Brain(FakeModel()).locate("logo", s).element.resource_id == "logo"
+    assert located(Brain(FakeModel()), "logo", s).element.resource_id == "logo"
 
 
 def test_locate_prefers_the_one_actionable_exact_match():
     s = screen_of(el("text", "Dark theme"), el("switch", "Dark theme", clickable=True))
     model = FakeModel()
-    assert Brain(model).locate("Dark theme", s).element.kind == "switch" and not model.asked
+    assert located(Brain(model), "Dark theme", s).element.kind == "switch" and not model.asked
 
 
 def test_several_exact_matches_jev_chooses_among_those_only():
@@ -222,7 +230,7 @@ def test_several_exact_matches_jev_chooses_among_those_only():
     )
     model = FakeModel(pick("e2"), confirm())
     found = Brain(model).locate("Delete", s)
-    assert found == Located(s.elements[1], "chosen by Jev among 2 exact matches")
+    assert found is not None and found == Located(s.elements[1], "chosen by Jev among 2 exact matches")
     assert set(model.asked[0][1]["element"]["criteria"]) == {"e1", "e2", "not_on_screen"}
     assert found.describe() == "button 'Delete' (chosen by Jev among 2 exact matches)"
 
@@ -230,6 +238,7 @@ def test_several_exact_matches_jev_chooses_among_those_only():
 def test_a_description_goes_to_jev_which_must_confirm_and_says_so():
     model = FakeModel(pick("e3"), confirm(0.9))
     found = Brain(model).locate("the login button", login_screen())
+    assert found is not None
     assert found.element.text == "Sign in" and found.describe() == "button 'Sign in' (chosen by Jev)"
     question = model.asked[1][1]["is_target"]
     assert question["type"] == "noul" and question["instructions"]["target"] == "the login button"

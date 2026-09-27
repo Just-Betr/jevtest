@@ -1,3 +1,5 @@
+import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -79,7 +81,7 @@ def test_install_aab(adb, monkeypatch):
 
 
 def test_install_aab_needs_bundletool(adb, monkeypatch):
-    monkeypatch.setattr(android.shutil, "which", lambda n: None)
+    monkeypatch.setattr(shutil, "which", lambda n: None)
     d = AndroidDevice.__new__(AndroidDevice)
     d.adb, d.serial = "/bin/adb", "emulator-5554"
     with pytest.raises(DeviceError, match="bundletool"):
@@ -206,7 +208,7 @@ def test_empty_webview_waits_for_its_content(drv, agent):
 
 
 def test_webview_wait_follows_the_settle_rule(drv, agent, monkeypatch):
-    monkeypatch.setattr(android.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr(time, "monotonic", lambda: 100.0)
     agent.replies["/tree"] = [EMPTY_WEB, WEB]
     drv.tree()
     assert agent.paths()[1] == "/change?ms=3000"
@@ -215,7 +217,7 @@ def test_webview_wait_follows_the_settle_rule(drv, agent, monkeypatch):
 def test_really_blank_webview_is_accepted(drv, agent, monkeypatch):
     agent.replies["/tree"] = EMPTY_WEB
     ticks = iter([0, 1, 2, 5])
-    monkeypatch.setattr(android.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
     assert drv.tree() == EMPTY_WEB
 
 
@@ -270,7 +272,7 @@ def test_type_into_field_waits_for_focus_and_keyboard(drv, adb, agent):
 
 def test_type_into_field_that_never_focuses(drv, adb, agent, monkeypatch):
     ticks = iter([0, 1, 4])
-    monkeypatch.setattr(android.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
     with pytest.raises(DeviceError, match="did not get keyboard focus"):
         drv.type_text("hi", at=(540, 425))
 

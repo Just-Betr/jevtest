@@ -22,7 +22,7 @@ from jevtest.adapters.testfile.loader import load
 from jevtest.adapters.testfile.steps import ACTIONS, CHECKS, OPTIONS, parse_step
 from jevtest.application.brain import Brain
 from jevtest.domain.failures import ModelError, TestFileError
-from jevtest.domain.model import Choice, Picked, YesNo
+from jevtest.domain.model import Choice, ModelCall, Picked, Question, YesNo
 from jevtest.domain.screen import Element, Screen
 
 SETTINGS = settings(max_examples=300, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
@@ -63,7 +63,7 @@ def test_any_env_file_is_values_or_a_clear_error(tmp_path_factory, content):
     (folder / ".env").write_text(content)
     with contextlib.suppress(TestFileError):
         values = read_env(folder, environ={})
-        assert all(isinstance(k, str) and isinstance(v, str) for k, v in values.items())
+        assert all(name.isidentifier() for name in values)  # only KEY=value lines with a valid name get in
 
 
 json_values = st.recursive(
@@ -71,7 +71,10 @@ json_values = st.recursive(
     lambda inner: st.lists(inner, max_size=3) | st.dictionaries(st.text(max_size=8), inner, max_size=3),
     max_leaves=10,
 )
-QUESTIONS = {"action": Choice({"q": "?"}, {"tap": "Tap", "back": "Back"}), "check": YesNo({"q": "?"})}
+QUESTIONS: dict[str, Question] = {
+    "action": Choice({"q": "?"}, {"tap": "Tap", "back": "Back"}),
+    "check": YesNo({"q": "?"}),
+}
 
 
 @SETTINGS
@@ -181,10 +184,11 @@ class NeverAsked:
     """A decision model for the exact path: asking it at all is a failure, except for a true description."""
 
     def __init__(self) -> None:
-        self.calls: list[object] = []
+        self.asked: list[object] = []
+        self.calls: list[ModelCall] = []  # what DecisionModel reports; this fake records `asked` instead
 
     def ask(self, state, questions):
-        self.calls.append(questions)
+        self.asked.append(questions)
         return {"element": Picked("not_on_screen", 1.0, {})}
 
 
@@ -203,4 +207,4 @@ def test_a_target_is_matched_only_by_an_element_that_says_it_exactly_ignoring_ca
     if found is not None and found.chosen is None:
         assert found.element in says_it  # matched in code: only ever an exact match
     if not says_it and screen.near(target):
-        assert found is None and not model.calls  # a near match is never used, and Jev is never asked
+        assert found is None and not model.asked  # a near match is never used, and Jev is never asked

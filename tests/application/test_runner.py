@@ -7,8 +7,10 @@ import pytest
 from jevtest.adapters.testfile.steps import parse_step
 from jevtest.application.brain import Brain
 from jevtest.application.runner import TestRunner
+from jevtest.cli.console import ConsoleListener
 from jevtest.domain.failures import DeviceError, ModelError
 from jevtest.domain.kinds import AppState, Status
+from jevtest.domain.results import TestResult
 from jevtest.domain.screen import Screen
 from jevtest.domain.settings import Settings
 from jevtest.domain.steps import Expect, Suite, Test
@@ -41,6 +43,12 @@ def make(tmp_path, clock, out, *steps, device=None, model=None, verbose=False, t
     return runner, device, model
 
 
+def failure_of(result: TestResult) -> str:
+    """Why the test failed; the check fails here if it passed."""
+    assert result.failure is not None
+    return result.failure
+
+
 def run1(tmp_path, clock, out, *steps, **kw):
     runner, device, model = make(tmp_path, clock, out, *steps, **kw)
     return runner.run().tests[0], device, model
@@ -54,7 +62,9 @@ def test_fresh_test_resets_app(tmp_path, clock, out):
     res = runner.run().tests[0]
     assert res.status is Status.PASS and res.failure is None
     assert d.names()[:4] == ["restore", "stop", "clear_data", "launch"]  # earlier tests' device changes go too
-    assert "PASS T" in out.getvalue() and runner.listener.logs["T"][0] == "\n▶ T"
+    listener = runner.listener
+    assert isinstance(listener, ConsoleListener)
+    assert "PASS T" in out.getvalue() and listener.logs["T"][0] == "\n▶ T"
 
 
 def test_not_fresh_keeps_running_app(tmp_path, clock, out):
@@ -240,7 +250,7 @@ def test_type_into_missing_field(tmp_path, clock, out):
         {"type": {"text": "a", "into": "Phone"}, "timeout": 1},
         model=FakeModel(pick("not_on_screen")),
     )
-    assert "Could not find text field 'Phone'" in res.failure
+    assert "Could not find text field 'Phone'" in failure_of(res)
 
 
 def test_type_into_focused_field(tmp_path, clock, out):
@@ -264,7 +274,7 @@ def test_scroll_to_already_on_screen(tmp_path, clock, out):
 def test_scroll_to_stops_at_the_end_of_the_content(tmp_path, clock, out):
     d = FakeDevice(screen_with("Item 1"), screen_with("Item 2"), screen_with("Item 2"), screen_with("Item 2"))
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "up"}, device=d)
-    assert res.failure.endswith("Scrolled up to the end but never found 'Item 99'")
+    assert failure_of(res).endswith("Scrolled up to the end but never found 'Item 99'")
     assert d.names().count("drag") == 3  # the last two scrolls moved nothing: that's the end
 
 
@@ -278,7 +288,7 @@ def test_scroll_to_keeps_going_after_one_scroll_that_moved_nothing(tmp_path, clo
 def test_scroll_to_gives_up_after_50_scrolls(tmp_path, clock, out):
     d = FakeDevice(*[screen_with(f"Item {i}") for i in range(60)])  # an endless feed
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "down"}, device=d)
-    assert res.failure.endswith("Scrolled down 50 times (max_scrolls) but never found 'Item 99'")
+    assert failure_of(res).endswith("Scrolled down 50 times (max_scrolls) but never found 'Item 99'")
     assert d.names().count("drag") == 50
 
 
@@ -305,7 +315,7 @@ def test_app_leaving_fails_the_step(tmp_path, clock, out, state, message):
     res, _, _ = run1(tmp_path, clock, out, "back")
     assert res.status is Status.PASS
     res, _, _ = run1(tmp_path, clock, out, "back", device=FakeDevice(state=state))
-    assert message in res.failure
+    assert message in failure_of(res)
 
 
 def test_leaving_the_app_on_purpose_is_allowed(tmp_path, clock, out):
@@ -473,19 +483,19 @@ def test_do_wait_waits_for_a_change(tmp_path, clock, out):
 
 def test_do_impossible(tmp_path, clock, out):
     res, _, _ = run1(tmp_path, clock, out, {"do": "Fly"}, model=FakeModel(act("impossible")))
-    assert "impossible" in res.failure
+    assert "impossible" in failure_of(res)
 
 
 def test_do_gives_up_after_10_actions(tmp_path, clock, out):
     model = FakeModel(*[act("tap", target="e3") if i % 2 else act("back") for i in range(11)])
     res, _, _ = run1(tmp_path, clock, out, {"do": "Loop"}, model=model)
-    assert res.failure.endswith("Goal not reached after 10 actions (max_actions)")
+    assert failure_of(res).endswith("Goal not reached after 10 actions (max_actions)")
     assert len(res.steps[0].decisions) == 11
 
 
 def test_do_detects_being_stuck(tmp_path, clock, out):
     res, d, _ = run1(tmp_path, clock, out, {"do": "Loop"}, model=FakeModel(*[act("tap", target="e3")] * 3))
-    assert "Stuck repeating: tap button 'Sign in'" in res.failure
+    assert "Stuck repeating: tap button 'Sign in'" in failure_of(res)
     assert d.names().count("tap") == 2
 
 
@@ -606,7 +616,7 @@ def test_missing_target_is_reported_by_its_placeholder(tmp_path, clock, out):
         model=FakeModel(pick("not_on_screen")),
         variables={"WHO": "Bob"},
     )
-    assert "Could not find element '${WHO}'" in res.failure
+    assert "Could not find element '${WHO}'" in failure_of(res)
 
 
 # --- settings ------------------------------------------------------------------------
@@ -636,23 +646,23 @@ def test_expect_can_ask_for_more_confidence(tmp_path, clock, out, p, passes):
 def test_do_can_allow_fewer_actions(tmp_path, clock, out):
     model = FakeModel(*[act("tap", target="e3") if i % 2 else act("back") for i in range(3)])
     res, _, _ = run1(tmp_path, clock, out, {"do": "Loop", "max_actions": 2}, model=model)
-    assert res.failure.endswith("Goal not reached after 2 actions (max_actions)")
+    assert failure_of(res).endswith("Goal not reached after 2 actions (max_actions)")
 
 
 def test_scroll_to_can_allow_fewer_scrolls(tmp_path, clock, out):
     d = FakeDevice(*[screen_with(f"Item {i}") for i in range(10)])
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 9", "direction": "down", "max_scrolls": 3}, device=d)
-    assert res.failure.endswith("Scrolled down 3 times (max_scrolls) but never found 'Item 9'")
+    assert failure_of(res).endswith("Scrolled down 3 times (max_scrolls) but never found 'Item 9'")
 
 
 def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
     res, _, _ = run1(
         tmp_path, clock, out, {"do": "Loop", "max_actions": 1}, model=FakeModel(act("back"), act("tap", target="e3"))
     )
-    assert res.failure.endswith("Goal not reached after 1 action (max_actions)")
+    assert failure_of(res).endswith("Goal not reached after 1 action (max_actions)")
     d = FakeDevice(*[screen_with(f"Item {i}") for i in range(5)])
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 4", "direction": "down", "max_scrolls": 1}, device=d)
-    assert res.failure.endswith("Scrolled down 1 time (max_scrolls) but never found 'Item 4'")
+    assert failure_of(res).endswith("Scrolled down 1 time (max_scrolls) but never found 'Item 4'")
 
 
 # --- exact matching ------------------------------------------------------------------
@@ -678,7 +688,7 @@ def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
 def test_a_near_match_fails_and_says_what_is_there(tmp_path, clock, out, step, on_screen, failure):
     screen = Screen(1000, 2000, tuple(el("button", t, clickable=True, bounds=(0, 0, 100, 100)) for t in on_screen))
     res, d, model = run1(tmp_path, clock, out, step, device=FakeDevice(screen))
-    assert res.status is Status.FAIL and res.failure.endswith(failure)
+    assert res.status is Status.FAIL and failure_of(res).endswith(failure)
     assert "tap" not in d.names() and not model.asked
 
 
@@ -698,7 +708,7 @@ def test_a_value_in_a_near_match_is_shown_by_its_name(tmp_path, clock, out):
         device=FakeDevice(screen),
         variables={"NAME": "Ann", "EMPTY": ""},
     )
-    assert res.failure.endswith("close but not exact: 'Welcome ${NAME}'") and "Ann" not in out.getvalue()
+    assert failure_of(res).endswith("close but not exact: 'Welcome ${NAME}'") and "Ann" not in out.getvalue()
 
 
 def test_the_output_says_when_jev_chose_the_element(tmp_path, clock, out):

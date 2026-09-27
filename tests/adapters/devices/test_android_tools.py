@@ -1,11 +1,14 @@
 """The Android tools: the SDK, connected devices, building the agent, and calling it."""
 
+import shutil
+import urllib.request
 import zipfile
 from pathlib import Path
 
 import pytest
 
 from jevtest.adapters.devices import android_tools
+from jevtest.adapters.devices.common import digest
 from jevtest.domain.failures import DeviceError
 from tests.adapters.devices.conftest import swap
 from tests.conftest import PROGRESS, PROGRESS_MESSAGES
@@ -16,14 +19,14 @@ def test_sdk_root(monkeypatch, tmp_path):
     assert android_tools.sdk_root() == tmp_path
     monkeypatch.delenv("ANDROID_HOME")
     monkeypatch.delenv("ANDROID_SDK_ROOT", raising=False)
-    monkeypatch.setattr(android_tools.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
     assert android_tools.sdk_root() is None
     (tmp_path / "Android/Sdk").mkdir(parents=True)
     assert android_tools.sdk_root() == tmp_path / "Android/Sdk"
 
 
 def test_tools_found_in_sdk(monkeypatch, tmp_path):
-    monkeypatch.setattr(android_tools.shutil, "which", lambda n: None)
+    monkeypatch.setattr(shutil, "which", lambda n: None)
     monkeypatch.setenv("ANDROID_HOME", str(tmp_path))
     for version in ("34.0.0", "36.1.0"):
         (tmp_path / "build-tools" / version).mkdir(parents=True)
@@ -35,7 +38,7 @@ def test_tools_found_in_sdk(monkeypatch, tmp_path):
 
 
 def test_tool_missing(monkeypatch, tmp_path):
-    monkeypatch.setattr(android_tools.shutil, "which", lambda n: None)
+    monkeypatch.setattr(shutil, "which", lambda n: None)
     swap(monkeypatch, "sdk_root", lambda: None)
     with pytest.raises(DeviceError, match="adb not found"):
         android_tools.adb_path()
@@ -47,7 +50,7 @@ def test_devices_only_lists_ready_ones(adb):
 
 def test_build_agent_is_cached(monkeypatch, tmp_path):
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
-    apk = tmp_path / f"android-agent-{android_tools.digest(android_tools.AGENT_SRC)}.apk"
+    apk = tmp_path / f"android-agent-{digest(android_tools.AGENT_SRC)}.apk"
     apk.write_text("")
     assert android_tools.build_agent(PROGRESS) == apk
 
@@ -110,5 +113,5 @@ def test_http_get(monkeypatch):
         def __exit__(self, *a):
             return False
 
-    monkeypatch.setattr(android_tools.urllib.request, "urlopen", lambda url, timeout: R())
+    monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout: R())
     assert android_tools.http_get("http://x", timeout=1) == "ok"

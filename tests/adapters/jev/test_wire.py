@@ -2,9 +2,12 @@ import pytest
 
 from jevtest.adapters.jev.wire import answer_to_wire, answers_from_wire, questions_to_wire
 from jevtest.domain.failures import ModelError
-from jevtest.domain.model import Choice, Picked, Probability, YesNo
+from jevtest.domain.model import Choice, Picked, Probability, Question, YesNo
 
-QUESTIONS = {"action": Choice({"goal": "g"}, {"tap": "Tap", "back": "Back"}), "check": YesNo({"statement": "s"})}
+QUESTIONS: dict[str, Question] = {
+    "action": Choice({"goal": "g"}, {"tap": "Tap", "back": "Back"}),
+    "check": YesNo({"statement": "s"}),
+}
 PICKED = {"type": "choice", "choice": "tap", "confidence": 0.8, "probabilities": {"tap": 0.8, "back": 0.2}}
 
 

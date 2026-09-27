@@ -14,8 +14,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from jevtest import __version__
-from jevtest.adapters.jev.client import JevClient
-from jevtest.adapters.jev.lockfile import LockedModel, LockMode
+from jevtest.adapters.jev.lockfile import JevAsker, LockedModel, LockMode
 from jevtest.adapters.reports.json_report import write_report
 from jevtest.adapters.reports.junit import Suite as JunitSuite
 from jevtest.adapters.reports.junit import write_junit
@@ -38,7 +37,7 @@ API_KEY = "OPENROUTER_API_KEY"
 MakeDevice = Callable[[Platform, str, Path, Callable[[str], None]], Device]
 """Makes the device for a platform: (platform, device name, app build, progress) -> device."""
 
-MakeClient = Callable[[str, str | None], JevClient]
+MakeClient = Callable[[str, str | None], JevAsker]
 """Makes the Jev client from the model and the API key (None when it isn't set)."""
 
 
@@ -301,7 +300,7 @@ def _run_file(
         print(f"\n=== {suite.path.name} ===", flush=True)
     jobs = plan(suite, out, label, printer)
 
-    def connect() -> JevClient:
+    def connect() -> JevAsker:
         return make_client(suite.settings.model, env.get(API_KEY))
 
     model = LockedModel(suite.settings.model, suite.path.with_suffix(".lock.json"), options.lock, connect)

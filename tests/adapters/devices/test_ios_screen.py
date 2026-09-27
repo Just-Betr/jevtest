@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from jevtest.adapters.devices.ios_screen import parse_tree
+from jevtest.adapters.devices.ios_screen import AgentTree, parse_tree
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -33,7 +33,7 @@ def test_parse_webview_tree():
 
 
 def test_parse_rules():
-    data = {
+    data: AgentTree = {
         "width": 100,
         "height": 200,
         "keyboard": True,

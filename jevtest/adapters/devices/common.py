@@ -10,6 +10,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction
@@ -112,7 +113,27 @@ def log_errors(log: Path, keep: int = 6) -> str:
     return "\n".join(["Its log says:", *(f"  {line}" for line in shown), f"Full log: {log}"])
 
 
-def stop_process(proc: subprocess.Popen[str] | None) -> None:
+class Process(Protocol):
+    """What `stop_process` needs of a helper process (a `subprocess.Popen`)."""
+
+    def poll(self) -> int | None:
+        """The exit code, or None while it runs."""
+        ...
+
+    def terminate(self) -> None:
+        """Ask it to stop."""
+        ...
+
+    def kill(self) -> None:
+        """Stop it now."""
+        ...
+
+    def wait(self, timeout: float | None = None) -> int:
+        """Wait for it to exit."""
+        ...
+
+
+def stop_process(proc: Process | None) -> None:
     """Stop a helper process: politely, then by force after 10 seconds."""
     if proc and proc.poll() is None:
         proc.terminate()

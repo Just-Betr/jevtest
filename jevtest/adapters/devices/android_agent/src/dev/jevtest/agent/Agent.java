@@ -5,9 +5,9 @@ import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
+import android.hardware.display.DisplayManager;
 import android.os.Bundle;
 import android.view.Display;
-import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
@@ -237,9 +237,22 @@ public class Agent extends Instrumentation {
     }
 
     private int rotation() {
-        WindowManager wm = (WindowManager) getContext().getSystemService(android.content.Context.WINDOW_SERVICE);
-        Display display = wm.getDefaultDisplay();
-        return display.getRotation();
+        DisplayManager displays =
+                (DisplayManager) getContext().getSystemService(android.content.Context.DISPLAY_SERVICE);
+        return displays.getDisplay(Display.DEFAULT_DISPLAY).getRotation();
+    }
+
+    /** Whether a node is checked: getChecked() from Android 16 (API 36), isChecked() before it. */
+    private static boolean checked(AccessibilityNodeInfo n) {
+        if (android.os.Build.VERSION.SDK_INT >= 36) {
+            return n.getChecked() == AccessibilityNodeInfo.CHECKED_STATE_TRUE;
+        }
+        return checkedBeforeAndroid16(n);
+    }
+
+    @SuppressWarnings("deprecation") // isChecked() is the only way to ask before API 36, where it's deprecated
+    private static boolean checkedBeforeAndroid16(AccessibilityNodeInfo n) {
+        return n.isChecked();
     }
 
     private static void node(AccessibilityNodeInfo n, int index, StringBuilder sb) {
@@ -255,7 +268,7 @@ public class Agent extends Instrumentation {
                 .append(" package=\"").append(esc(n.getPackageName())).append('"')
                 .append(" content-desc=\"").append(esc(n.getContentDescription())).append('"')
                 .append(" checkable=\"").append(n.isCheckable()).append('"')
-                .append(" checked=\"").append(n.isChecked()).append('"')
+                .append(" checked=\"").append(checked(n)).append('"')
                 .append(" clickable=\"").append(n.isClickable()).append('"')
                 .append(" enabled=\"").append(n.isEnabled()).append('"')
                 .append(" focusable=\"").append(n.isFocusable()).append('"')

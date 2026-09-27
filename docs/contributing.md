@@ -20,13 +20,14 @@ CI runs each of these on every push; pre-commit runs them before each commit.
 |---|---|---|
 | Lint | `uv run ruff check .` | Every ruff rule. The few that are off are listed in `pyproject.toml`, each with its reason. |
 | Format | `uv run ruff format --check .` | One format everywhere. |
-| Types | `uv run mypy` | `--strict`, plus unreachable code and the extra error codes (explicit `@override`, redundant expressions, ...). |
-| Types, second opinion | `uv run pyright` | Strict mode. Parsed YAML and JSON are typed from the parser to the domain: no `Any`. |
+| Types | `uv run mypy` | The package `--strict`, plus unreachable code and the extra error codes (explicit `@override`, redundant expressions, ...). The tests too: every function body is checked; pytest's test functions and fixtures aren't annotated. |
+| Types, second opinion | `uv run pyright` | The package in strict mode, the tests in standard mode. Parsed YAML and JSON are typed from the parser to the domain: no `Any`. |
 | Architecture | `uv run lint-imports` | Dependencies point inward; the domain and use cases do no I/O. |
 | Complexity | (part of the lint) | No function above a cyclomatic complexity of 10. |
 | Tests | `uv run pytest --cov` | 100% line and branch coverage, random order, warnings are errors, Hypothesis properties. |
 | Spelling | `uv run codespell` | Code and docs. |
 | Package | `uv build && uvx twine check --strict dist/*` | The wheel builds, its metadata is valid, and it runs installed on its own. |
+| Agents | CI only (needs the Android SDK and Xcode) | The Android agent compiles with every `javac` warning as an error and builds into an APK the way jevtest builds it; the iOS agent builds with Swift warnings as errors. |
 | Security | `uvx pip-audit`, `uvx zizmor` | No known vulnerability in a locked dependency; the GitHub workflows pass zizmor's pedantic audit, with every action pinned to a commit. |
 | Docs | `uv run mkdocs build --strict` | No broken links or anchors. `uv run mkdocs serve` previews them at http://127.0.0.1:8000. |
 

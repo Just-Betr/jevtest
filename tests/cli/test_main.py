@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from jevtest import __version__
+from jevtest.adapters.devices._typing import override
 from jevtest.adapters.jev.client import JevClient, Reply
 from jevtest.cli import main as cli
 from jevtest.cli.run import slug
@@ -69,7 +70,7 @@ class Fakes:
         self.devices: list[FakeDevice] = []
         self.clients: list[FakeJevClient] = []
         self.models: list[str] = []
-        self.answers: list = []
+        self.answers: list[object] = []  # scripted Jev answers (dicts) or errors
         self.make_device = self.default_device
 
     def default_device(self, platform, device, app, progress):
@@ -132,6 +133,7 @@ def test_run_writes_report_junit_and_lockfile(project, fakes, capsys):
     assert [t["status"] for t in report["tests"]] == ["pass", "fail"]
     assert report["tests"][0]["log"][0] == "\n▶ Sign in" and len(report["model_calls"]) == 2
     junit = ET.parse(stamp / "junit.xml").getroot().find("testsuite")
+    assert junit is not None
     assert (junit.attrib["name"], junit.attrib["failures"]) == ("jevtest.android.emulator-5554", "1")
     assert len(json.loads((project / "t.lock.json").read_text())["decisions"]) == 2
 
@@ -265,6 +267,7 @@ def test_missing_api_key_is_an_error(project, fakes, monkeypatch, capsys):
 
 def test_device_closed_and_lock_saved_even_on_crash(project, fakes):
     class Boom(FakeDevice):
+        @override
         def install(self, app):
             raise DeviceError("install failed")
 
@@ -432,8 +435,10 @@ def test_prune_lock_needs_a_full_run_with_a_lockfile(project, fakes, capsys, arg
 def test_make_device_picks_the_platform(monkeypatch):
     monkeypatch.setattr(cli, "AndroidDevice", lambda d, progress: ("android", d))
     monkeypatch.setattr(cli, "IOSDevice", lambda d, app, progress: ("ios", d, app))
-    assert cli.make_device(Platform.ANDROID, "x", Path("a.apk"), print) == ("android", "x")
-    assert cli.make_device(Platform.IOS, "BH", Path("R.app"), print) == ("ios", "BH", Path("R.app"))
+    # the swapped-in constructors return what they were given, so the result is compared as a plain object
+    android: object = cli.make_device(Platform.ANDROID, "x", Path("a.apk"), print)
+    ios: object = cli.make_device(Platform.IOS, "BH", Path("R.app"), print)
+    assert android == ("android", "x") and ios == ("ios", "BH", Path("R.app"))
 
 
 def test_make_client_reports_retries_on_stderr(capsys):

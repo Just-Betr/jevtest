@@ -1,6 +1,9 @@
 import io
 import json
 import urllib.error
+import urllib.request
+from email.message import Message
+from typing import Self
 
 import pytest
 
@@ -18,41 +21,47 @@ GOOD = {
 
 
 class Resp:
-    def __init__(self, body: bytes):
+    def __init__(self, body: bytes) -> None:
         self.body = body
 
-    def read(self):
+    def read(self) -> bytes:
         return self.body
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *a):
-        return False
+    def __exit__(self, *exc: object) -> None:
+        return None
 
 
-def opener(*outcomes):
-    """urlopen stand-in: each outcome is a dict (JSON reply), bytes, or an exception."""
-    seen = []
+class Opener:
+    """urlopen stand-in: each outcome is a dict (JSON reply), bytes, or an exception. `seen` keeps every request."""
 
-    def urlopen(req, timeout):
-        seen.append((req, timeout))
-        o = outcomes[len(seen) - 1]
+    def __init__(self, *outcomes):
+        self.outcomes = outcomes
+        self.seen: list[tuple[urllib.request.Request, float]] = []
+
+    def __call__(self, req: urllib.request.Request, timeout: float) -> Resp:
+        self.seen.append((req, timeout))
+        o = self.outcomes[len(self.seen) - 1]
         if isinstance(o, Exception):
             raise o
         return Resp(o if isinstance(o, bytes) else json.dumps(o).encode())
 
-    urlopen.seen = seen
-    return urlopen
-
 
 def http_error(code, body=b"nope"):
-    return urllib.error.HTTPError("u", code, "msg", {}, io.BytesIO(body))
+    return urllib.error.HTTPError("u", code, "msg", Message(), io.BytesIO(body))
+
+
+def opener_of(j: JevClient) -> Opener:
+    """The fake urlopen a client was made with."""
+    assert isinstance(j._urlopen, Opener)
+    return j._urlopen
 
 
 def client(*outcomes, **kw):
-    slept = []
-    j = JevClient(MODEL, "k", LOGGED.append, sleep=slept.append, urlopen=opener(*outcomes), **kw)
+    slept: list[float] = []
+    j = JevClient(MODEL, "k", LOGGED.append, sleep=slept.append, urlopen=Opener(*outcomes), **kw)
     return j, slept
 
 
@@ -63,9 +72,10 @@ def test_success_returns_the_reply():
     j, slept = client(GOOD)
     reply = j.ask({"s": 1}, Q)
     assert reply.answers == GOOD["answers"]
-    req, timeout = j._urlopen.seen[0]
+    req, timeout = opener_of(j).seen[0]
     assert req.full_url.endswith("/api/v1/systemone")
     assert req.get_header("Authorization") == "Bearer k"
+    assert isinstance(req.data, bytes)
     assert json.loads(req.data) == {"model": MODEL, "state": {"s": 1}, "questions": Q}
     assert timeout == 30 and not slept
     assert reply.served_by == "typesafe/jev-1.13-x" and reply.cost == 0.1 and reply.ms >= 0

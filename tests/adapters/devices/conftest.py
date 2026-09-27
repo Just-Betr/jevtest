@@ -1,11 +1,14 @@
 import json
 import plistlib
+import shutil
 import subprocess
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 
 from jevtest.adapters.devices import android, android_tools, ios, ios_tools
+from jevtest.adapters.devices.common import digest
 from jevtest.adapters.devices.ios import IOSDevice
 
 FIX = Path(__file__).parent / "fixtures"
@@ -73,6 +76,7 @@ class AgentHttp:
     def __init__(self):
         self.replies: dict[str, object] = {"/tree": LOGIN, "/idle": "idle", "/change": "changed", "/quit": "bye"}
         self.urls: list[str] = []
+        self.started: list[tuple[object, ...]] = []  # helper processes the driver started or stopped
 
     def __call__(self, url, timeout):
         self.urls.append(url)
@@ -105,7 +109,6 @@ class Proc:
 @pytest.fixture
 def agent(monkeypatch):
     fake = AgentHttp()
-    fake.started = []
     swap(monkeypatch, "http_get", fake)
     swap(monkeypatch, "build_agent", lambda progress: Path("/cache/android-agent-abc123.apk"))
 
@@ -132,7 +135,7 @@ def adb(monkeypatch, agent):
     )
     swap(monkeypatch, "run", fake)
     swap(monkeypatch, "run_bytes", fake.run_bytes)
-    monkeypatch.setattr(android.shutil, "which", lambda name: f"/bin/{name}")
+    monkeypatch.setattr(shutil, "which", lambda name: f"/bin/{name}")
     return fake
 
 
@@ -158,7 +161,7 @@ class Agent:
             "/rotate": {"raw": 1},
             "/appearance": {"raw": 1},
         }
-        self.calls: list[tuple[str, dict]] = []
+        self.calls: list[tuple[str, dict[str, object]]] = []
 
     def __call__(self, url, body, timeout):
         path = url.split("8123", 1)[1]
@@ -178,12 +181,12 @@ class DeviceCtl:
     """Stands in for `xcrun devicectl`: replies by subcommand, records every call."""
 
     def __init__(self):
-        self.phones: list[dict] = []
+        self.phones: list[dict[str, object]] = []
         self.replies: dict[str, object] = {
             "info details": {"connectionProperties": {"tunnelIPAddress": "fd00::1"}},
             "info lockState": {"passcodeRequired": False, "unlockedSinceBoot": True},
         }
-        self.calls: list[tuple] = []
+        self.calls: list[tuple[str, ...]] = []
 
     def __call__(self, *args, timeout=300):
         self.calls.append(args)
@@ -199,19 +202,28 @@ class DeviceCtl:
         return {}
 
 
+class IOSEnv(NamedTuple):
+    """The fakes behind an iOS driver: the command line, the agent, started helpers, and devicectl."""
+
+    sim: Adb
+    agent: Agent
+    procs: list[tuple[object, ...]]
+    ctl: DeviceCtl
+
+
 @pytest.fixture
 def env(monkeypatch, tmp_path):
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "cache"))
-    xctestrun = tmp_path / "cache" / f"ios-agent-{ios.digest(ios.AGENT_SRC)}" / "Build/Products/a.xctestrun"
+    xctestrun = tmp_path / "cache" / f"ios-agent-{digest(ios_tools.AGENT_SRC)}" / "Build/Products/a.xctestrun"
     xctestrun.parent.mkdir(parents=True)
     xctestrun.write_text("")
     sim = Adb({"list devices": json.dumps(SIMS)})
-    agent, procs = Agent(), []
+    agent, procs = Agent(), list[tuple[object, ...]]()
     swap(monkeypatch, "run", sim)
     swap(monkeypatch, "run_bytes", sim.run_bytes)
     swap(monkeypatch, "http_post", agent)
     swap(monkeypatch, "free_port", lambda: 8123)
-    monkeypatch.setattr(ios.shutil, "which", lambda n: "/usr/bin/xcrun")
+    monkeypatch.setattr(shutil, "which", lambda n: "/usr/bin/xcrun")
 
     def start_process(cmd, ready, log, timeout, env):
         procs.append((cmd, ready, env))
@@ -219,14 +231,15 @@ def env(monkeypatch, tmp_path):
 
     swap(monkeypatch, "start_process", start_process)
     swap(monkeypatch, "stop_process", lambda proc: procs.append(("stopped", proc)))
-    swap(monkeypatch, "devicectl", DeviceCtl())
-    return sim, agent, procs
+    ctl = DeviceCtl()
+    swap(monkeypatch, "devicectl", ctl)
+    return IOSEnv(sim, agent, procs, ctl)
 
 
 def make_app(tmp_path, bundle_id="dev.demo", platforms=("iPhoneSimulator",), name="Demo.app") -> Path:
-    app = tmp_path / name
+    app: Path = tmp_path / name
     app.mkdir(parents=True)
-    info = {"CFBundleSupportedPlatforms": list(platforms)}
+    info: dict[str, object] = {"CFBundleSupportedPlatforms": list(platforms)}
     if bundle_id:
         info["CFBundleIdentifier"] = bundle_id
     (app / "Info.plist").write_bytes(plistlib.dumps(info))
@@ -246,12 +259,12 @@ TEAMS = {"IDEProvisioningTeamByIdentifier": {"acct": [{"teamID": "TEAM1", "isFre
 @pytest.fixture
 def phone(env, monkeypatch, tmp_path):
     """The simulator env, plus a connected iPhone 'BH', an Xcode team, and a provisioned agent build."""
-    sim, agent, procs = env
-    ios.devicectl.phones = [PHONE]
+    env.ctl.phones = [PHONE]
+    sim = env.sim
     sim.rules["defaults export"] = plistlib.dumps(TEAMS).decode()
-    out = tmp_path / "cache" / f"ios-agent-{ios.digest(ios.AGENT_SRC)}-TEAM1" / "Build/Products"
+    out = tmp_path / "cache" / f"ios-agent-{digest(ios_tools.AGENT_SRC)}-TEAM1" / "Build/Products"
     (out / "Debug-iphoneos/JevAgentUITests-Runner.app").mkdir(parents=True)
     (out / "a.xctestrun").write_text("")
     swap(monkeypatch, "provisioned_devices", lambda app: {"00008150-X"})
     sim.rules["security cms"] = plistlib.dumps({"TeamIdentifier": ["TEAM1"]}).decode()
-    return sim, agent, procs
+    return env

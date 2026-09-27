@@ -120,17 +120,26 @@ exclude = ["*.md"]  # the docs hold hand-aligned sketches, not code to format
 [tool.mypy]
 strict = true
 python_version = "3.11"
-files = ["jevtest"]
+files = ["jevtest", "tests"]
 warn_unreachable = true
 enable_error_code = [
     "ignore-without-code", "redundant-expr", "truthy-bool", "truthy-iterable", "possibly-undefined",
     "redundant-self", "unused-awaitable", "explicit-override", "mutable-override", "narrowed-type-not-subtype",
 ]
 
+[[tool.mypy.overrides]]
+# Tests: every function body is type-checked, but test functions and fixtures aren't annotated (pytest injects them).
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+check_untyped_defs = true
+
 [tool.pyright]
-include = ["jevtest"]
+include = ["jevtest", "tests"]
+strict = ["jevtest"]  # the package is strict; tests are checked in standard mode (unannotated pytest functions)
 pythonVersion = "3.11"
-typeCheckingMode = "strict"
+typeCheckingMode = "standard"
 reportUnnecessaryTypeIgnoreComment = "error"
 
 [tool.importlinter]

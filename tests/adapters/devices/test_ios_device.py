@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from jevtest.adapters.devices import ios
 from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.domain.failures import DeviceError
 from tests.adapters.devices.conftest import make_app, swap
@@ -25,7 +24,7 @@ def signed_app(tmp_path) -> Path:
 def dev(phone, tmp_path):
     d = IOSDevice("BH", signed_app(tmp_path), PROGRESS)
     d.install(signed_app(tmp_path / "again"))
-    ios.devicectl.calls.clear()
+    phone.ctl.calls.clear()
     phone[1].calls.clear()
     return d
 
@@ -84,12 +83,12 @@ def test_agent_on_a_phone_is_reached_through_the_tunnel(tmp_path, phone):
 
 
 def test_ipv4_tunnel_address_has_no_brackets(tmp_path, phone):
-    ios.devicectl.replies["info details"] = {"connectionProperties": {"tunnelIPAddress": "10.0.0.2"}}
+    phone.ctl.replies["info details"] = {"connectionProperties": {"tunnelIPAddress": "10.0.0.2"}}
     assert IOSDevice("BH", signed_app(tmp_path), PROGRESS).host == "10.0.0.2"
 
 
 def test_no_tunnel_is_a_clear_error(tmp_path, phone):
-    ios.devicectl.replies["info details"] = {"connectionProperties": {}}
+    phone.ctl.replies["info details"] = {"connectionProperties": {}}
     with pytest.raises(DeviceError, match="No connection to BH: unlock it and keep it plugged in"):
         IOSDevice("BH", signed_app(tmp_path), PROGRESS)
 
@@ -132,7 +131,7 @@ def test_relocked_phone_gets_a_new_tunnel_address(dev, phone):
         OSError("no route"),
         json.loads((Path(__file__).parent / "fixtures/ios_login.json").read_text()),
     ]
-    ios.devicectl.replies["info details"] = {"connectionProperties": {"tunnelIPAddress": "fd00::2"}}
+    phone.ctl.replies["info details"] = {"connectionProperties": {"tunnelIPAddress": "fd00::2"}}
     assert dev.screen().elements
     assert dev.host == "[fd00::2]"
 
@@ -143,9 +142,9 @@ def test_lost_phone_is_a_clear_error(dev, phone):
         dev.screen()
 
 
-def test_locked_phone(dev):
+def test_locked_phone(dev, phone):
     dev.check_ready()
-    ios.devicectl.replies["info lockState"] = {"passcodeRequired": True}
+    phone.ctl.replies["info lockState"] = {"passcodeRequired": True}
     with pytest.raises(DeviceError, match="BH is locked: unlock it"):
         dev.check_ready()
 
@@ -166,9 +165,9 @@ def test_app_lifecycle_uses_devicectl_and_the_agent(dev, phone):
     dev.launch()
     dev.stop()
     dev.clear_data()
-    calls = [c[:3] for c in ios.devicectl.calls]
+    calls = [c[:3] for c in phone.ctl.calls]
     assert calls == [("device", "process", "launch"), ("device", "uninstall", "app"), ("device", "install", "app")]
-    assert "--terminate-existing" in ios.devicectl.calls[0]
+    assert "--terminate-existing" in phone.ctl.calls[0]
     assert [p for p, _ in phone[1].calls] == ["/wait_foreground", "/terminate", "/terminate"]
 
 

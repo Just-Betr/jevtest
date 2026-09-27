@@ -41,9 +41,11 @@ def test_junit(tmp_path):
     assert other.attrib["name"] == "jevtest.android"
     assert suite.attrib == {"name": "jevtest.ios", "tests": "2", "failures": "1", "errors": "0", "time": "3.2"}
     cases = suite.findall("testcase")
-    assert cases[0].find("failure") is None and cases[0].find("system-out").text == "ok"
+    output = cases[0].find("system-out")
+    assert cases[0].find("failure") is None and output is not None and output.text == "ok"
     assert cases[1].attrib["name"] == "B <x>"
-    assert cases[1].find("failure").attrib["message"] == "see: X — not on screen"
+    failure = cases[1].find("failure")
+    assert failure is not None and failure.attrib["message"] == "see: X — not on screen"
 
 
 def test_json_report(tmp_path):

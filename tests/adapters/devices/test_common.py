@@ -3,6 +3,7 @@ import sys
 
 import pytest
 
+from jevtest.adapters.devices._typing import override
 from jevtest.adapters.devices.common import cache_dir, digest, log_errors, run, run_bytes, start_process, stop_process
 from jevtest.domain.failures import DeviceError
 
@@ -86,13 +87,20 @@ def test_stop_process_kills_what_ignores_terminate():
         ),
         stdout=subprocess.PIPE,
     )
+    assert proc.stdout is not None
     proc.stdout.readline()  # handler installed
 
-    class Impatient:  # same process, shorter wait so the test is fast
-        def __getattr__(self, name):
-            return getattr(proc, name)
+    class Impatient:  # the same process, with a shorter wait so the test is fast
+        def poll(self) -> int | None:
+            return proc.poll()
 
-        def wait(self, timeout):
+        def terminate(self) -> None:
+            proc.terminate()
+
+        def kill(self) -> None:
+            proc.kill()
+
+        def wait(self, timeout: float | None = None) -> int:
             return proc.wait(0.2)
 
     stop_process(Impatient())
@@ -128,12 +136,14 @@ def test_a_device_must_say_how_it_restores_waits_and_closes():
     from jevtest.adapters.devices.common import BaseDevice
 
     class Partial(BaseDevice):
+        @override
         def screen(self):
             raise NotImplementedError
 
+        @override
         def drag(self, x1, y1, x2, y2):
             raise NotImplementedError
 
     # Python words this message differently between versions; the method names are what matter.
     with pytest.raises(TypeError, match="check_ready'?, '?close'?, '?restore'?, '?wait_change'?, '?wait_idle"):
-        Partial()
+        Partial()  # type: ignore[abstract]  # instantiating it is what this test checks

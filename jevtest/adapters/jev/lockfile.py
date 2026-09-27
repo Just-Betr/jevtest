@@ -13,17 +13,25 @@ import threading
 from collections.abc import Callable, Mapping, Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import TypedDict
+from typing import Protocol, TypedDict
 
 from jevtest.adapters.shapes import is_json_object, objects_by_key
 from jevtest.domain.failures import ModelError
 from jevtest.domain.model import Answer, ModelCall, Question, State
 
-from .client import JevClient, Reply
+from .client import Reply
 from .wire import RawAnswers, answers_from_wire, questions_to_wire
 
 VERSION = 1
 """The lockfile format version."""
+
+
+class JevAsker(Protocol):
+    """What the lockfile needs of Jev: one request, its reply (a `client.JevClient`)."""
+
+    def ask(self, state: object, questions: Mapping[str, object]) -> Reply:
+        """Ask `questions` about `state`."""
+        ...
 
 
 class LockMode(StrEnum):
@@ -111,12 +119,12 @@ class LockedModel:
     """
 
     def __init__(
-        self, model: str, path: Path, mode: LockMode, connect: Callable[[], JevClient], *, _store: _Store | None = None
+        self, model: str, path: Path, mode: LockMode, connect: Callable[[], JevAsker], *, _store: _Store | None = None
     ) -> None:
         self.model = model
         self.mode = mode
         self._connect = connect
-        self._client: JevClient | None = None
+        self._client: JevAsker | None = None
         self._store = _store or _Store(path, mode)
         self._calls: list[ModelCall] = []
 

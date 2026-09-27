@@ -32,6 +32,7 @@ def device():
     from jevtest.cli.main import make_device
     from jevtest.domain.kinds import Platform
 
+    assert PLATFORM is not None and NAME is not None  # the module is skipped otherwise
     d = make_device(Platform(PLATFORM), NAME, APPS[PLATFORM], print)
     d.install(APPS[PLATFORM])
     yield d

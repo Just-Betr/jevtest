@@ -6,6 +6,7 @@ import pytest
 
 from jevtest.adapters.testfile.loader import is_test_file, load, platform_of
 from jevtest.domain.failures import TestFileError
+from jevtest.domain.kinds import Platform
 from jevtest.domain.settings import DEFAULTS, Settings
 from jevtest.domain.steps import (
     See,
@@ -20,7 +21,7 @@ EXAMPLES = Path(__file__).parents[3] / "examples"
 def write(tmp_path, body: str, name="t.yaml") -> Path:
     for app in ("a.apk", "b.aab"):
         (tmp_path / app).write_text("")
-    f = tmp_path / name
+    f: Path = tmp_path / name
     f.write_text(body)
     return f
 
@@ -275,10 +276,10 @@ def test_variables_come_from_env(tmp_path):
     env = {"APP": "a.apk", "PHONE": "Pixel", "PASSWORD": "pw", "USER_NAME": "Ann", "OTHER": "x"}
     spec = load(write(tmp_path, VARS), env)
     assert spec.variables == {k: v for k, v in env.items() if k != "OTHER"}  # only what the file uses
-    assert spec.apps["android"].name == "a.apk" and spec.devices == {"android": ("Pixel",)}
+    assert spec.apps[Platform.ANDROID].name == "a.apk" and spec.devices == {Platform.ANDROID: ("Pixel",)}
     step = spec.tests[0].steps[0]
     assert step.action == TypeText("${PASSWORD}", "Password") and step.checks == (See("Hi ${USER_NAME}"),)
-    assert fill(step.action.text, spec.variables) == "pw"  # filled only when used
+    assert fill("${PASSWORD}", spec.variables) == "pw"  # the step keeps the name; the value is filled when used
 
 
 def test_only_the_given_env_counts(tmp_path, monkeypatch):
