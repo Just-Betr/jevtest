@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+**Engineering quality.** Test files, commands and lockfiles are unchanged.
+
+- Output: a step reads as written, e.g. `tap: Ghost (timeout: 1)`, in the console, failures and the JSON report,
+  instead of a Python dict.
+- Fixed: text that isn't valid Unicode (a YAML escape like `"\ud800"`) is a clear test-file error instead of a crash.
+- Fixed resource leaks: an iOS device that fails to start removes its temporary folder; a helper process that
+  times out is reaped; helper output pipes are closed; the Jev client closes HTTP error responses it retries.
+- Unexpected output from Xcode's tools, Jev or a lockfile is jevtest's own error saying what was expected, never
+  a Python `KeyError`.
+- One definition per action: each action's traits live on its type, and one table says how each YAML key reads.
+- Tooling: uv with a lockfile; every ruff rule and ruff format; strict mypy and strict pyright with no `Any`;
+  complexity at most 10; tests in random order with warnings as errors and Hypothesis properties; codespell;
+  pip-audit; zizmor, with every GitHub Action pinned to a commit; Dependabot.
+
 ## 0.6.0
 
 **Settings.** A test file can now tune how steps wait and how far they go, with defaults that suit most apps and

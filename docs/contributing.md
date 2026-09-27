@@ -4,36 +4,45 @@ Issues and pull requests are welcome at [github.com/Just-Betr/jevtest](https://g
 
 ## Setup
 
+jevtest uses [uv](https://docs.astral.sh/uv/). `uv.lock` pins every tool, so your checks match CI's exactly.
+
 ```bash
 git clone https://github.com/Just-Betr/jevtest && cd jevtest
-python3 -m venv .venv && . .venv/bin/activate
-pip install -e '.[dev,docs]'
+uv sync --all-groups
+uv run pre-commit install       # run every check below before each commit
 ```
 
 ## Checks
 
-```bash
-ruff check .                  # lint, including a docstring on every public object
-mypy                          # types, strict
-lint-imports                  # dependencies point inward
-pytest --cov                  # unit tests; 100% line and branch coverage is required
-mkdocs serve                  # the docs, at http://127.0.0.1:8000
-pre-commit install            # run all of the above before each commit
-```
+CI runs each of these on every push; pre-commit runs them before each commit.
+
+| Check | Command | What it holds the code to |
+|---|---|---|
+| Lint | `uv run ruff check .` | Every ruff rule. The few that are off are listed in `pyproject.toml`, each with its reason. |
+| Format | `uv run ruff format --check .` | One format everywhere. |
+| Types | `uv run mypy` | `--strict`, plus unreachable code and the extra error codes (explicit `@override`, redundant expressions, ...). |
+| Types, second opinion | `uv run pyright` | Strict mode. Parsed YAML and JSON are typed from the parser to the domain: no `Any`. |
+| Architecture | `uv run lint-imports` | Dependencies point inward; the domain and use cases do no I/O. |
+| Complexity | (part of the lint) | No function above a cyclomatic complexity of 10. |
+| Tests | `uv run pytest --cov` | 100% line and branch coverage, random order, warnings are errors, Hypothesis properties. |
+| Spelling | `uv run codespell` | Code and docs. |
+| Package | `uv build && uvx twine check --strict dist/*` | The wheel builds, its metadata is valid, and it runs installed on its own. |
+| Security | `uvx pip-audit`, `uvx zizmor` | No known vulnerability in a locked dependency; the GitHub workflows pass zizmor's pedantic audit, with every action pinned to a commit. |
+| Docs | `uv run mkdocs build --strict` | No broken links or anchors. `uv run mkdocs serve` previews them at http://127.0.0.1:8000. |
 
 The unit tests need no device and no network: devices, the clock and Jev are faked, and the driver tests parse real screen captures from `tests/adapters/devices/fixtures/`. They run in a few seconds.
 
 The on-device agents (Java and Swift) can't be faked, so they have contract tests against a real emulator or simulator with the demo app built:
 
 ```bash
-JEVTEST_DEVICE=android JEVTEST_DEVICE_NAME=emulator-5554 pytest tests/adapters/devices/test_contract.py
-JEVTEST_DEVICE=ios JEVTEST_DEVICE_NAME="iPhone 17 Pro" pytest tests/adapters/devices/test_contract.py
+JEVTEST_DEVICE=android JEVTEST_DEVICE_NAME=emulator-5554 uv run pytest tests/adapters/devices/test_contract.py
+JEVTEST_DEVICE=ios JEVTEST_DEVICE_NAME="iPhone 17 Pro" uv run pytest tests/adapters/devices/test_contract.py
 ```
 
 A change to how steps behave should also pass the demo suite on a device:
 
 ```bash
-jevtest run examples/demo.yaml --lock frozen --out results
+uv run jevtest run examples/demo.yaml --lock frozen --out results
 ```
 
 ## Layout
@@ -46,7 +55,7 @@ The package follows the [architecture](architecture.md): dependencies point inwa
 | `jevtest/application/` | How tests run: `runner.py` (the use case), `brain.py` (the questions for Jev), `planning.py` (sharding). |
 | `jevtest/adapters/devices/` | Android (`adb` + a Java agent) and iOS (Xcode tools + a Swift XCUITest agent). Regenerate the iOS agent's project with `ruby scripts/generate_ios_agent_project.rb` after adding targets. |
 | `jevtest/adapters/jev/` | The Jev HTTP client, its wire format, and the lockfile. |
-| `jevtest/adapters/testfile/` | YAML test files into domain types, `.env` files, finding test files in folders. |
+| `jevtest/adapters/testfile/` | YAML test files into domain types: `values.py` (single values), `steps.py` (the `ACTIONS` table), `loader.py` (the file), plus `.env` files and finding test files in folders. |
 | `jevtest/adapters/reports/` | JUnit XML and the JSON report. |
 | `jevtest/cli/` | Arguments, the console output, and `main.py`, the composition root. |
 | `tests/` | Mirrors `jevtest/`, one test module per source module. |

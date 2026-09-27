@@ -5,10 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+permissions: {}
 
 concurrency:
   group: pages
@@ -16,36 +13,43 @@ concurrency:
 
 jobs:
   build:
+    name: Build the site and the coverage badge
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          python-version: "3.12"
-      - run: pip install -e '.[dev,docs]'
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+      - run: uv sync --locked --all-groups
       # The coverage badge is measured here, on every push, from the same tests CI runs.
-      - run: pytest --cov --cov-report=json:coverage.json
+      - run: uv run pytest --cov --cov-report=json:coverage.json
       - name: Coverage badge
         run: |
           mkdir -p docs/badges
-          python - <<'PY'
+          uv run python - <<'PY'
           import json
           pct = json.load(open("coverage.json"))["totals"]["percent_covered"]
           color = "brightgreen" if pct >= 100 else "green" if pct >= 90 else "yellow" if pct >= 75 else "red"
           badge = {"schemaVersion": 1, "label": "coverage", "message": f"{pct:.0f}%", "color": color}
           json.dump(badge, open("docs/badges/coverage.json", "w"))
           PY
-      - run: mkdocs build --strict
-      - uses: actions/upload-pages-artifact@v3
+      - run: uv run mkdocs build --strict
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
           path: site
 
   deploy:
+    name: Publish to GitHub Pages
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write     # publish the site
+      id-token: write  # prove to Pages that this workflow built it
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1

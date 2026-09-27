@@ -164,3 +164,7 @@ fail_under = 100
 show_missing = true
 skip_covered = true
 exclude_also = ["if __name__ == .__main__.:"]
+
+[tool.codespell]
+skip = "*.lock,*.lock.json,*.json,*.xml,*.png,*.pbxproj,gradlew.bat,./site,./.venv,./demo_app/build,./demo_app/ios/Pods,./test_dont_checkin"
+ignore-words-list = "bakc,pressenter"  # a deliberate typo in the error examples; the PressEnter move

@@ -6,9 +6,9 @@ Thanks for helping. The full guide (setup, checks, layout, principles, building 
 The short version:
 
 ```bash
-pip install -e '.[dev,docs]'
-ruff check .
-pytest --cov        # 100% line and branch coverage is required
+uv sync --all-groups            # the exact tool versions in uv.lock
+uv run pre-commit install       # every check below, before each commit
+uv run pytest --cov             # 100% line and branch coverage is required
 ```
 
 Changes should keep jevtest's principles: nothing assumed (a mistake is an error that says what to fix),

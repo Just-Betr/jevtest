@@ -5,34 +5,89 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  checks:
+    name: Lint, format, types, architecture, spelling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+      - run: uv sync --locked --all-groups
+      - name: Lint (every ruff rule, docstrings included)
+        run: uv run ruff check .
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Types (mypy --strict)
+        run: uv run mypy
+      - name: Types (pyright strict)
+        run: uv run pyright
+      - name: Architecture (dependencies point inward)
+        run: uv run lint-imports
+      - name: Spelling
+        run: uv run codespell
+
   test:
+    name: Tests on Python ${{ matrix.python }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          python-version: ${{ matrix.python }}
-      - run: pip install -e '.[dev]'
-      - name: Lint (ruff, docstrings included)
-        run: ruff check .
-      - name: Types (mypy --strict)
-        run: mypy
-      - name: Architecture (dependencies point inward)
-        run: lint-imports
-      - name: Tests (100% line and branch coverage)
-        run: pytest --cov --cov-fail-under=100
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+      - run: uv sync --locked --python "$PYTHON"
+        env:
+          PYTHON: ${{ matrix.python }}
+      - name: Tests (random order, warnings are errors, 100% line and branch coverage)
+        run: uv run pytest --cov
 
-  docs:
+  package:
+    name: Package builds, installs and runs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          python-version: "3.12"
-      - run: pip install -e '.[docs]'
-      - run: mkdocs build --strict
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+      - run: uv build
+      - run: uvx twine check --strict dist/*
+      - name: The wheel installs on its own and runs
+        run: uv run --isolated --no-project --with dist/*.whl jevtest --version
+
+  security:
+    name: Security (dependencies and workflows)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+      - name: Known vulnerabilities in dependencies
+        run: |
+          uv export --locked --all-groups --no-emit-project --format requirements-txt > requirements.txt
+          uvx pip-audit --strict --disable-pip -r requirements.txt
+      - name: GitHub Actions security
+        run: uvx zizmor --persona=pedantic .github/workflows
+
+  docs:
+    name: Docs build, no broken links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+      - run: uv sync --locked --group docs
+      - run: uv run mkdocs build --strict

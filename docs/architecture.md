@@ -56,7 +56,19 @@ The application depends only on these. `jevtest.cli.main` wires real implementat
 | Check | Command | Enforced |
 |---|---|---|
 | Dependencies point inward | `lint-imports` | CI, pre-commit |
-| Types | `mypy --strict` | CI, pre-commit |
-| Lint, including a docstring on every public object | `ruff check .` | CI, pre-commit |
-| Tests, 100% line and branch coverage | `pytest --cov` | CI, pre-commit |
+| Types, two checkers, no `Any` | `mypy` (strict) and `pyright` (strict) | CI, pre-commit |
+| Every ruff rule, a docstring on every public object, complexity at most 10 | `ruff check .` | CI, pre-commit |
+| Tests: 100% line and branch coverage, random order, Hypothesis properties | `pytest --cov` | CI, pre-commit |
 | Docs build, no broken links or anchors | `mkdocs build --strict` | CI |
+
+All of these are in the [contributing guide](contributing.md#checks), with the security and packaging checks.
+
+## Where things live
+
+| Module | What it does |
+|---|---|
+| `domain/steps.py` | Each action is a type that says what it is (`settles`, `watches_screen`, `app_may_leave`); `finds_element` and `SETTING_SCOPES` say where each setting applies. The runner and the loader read these instead of keeping lists of types. |
+| `domain/settings.py` | The settings, their defaults and their limits. |
+| `adapters/testfile/steps.py` | `ACTIONS`: the one table of how each action key reads in YAML. |
+| `adapters/devices/android_screen.py`, `ios_screen.py` | The agents' screen dumps into a `Screen`: pure functions, tested on real captures. |
+| `adapters/shapes.py`, `devices/tool_output.py` | Parsed YAML, JSON and plists, checked into typed values; a surprise is jevtest's own error, never a `KeyError`. |
