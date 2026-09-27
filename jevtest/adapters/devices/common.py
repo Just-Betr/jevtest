@@ -81,7 +81,7 @@ def start_process(
     state = {"ready": False}
 
     def pump() -> None:
-        with log.open("w") as f:
+        with output, log.open("w") as f:  # closes the pipe when the helper's output ends
             for line in output:
                 f.write(line)
                 f.flush()
@@ -93,6 +93,7 @@ def start_process(
     threading.Thread(target=pump, daemon=True).start()
     if not done.wait(timeout):
         proc.kill()
+        proc.wait()  # reap it, so no zombie is left behind
         raise DeviceError(f"{cmd[0]} did not report ready within {timeout:g}s. {log_errors(log)}")
     if not state["ready"]:
         proc.wait()

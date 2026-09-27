@@ -97,6 +97,7 @@ def test_stop_process_kills_what_ignores_terminate():
 
     stop_process(Impatient())
     assert proc.wait(5) is not None
+    proc.stdout.close()
 
 
 def test_stop_process_ignores_none_and_finished():

@@ -137,10 +137,11 @@ class JevClient:
                 with self._urlopen(req, timeout=self.timeout) as resp:
                     raw = resp.read()
             except urllib.error.HTTPError as e:
+                with e:  # an HTTP error carries the open response
+                    detail = e.read().decode(errors="replace")[:500]
                 if e.code in RETRY_STATUSES and not last:
                     self._retry(f"HTTP {e.code}", attempt)
                     continue
-                detail = e.read().decode(errors="replace")[:500]
                 hint = f" (check the key; {KEY_HELP})" if e.code == UNAUTHORIZED else ""
                 raise ModelError(f"Jev HTTP {e.code}: {detail}{hint}") from None
             except (urllib.error.URLError, TimeoutError) as e:

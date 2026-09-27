@@ -260,7 +260,6 @@ class IOSDevice(BaseDevice):
         target = find_target(device)
         self.udid, self.name, self.physical = target.udid, target.name, target.physical
         self._tmp = tempfile.TemporaryDirectory()
-        self.team = xcode_team(app_team(app_bundle(app, Path(self._tmp.name) / "team"))) if self.physical else ""
         self.port = free_port()
         self.host = "127.0.0.1"
         self.agent: subprocess.Popen[str] | None = None
@@ -269,7 +268,12 @@ class IOSDevice(BaseDevice):
         self.app_path: Path | None = None
         self._restore: dict[str, dict[str, object]] = {}  # agent call -> body that puts back what a step changed
         self._location_set = False
-        self._start_agent()
+        try:
+            self.team = xcode_team(app_team(app_bundle(app, Path(self._tmp.name) / "team"))) if self.physical else ""
+            self._start_agent()
+        except BaseException:
+            self._tmp.cleanup()  # the caller never gets a device to close
+            raise
 
     # --- agent ------------------------------------------------------------------
     def _xcodebuild(self, out: Path, destination: str, signing: list[str]) -> None:

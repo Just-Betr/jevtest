@@ -94,7 +94,7 @@ def test_retries_network_errors_then_succeeds():
 
 
 def test_gives_up_after_retries():
-    j, slept = client(*[http_error(503)] * 3, retries=2)
+    j, slept = client(*[http_error(503) for _ in range(3)], retries=2)
     with pytest.raises(ModelError, match="HTTP 503"):
         j.ask("s", Q)
     assert slept == [0.5, 1.0]
