@@ -66,8 +66,14 @@ class Element:
         return x2 - max(1, min(8, (x2 - x1) // 4)), (y1 + y2) // 2
 
     def says(self, target: str) -> bool:
-        """Whether the element's text, one of its parts, its hint or its id is exactly `target` (case matters)."""
-        return target in self.names()
+        """Whether the element's text, one of its parts, its hint or its id is exactly `target`, ignoring case.
+
+        Case is ignored because platforms render the same text in different case (Android shows many buttons in
+        capitals; the permission prompt says "Don't allow" on Android and "Don't Allow" on iOS). Nothing else is:
+        the whole text must be the target, never a part of a longer text.
+        """
+        wanted = target.casefold()
+        return any(name.casefold() == wanted for name in self.names())
 
     def names(self) -> tuple[str, ...]:
         """Every text a test can name the element by, in order: text, parts, hint, id."""
@@ -145,10 +151,14 @@ NEAR_LIMIT = 5
 
 
 def near_names(target: str, elements: Sequence[Element]) -> tuple[str, ...]:
-    """Names on these elements that differ from `target` only in case, or contain it, ignoring case.
+    """Longer names on these elements that contain `target`, ignoring case.
 
     Only for error messages, so the user can fix the test file: a near match is never matched.
     """
-    wanted = target.lower()
-    found = (name for el in elements for name in el.names() if name != target and wanted in name.lower())
+    wanted = target.casefold()
+    found = (name for el in elements for name in el.names() if _contains_longer(name.casefold(), wanted))
     return tuple(dict.fromkeys(found))[:NEAR_LIMIT]
+
+
+def _contains_longer(name: str, wanted: str) -> bool:
+    return wanted in name and name != wanted

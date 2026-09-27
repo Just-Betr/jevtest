@@ -123,7 +123,7 @@ tests:
       - tap: Show more
       - scroll_to: Here is more content from the web page.
         direction: down
-        see: Here is more content
+        see: Here is more content from the web page.
 
   # Native (non-Flutter) screen: Android Views / iOS UIKit.
   - name: Native screen

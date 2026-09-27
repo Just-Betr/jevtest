@@ -24,27 +24,28 @@ def test_lookups():
 def test_shows_only_an_exact_text_of_one_element():
     s = login_screen()
     assert s.shows("Sign in") and s.shows("Email")  # a text, a hint
-    assert not s.shows("sign in") and not s.shows("mail") and not s.shows("Sign")
+    assert s.shows("SIGN IN") and s.shows("email")  # case doesn't matter
+    assert not s.shows("mail") and not s.shows("Sign") and not s.shows("Sign in now")
 
 
 @pytest.mark.parametrize(
     ("wanted", "on_screen"),
-    [("Taps: 2", "Taps: 20"), ("Save", "Unsaved changes"), ("Save", "Save draft"), ("Welcome", "welcome")],
+    [("Taps: 2", "Taps: 20"), ("Save", "Unsaved changes"), ("Save", "Save draft"), ("Welcome", "Welcome back")],
 )
-def test_see_never_passes_on_a_longer_or_differently_cased_text(wanted, on_screen):
+def test_see_never_passes_on_a_longer_text(wanted, on_screen):
     assert not Screen(10, 10, (el("text", on_screen),)).shows(wanted)
 
 
 def test_an_element_says_its_text_parts_hint_and_id_exactly():
     field = el("text_field", "Email: a@b.c", parts=("Email", "a@b.c"), hint="you@example.com", resource_id="email")
-    assert all(field.says(t) for t in ("Email: a@b.c", "Email", "a@b.c", "you@example.com", "email"))
-    assert not any(field.says(t) for t in ("email: a@b.c", "a@b", "Email:", ""))
+    assert all(field.says(t) for t in ("Email: a@b.c", "Email", "a@b.c", "you@example.com", "email", "EMAIL: A@B.C"))
+    assert not any(field.says(t) for t in ("a@b", "Email:", "mail", ""))
     assert field.names() == ("Email: a@b.c", "Email", "a@b.c", "you@example.com", "email")
 
 
-def test_near_lists_other_case_and_longer_texts_only():
-    s = Screen(10, 10, tuple(el("text", t) for t in ("Save draft", "save", "Unsaved changes", "Cancel", "Save")))
-    assert s.near("Save") == ("Save draft", "save", "Unsaved changes")
+def test_near_lists_longer_texts_containing_the_target_only():
+    s = Screen(10, 10, tuple(el("text", t) for t in ("Save draft", "SAVE", "Unsaved changes", "Cancel", "Save")))
+    assert s.near("Save") == ("Save draft", "Unsaved changes")  # SAVE and Save match; they aren't near
     assert Screen(10, 10, tuple(el("text", f"Save {i}") for i in range(9))).near("Save") == tuple(
         f"Save {i}" for i in range(5)
     )

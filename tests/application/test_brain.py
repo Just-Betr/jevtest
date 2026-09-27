@@ -171,6 +171,8 @@ def test_locate_exact_unique_match_skips_the_model():
     b = Brain(model)
     assert b.locate("Sign in", login_screen()) == Located(login_screen().elements[2])
     assert b.locate("Email", login_screen()).element.hint == "Email"
+    assert b.locate("SIGN IN", login_screen()) == Located(login_screen().elements[2])  # case doesn't matter
+    assert b.locate("don't allow", screen_of(el("button", "Don't Allow"))).element.text == "Don't Allow"
     assert not model.asked
 
 
@@ -178,7 +180,6 @@ def test_locate_exact_unique_match_skips_the_model():
     ("target", "on_screen"),
     [
         ("Save", ["Unsaved changes", "Save draft"]),  # the target inside longer texts
-        ("sign in", ["Sign in"]),  # different case
         ("Taps: 2", ["Taps: 20"]),
         ("Delete", ["Delete account", "Delete photo"]),
     ],

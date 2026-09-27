@@ -188,11 +188,15 @@ class NeverAsked:
         return {"element": Picked("not_on_screen", 1.0, {})}
 
 
+def _folded_names(el):
+    return {n.casefold() for n in (el.text, *el.parts, el.hint, el.resource_id)}
+
+
 @SETTINGS
 @given(st.lists(elements, max_size=6), tiny_text.filter(bool))
-def test_a_target_is_matched_only_by_an_element_that_says_it_exactly(els, target):
+def test_a_target_is_matched_only_by_an_element_that_says_it_exactly_ignoring_case(els, target):
     screen = Screen(10, 10, tuple(els))
-    says_it = [el for el in screen.elements if target in (el.text, *el.parts, el.hint, el.resource_id)]
+    says_it = [el for el in screen.elements if target.casefold() in _folded_names(el)]
     assert screen.shows(target) == bool(says_it)
     model = NeverAsked()
     found = Brain(model).locate(target, screen)

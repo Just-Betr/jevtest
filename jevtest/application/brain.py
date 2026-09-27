@@ -251,10 +251,10 @@ class Brain:
     def locate(self, target: str, screen: Screen, candidates: Sequence[Element] | None = None) -> Located | None:
         """The element the test file names, or None if it isn't on the screen.
 
-        Only an exact match counts: an element whose text, one of its parts, its hint or its id is the target,
-        case and all (`Element.says`). If several match, Jev chooses among those only. If none does but some text
-        is close (different case, or longer text containing the target), that's a mistake in the test file, and
-        nothing is chosen: the caller reports the close texts. Only a target unlike any text on the screen (a
+        Only an exact match counts: an element whose whole text, one of its parts, its hint or its id is the
+        target, ignoring case (`Element.says`). If several match, Jev chooses among those only. If none does but a
+        longer text contains the target, that's a mistake in the test file, and nothing is chosen: the caller
+        reports the close texts. Only a target unlike any text on the screen (a
         description) goes to Jev, which picks an element and must then confirm it.
         """
         pool: Sequence[Element] = screen.elements if candidates is None else candidates

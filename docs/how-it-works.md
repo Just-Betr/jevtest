@@ -37,14 +37,14 @@ sequenceDiagram
 
 ## Finding what a step names
 
-`tap: Save`, `see: Saved` and `scroll_to: Item 30` are matched in code, **exactly**: an element matches when its text, a part of its text (an iOS label or value, an Android text or description), its hint or its id is the target, case and all ([details](reference/steps.md#matching)). There's no "contains" anywhere, so a step never lands on *Unsaved changes* or *Save draft*, and `see: "Taps: 2"` never passes on *Taps: 20*.
+`tap: Save`, `see: Saved` and `scroll_to: Item 30` are matched in code, **exactly**: an element matches when its whole text, a part of its text (an iOS label or value, an Android text or description), its hint or its id is the target, ignoring case ([details](reference/steps.md#matching)). There's no "contains" anywhere, so a step never lands on *Unsaved changes* or *Save draft*, and `see: "Taps: 2"` never passes on *Taps: 20*.
 
 Jev is involved only when code can't decide:
 
 - **Several exact matches** (two *Delete* buttons): Jev chooses among those only, and the step output says so.
 - **A description**, not on-screen text (`tap: the gear icon`): Jev picks an element, then must confirm it with a yes/no question; the output says `(chosen by Jev)`.
 
-If a target isn't on screen but a close text is (another case, or a longer text containing it), the step fails and lists the close texts. They are never used, and Jev isn't asked: a near miss is a test-file mistake, not a description.
+If a target isn't on screen but a longer text contains it, the step fails and lists those texts. They are never used, and Jev isn't asked: a near miss is a test-file mistake, not a description.
 
 ## Jev
 

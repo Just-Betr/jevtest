@@ -667,7 +667,7 @@ def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
             "Could not find element 'Save' on screen; close but not exact: 'Unsaved changes', 'Save draft'",
         ),
         ({"see": "Taps: 2", "timeout": 1}, ["Taps: 20"], "not on screen; close but not exact: 'Taps: 20'"),
-        ({"see": "Sign in", "timeout": 1}, ["sign in"], "not on screen; close but not exact: 'sign in'"),
+        ({"see": "Sign in", "timeout": 1}, ["Sign in now"], "not on screen; close but not exact: 'Sign in now'"),
         (
             {"scroll_to": "Item 3", "direction": "down"},
             ["Item 30"],

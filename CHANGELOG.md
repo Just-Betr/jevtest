@@ -2,17 +2,16 @@
 
 ## Unreleased
 
-**Exact text matching.** A step's text is matched exactly, never as part of a longer text, and case matters. This
-changes behaviour: a test that relied on "contains" or on case not mattering now fails, and the error lists what
-the screen shows so the test file can be fixed.
+**Exact text matching.** A step's text is matched exactly: the whole text, never part of a longer text (case
+still doesn't matter, since platforms show the same text in different case). This changes behaviour: a test that
+relied on "contains" now fails, and the error lists what the screen shows so the test file can be fixed.
 
 - `tap:`, `double_tap:`, `long_press:`, `clear:`, `type: … into:` and `swipe: … target:` find the element whose
   text, hint or id is exactly the target. An element whose text joins parts (an iOS `Email: a@b.c`, an Android
   `Go (Go now)`) also matches each part on its own. `tap: Save` never taps *Unsaved changes* or *Save draft*.
 - `see:`, `not_see:` and `scroll_to:` match one element's text exactly, not a part of any text on the screen:
   `see: "Taps: 2"` no longer passes on *Taps: 20*, and `not_see: Error` passes while *Error: none* shows.
-- When nothing matches but a text is close (another case, or longer text containing the target), the step fails
-  with `close but not exact: '…'`. Close texts are never used, and Jev isn't asked.
+- When nothing matches but a longer text contains the target, the step fails with `close but not exact: '…'`. Close texts are never used, and Jev isn't asked.
 - When Jev chooses the element (a description such as `tap: the gear icon`, or among several exact matches), the
   step's output says so: `on button 'Settings' (chosen by Jev)`.
 - Lockfiles: a question to Jev can change where the elements it chooses from changed, so a recorded run may ask

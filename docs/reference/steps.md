@@ -44,7 +44,7 @@ Each takes one value or a list. Checks keep trying for up to 10 seconds, or the 
 
 ### Matching
 
-Text is matched **exactly**, never as part of a longer text, and case matters. An element matches a target when one of these is exactly the target:
+Text is matched **exactly**: the whole text, never part of a longer text. Case doesn't matter, because platforms show the same text in different case (Android draws many buttons in capitals; the permission prompt says *Don't allow* on Android and *Don't Allow* on iOS). An element matches a target when one of these is the target:
 
 | | Example: the element | matches |
 |---|---|---|
@@ -54,9 +54,9 @@ Text is matched **exactly**, never as part of a longer text, and case matters. A
 | its hint (placeholder) | a field with the hint `Search` | `Search` |
 | its id (resource id or accessibility identifier) | `login_button` | `login_button` |
 
-So `tap: Save` never taps *Unsaved changes* or *Save draft*, and `see: "Taps: 2"` never passes on *Taps: 20*. Spaces inside a screen's text are collapsed to one, as the parsers read it.
+So `tap: Save` never taps *Unsaved changes* or *Save draft*, and `see: "Taps: 2"` never passes on *Taps: 20*; `tap: Save nickname` does tap *SAVE NICKNAME*. Spaces inside a screen's text are collapsed to one, as the parsers read it.
 
-When nothing matches exactly but something is close (the same text in another case, or a longer text containing the target), the step fails and lists what's there, so you can fix the test file. A close text is never used:
+When nothing matches but a longer text contains the target, the step fails and lists what's there, so you can fix the test file. A close text is never used:
 
 ```
 ✗ tap: Save — Could not find element 'Save' on screen; close but not exact: 'Unsaved changes', 'Save draft'
