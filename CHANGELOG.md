@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.2
 
 - The Android agent reads the screen's rotation and a checkbox's state with the current Android APIs (the old ones
   are deprecated), and compiles without a warning.
