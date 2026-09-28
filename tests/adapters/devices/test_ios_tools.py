@@ -101,8 +101,10 @@ def test_http_post_roundtrip(monkeypatch):
         return R()
 
     monkeypatch.setattr(urllib.request, "urlopen", urlopen)
-    assert ios_tools.http_post("http://127.0.0.1:1/x", {"a": 1}, timeout=3) == {"ok": True}
-    assert json.loads(seen[0][0].data) == {"a": 1} and seen[0][1] == 3
+    assert ios_tools.http_post("http://127.0.0.1:1/x", {"a": 1}, timeout=3, token="t0k") == {"ok": True}
+    req, timeout = seen[0]
+    assert json.loads(req.data) == {"a": 1} and timeout == 3
+    assert req.get_header("X-jevtest-token") == "t0k"  # the agent refuses a request without the run's token
 
 
 def test_phones_lists_connected_real_iphones(env):

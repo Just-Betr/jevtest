@@ -38,7 +38,13 @@ def test_starts_agent_on_simulator(env):
     assert cmd[:2] == ["xcodebuild", "test-without-building"] and cmd[-1] == "id=A"
     assert ready == "JEVTEST_AGENT_READY"  # returns the moment the agent says so, no polling
     assert run_env["TEST_RUNNER_JEVTEST_PORT"] == "8123"
+    assert run_env["TEST_RUNNER_JEVTEST_TOKEN"] == d.token and len(d.token) >= 40  # random, per run
+    assert run_env["TEST_RUNNER_JEVTEST_LOCAL_ONLY"] == "1"  # a simulator's agent listens on 127.0.0.1 only
     assert d.agent_log.name == "ios-agent-8123.log"
+
+
+def test_each_device_gets_its_own_token(env):
+    assert IOSDevice("A", Path("Demo.app"), PROGRESS).token != IOSDevice("A", Path("Demo.app"), PROGRESS).token
 
 
 def test_agent_is_built_when_missing(env, monkeypatch, tmp_path):

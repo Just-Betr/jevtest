@@ -78,8 +78,9 @@ def test_agent_on_a_phone_is_reached_through_the_tunnel(tmp_path, phone):
     d = IOSDevice("BH", signed_app(tmp_path), PROGRESS)
     assert (d.physical, d.team, d.host) == (True, "TEAM1", "[fd00::1]")
     assert d._url("/tree") == "http://[fd00::1]:8123/tree"
-    cmd = phone[2][0][0]
+    cmd, _, run_env = phone.procs[0]
     assert cmd[-1] == "id=00008150-X"
+    assert run_env["TEST_RUNNER_JEVTEST_LOCAL_ONLY"] == "0"  # reached over the USB tunnel: the token guards it
 
 
 def test_ipv4_tunnel_address_has_no_brackets(tmp_path, phone):

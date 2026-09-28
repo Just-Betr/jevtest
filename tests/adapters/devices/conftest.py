@@ -152,7 +152,9 @@ SIMS = {
 
 
 class Agent:
-    """Stands in for the XCUITest agent's HTTP API."""
+    """Stands in for the XCUITest agent's HTTP API. Like the real one, it refuses a call without the run's token."""
+
+    token = ""  # set from the device's environment when the fake start_process starts the agent
 
     def __init__(self):
         self.replies: dict[str, object] = {
@@ -163,7 +165,8 @@ class Agent:
         }
         self.calls: list[tuple[str, dict[str, object]]] = []
 
-    def __call__(self, url, body, timeout):
+    def __call__(self, url, body, timeout, token):
+        assert token == self.token, "every agent call must carry the device's token"
         path = url.split("8123", 1)[1]
         self.calls.append((path, body))
         reply = self.replies.get(path, {"ok": True})
@@ -227,6 +230,7 @@ def env(monkeypatch, tmp_path):
 
     def start_process(cmd, ready, log, timeout, env):
         procs.append((cmd, ready, env))
+        agent.token = env["TEST_RUNNER_JEVTEST_TOKEN"]
         return "proc"
 
     swap(monkeypatch, "start_process", start_process)

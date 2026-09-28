@@ -209,11 +209,10 @@ def app_bundle(app_path: Path, workdir: Path) -> Path:
     raise DeviceError(f"iOS needs an .app (or a .zip/.ipa containing one), got {app_path.name}")
 
 
-def http_post(url: str, body: Mapping[str, object], timeout: float) -> Object:
-    """A POST to the agent; its JSON reply."""
-    req = urllib.request.Request(
-        url, method="POST", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
-    )
+def http_post(url: str, body: Mapping[str, object], timeout: float, token: str) -> Object:
+    """A POST to the agent, carrying the run's token (the agent refuses a request without it); its JSON reply."""
+    headers = {"Content-Type": "application/json", "X-Jevtest-Token": token}
+    req = urllib.request.Request(url, method="POST", data=json.dumps(body).encode(), headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw: bytes = resp.read()
     return as_object(parse_json(raw, "the iOS agent's reply"), "the iOS agent's reply")

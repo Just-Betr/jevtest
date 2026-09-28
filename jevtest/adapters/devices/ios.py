@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import secrets
 import shutil
 import subprocess
 import tempfile
@@ -77,6 +78,7 @@ class IOSDevice(BaseDevice):
         self.udid, self.name, self.physical = target.udid, target.name, target.physical
         self._tmp = tempfile.TemporaryDirectory()
         self.port = free_port()
+        self.token = secrets.token_urlsafe(32)  # the agent serves only requests that carry this run's token
         self.host = "127.0.0.1"
         self.agent: subprocess.Popen[str] | None = None
         self.app_id = ""
@@ -129,7 +131,12 @@ class IOSDevice(BaseDevice):
 
     def _start_agent(self) -> None:
         """Build the agent if needed and start it on the device; on an iPhone, find its tunnel address."""
-        env = dict(os.environ, TEST_RUNNER_JEVTEST_PORT=str(self.port))
+        env = dict(
+            os.environ,
+            TEST_RUNNER_JEVTEST_PORT=str(self.port),
+            TEST_RUNNER_JEVTEST_TOKEN=self.token,
+            TEST_RUNNER_JEVTEST_LOCAL_ONLY="0" if self.physical else "1",  # an iPhone is reached over USB
+        )
         with AGENT_LOCK:
             xctestrun = self._build_agent()
             try:
@@ -183,7 +190,7 @@ class IOSDevice(BaseDevice):
         """
         body.setdefault("bundle_id", self.app_id)
         try:
-            data = http_post(self._url(path), body, timeout=AGENT_CALL_TIMEOUT)
+            data = http_post(self._url(path), body, timeout=AGENT_CALL_TIMEOUT, token=self.token)
         except OSError as e:
             if not self.physical:
                 raise DeviceError(
@@ -191,7 +198,7 @@ class IOSDevice(BaseDevice):
                 ) from None
             try:  # the phone's tunnel address changes when it relocks: look it up again, once
                 self.host = self._tunnel_host()
-                data = http_post(self._url(path), body, timeout=AGENT_CALL_TIMEOUT)
+                data = http_post(self._url(path), body, timeout=AGENT_CALL_TIMEOUT, token=self.token)
             except (OSError, DeviceError) as again:
                 raise DeviceError(
                     f"Lost the agent on {self.name} during {path} ({again}). "

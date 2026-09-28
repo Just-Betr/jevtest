@@ -3,9 +3,12 @@ import Foundation
 import Network
 import XCTest
 
-// jevtest iOS agent: a long-running UI test that serves the simulator's
-// accessibility tree and touch input over HTTP on 127.0.0.1:$JEVTEST_PORT.
-// Every request is a POST with a JSON body; every reply is JSON.
+// jevtest iOS agent: a long-running UI test that serves the device's accessibility tree and touch input over
+// HTTP on $JEVTEST_PORT. Every request is a POST with a JSON body; every reply is JSON.
+//
+// Only jevtest may use it: every request must carry the run's secret token ($JEVTEST_TOKEN) in the
+// X-Jevtest-Token header, or it is refused. On a simulator ($JEVTEST_LOCAL_ONLY=1) it also listens on the
+// loopback interface only; on an iPhone jevtest reaches it through the USB tunnel, so the token is what guards it.
 
 final class JevAgentUITests: XCTestCase {
     private var app: XCUIApplication?
@@ -15,6 +18,7 @@ final class JevAgentUITests: XCTestCase {
     private static let quiet: TimeInterval = 0.15        // same quiet window as the Android agent
     private static let pollInterval: TimeInterval = 0.05 // no change events on iOS: this is the pace
     private var issues: [String] = []
+    private var token = Data()
 
     // A failed XCUITest call (e.g. typing with no focus) would normally fail and end
     // this long-running test, killing the agent. Record it and report it instead.
@@ -24,8 +28,18 @@ final class JevAgentUITests: XCTestCase {
 
     func testServe() throws {
         continueAfterFailure = true
-        let port = UInt16(ProcessInfo.processInfo.environment["JEVTEST_PORT"] ?? "") ?? 8123
-        let listener = try NWListener(using: .tcp, on: NWEndpoint.Port(rawValue: port)!)
+        let env = ProcessInfo.processInfo.environment
+        let port = UInt16(env["JEVTEST_PORT"] ?? "") ?? 8123
+        guard let secret = env["JEVTEST_TOKEN"], !secret.isEmpty else {
+            print("JEVTEST_AGENT_ERROR JEVTEST_TOKEN is not set: refusing to serve without one")
+            return
+        }
+        token = Data(secret.utf8)
+        let parameters = NWParameters.tcp
+        if env["JEVTEST_LOCAL_ONLY"] == "1" {
+            parameters.requiredInterfaceType = .loopback  // a simulator is reached on 127.0.0.1 only
+        }
+        let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!)
         listener.newConnectionHandler = { [weak self] conn in
             conn.start(queue: .global())
             self?.receive(conn, buffer: Data())
@@ -44,7 +58,11 @@ final class JevAgentUITests: XCTestCase {
             guard let self else { return }
             var buf = buffer
             if let data { buf.append(data) }
-            if let (path, body) = Self.parse(buf) {
+            if let (path, body, given) = Self.parse(buf) {
+                guard Self.same(given, self.token) else {
+                    Self.send(conn, ["error": "missing or wrong X-Jevtest-Token"], status: "403 Forbidden")
+                    return
+                }
                 DispatchQueue.main.async {
                     let reply = self.handle(path: path, body: body)
                     Self.send(conn, reply)
@@ -57,24 +75,36 @@ final class JevAgentUITests: XCTestCase {
         }
     }
 
-    private static func parse(_ buf: Data) -> (String, [String: Any])? {
+    /// Compares two tokens in constant time, so response timing reveals nothing about the right one.
+    private static func same(_ a: Data, _ b: Data) -> Bool {
+        guard a.count == b.count, !b.isEmpty else { return false }
+        return zip(a, b).reduce(UInt8(0)) { $0 | ($1.0 ^ $1.1) } == 0
+    }
+
+    private static func parse(_ buf: Data) -> (String, [String: Any], Data)? {
         guard let headerEnd = buf.range(of: Data("\r\n\r\n".utf8)) else { return nil }
         let head = String(decoding: buf[..<headerEnd.lowerBound], as: UTF8.self)
         let lines = head.components(separatedBy: "\r\n")
         let path = lines.first?.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
         var length = 0
-        for line in lines where line.lowercased().hasPrefix("content-length:") {
-            length = Int(line.split(separator: ":")[1].trimmingCharacters(in: .whitespaces)) ?? 0
+        var given = Data()
+        for line in lines {
+            let lower = line.lowercased()
+            if lower.hasPrefix("content-length:") {
+                length = Int(line.split(separator: ":")[1].trimmingCharacters(in: .whitespaces)) ?? 0
+            } else if lower.hasPrefix("x-jevtest-token:") {
+                given = Data(line.dropFirst("x-jevtest-token:".count).trimmingCharacters(in: .whitespaces).utf8)
+            }
         }
         let bodyData = buf[headerEnd.upperBound...]
         guard bodyData.count >= length else { return nil }
         let json = (try? JSONSerialization.jsonObject(with: Data(bodyData.prefix(length)))) as? [String: Any]
-        return (path, json ?? [:])
+        return (path, json ?? [:], given)
     }
 
-    private static func send(_ conn: NWConnection, _ reply: [String: Any]) {
+    private static func send(_ conn: NWConnection, _ reply: [String: Any], status: String = "200 OK") {
         let body = (try? JSONSerialization.data(withJSONObject: reply)) ?? Data("{}".utf8)
-        var out = Data("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n".utf8)
+        var out = Data("HTTP/1.1 \(status)\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n".utf8)
         out.append(body)
         conn.send(content: out, completion: .contentProcessed { _ in conn.cancel() })
     }
