@@ -81,6 +81,6 @@ Android System **WebView 153** (a Play Store update in September 2026) stopped p
 What to do:
 
 - **Radios and checkboxes:** give the input an `aria-label` with its visible text. It's also what screen readers need.
-- **Text fields:** nothing on the page brings the name back on WebView 153, so exact steps (`type: … into: Your name`) can't find the field. Use a goal instead: `do: Type "Bret" into the name field`. Jev picks the field from the screen, the step's output says so, and the lockfile replays the choice.
+- **Text fields:** only the input's HTML `id` comes through on WebView 153, as the element's id: `type: { text: Bret, into: name }` finds `<input id="name">` on Android (measured). iOS names the same field by its label, not its id, so for one file on both platforms use a goal: `do: Type "Bret" into the name field`. Jev picks the field from the screen, the step's output says so, and the lockfile replays the choice.
 
 Run with `-v` to see every Jev question with its top answers and probabilities.

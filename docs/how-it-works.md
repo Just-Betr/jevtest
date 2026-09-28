@@ -79,6 +79,7 @@ Every wait in jevtest is the same thing: **wait until a condition is true**, che
 | Step | Waits until |
 |---|---|
 | `tap:`, `type: … into:`, `clear:`, `swipe: … target:` | an element says the target and has stopped moving: it's in the same place at two checks in a row (on Android, and drawn the same), so a tap never lands where a sliding page's button was a moment ago (and it isn't under the keyboard) |
+| `type:` without `into:` | the keyboard is up |
 | `see:` / `not_see:` | the text is on screen / gone |
 | `expect:` | Jev judges it true of a screen that stopped moving (asked once per such screen) |
 | a saved `do:` step | its element is on screen and has stopped moving |

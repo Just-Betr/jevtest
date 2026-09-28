@@ -51,7 +51,7 @@ For a WebView to be testable, its content needs to be accessible, which ordinary
 | `into: Your name` (the label) | ✗ the label is separate text beside the field | ✓ |
 | `into: name` (the HTML `id`) | ✓ | ✗ |
 
-So the example types with `do:`, which sees the label next to the field on both. An `aria-label` names an element on both platforms (measured on the page's checkbox: `tap: I agree to the terms` works on each).
+So the example types with `do:`, which sees the label next to the field on both. An `aria-label` on a checkbox or radio names it on both platforms (measured on the page's checkbox: `tap: I agree to the terms` works on each), but not a text field on Android WebView 153 ([Troubleshooting](../troubleshooting.md)).
 
 ## Native screens in a cross-platform app
 
