@@ -548,7 +548,7 @@ def test_failure_inside_use_is_reported(tmp_path, clock, out):
     inner = make_test("Inner", {"see": "Nope", "timeout": 1})
     runner, d, _ = make(tmp_path, clock, out, tests=[make_test("Outer", {"use": "Inner"}, "home")], library=[inner])
     res = runner.run().tests[0]
-    assert res.failure == "use: Inner › see: Nope — Waited 1s until 'Nope' is on screen"
+    assert res.failure == "use: Inner > see: Nope — Waited 1s until 'Nope' is on screen"
     assert "home" not in d.names()
 
 

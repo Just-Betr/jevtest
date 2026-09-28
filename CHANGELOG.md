@@ -66,7 +66,7 @@ emulator and the iOS simulator.
   of a Java stack trace.
 - An `include:` that isn't there names the file that includes it.
 - `jevtest run notes.txt` says test files are .yaml or .yml; `jevtest` alone says a COMMAND is required.
-- A failure inside a `use:` names it: `FAILED Checkout: use: Sign in › see: Welcome — …`.
+- A failure inside a `use:` names it: `FAILED Checkout: use: Sign in > see: Welcome — …`.
 - Jev's API errors show TypeSafe's own message (`Jev HTTP 400: Unknown model: jev-9.9.9`), not the JSON body.
 - A folder run no longer requires YAML in hidden folders (`.github/workflows/ci.yml`) to be a library; test files
   there still run.

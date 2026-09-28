@@ -62,7 +62,7 @@ class StepResult:
             return None
         for inner in self.steps:  # a `use:` step: say which test the failing step is in
             if inner.status is Status.FAIL:
-                return f"{self.step.label} › {inner.failure}"
+                return f"{self.step.label} > {inner.failure}"
         for check in self.checks:
             if check.status is Status.FAIL:
                 return f"{check.check.name}: {check.check.text} — {check.detail}"

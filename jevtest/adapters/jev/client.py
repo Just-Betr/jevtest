@@ -200,6 +200,6 @@ def _message(detail: str) -> str:
         body: object = json.loads(detail)
     except json.JSONDecodeError:
         return detail
-    inner = body.get("detail") if isinstance(body, dict) else None
-    message = inner.get("message") if isinstance(inner, dict) else inner
+    inner = body.get("detail") if is_json_object(body) else None
+    message = inner.get("message") if is_json_object(inner) else inner
     return message if isinstance(message, str) and message else detail
