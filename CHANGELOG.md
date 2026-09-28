@@ -25,8 +25,8 @@ Also:
 - Android: typing into a web page's field in landscape failed with "The text field did not get keyboard focus":
   the page scrolls the focused field to the keyboard's edge, 0 pixels tall, and jevtest looked for it on screen.
   It now asks the device whether a text field has focus, wherever it is.
-- A Jev request that hasn't answered in 15 seconds is retried (was 30): measured against TypeSafe, answers take
-  0.2 s typically and 7.4 s at the slowest, but a few requests in a run never answer.
+- A Jev request that hasn't answered in 15 seconds is asked again (was 30). Measured against TypeSafe with 74
+  real requests: half answered within 0.2 s, but a quarter took 8 to 29 s, and in runs some took over 30 s.
 - The demo's tests pass on a phone lying on its side: they scroll to what is below the screen in landscape and
   close the keyboard before tapping what it covers.
 - **Security:** the iOS agent listened on every network interface without authentication, so while a test ran,

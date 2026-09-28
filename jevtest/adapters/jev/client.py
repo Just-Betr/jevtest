@@ -26,8 +26,8 @@ RETRY_STATUSES = frozenset({408, 429, *range(500, 600)})
 MAX_RETRY_AFTER = 60
 """Seconds: the longest `retry-after` jevtest waits for. A longer one falls back to its own backoff."""
 TIMEOUT = 15
-"""Seconds to wait for one answer. Measured 2026-09-28 against api.typesafe.ai: the median answer takes 0.2 s and
-the slowest of 60 took 7.4 s, but a few requests in a run never answer; after this long one is retried."""
+"""Seconds to wait for one answer before asking again. Measured 2026-09-28 against api.typesafe.ai with 74 real
+requests from a run: half answered within 0.2 s, but a quarter took 8 to 29 s, and in runs some took over 30 s."""
 UNAUTHORIZED = 401
 KEY_HELP = "Create a key at https://console.typesafe.ai/keys"
 PRICE_PER_INPUT_TOKEN: Mapping[str, float] = {"jev-1.13.0": 0.042 / 1_000_000}
