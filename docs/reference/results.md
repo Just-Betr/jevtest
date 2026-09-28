@@ -96,3 +96,5 @@ Everything about one device's run:
 ### Screenshots
 
 The step that fails a test gets a screenshot, numbered in the order taken and named after the test: `001_FAIL_Check_fails.png`. `screenshot: name` steps save one too (`002_home.png`), once the screen has stopped moving.
+
+Screenshots are pictures of the screen, so they show what the app shows: a signed-in email appears as the email, not as `${EMAIL}`. Password fields show dots. Treat a results folder you upload from CI accordingly.

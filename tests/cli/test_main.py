@@ -699,3 +699,26 @@ def test_runs_that_start_in_the_same_second_get_their_own_results_folders(projec
     folders = sorted(p.name for p in (project / "res").iterdir())
     assert folders == ["20260928-120000", "20260928-120000-2", "20260928-120000-3"]
     assert all((project / "res" / f / "junit.xml").exists() for f in folders)
+
+
+@pytest.mark.parametrize(
+    ("tests", "message"),
+    [
+        (
+            "  - {name: A, fresh: true, steps: [{use: B}]}\n",
+            "'Sign in' is a library test: it runs only where a test uses it; --test one that does: A",
+        ),
+        (
+            "  - {name: A, fresh: true, steps: [back]}\n",
+            "'Sign in' is a library test: it runs only where a test uses it; and no test does",
+        ),
+    ],
+)
+def test_asking_for_a_library_test_says_what_runs_it(tmp_path, monkeypatch, fakes, capsys, tests, message):
+    spec_file(tmp_path, tests=tests, extra="include: lib.yaml\n")
+    (tmp_path / "lib.yaml").write_text(
+        "tests:\n  - {name: B, fresh: true, steps: [{use: Sign in}]}\n  - {name: Sign in, fresh: true, steps: [back]}\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    assert fakes.run("--test", "Sign in") == 2
+    assert message in capsys.readouterr().err

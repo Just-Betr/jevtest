@@ -379,6 +379,17 @@ def _only(loaded: Loaded, names: Sequence[str]) -> Loaded:
     """Only the named tests, from whichever files have them."""
     known = {t.name for suite, _ in loaded for t in suite.tests}
     missing = [n for n in names if n not in known]
+    for name in missing:
+        users = [
+            t.name
+            for suite, _ in loaded
+            if name in suite.library
+            for t in suite.tests
+            if any(isinstance(s.action, Use) and s.action.test == name for _, s in _steps(replace(suite, tests=(t,))))
+        ]
+        if any(name in suite.library for suite, _ in loaded):
+            runs_in = f"--test one that does: {', '.join(users)}" if users else "and no test does"
+            raise TestFileError(f"'{name}' is a library test: it runs only where a test uses it; {runs_in}")
     if missing:
         raise TestFileError(f"No test named: {', '.join(missing)}")
     kept = [(replace(s, tests=_named(s.tests, names)), env) for s, env in loaded]
