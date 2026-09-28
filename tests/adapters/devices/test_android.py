@@ -274,8 +274,13 @@ def test_type_into_field_that_never_focuses(drv, adb, agent, monkeypatch):
 
 
 def test_type_text_escapes(drv, adb):
-    drv.type_text("50% off & more\nline2")
-    assert adb.shell() == ["input text '50\\%%soff%s&%smore'", "input keyevent 66", "input text line2"]
+    """`input text` types %s as a space, with no escape: a piece ends after each %, so the text's own %s survives."""
+    drv.type_text("50% off & more\nline2 %s")
+    assert adb.shell() == [
+        "input text 50%; input text '%soff%s&%smore'",
+        "input keyevent 66",
+        "input text line2%s%; input text s",
+    ]
 
 
 def test_type_text_blank_lines_are_just_enter(drv, adb):

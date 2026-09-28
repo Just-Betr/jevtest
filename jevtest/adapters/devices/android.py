@@ -356,12 +356,14 @@ class AndroidDevice(BaseDevice):
         if at:  # focus the field, then wait until it has focus and the keyboard is up
             self.tap(*at)
             self._wait_for_typing()
-        # `input text` needs %s for spaces; newlines become Enter presses.
+        # Newlines become Enter presses. `input text` types %s as a space and has no escape for it, so each piece
+        # ends right after a % and no piece holds a %s of the text's own; spaces are then written as %s (measured).
         for i, line in enumerate(text.split("\n")):
             if i:
                 self.key("enter")
-            if line:
-                self.sh("input text " + shlex.quote(line.replace("%", r"\%").replace(" ", "%s")))
+            pieces = re.findall(r"[^%]*%|[^%]+", line)
+            if pieces:
+                self.sh("; ".join("input text " + shlex.quote(p.replace(" ", "%s")) for p in pieces))
 
     def clear_text(self, element: Element) -> None:
         """Erase a text field: put the cursor after its text, then delete exactly what is there."""

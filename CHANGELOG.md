@@ -25,6 +25,8 @@ emulator and the iOS simulator.
   once: `The app left the foreground after back`.
 - A `do:` that ran out of `max_actions` listed the move it didn't make among those it did; the message now names
   it instead (`Jev's next would be …`).
+- Android typed `%` as `\%`, and `%s` as a space (adb's `input text` has no escape for it): `50%` became `50\%`.
+  Every character now arrives as written (measured on the emulator and a Pixel 4a).
 - `--out` naming a file crashed with a traceback and exit code 1, as if a test had failed. It's now an error before
   anything runs.
 - Two runs started in the same second with the same `--out` shared a results folder, and the second's `junit.xml`
