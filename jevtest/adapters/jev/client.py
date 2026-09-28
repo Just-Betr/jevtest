@@ -21,7 +21,8 @@ from jevtest.domain.failures import ModelError
 from .wire import RawAnswers
 
 API_URL = "https://openrouter.ai/api/v1/systemone"
-RETRY_STATUSES = frozenset({429, 500, 502, 503, 504, 529})
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504, 520, 521, 522, 523, 524, 529})
+"""Temporary failures: rate limits, server errors, and Cloudflare's 52x errors in front of OpenRouter."""
 UNAUTHORIZED = 401
 KEY_HELP = "Create a key at https://openrouter.ai/keys"
 

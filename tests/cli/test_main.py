@@ -285,6 +285,54 @@ def test_interrupt_exits_130(project, fakes):
     assert fakes.run() == 130
 
 
+def test_ctrl_c_during_a_multi_device_run_closes_every_device_once(tmp_path, monkeypatch, fakes):
+    """Each device runs in a daemon thread, which never runs its own cleanup when the run is interrupted."""
+    tests = "  - {name: A, fresh: true, steps: [back]}\n  - {name: B, fresh: true, steps: [back]}\n"
+    f = spec_file(tmp_path, tests=tests, device="device: {android: [One, Two]}\n")
+    monkeypatch.chdir(tmp_path)
+    started = threading.Barrier(3)  # both devices are installing, and the main thread knows it
+    release = threading.Event()
+
+    class Busy(FakeDevice):
+        closes = 0
+
+        @override
+        def install(self, app):
+            started.wait()
+            release.wait(10)  # still busy when Ctrl-C comes
+            return super().install(app)
+
+        @override
+        def close(self):
+            self.closes += 1
+            super().close()
+
+    made: list[Busy] = []
+
+    def make_device(platform, device, app, progress):
+        made.append(Busy())
+        return made[-1]
+
+    real_join = threading.Thread.join
+
+    def interrupted_join(thread, timeout=None):
+        started.wait()
+        raise KeyboardInterrupt
+
+    fakes.make_device = make_device
+    monkeypatch.setattr(threading.Thread, "join", interrupted_join)
+    try:
+        assert fakes.run(files=(str(f),)) == 130
+    finally:
+        monkeypatch.setattr(threading.Thread, "join", real_join)
+        release.set()
+    assert [d.closes for d in made] == [1, 1]  # put back and stopped by the interrupted run itself
+    for thread in threading.enumerate():  # the worker threads finish their own close without closing again
+        if thread is not threading.current_thread() and thread.daemon:
+            thread.join(5)
+    assert [d.closes for d in made] == [1, 1]
+
+
 def test_only_the_env_next_to_the_test_file_is_read(tmp_path, monkeypatch, fakes):
     spec_file(tmp_path / "suite", tests="  - {name: T, fresh: true, steps: [{type: '${SECRET}'}]}\n")
     (tmp_path / ".env").write_text("SECRET=from-the-folder-you-run-in\n")

@@ -5,6 +5,7 @@ Files run one after another; a file's devices run at the same time, one thread e
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import threading
@@ -127,6 +128,24 @@ class Runs:
         self.make_device = make_device
         self.clock = clock
         self.verbose = verbose
+        self._open: list[Device] = []  # devices not closed yet: closed on Ctrl-C too
+        self._open_lock = threading.Lock()
+
+    def _close(self, device: Device) -> None:
+        """Close a device once: whichever comes first, its own job ending or an interrupted run."""
+        with self._open_lock:
+            if device not in self._open:
+                return
+            self._open.remove(device)
+        device.close()
+
+    def close_all(self) -> None:
+        """Close every device still open: put back what steps changed and stop the agents (on Ctrl-C)."""
+        with self._open_lock:
+            left = list(self._open)
+        for device in left:
+            with contextlib.suppress(DeviceError):
+                self._close(device)
 
     def one(self, job: Job, model: LockedModel, printer: Printer) -> JobResult:
         """Run a job's tests on its device and write its report."""
@@ -134,6 +153,8 @@ class Runs:
         device = self.make_device(
             job.platform, job.device, job.app, lambda message: printer.block(job.tag, [f"  {message}..."])
         )
+        with self._open_lock:
+            self._open.append(device)
         listener = ConsoleListener(printer, job.tag, verbose=self.verbose)
         try:
             app_id = device.install(job.app)
@@ -144,7 +165,7 @@ class Runs:
             printer.block(job.tag, [header])
             result = TestRunner(job.suite, device, Brain(model), job.out, clock=self.clock, listener=listener).run()
         finally:
-            device.close()
+            self._close(device)
         write_report(
             job.out / "report.json",
             {
@@ -177,14 +198,19 @@ class Runs:
             except Exception as e:  # noqa: BLE001 - handed to the main thread, which raises it
                 outcomes[i] = e
 
-        # Daemon threads, so Ctrl-C ends the run at once instead of waiting for every device.
+        # Daemon threads, so Ctrl-C ends the run at once instead of waiting for every device. A daemon thread
+        # never runs its cleanup, so on Ctrl-C this thread closes the devices before the run ends.
         threads = [
             threading.Thread(target=work, args=(i, job, model.fork()), daemon=True) for i, job in enumerate(jobs)
         ]
         for t in threads:
             t.start()
-        for t in threads:
-            t.join()
+        try:
+            for t in threads:
+                t.join()
+        except KeyboardInterrupt:
+            self.close_all()
+            raise
         return [_result(job, outcomes[i]) for i, job in enumerate(jobs)]
 
 

@@ -97,6 +97,12 @@ def test_retries_rate_limits_then_succeeds():
     ]
 
 
+@pytest.mark.parametrize("code", [500, 502, 503, 504, 520, 521, 522, 523, 524])
+def test_server_and_cloudflare_errors_are_retried(code):
+    j, slept = client(http_error(code), GOOD)
+    assert j.ask("s", Q).answers == GOOD["answers"] and slept == [0.5]
+
+
 def test_retries_network_errors_then_succeeds():
     j, slept = client(urllib.error.URLError("down"), TimeoutError(), GOOD)
     j.ask("s", Q)
