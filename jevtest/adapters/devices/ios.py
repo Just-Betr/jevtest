@@ -378,13 +378,19 @@ class IOSDevice(BaseDevice):
     def hide_keyboard(self) -> None:
         """Close the keyboard, and wait until it's gone."""
         self._call("/hide_keyboard")
-        self.wait_until(lambda s: not s.keyboard_visible, "The keyboard did not close")
+        self.wait_until(
+            lambda s: not s.keyboard_visible,
+            "The keyboard did not close (jevtest tapped Done, or pressed Return where there's no Done; "
+            "on iOS only the app can close it then, e.g. on Return)",
+        )
 
     # --- device -----------------------------------------------------------------------
     def rotate(self, orientation: Orientation) -> None:
         """Rotate the device; the orientation is put back on close."""
         self._remember("/rotate")
         self._call("/rotate", orientation=orientation)
+        wide = orientation in (Orientation.LANDSCAPE, Orientation.LANDSCAPE_RIGHT)
+        self.wait_until(lambda s: (s.width > s.height) == wide, f"The app did not turn to {orientation}")
 
     def set_location(self, latitude: float, longitude: float) -> None:
         """Simulate a GPS location; on a simulator it's cleared on close."""

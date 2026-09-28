@@ -3,7 +3,11 @@
 ## Unreleased
 
 - `hide_keyboard` waits until the keyboard is gone (it slides away after the key or tap that closes it), and fails
-  if it's still up after 3 seconds.
+  if it's still up after 3 seconds. Checking this showed that on iOS it often didn't close at all: it pressed
+  Return, which a web field ignores. It now taps the Done on the bar above the keyboard, as a person would.
+- iOS `rotate:` waits until the app has turned, like Android, and fails if it doesn't (an app locked to one
+  orientation).
+- The demo's native iOS screen closes its keyboard on Done, like a well-behaved UIKit field.
 - Waiting for a still screen before asking Jev takes at most `settle` per read, so a screen that never stops
   changing (a clock, a progress bar) still gets a question every few seconds instead of one per timeout.
 - When the keyboard closes over an element Jev picked and the screen then shows it twice, the error says so.

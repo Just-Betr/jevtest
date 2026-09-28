@@ -1,5 +1,6 @@
 import json
 import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -208,6 +209,7 @@ def test_agent_commands(drv, env):
         ("/tree", {}),  # closed: the keyboard is gone
         ("/rotate", {}),
         ("/rotate", {"orientation": "landscape"}),
+        ("/tree", {}),  # turned: the app is wider than tall
         ("/idle", {"timeout": 2}),
         ("/idle", {"timeout": 2, "quiet": 0.5}),
         ("/change", {"timeout": 1.5}),
@@ -221,6 +223,23 @@ def test_simctl_device_commands(drv, env):
     drv.grant("photos")
     tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
     assert tails == ["location A set 1.5,-2.5", "openurl A app://x", "privacy A grant photos dev.demo"]
+
+
+def test_rotate_waits_until_the_app_has_turned(drv, env):
+    agent = env[1]
+    portrait = {"width": 402, "height": 874, "elements": [], "keyboard": False}
+    agent.replies["/tree"] = [portrait, {**portrait, "width": 874, "height": 402}]  # the first read: not yet
+    drv.rotate("landscape")
+    paths = [p for p, _ in agent.calls]
+    assert paths[-4:] == ["/rotate", "/tree", "/change", "/tree"]
+
+
+def test_rotate_fails_when_the_app_never_turns(drv, env, monkeypatch):
+    env[1].turns = False  # e.g. an app that allows portrait only
+    ticks = iter([0, 1, 4])
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
+    with pytest.raises(DeviceError, match="The app did not turn to landscape within 3 seconds"):
+        drv.rotate("landscape")
 
 
 def test_what_a_step_changed_is_put_back_on_close(drv, env):

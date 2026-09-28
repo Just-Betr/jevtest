@@ -16,6 +16,7 @@ final class JevAgentUITests: XCTestCase {
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
     private var served = ""  // signature of the tree the client last received
     private static let quiet: TimeInterval = 0.15        // same quiet window as the Android agent
+    private static let barHeight: CGFloat = 60           // points: the most a bar above the keyboard is tall
     private static let pollInterval: TimeInterval = 0.05 // no change events on iOS: this is the pace
     private var issues: [String] = []
     private var token = Data()
@@ -266,9 +267,15 @@ final class JevAgentUITests: XCTestCase {
                     forDuration: 0.05, thenDragTo: point(app, Double(f.width * 0.7), Double(f.height / 2)))
             }
         case "/hide_keyboard":
+            // What a person would tap: the Done on the bar just above the keyboard (web views and many apps
+            // show one), else the keyboard's own Hide keyboard or Done key, else Return. The client checks
+            // that the keyboard really went away.
             if app.keyboards.count > 0 {
-                let done = app.keyboards.buttons.matching(NSPredicate(format: "label IN {'Done','done','Return','return','Hide keyboard'}")).firstMatch
-                if done.exists { done.tap() } else { app.typeText("\n") }
+                let top = app.keyboards.firstMatch.frame.minY
+                let barDone = app.buttons.matching(NSPredicate(format: "label == 'Done'")).allElementsBoundByIndex
+                    .first { $0.isHittable && $0.frame.maxY <= top + 1 && $0.frame.maxY > top - Self.barHeight }
+                let key = app.keyboards.buttons.matching(NSPredicate(format: "label IN {'Hide keyboard','Done','done'}")).firstMatch
+                if let done = barDone { done.tap() } else if key.exists { key.tap() } else { app.typeText("\n") }
             }
         default:
             return ["error": "Unknown command \(path)"]

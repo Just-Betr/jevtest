@@ -168,14 +168,20 @@ class Agent:
             "/state": {"state": 4},
             "/rotate": {"raw": 1},
             "/appearance": {"raw": 1},
-            "/tree": {"width": 402, "height": 874, "elements": [], "keyboard": False},
         }
         self.calls: list[tuple[str, dict[str, object]]] = []
+        self.wide = False  # like the real app: it turns when told to (`turns = False` for one that doesn't)
+        self.turns = True
 
     def __call__(self, url, body, timeout, token):
         assert token == self.token, "every agent call must carry the device's token"
         path = url.split("8123", 1)[1]
         self.calls.append((path, body))
+        if path == "/rotate" and "orientation" in body and self.turns:
+            self.wide = body["orientation"] in ("landscape", "landscape_right")
+        if path == "/tree" and path not in self.replies:
+            width, height = (874, 402) if self.wide else (402, 874)
+            return {"width": width, "height": height, "elements": [], "keyboard": False}
         reply = self.replies.get(path, {"ok": True})
         if isinstance(reply, list):
             reply = reply.pop(0)

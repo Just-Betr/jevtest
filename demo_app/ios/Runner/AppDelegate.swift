@@ -56,6 +56,8 @@ final class NativeViewController: UIViewController {
     nickname.placeholder = "Nickname"
     nickname.text = "Guest"
     nickname.borderStyle = .roundedRect
+    nickname.returnKeyType = .done
+    nickname.addTarget(self, action: #selector(doneEditing), for: .editingDidEndOnExit)  // Done closes the keyboard
     saved.text = "Nothing saved"
     themeState.text = "Theme is light"
     camera.text = "Camera: not asked"
@@ -91,6 +93,7 @@ final class NativeViewController: UIViewController {
   }
 
   @objc private func close() { dismiss(animated: true) }
+  @objc private func doneEditing() {}
   @objc private func save() { saved.text = "Saved: \(nickname.text ?? "")" }
   @objc private func themeChanged(_ sender: UISwitch) { themeState.text = sender.isOn ? "Theme is dark" : "Theme is light" }
 
