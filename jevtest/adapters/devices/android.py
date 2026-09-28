@@ -140,7 +140,10 @@ class AndroidDevice(BaseDevice):
         try:
             return http_get(url, timeout=AGENT_CALL_TIMEOUT)
         except OSError as e:
-            raise DeviceError(f"Lost the Android agent during {path} ({e})") from None
+            raise DeviceError(
+                f"Lost the Android agent during {path} ({e}): something stopped it, such as another tool using UI "
+                "Automation (only one can at a time); the next test starts it again"
+            ) from None
 
     @override
     def close(self) -> None:
@@ -274,6 +277,11 @@ class AndroidDevice(BaseDevice):
             raise DeviceError(
                 f"Android device {self.serial} is asleep or locked: unlock it and keep it awake during the run"
             )
+        if self.agent is not None and self.agent.poll() is not None:
+            # something stopped it mid-run (the test it was in has failed): one test's loss isn't every test's
+            self._progress("the Android agent had stopped: starting it again")
+            run([self.adb, "-s", self.serial, "forward", "--remove", f"tcp:{self.port}"], check=False)
+            self._start_agent()
 
     def app_state(self) -> AppState:
         """Where the app is: running at all, and whether it or its own permission prompt is on top."""

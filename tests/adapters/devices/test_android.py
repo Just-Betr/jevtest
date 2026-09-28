@@ -552,3 +552,14 @@ def test_a_permission_that_cant_be_granted_says_why(drv, adb):
     adb.rules["pm grant"] = DeviceError("device offline")
     with pytest.raises(DeviceError, match="^Can't grant android.permission.CAMERA: device offline$"):
         drv.grant("android.permission.CAMERA")
+
+
+def test_an_agent_that_stopped_is_started_again_before_the_next_test(drv, adb):
+    adb.rules["dumpsys power"] = "  mWakefulness=Awake\n    isKeyguardShowing=false\n"
+    first = drv.agent
+    drv.check_ready()  # running: nothing to do
+    assert drv.agent is first
+    first.running = False  # something stopped it, such as another UI Automation tool
+    drv.check_ready()
+    assert drv.agent is not first and drv.agent.poll() is None
+    assert any("forward --remove tcp:" in c for c in adb.cmds)  # the old port forward goes
