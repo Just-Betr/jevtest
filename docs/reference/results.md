@@ -75,7 +75,7 @@ results/
         report.json
 ```
 
-When several files run, each gets its own folder first: `results/<run>/checkout/android/Pixel_8/`.
+When several files run, each gets its own folder first: `results/<run>/checkout/android/Pixel_8/`. A run that starts in the same second as another one writing to the same `--out` gets `<run>-2`.
 
 ### `junit.xml`
 

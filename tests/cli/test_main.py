@@ -2,6 +2,7 @@ import json
 import os
 import signal
 import threading
+import time
 import types
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -688,3 +689,13 @@ def test_a_results_folder_that_cant_be_made_is_an_error_before_the_run(project, 
     assert fakes.run() == 2
     assert "error: --out res: can't make the results folder res/" in capsys.readouterr().err
     assert fakes.devices == []
+
+
+def test_runs_that_start_in_the_same_second_get_their_own_results_folders(project, fakes, monkeypatch):
+    monkeypatch.setattr(time, "strftime", lambda _: "20260928-120000")
+    fakes.run("--test", "Broken")
+    fakes.run("--test", "Broken")
+    fakes.run("--test", "Broken")
+    folders = sorted(p.name for p in (project / "res").iterdir())
+    assert folders == ["20260928-120000", "20260928-120000-2", "20260928-120000-3"]
+    assert all((project / "res" / f / "junit.xml").exists() for f in folders)

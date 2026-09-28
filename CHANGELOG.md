@@ -27,6 +27,8 @@ emulator and the iOS simulator.
   it instead (`Jev's next would be …`).
 - `--out` naming a file crashed with a traceback and exit code 1, as if a test had failed. It's now an error before
   anything runs.
+- Two runs started in the same second with the same `--out` shared a results folder, and the second's `junit.xml`
+  replaced the first's. Each run now gets its own (`20260928-120000-2`).
 - Screenshot file names dropped letters outside A–Z: `ünïcode` became `n_code`, and a test named in Japanese
   became `screen`.
 - iOS: `rotate:` to an orientation the app doesn't allow says so (most iPhone apps leave out

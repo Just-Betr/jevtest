@@ -6,6 +6,7 @@ Files run one after another; a file's devices run at the same time, one thread e
 from __future__ import annotations
 
 import contextlib
+import itertools
 import os
 import re
 import threading
@@ -249,11 +250,7 @@ def run_command(
     _check_runnable(loaded, options)
     _find_devices(loaded, find_device)
     root = Path(os.path.commonpath([f.parent for f in files]))
-    out = options.out / time.strftime("%Y%m%d-%H%M%S")
-    try:  # before any device is touched: a results folder that can't be made would lose the whole run
-        out.mkdir(parents=True, exist_ok=True)
-    except OSError as e:
-        raise TestFileError(f"--out {options.out}: can't make the results folder {out} ({e.strerror})") from None
+    out = _results_folder(options.out, time.strftime("%Y%m%d-%H%M%S"))
     runs = Runs(make_device, clock, verbose=options.verbose)
     suites: list[JunitSuite] = []
     for suite, env in loaded:  # one file at a time; its devices at the same time
@@ -296,6 +293,27 @@ def _check_runnable(loaded: Loaded, options: RunOptions) -> None:
                 f"--lock {options.lock} asks Jev about every do: and expect:, and {keyless[0]} has them, but "
                 f"{API_KEY} is not set: put it in the .env next to the test file, or in the environment. {KEY_HELP}"
             )
+
+
+def _results_folder(parent: Path, stamp: str) -> Path:
+    """A new folder for this run's results, made before any device is touched.
+
+    One that can't be made would lose the whole run. Another run that started in the same second has `stamp`, so
+    this one gets `stamp-2`, and so on.
+
+    Raises:
+        TestFileError: It can't be made.
+    """
+    for n in itertools.count(1):
+        out = parent / (stamp if n == 1 else f"{stamp}-{n}")
+        try:
+            out.mkdir(parents=True)
+        except FileExistsError:
+            continue
+        except OSError as e:
+            raise TestFileError(f"--out {parent}: can't make the results folder {out} ({e.strerror})") from None
+        return out
+    raise AssertionError  # pragma: no cover - itertools.count never ends
 
 
 def _find_devices(loaded: Loaded, find_device: FindDevice) -> None:
