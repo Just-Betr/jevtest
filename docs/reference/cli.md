@@ -39,6 +39,8 @@ Prune with the same devices you record on: decisions recorded on one device's sc
 | 1 | a test failed |
 | 2 | setup error: bad test file, missing value, no such device, bad arguments |
 | 130 | interrupted (Ctrl-C) |
+| 143 | stopped by SIGTERM (a cancelled CI job) |
+| 129 | stopped by SIGHUP (the terminal closed) |
 
 ## Environment
 

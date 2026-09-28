@@ -28,6 +28,9 @@ Also:
   printed (the console, JSON and JUnit reports, Jev's moves and every message), as the docs promised. Lockfiles no longer depend on anyone's `.env`; recorded lockfiles are asked
   again once with `--lock record`.
 - Ctrl-C during a multi-device run closes every device: puts back what steps changed, stops the agents.
+- SIGTERM (a cancelled CI job) and SIGHUP (a closed terminal) stop a run the same way, instead of leaving the
+  device's agent and port forward behind. The exit code is 128 + the signal: 143 and 129. A signal that was
+  already ignored (`nohup`) stays ignored.
 - A null character in a test-file value is a clear error instead of a crash.
 - Docs: Android System WebView 153 gives web text fields no name, and radios or checkboxes inside their `<label>`
   none either; Troubleshooting says what to do. The demo's web form names its radios and checkbox with

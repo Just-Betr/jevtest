@@ -1,4 +1,6 @@
 import json
+import os
+import signal
 import threading
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -299,6 +301,46 @@ def test_interrupt_exits_130(project, fakes):
 
     fakes.make_device = interrupted
     assert fakes.run() == 130
+
+
+@pytest.mark.parametrize(("signum", "code"), [(signal.SIGTERM, 143), (signal.SIGHUP, 129)])
+def test_a_stop_signal_puts_the_device_back_like_ctrl_c(project, fakes, signum, code):
+    """CI cancels a job with SIGTERM; a closed terminal sends SIGHUP. Either used to leave the agent running."""
+    before = signal.getsignal(signum)
+
+    class Stopped(FakeDevice):
+        @override
+        def install(self, app):
+            os.kill(os.getpid(), signum)
+            return super().install(app)
+
+    made: list[Stopped] = []
+
+    def make_device(*_):
+        made.append(Stopped())
+        return made[-1]
+
+    fakes.make_device = make_device
+    assert fakes.run() == code
+    assert made[0].closed
+    assert signal.getsignal(signum) == before  # jevtest's handler is gone once it returns
+
+
+def test_a_stop_signal_that_is_ignored_stays_ignored(project, fakes):
+    """``nohup`` ignores SIGHUP so a run survives its terminal; jevtest keeps it that way."""
+    seen = []
+
+    def make_device(*_):
+        seen.append(signal.getsignal(signal.SIGHUP))
+        raise DeviceError("seen enough")
+
+    fakes.make_device = make_device
+    previous = signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    try:
+        assert fakes.run() == 2
+    finally:
+        signal.signal(signal.SIGHUP, previous)
+    assert seen == [signal.SIG_IGN]
 
 
 def test_ctrl_c_during_a_multi_device_run_closes_every_device_once(tmp_path, monkeypatch, fakes):

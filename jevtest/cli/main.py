@@ -8,12 +8,14 @@ devices for a platform share its tests and run at the same time, as do the platf
 are already running; it never starts, stops or manages them. Nothing is assumed: anything missing or wrong is an
 error that says what to fix.
 
-Exit codes: 0 all tests passed, 1 a test failed, 2 something needs fixing first, 130 interrupted.
+Exit codes: 0 all tests passed, 1 a test failed, 2 something needs fixing first, 128 + the signal when stopped
+(130 Ctrl-C, 143 SIGTERM as CI sends on cancel, 129 SIGHUP when the terminal closes).
 """
 
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -73,6 +75,22 @@ def parser() -> argparse.ArgumentParser:
     return p
 
 
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGHUP)
+"""Signals that stop a run like Ctrl-C. One that is already ignored (``nohup`` ignores SIGHUP) stays ignored."""
+
+
+class Stopped(KeyboardInterrupt):
+    """A stop signal, raised like Ctrl-C so every device is put back and its agent stopped before jevtest exits."""
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(signum)
+        self.signum = signum
+
+
+def _stop(signum: int, _frame: object) -> None:
+    raise Stopped(signum)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -93,10 +111,14 @@ def main(
         prune_lock=args.prune_lock,
         verbose=args.verbose,
     )
+    previous = {s: signal.signal(s, _stop) for s in STOP_SIGNALS if signal.getsignal(s) is signal.SIG_DFL}
     try:
         return run_command(options, devices, client, clock or SystemClock())
     except JevtestError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    except KeyboardInterrupt:
-        return 130
+    except KeyboardInterrupt as e:
+        return 128 + (e.signum if isinstance(e, Stopped) else signal.SIGINT)
+    finally:
+        for s, handler in previous.items():
+            signal.signal(s, handler)

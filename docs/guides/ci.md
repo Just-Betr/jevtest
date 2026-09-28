@@ -87,4 +87,5 @@ Test files take the device name from the environment (`device: { android: "${AND
 | 0 | every test passed |
 | 1 | a test failed |
 | 2 | setup error: bad test file, missing value, no such device, … |
-| 130 | interrupted |
+| 130 | interrupted (Ctrl-C) |
+| 143 | stopped by SIGTERM, as CI sends when a job is cancelled: devices are put back and agents stopped first |
