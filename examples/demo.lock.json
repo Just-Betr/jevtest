@@ -1,280 +1,416 @@
 {
  "decisions": {
-  "04cf991fcc93c7f7585f024a16960b2b32c3a01d6b45d52476afc635ad621370": {
+  "01b942a2fc0b0f26f595bd2ad71aa40f43a9837c3da46fd82f7d9d9994d2a242": {
    "answers": {
     "action": {
      "choice": "tap",
-     "confidence": 0.51,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "hide_keyboard": 0.01,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0,
-      "scroll_down": 0.02,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.55,
-      "type": 0.42,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
      "confidence": 0.98,
      "probabilities": {
-      "e2": 0.01,
-      "e3": 0.99
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0,
-      "e2": 0,
-      "e3": 1,
-      "e4": 0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 0,
-      "v1": 1
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "069e47dc6b4f84805da4280c262c30d991874000cd5681f7808343d2c136dd8f": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.77,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.22,
-      "type": 0.78,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 1,
-     "probabilities": {
-      "e2": 1,
-      "e3": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 1,
-     "probabilities": {
-      "e1": 0,
-      "e2": 1,
-      "e3": 0,
-      "e4": 0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 0.99,
-     "probabilities": {
-      "v0": 1,
-      "v1": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "0aa0c35c905416143487648f28d7540014fcfd74b78fb3a740baaa3463f01736": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 1,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 0.3,
-     "probabilities": {
-      "e13": 0.35,
-      "e8": 0.65
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e16",
-     "confidence": 0.64,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0.3,
-      "e15": 0.01,
-      "e16": 0.66,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0,
-      "e22": 0,
-      "e23": 0,
-      "e24": 0,
-      "e25": 0.01,
-      "e26": 0,
-      "e27": 0,
-      "e28": 0,
-      "e29": 0,
-      "e3": 0.02,
-      "e30": 0,
-      "e31": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "0fc320b160e9e649e747e9a48b3a6dc98f8d4bcfbf4f5b7a2d8febda56b2a410": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.94,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0.02,
-      "double_tap": 0,
-      "hide_keyboard": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0.03,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.95,
-      "type": 0,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.49,
-     "probabilities": {
-      "e2": 0.25,
-      "e3": 0.75
+      "back": 0.0,
+      "done": 0.01,
+      "double_tap": 0.01,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.98,
+      "wait": 0.0
      },
      "type": "choice"
     },
     "target": {
      "choice": "e4",
-     "confidence": 0.98,
+     "confidence": 1.0,
      "probabilities": {
-      "e1": 0,
-      "e2": 0,
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 1.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "02f35102b3df0d5c944bbe8075326fc26b80f45ee5cdb700d202eec4a58b20d1": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 0.96,
+     "probabilities": {
+      "e13": 0.02,
+      "e8": 0.98
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e9",
+     "confidence": 0.91,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
       "e3": 0.01,
-      "e4": 0.99,
-      "e5": 0
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.07,
+      "e9": 0.92
      },
      "type": "choice"
     },
     "value": {
      "choice": "v0",
-     "confidence": 0.35,
+     "confidence": 1.0,
      "probabilities": {
-      "v0": 0.68,
-      "v1": 0.32
+      "v0": 1.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "14c319ee6055ade20f8e87b6f6641c8df18545d370b9bd951e8123d97dd9b998": {
+  "08541a4c0971b2cc38b528d09c3212e22e613d61b7c16e2e5e35c6a9e4cb5025": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.98,
+     "probabilities": {
+      "back": 0.0,
+      "done": 0.99,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.01,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.94,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.96,
+      "e9": 0.04
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "085c55b6335f39a365c3f2676ea389f9a8eda8c9c91b7f7b589dcd3be0c1ec3f": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 0.35,
+     "probabilities": {
+      "e13": 0.32,
+      "e8": 0.68
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e16",
+     "confidence": 0.62,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.31,
+      "e15": 0.01,
+      "e16": 0.65,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.01,
+      "e26": 0.0,
+      "e27": 0.0,
+      "e28": 0.0,
+      "e29": 0.0,
+      "e3": 0.02,
+      "e30": 0.0,
+      "e31": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "1000ce657afff38d1d956f206787ba5842574df0bc8e897c0ce140afd1b51225": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 1.0,
+     "probabilities": {
+      "e13": 0.0,
+      "e8": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.79,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.01,
+      "e26": 0.0,
+      "e27": 0.0,
+      "e28": 0.01,
+      "e29": 0.05,
+      "e3": 0.0,
+      "e30": 0.02,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.01,
+      "e7": 0.0,
+      "e8": 0.81,
+      "e9": 0.09
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "11bbaf7dddddca1da276f13afd9168a6f6778df6e931c4037b9a7d962a3fb70a": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.72,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.26,
+      "type": 0.74,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e2",
+     "confidence": 1.0,
+     "probabilities": {
+      "e2": 1.0,
+      "e3": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 0.99,
+      "e3": 0.0,
+      "e4": 0.01
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0,
+      "v1": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "1212862652a18a0ae09e9921f92db68cdd1d0c87c6e95266ed17927c10f5f8cd": {
    "answers": {
     "action": {
      "choice": "done",
      "confidence": 0.99,
      "probabilities": {
-      "back": 0,
-      "clear": 0,
+      "back": 0.0,
+      "clear": 0.0,
       "done": 0.99,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
       "tap": 0.01,
-      "wait": 0
+      "wait": 0.0
      },
      "type": "choice"
     },
     "field": {
      "choice": "e7",
-     "confidence": 0.71,
+     "confidence": 0.5,
      "probabilities": {
-      "e11": 0.15,
-      "e7": 0.85
+      "e11": 0.25,
+      "e7": 0.75
      },
      "type": "choice"
     },
@@ -282,53 +418,116 @@
      "choice": "e13",
      "confidence": 0.93,
      "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0.04,
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.03,
       "e13": 0.93,
-      "e14": 0,
-      "e15": 0,
-      "e16": 0,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0.02,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0,
-      "e22": 0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.02,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
       "e3": 0.01,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "1b057d905e31f2617df9e0ea12cf0971c6513fc1710b0ba0ecc841920ae928a2": {
+  "12a0a7db7f102351fac6ad1366e250dbe1ecd18958de1870495e5214921e0ef8": {
    "answers": {
     "action": {
      "choice": "tap",
-     "confidence": 0.77,
+     "confidence": 0.98,
      "probabilities": {
-      "back": 0,
-      "done": 0,
-      "double_tap": 0.21,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.79,
-      "wait": 0
+      "back": 0.0,
+      "done": 0.0,
+      "double_tap": 0.01,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.99,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 1.0,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 1.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "14b76c5529dedcf8e99567875581d30945f976ea5e88edf1249c0aab973d72d9": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.93,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.03,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.02,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.95,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.16,
+     "probabilities": {
+      "e2": 0.42,
+      "e3": 0.58
      },
      "type": "choice"
     },
@@ -336,178 +535,1060 @@
      "choice": "e4",
      "confidence": 0.99,
      "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 0.99,
-      "e5": 0,
-      "e6": 0.01,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
+      "e1": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 1.0,
+      "e5": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v1",
+     "confidence": 0.14,
+     "probabilities": {
+      "v0": 0.43,
+      "v1": 0.57
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "1c9ea0155cc772ea907f8e206702b4ae2440ad816f64599880ae1f2dea76b169": {
+  "1896798e6b160a58d05a6d34c6ab4e10fa2bfa5b2a0d4e17f82eee51fa2c32d6": {
+   "answers": {
+    "check": {
+     "noul": 0.98,
+     "type": "noul"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "1984e31a8c47a2b736c46423eb7be7cb6ea6fca3753b34e8ca77c74b80ae6129": {
    "answers": {
     "check": {
      "noul": 0.95,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "2254ceb535a51c5efac366d5f8b1e3044f49acff8fd6b5b4aac0aa72c40ca571": {
+  "1ba4ca09f7be81878bd6de0ec8291eebd942e9c77cd5a498f8cea432a6550f4a": {
    "answers": {
     "action": {
-     "choice": "done",
-     "confidence": 0.84,
+     "choice": "tap",
+     "confidence": 1.0,
      "probabilities": {
-      "back": 0,
-      "clear": 0.01,
-      "done": 0.86,
-      "double_tap": 0,
-      "hide_keyboard": 0.02,
-      "impossible": 0.02,
-      "long_press": 0,
-      "press_enter": 0.03,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 1.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e4",
+     "confidence": 1.0,
+     "probabilities": {
+      "e4": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e21",
+     "confidence": 0.97,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.02,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.98,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "1e8f7e7c8c2d38782cb6a6568ce823ba696433d37cac42d791cf3f5099ecbc2b": {
+   "answers": {
+    "check": {
+     "noul": 0.81,
+     "type": "noul"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "237564efe3f52aa630dc9d4c9ca06de597ad0fefb88b951c9436e676c4455076": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.92,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.01,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.03,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
       "tap": 0.03,
-      "type": 0.01,
-      "wait": 0.02
+      "type": 0.93,
+      "wait": 0.0
      },
      "type": "choice"
     },
     "field": {
      "choice": "e3",
-     "confidence": 0.48,
+     "confidence": 0.99,
      "probabilities": {
-      "e2": 0.26,
-      "e3": 0.74
+      "e2": 0.0,
+      "e3": 1.0
      },
      "type": "choice"
     },
     "target": {
-     "choice": "e4",
-     "confidence": 0.7,
+     "choice": "e3",
+     "confidence": 0.95,
      "probabilities": {
-      "e1": 0.01,
-      "e2": 0.04,
-      "e3": 0.14,
-      "e4": 0.75,
-      "e5": 0.06
+      "e1": 0.0,
+      "e2": 0.0,
+      "e3": 0.97,
+      "e4": 0.01,
+      "e5": 0.02
      },
      "type": "choice"
     },
     "value": {
      "choice": "v1",
-     "confidence": 0,
+     "confidence": 1.0,
      "probabilities": {
-      "v0": 0.5,
-      "v1": 0.5
+      "v0": 0.0,
+      "v1": 1.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "2bddcf9c41090ce06f15e62c39716b2ec7381c1335044a3076b081009dde958a": {
+  "2418329d7a7025f1adf479648ede1693adf1a458937a90e851783d5747fb1752": {
    "answers": {
     "action": {
      "choice": "tap",
-     "confidence": 1,
+     "confidence": 1.0,
      "probabilities": {
-      "back": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 1,
-      "wait": 0
+      "back": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 1.0,
+      "wait": 0.0
      },
      "type": "choice"
     },
     "target": {
-     "choice": "e6",
-     "confidence": 0.99,
+     "choice": "e8",
+     "confidence": 1.0,
      "probabilities": {
-      "e1": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0.99,
-      "e7": 0.01,
-      "e8": 0
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 1.0,
+      "e9": 0.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "2f41a1163422ca33ee5bcd84562d796a5f210ac8355a98087880cf731c78f2b9": {
+  "283d960541abc7dbddd9da4cea79326f611f97015fbf7302200255ae4599ccec": {
    "answers": {
     "action": {
-     "choice": "tap",
-     "confidence": 0.9,
+     "choice": "done",
+     "confidence": 0.98,
      "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0.04,
-      "double_tap": 0,
-      "hide_keyboard": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0.05,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.91,
-      "type": 0,
-      "wait": 0
+      "back": 0.0,
+      "clear": 0.02,
+      "done": 0.98,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "wait": 0.0
      },
      "type": "choice"
     },
     "field": {
-     "choice": "e3",
-     "confidence": 0.66,
+     "choice": "e7",
+     "confidence": 1.0,
      "probabilities": {
-      "e2": 0.17,
-      "e3": 0.83
+      "e11": 0.0,
+      "e7": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e7",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 1.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "2be73185f50a7e56b5b4dc00e82bfff37203bcb4db90364214b3cb16c307ba34": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.47,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.51,
+      "type": 0.49,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e11",
+     "confidence": 1.0,
+     "probabilities": {
+      "e11": 1.0,
+      "e7": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e11",
+     "confidence": 1.0,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 1.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "2da40c4a984c27b608e08f8cb7bac0b46490ab1f0976cb81b4493c23adc09e71": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.94,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.02,
+      "long_press": 0.0,
+      "scroll_down": 0.01,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.03,
+      "type": 0.94,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 0.99,
+     "probabilities": {
+      "e13": 0.0,
+      "e8": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.77,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e3": 0.1,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.79,
+      "e9": 0.11
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "2e55fb9619dd328aa2db3da8aae304ed7d81aadb758c8dbecd4804511935864f": {
+   "answers": {
+    "action": {
+     "choice": "clear",
+     "confidence": 0.98,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.99,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.01,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e7",
+     "confidence": 1.0,
+     "probabilities": {
+      "e11": 0.0,
+      "e7": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e7",
+     "confidence": 1.0,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 1.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "2edba5947e07722ff375410d1481cadcab2f7eed1f7b3b2c01f239e85885eddf": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "wait": 0.0
      },
      "type": "choice"
     },
     "target": {
      "choice": "e4",
-     "confidence": 1,
+     "confidence": 0.89,
      "probabilities": {
-      "e1": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 1
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.06999999999999999,
+      "e4": 0.91,
+      "e5": 0.0,
+      "e6": 0.02,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "3134fc0f646fac2539519087c1d7563a806a3a110361d1353d0b276701a9c3e1": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.98,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.01,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.99,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 1.0,
+     "probabilities": {
+      "e13": 0.0,
+      "e8": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e3": 0.01,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.99,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "33b98c56f6268c2328690f617cb066d1a05f31f59df3455bf26dcc3328d73aa9": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.94,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.05,
+      "done": 0.95,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 1.0,
+     "probabilities": {
+      "e13": 0.0,
+      "e8": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.97,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e26": 0.0,
+      "e27": 0.0,
+      "e28": 0.0,
+      "e29": 0.01,
+      "e3": 0.0,
+      "e30": 0.01,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.98,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "3628139066755b9ab5d6058102474c9ace51d182f20e606fecfc72f91021e0b8": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 1.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 1.0,
+     "probabilities": {
+      "e13": 0.0,
+      "e8": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.96,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e26": 0.0,
+      "e27": 0.0,
+      "e28": 0.0,
+      "e29": 0.0,
+      "e3": 0.0,
+      "e30": 0.03,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.97,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "3b51f97b8ccb82db8a4ce532455841003d3fd7f65fa377308c8b3155df621832": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.75,
+     "probabilities": {
+      "back": 0.0,
+      "done": 0.0,
+      "double_tap": 0.23,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.77,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.99,
+      "e5": 0.0,
+      "e6": 0.01,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "3ca2b4a9663e84c64e51127027584cade37793855600c0059a36a10535523d24": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.86,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.08,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.04,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.88,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e13",
+     "confidence": 0.1,
+     "probabilities": {
+      "e13": 0.55,
+      "e8": 0.45
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e16",
+     "confidence": 0.92,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.03,
+      "e15": 0.0,
+      "e16": 0.93,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e26": 0.0,
+      "e27": 0.0,
+      "e28": 0.0,
+      "e29": 0.0,
+      "e3": 0.04,
+      "e30": 0.0,
+      "e31": 0.0,
+      "e32": 0.0,
+      "e33": 0.0,
+      "e34": 0.0,
+      "e35": 0.0,
+      "e36": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "44ddaddea471b7809f298a7078fe597e318e012d7349510c2d86ab0a94b2bf5b": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.62,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.01,
+      "long_press": 0.0,
+      "scroll_down": 0.03,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.31,
+      "type": 0.65,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e7",
+     "confidence": 1.0,
+     "probabilities": {
+      "e11": 0.0,
+      "e7": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e7",
+     "confidence": 0.91,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e3": 0.06,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.92,
+      "e8": 0.02,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "44eb9a26d1870dc67debc101a860bbcaec138961f99e77f429e368640795eab8": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.99,
+     "probabilities": {
+      "back": 0.0,
+      "done": 0.99,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.01,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.95,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.96,
+      "e9": 0.04
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "45f83cff7bb6bfaa745b014132cfd1a55ec71f84e25e2b44e3c3de77e98d57b1": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.93,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.03,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.03,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.9400000000000001,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.4,
+     "probabilities": {
+      "e2": 0.3,
+      "e3": 0.7
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 1.0,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 1.0
      },
      "type": "choice"
     },
@@ -521,405 +1602,326 @@
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "3b336c0ee27dc30a6c00a26e6be46ca0c622c3e0bf87f7fad62c2c9168c083f8": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.96,
-     "probabilities": {
-      "back": 0,
-      "done": 0.97,
-      "double_tap": 0,
-      "impossible": 0.02,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.01,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 0.3,
-     "probabilities": {
-      "e1": 0.19,
-      "e10": 0.03,
-      "e11": 0,
-      "e12": 0.01,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0.12,
-      "e2": 0.35000000000000003,
-      "e3": 0,
-      "e4": 0.23,
-      "e5": 0,
-      "e6": 0.06,
-      "e7": 0,
-      "e8": 0.01,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "3e86fe12014ad08a71fd9ca97964fa3bdc768a5ab506c0dba8a9b6d8352ecbe3": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.93,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0.04,
-      "double_tap": 0,
-      "hide_keyboard": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0.03,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.93,
-      "type": 0,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.51,
-     "probabilities": {
-      "e2": 0.24,
-      "e3": 0.76
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 1,
-      "e5": 0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 0.07,
-     "probabilities": {
-      "v0": 0.46,
-      "v1": 0.54
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "40d62bbe5cb17237347c474efab37444dd1e2391227ab6b1aeacf16fa5d8f1ff": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.83,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "hide_keyboard": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0,
-      "scroll_down": 0.02,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.14,
-      "type": 0.84,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 1,
-     "probabilities": {
-      "e2": 0,
-      "e3": 1
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.98,
-     "probabilities": {
-      "e1": 0,
-      "e2": 0,
-      "e3": 0.98,
-      "e4": 0.01,
-      "e5": 0.01
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 0,
-      "v1": 1
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "431dff186ed19295ffee619668cb913c0b1e65d7712a6b61d50ad9a3d750ed2e": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1,
-     "probabilities": {
-      "back": 0,
-      "done": 1,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.94,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0.04,
-      "e4": 0.96,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "45cb711237ab7f93afe4916e32d093b89b2de9e0190ee0617c3a398b0367c68d": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 1,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 1,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e4",
-     "confidence": 1,
-     "probabilities": {
-      "e4": 1
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e21",
-     "confidence": 0.94,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0.05,
-      "e14": 0,
-      "e15": 0,
-      "e16": 0,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0.95,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "476fd65f1299481d6acfef9dbf68a61c821bd4af72b1ba7a665fd3acae6893ba": {
+  "47834c595cd0d8642c954aae5e4ecbeaa8b31ed9b4b84f04a1fa37ab192f5572": {
    "answers": {
     "check": {
      "noul": 0.91,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "4827116293876d7d5a927594a8cdd2857a2491f40df41511526e0aff1bf5f984": {
+  "47b7285d71a42c16abda14460d9c8c10a9b39d5c0fdf33200385eee871523917": {
    "answers": {
     "action": {
      "choice": "done",
-     "confidence": 1,
+     "confidence": 1.0,
      "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 1,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0,
-      "type": 0,
-      "wait": 0
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.0,
+      "wait": 0.0
      },
      "type": "choice"
     },
     "field": {
-     "choice": "e8",
-     "confidence": 0.94,
+     "choice": "e7",
+     "confidence": 1.0,
      "probabilities": {
-      "e13": 0.03,
-      "e8": 0.97
+      "e11": 0.0,
+      "e7": 1.0
      },
      "type": "choice"
     },
     "target": {
-     "choice": "e9",
-     "confidence": 0.94,
+     "choice": "e7",
+     "confidence": 0.85,
      "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e16": 0,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0,
-      "e22": 0,
-      "e23": 0,
-      "e24": 0,
-      "e25": 0,
-      "e3": 0.01,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0.04,
-      "e9": 0.95
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.87,
+      "e8": 0.13,
+      "e9": 0.0
      },
      "type": "choice"
     },
     "value": {
      "choice": "v0",
-     "confidence": 1,
+     "confidence": 1.0,
      "probabilities": {
-      "v0": 1
+      "v0": 1.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "48c4b7b37d22aad4650ad62ca9a3a431b47d200c01b94e72be84ea42a2b55aa7": {
+  "4a7ac5bdefdeb746daaea3fb57a3fe9f648e8b8e6e02bd2dda5ad161fc2fb9f5": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.99,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.99,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.01,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e2",
+     "confidence": 1.0,
+     "probabilities": {
+      "e2": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.46,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.28,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.52,
+      "e9": 0.2
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "5084d229b2fa6259bbf93b242ec08b30bb7e67f5f73a7a9bc8eb5ffec93b616b": {
+   "answers": {
+    "check": {
+     "noul": 0.91,
+     "type": "noul"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "537d31f2971f5a8adbd3d1a73544b42b472251f342d313bf6cbc861359d2eef5": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 0.9,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.07,
+      "e4": 0.92,
+      "e5": 0.0,
+      "e6": 0.01,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "540338a0a331f598ad397ab3c24bd9580d587154105a2d832848f2e41122cfd5": {
    "answers": {
     "check": {
      "noul": 0.98,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "4af7b40b0ac688794ce773b08d6c8eb25082c931bdc7ba6a2b580aa8a59c0067": {
+  "576d0147ad639fc3118b6b1d16a3a0ac5d0a757d8363e33db499ef92220347db": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 1.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e6",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.99,
+      "e7": 0.01,
+      "e8": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "5b8e00c756007fc4470ff6caea7fdea4fc8832686f67e2f127b971f88687c4eb": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.45,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.01,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.05,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.48,
+      "type": 0.46,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.91,
+     "probabilities": {
+      "e2": 0.04,
+      "e3": 0.96
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e3",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 0.0,
+      "e3": 0.99,
+      "e4": 0.01
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v1",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 0.0,
+      "v1": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "5b9705a5f064f138c44836d981c00f9e455a95e4b302b1fb09d7e6dbe657ddfc": {
    "answers": {
     "action": {
      "choice": "tap",
      "confidence": 0.97,
      "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
       "hide_keyboard": 0.02,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
       "scroll_down": 0.01,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
       "tap": 0.97,
-      "type": 0,
-      "wait": 0
+      "type": 0.0,
+      "wait": 0.0
      },
      "type": "choice"
     },
     "field": {
      "choice": "e7",
-     "confidence": 0.96,
+     "confidence": 0.97,
      "probabilities": {
       "e11": 0.02,
       "e7": 0.98
@@ -930,992 +1932,74 @@
      "choice": "e8",
      "confidence": 0.99,
      "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e2": 0,
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e2": 0.0,
       "e3": 0.01,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
       "e8": 0.99,
-      "e9": 0
+      "e9": 0.0
      },
      "type": "choice"
     },
     "value": {
      "choice": "v0",
-     "confidence": 1,
+     "confidence": 1.0,
      "probabilities": {
-      "v0": 1
+      "v0": 1.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "4fe7c148262037569a959f4ca8ef528391451c96b9bce08abcbe7ffc760aafbe": {
-   "answers": {
-    "element": {
-     "choice": "e21",
-     "confidence": 0.96,
-     "probabilities": {
-      "e20": 0.02,
-      "e21": 0.98,
-      "not_on_screen": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "55e340d1982d4333a075f967f979da80554be82569de5409b3084f046cb8787a": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.95,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "hide_keyboard": 0.02,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0,
-      "scroll_down": 0.01,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.97,
-      "type": 0,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 0.99,
-     "probabilities": {
-      "e13": 0.01,
-      "e8": 0.99
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e9",
-     "confidence": 0.95,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e16": 0,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0,
-      "e22": 0,
-      "e23": 0,
-      "e24": 0,
-      "e25": 0,
-      "e26": 0,
-      "e27": 0,
-      "e28": 0,
-      "e29": 0,
-      "e3": 0.03,
-      "e30": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0.01,
-      "e9": 0.96
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 1
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "5672b7b7de298250420364013619be5009117fc2aad3b7896950410b92c6455d": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.76,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "hide_keyboard": 0.01,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0,
-      "scroll_down": 0.02,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.19,
-      "type": 0.78,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.97,
-     "probabilities": {
-      "e2": 0.01,
-      "e3": 0.99
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.97,
-     "probabilities": {
-      "e1": 0,
-      "e2": 0,
-      "e3": 0.98,
-      "e4": 0.02
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 0,
-      "v1": 1
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "5866dc366c2a819b12086e67ca864fd0936a9363d0e88d57f8dd5fc8d73c12d3": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0.99,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.01,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 1,
-     "probabilities": {
-      "e2": 1
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.4,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0.34,
-      "e2": 0,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0.47000000000000003,
-      "e9": 0.19
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "58f7559ca7edfa1c01136c1eb8e6c039222b9cd61dc104e47c78b3d3bbbfb4a8": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.85,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "hide_keyboard": 0.08,
-      "impossible": 0.01,
-      "long_press": 0,
-      "press_enter": 0,
-      "scroll_down": 0.04,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.87,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e13",
-     "confidence": 0.36,
-     "probabilities": {
-      "e13": 0.68,
-      "e8": 0.32
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e16",
-     "confidence": 0.92,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0.02,
-      "e15": 0,
-      "e16": 0.93,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0,
-      "e22": 0,
-      "e23": 0,
-      "e24": 0,
-      "e25": 0,
-      "e26": 0,
-      "e27": 0,
-      "e28": 0,
-      "e29": 0,
-      "e3": 0.04,
-      "e30": 0,
-      "e31": 0,
-      "e32": 0,
-      "e33": 0,
-      "e34": 0,
-      "e35": 0,
-      "e36": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "5c4fe3038dadd75f80df64b3bd07156bc2d535bb1b4115f2ada0cf69819c8edb": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0,
-      "done": 0,
-      "double_tap": 0.01,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.99,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 1,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 1,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "603505f1924bb49fdc4ec059486b8c6143e9ecee4e7f99574bedb31f66fd4ac1": {
-   "answers": {
-    "check": {
-     "noul": 0.98,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "61fd19e48a7586fa2efdf7c7dcfa131795ea861f1e8c431b08090798b3a93e96": {
-   "answers": {
-    "check": {
-     "noul": 0.97,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "679ba670e45ee529c45311f91a4b57d4df416e8c2366bbae74f3b95322175a5e": {
-   "answers": {
-    "check": {
-     "noul": 0.99,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "6ada87e84b14a47cade461260df7283ed5ba69b000804e206472595b8a7f4056": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0,
-      "done": 0,
-      "double_tap": 0.01,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.99,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 1,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 1,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "7111aa74c9b7552c8eb468802a9ebe68e4a1866774d958c23db1ec4978c65605": {
-   "answers": {
-    "check": {
-     "noul": 0.9,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "7219527b4aeae6ed78d3cbf30423e660a717e3f00201f1f04158e102077f7391": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.69,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.29,
-      "type": 0.71,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 1,
-     "probabilities": {
-      "e2": 1,
-      "e3": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0,
-      "e2": 1,
-      "e3": 0,
-      "e4": 0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 1,
-      "v1": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "75772b55ae26f56f5b25e015fed4191939373c3c1a2cb1813a9615983eeca517": {
-   "answers": {
-    "check": {
-     "noul": 0.98,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "78810ab13d3ea33cfaa4259d661bdc2e11d1c09942282a66a5578cac939f6c02": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 1,
-     "probabilities": {
-      "back": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 1,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 1,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 1,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "7b5160c4631a1757ecfb537d45ae1d3967ff4c230b04a81aa7f68db7499d6cba": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.94,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "hide_keyboard": 0.01,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0,
-      "scroll_down": 0.02,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.02,
-      "type": 0.95,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.99,
-     "probabilities": {
-      "e2": 0,
-      "e3": 1
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.91,
-     "probabilities": {
-      "e1": 0,
-      "e2": 0,
-      "e3": 0.93,
-      "e4": 0.04,
-      "e5": 0.03
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 0,
-      "v1": 1
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "7c9ffef9d68445e808c6f34a436bc852eb078a3a58a4a765eada328455701cbe": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 1,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 1,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 1,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "8dae58f32a7f977ddf4c973e87d67514ebc604167b056ea83eb2a41365c7ee1f": {
-   "answers": {
-    "check": {
-     "noul": 0.98,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "8e4ec57bd5b32dbf639090bd0358f8552ec48b76324aab962d8ab4b67a53903e": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.92,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "hide_keyboard": 0.05,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0,
-      "scroll_down": 0.02,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.93,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e11",
-     "confidence": 0.19,
-     "probabilities": {
-      "e11": 0.6,
-      "e7": 0.4
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e13",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 1,
-      "e2": 0,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "92962e8d2763251cd4e9f5dffd8e9ec8f959b2f1645f9cb13f5a2ff68063a87e": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.93,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0.02,
-      "double_tap": 0,
-      "hide_keyboard": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0.05,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.93,
-      "type": 0,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 0.06,
-     "probabilities": {
-      "e2": 0.53,
-      "e3": 0.47
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 1,
-     "probabilities": {
-      "e1": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 1
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 0.31,
-     "probabilities": {
-      "v0": 0.66,
-      "v1": 0.34
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "93c997d9b9ea8fb7764de2436e2960106c2cf8448e09f3443f56df4abeedea73": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.97,
-     "probabilities": {
-      "back": 0,
-      "done": 0.97,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.03,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.95,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0.96,
-      "e9": 0.04
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "972a6abb7f30532de935de3a0fda9dcfb8b0f28836540e1b467c2e765a0d950b": {
-   "answers": {
-    "check": {
-     "noul": 0.92,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "9c9e28752007e66bd6b50402889218836890cb34a40a6cec955ccf117b21f71a": {
-   "answers": {
-    "check": {
-     "noul": 0.74,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "a1820fb1bed09999da249af340f4abd0c7fcf13178e58845f16601f6e40d8040": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.93,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0.02,
-      "long_press": 0,
-      "scroll_down": 0.01,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.03,
-      "type": 0.93,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 0.99,
-     "probabilities": {
-      "e13": 0,
-      "e8": 1
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.73,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e16": 0,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0,
-      "e22": 0,
-      "e23": 0,
-      "e24": 0,
-      "e25": 0,
-      "e3": 0.13,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0.75,
-      "e9": 0.12
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 1
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "a261c11d8a1f2333bb2bc21abd08ba03e423a8f50096408ae672cd4fe2a6c7ec": {
-   "answers": {
-    "check": {
-     "noul": 0.83,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "aa4738aa066c61f9fb16774a157f1eb6395bdf9dbc19b6065ffe98fd7c297811": {
-   "answers": {
-    "check": {
-     "noul": 0.82,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "abb438b3b4a69ee5d435fcef9df77fe6f9fb2e2f773139c6678bcb5ae00d04db": {
+  "5c55da099b7884140cf84283c1e55a5a54437d1fc96bbb603a85992ef6de696d": {
    "answers": {
     "check": {
      "noul": 0.96,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "b3774f4d5654f80f40dd1cd219ea3672ed2273f7fd599372e96dfd384e68c13d": {
+  "6a4638f6cc7dcd73b98f54e6be011ef72a4b7ef298f79a96407e745f18e5561b": {
    "answers": {
     "check": {
-     "noul": 0.97,
+     "noul": 0.98,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "b4b8e060c03ad8645e28bd35dcd9303efc9b709d8a15619596be6cf2739a4747": {
+  "702ce6dee35a20196dcaa76f104e70fb79260a1a8990ba6c1d5a16d024cb6c48": {
    "answers": {
     "action": {
-     "choice": "done",
-     "confidence": 0.84,
+     "choice": "tap",
+     "confidence": 0.95,
      "probabilities": {
-      "back": 0,
-      "clear": 0.01,
-      "done": 0.84,
-      "double_tap": 0,
-      "hide_keyboard": 0.02,
-      "impossible": 0.03,
-      "long_press": 0,
-      "press_enter": 0.01,
-      "scroll_down": 0.01,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.04,
-      "type": 0.02,
-      "wait": 0.02
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.02,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.02,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.96,
+      "type": 0.0,
+      "wait": 0.0
      },
      "type": "choice"
     },
@@ -1930,218 +2014,156 @@
     },
     "target": {
      "choice": "e4",
-     "confidence": 0.78,
+     "confidence": 0.97,
      "probabilities": {
-      "e1": 0,
-      "e2": 0.01,
-      "e3": 0.09,
-      "e4": 0.81,
-      "e5": 0.02,
-      "e6": 0.07
+      "e1": 0.0,
+      "e2": 0.0,
+      "e3": 0.02,
+      "e4": 0.98,
+      "e5": 0.0
      },
      "type": "choice"
     },
     "value": {
      "choice": "v0",
-     "confidence": 0.05,
+     "confidence": 0.17,
      "probabilities": {
-      "v0": 0.52,
-      "v1": 0.48
+      "v0": 0.58,
+      "v1": 0.42
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "b885dda5576ddfc5ab5dc10557d9f32d2ed8d35262491eac5d9ba0384807572a": {
-   "answers": {
-    "check": {
-     "noul": 0.71,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "bb27e69c2653529712421adc6347aea19e120be858aaf835a56b3cbb65dea7ce": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1,
-     "probabilities": {
-      "back": 0,
-      "done": 1,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.95,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0.04,
-      "e4": 0.96,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "be0badb6014c58c9ed186a0c11bf04d771cbdfddfcb4354c4fcfd7983380d064": {
+  "76c756c0f2bbac1f4954acc4ae2ba49be16eda1bfe41689da49dc167d44f0a25": {
    "answers": {
     "action": {
      "choice": "tap",
-     "confidence": 0.81,
+     "confidence": 0.99,
      "probabilities": {
-      "back": 0,
-      "done": 0,
-      "double_tap": 0.17,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.83,
-      "wait": 0
+      "back": 0.0,
+      "done": 0.01,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.99,
+      "wait": 0.0
      },
      "type": "choice"
     },
     "target": {
-     "choice": "e4",
+     "choice": "e5",
      "confidence": 0.99,
      "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 0.99,
-      "e5": 0,
-      "e6": 0.01,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
+      "e1": 0.0,
+      "e2": 0.01,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.99,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "becbfa483e322e7cfa88194616ba379af1f06d05a2d8b5711879d1e3edec8029": {
+  "772a39a4ed8526bc3b64de51d8e21f3eb13c62858702e48a9778b504f7bd2b2a": {
    "answers": {
     "action": {
      "choice": "type",
-     "confidence": 0.67,
+     "confidence": 1.0,
      "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.31,
-      "type": 0.69,
-      "wait": 0
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 1.0,
+      "wait": 0.0
      },
      "type": "choice"
     },
     "field": {
-     "choice": "e2",
-     "confidence": 1,
+     "choice": "e7",
+     "confidence": 1.0,
      "probabilities": {
-      "e2": 1,
-      "e3": 0
+      "e11": 0.0,
+      "e7": 1.0
      },
      "type": "choice"
     },
     "target": {
-     "choice": "e2",
-     "confidence": 1,
+     "choice": "e7",
+     "confidence": 0.99,
      "probabilities": {
-      "e1": 0,
-      "e2": 1,
-      "e3": 0,
-      "e4": 0
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e2": 0.0,
+      "e3": 0.01,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.99,
+      "e8": 0.0,
+      "e9": 0.0
      },
      "type": "choice"
     },
     "value": {
      "choice": "v0",
-     "confidence": 1,
+     "confidence": 1.0,
      "probabilities": {
-      "v0": 1,
-      "v1": 0
+      "v0": 1.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "c284bfe0e1a1df4e61608a49d138a287a7b92af9eb9c3ccffb140a160dc76a29": {
-   "answers": {
-    "check": {
-     "noul": 0.98,
-     "type": "noul"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "c3f99f77ce4257fd3bb3fd5ac60f49743866bf38228d16aa77200bada024628f": {
+  "77ff9c95b709e03693b9b78fcfc2e655ac663cd9878b905bae33ca3ab267b43c": {
    "answers": {
     "action": {
      "choice": "done",
-     "confidence": 1,
+     "confidence": 1.0,
      "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 1,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0,
-      "type": 0,
-      "wait": 0
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.0,
+      "wait": 0.0
      },
      "type": "choice"
     },
@@ -2149,8 +2171,8 @@
      "choice": "e7",
      "confidence": 0.99,
      "probabilities": {
-      "e11": 0,
-      "e7": 1
+      "e11": 0.0,
+      "e7": 1.0
      },
      "type": "choice"
     },
@@ -2158,115 +2180,1692 @@
      "choice": "e8",
      "confidence": 0.91,
      "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e16": 0,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0,
-      "e22": 0,
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
       "e3": 0.01,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
       "e7": 0.06,
-      "e8": 0.93,
-      "e9": 0
+      "e8": 0.92,
+      "e9": 0.01
      },
      "type": "choice"
     },
     "value": {
      "choice": "v0",
-     "confidence": 1,
+     "confidence": 1.0,
      "probabilities": {
-      "v0": 1
+      "v0": 1.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "c78bc9880b7e7a94a6f32aaa28c63333497f2d148da5663b5de50c3b4bad2ca5": {
+  "7a39c121b0fa83b04a5b168dcc886de94b5300a79ef672ef1214d30766986284": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.49,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.01,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.04,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.42,
+      "type": 0.53,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.96,
+     "probabilities": {
+      "e2": 0.02,
+      "e3": 0.98
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e3",
+     "confidence": 0.98,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 0.0,
+      "e3": 0.99,
+      "e4": 0.01
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v1",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 0.0,
+      "v1": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "7d13f3868536bf6a281ba4788356a2acfbc76e1ed8f1ba1c46de47252fba9f96": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.78,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.2,
+      "type": 0.8,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e2",
+     "confidence": 1.0,
+     "probabilities": {
+      "e2": 1.0,
+      "e3": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 1.0,
+      "e3": 0.0,
+      "e4": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0,
+      "v1": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "81de1f07556fd78ac7db20201859fa2bf772584e22929f30bd4f5b5f33603019": {
    "answers": {
     "check": {
-     "noul": 0.94,
+     "noul": 0.97,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "c97945f1c2e34cd7d9bf553db05ec094e575eeca1d7834be3e367ec7d3a0c167": {
+  "8adcf72f24f222747d9323bd3258b744f6865de5fdedc90c6984dedf57b54af5": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 1.0,
+     "probabilities": {
+      "e13": 0.0,
+      "e8": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.85,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.01,
+      "e26": 0.0,
+      "e27": 0.0,
+      "e28": 0.0,
+      "e29": 0.04,
+      "e3": 0.0,
+      "e30": 0.02,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.86,
+      "e9": 0.06999999999999999
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "8aefdff7b0484ab2374691e122944c9c63f4dde20c3876cc6f8c38208d13b579": {
+   "answers": {
+    "action": {
+     "choice": "clear",
+     "confidence": 0.97,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.98,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.02,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 1.0,
+     "probabilities": {
+      "e13": 0.0,
+      "e8": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e26": 0.0,
+      "e27": 0.0,
+      "e28": 0.0,
+      "e29": 0.0,
+      "e3": 0.0,
+      "e30": 0.01,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.99,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "8b111812fc444985b4b55990919ed2f912d85a906a928afae75dbfb52f6144ed": {
+   "answers": {
+    "check": {
+     "noul": 0.97,
+     "type": "noul"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "8b971d5f3b2c533cab64a5159106c970bd1d0e247397ba22b946eaed00393212": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e7",
+     "confidence": 1.0,
+     "probabilities": {
+      "e11": 0.0,
+      "e7": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e7",
+     "confidence": 0.83,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.85,
+      "e8": 0.15,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "8e33add65bfeff187609a341f3851cfa0ce2f58a91b6c98b71f967c7bb174994": {
+   "answers": {
+    "check": {
+     "noul": 0.96,
+     "type": "noul"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "903389af2457c0ddb6c1bbebef901df9a3189707de11dc78800221d24f844308": {
+   "answers": {
+    "check": {
+     "noul": 0.91,
+     "type": "noul"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "90884764126a044a33320234eab99268c9265dab668488ef648c6e4a992e2d33": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.93,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.05,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.02,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.93,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e11",
+     "confidence": 0.36,
+     "probabilities": {
+      "e11": 0.68,
+      "e7": 0.32
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e13",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 1.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "98d5b0150a039e79093acf265b5e36129a72f996587af6e9785353cd30560587": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.97,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.01,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.01,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.98,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e13",
+     "confidence": 1.0,
+     "probabilities": {
+      "e13": 1.0,
+      "e8": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e13",
+     "confidence": 0.98,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.98,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e3": 0.01,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.01,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "9a8a682bc34a7beffe75894c602cb55c83011059fc46cbf08fa68a2c1b76685c": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.9,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.91,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.01,
+      "impossible": 0.02,
+      "long_press": 0.0,
+      "press_enter": 0.01,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.02,
+      "type": 0.0,
+      "wait": 0.03
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.21,
+     "probabilities": {
+      "e2": 0.39,
+      "e3": 0.61
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 0.72,
+     "probabilities": {
+      "e1": 0.01,
+      "e2": 0.04,
+      "e3": 0.08,
+      "e4": 0.77,
+      "e5": 0.1
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 0.14,
+     "probabilities": {
+      "v0": 0.57,
+      "v1": 0.43
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "a0f9a1617933d54aa4d86e012ed7615f59b58d5ea036a0ae95d546bb6da2befd": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.93,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.02,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.05,
+      "type": 0.93,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.99,
+     "probabilities": {
+      "e2": 0.0,
+      "e3": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e3",
+     "confidence": 0.95,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 0.0,
+      "e3": 0.96,
+      "e4": 0.02,
+      "e5": 0.02
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v1",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 0.0,
+      "v1": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "a76b6405e6e09607334e00046153cdc8d937e39359d19c0d7ca3c2816e1e15c6": {
+   "answers": {
+    "check": {
+     "noul": 0.72,
+     "type": "noul"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "af1c329762690e349a15f46f4af3df4df990b668348df56a9bf23d3002721262": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.97,
+     "probabilities": {
+      "back": 0.0,
+      "done": 0.98,
+      "double_tap": 0.0,
+      "impossible": 0.01,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.01,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 0.28,
+     "probabilities": {
+      "e1": 0.12,
+      "e10": 0.1,
+      "e11": 0.0,
+      "e12": 0.01,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.1,
+      "e2": 0.33,
+      "e3": 0.0,
+      "e4": 0.26,
+      "e5": 0.0,
+      "e6": 0.06,
+      "e7": 0.0,
+      "e8": 0.02,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "b708594beeb9c9a8d767e316fe69868c96bb247af5392d37d3507463b8ca76c2": {
+   "answers": {
+    "check": {
+     "noul": 0.99,
+     "type": "noul"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "b8b07fda2593cacb6e8ab10f35a3d9fd672f2913e6a29e06056e09443b9c4452": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.69,
+     "probabilities": {
+      "back": 0.0,
+      "done": 0.0,
+      "double_tap": 0.28,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.72,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 0.98,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.99,
+      "e5": 0.0,
+      "e6": 0.01,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "be1908875338681f737947015540ba74ce1f094e2ef67b19d9bf2ce925b16cf5": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 1.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.98,
+     "probabilities": {
+      "e2": 0.01,
+      "e3": 0.99
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e3",
+     "confidence": 0.31,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 0.08,
+      "e3": 0.48,
+      "e4": 0.44
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v1",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 0.0,
+      "v1": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "bf2b1ed331a7399dfa43a2fd8487b48daa3833ef7e916c87aae61aeb11e468cc": {
    "answers": {
     "check": {
      "noul": 0.98,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "d515f9687054d79928b411a8c334dd25abd004900449c5fe7756c0c8c05db4b6": {
+  "c0595c6ebecbb05c1fc2623740b78eb89450dd355ed60d213851cc1a2888b80e": {
    "answers": {
     "check": {
      "noul": 0.98,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "df0f43d59be79b0de1ec72eb8bf050017053bc8eff1a3fd4001862cb1e5fca24": {
+  "c1a0b7b081e830c3626552382557ae821d499406802cc1f39d840d80568cab50": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.6,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.01,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.36,
+      "type": 0.63,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e7",
+     "confidence": 1.0,
+     "probabilities": {
+      "e11": 0.0,
+      "e7": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e7",
+     "confidence": 1.0,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 1.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "c87e4be1cb00894cb819b4c03ac8db55e88d97a624a61269e2f1000461897545": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.67,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.3,
+      "type": 0.7,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e2",
+     "confidence": 1.0,
+     "probabilities": {
+      "e2": 1.0,
+      "e3": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 0.99,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 1.0,
+      "e3": 0.0,
+      "e4": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 0.98,
+     "probabilities": {
+      "v0": 0.99,
+      "v1": 0.01
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "cbff6e81b604dec10e1366994c392bee6a1c0a2ad0af0f1e4bb0708a629f1d3c": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 1.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e8",
+     "confidence": 1.0,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 1.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "ccbe4616c80358a7fd47d621b40fb1107f96362c814a0d65d6930ee6bb4354c2": {
    "answers": {
     "check": {
-     "noul": 0.68,
+     "noul": 0.98,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "e269fc7277e0a5f1f68a454f60560db5a9c4c7e77afca5461fbbb6f809d37aca": {
+  "cdb310f575ffa21f022c20a11f27998ad1f2a064ec9cc14c78f532b0a0dc6f39": {
+   "answers": {
+    "check": {
+     "noul": 0.98,
+     "type": "noul"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "d2c1e7dcd434c815665fbe1b16a4422535e9881b72daf6a979f020a71d87409f": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.96,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.01,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.02,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.01,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.96,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e8",
+     "confidence": 0.98,
+     "probabilities": {
+      "e13": 0.01,
+      "e8": 0.99
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e9",
+     "confidence": 0.96,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e26": 0.0,
+      "e27": 0.0,
+      "e28": 0.0,
+      "e29": 0.0,
+      "e3": 0.03,
+      "e30": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.01,
+      "e9": 0.96
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "debe092d575b96a26a048f59d74d326ba66297dc8dfe4738244336b08c5a6386": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.93,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.02,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.04,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.93,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.05,
+     "probabilities": {
+      "e2": 0.48,
+      "e3": 0.52
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 1.0,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 0.0,
+      "e3": 0.0,
+      "e4": 1.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 0.24,
+     "probabilities": {
+      "v0": 0.62,
+      "v1": 0.38
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "e10af5192f952eaed721b04b9dd712861ae42cf141fcb98e720d03c8a6e3c0e3": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 0.91,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.91,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.02,
+      "impossible": 0.01,
+      "long_press": 0.0,
+      "press_enter": 0.01,
+      "scroll_down": 0.01,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.02,
+      "type": 0.01,
+      "wait": 0.01
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e3",
+     "confidence": 0.19,
+     "probabilities": {
+      "e2": 0.41,
+      "e3": 0.59
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e4",
+     "confidence": 0.74,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 0.01,
+      "e3": 0.1,
+      "e4": 0.78,
+      "e5": 0.03,
+      "e6": 0.08
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 0.38,
+     "probabilities": {
+      "v0": 0.69,
+      "v1": 0.31
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "e114fa3f74990d4710ae99accf277b261ec6082bafec7f5fb59543457e0be2c9": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e4",
+     "confidence": 1.0,
+     "probabilities": {
+      "e4": 1.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e13",
+     "confidence": 0.61,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.64,
+      "e14": 0.0,
+      "e15": 0.34,
+      "e2": 0.01,
+      "e3": 0.0,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.01
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "e71f3f6aa6c81a834f2aa557190707767bb5a271c528f20b76cdbbebc27f5b63": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 0.81,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.17,
+      "type": 0.83,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e2",
+     "confidence": 1.0,
+     "probabilities": {
+      "e2": 1.0,
+      "e3": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e2",
+     "confidence": 1.0,
+     "probabilities": {
+      "e1": 0.0,
+      "e2": 1.0,
+      "e3": 0.0,
+      "e4": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 0.98,
+     "probabilities": {
+      "v0": 0.99,
+      "v1": 0.01
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "e75b2f095e8cc5b493d812f368b2af97612be7ff004725e34293f49e4b090bfb": {
+   "answers": {
+    "action": {
+     "choice": "tap",
+     "confidence": 0.49,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.07,
+      "long_press": 0.0,
+      "scroll_down": 0.25,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.03,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.53,
+      "wait": 0.12
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e7",
+     "confidence": 0.41,
+     "probabilities": {
+      "e11": 0.3,
+      "e7": 0.7
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e13",
+     "confidence": 0.63,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.03,
+      "e13": 0.65,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.0,
+      "e3": 0.32,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "e9e9d5ac546f7dd38446f8c722499eeb87e1301c4d109d9e81f551b6b1c6ed4b": {
+   "answers": {
+    "action": {
+     "choice": "type",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 1.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e11",
+     "confidence": 1.0,
+     "probabilities": {
+      "e11": 1.0,
+      "e7": 0.0
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e11",
+     "confidence": 0.96,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.01,
+      "e11": 0.97,
+      "e12": 0.0,
+      "e13": 0.0,
+      "e2": 0.0,
+      "e3": 0.02,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "f5b761dcc2f420e33bb26d03b580f6f0fcab0496539f4cadd18057f4d8a3d349": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e13",
+     "confidence": 0.99,
+     "probabilities": {
+      "e13": 0.99,
+      "e8": 0.01
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e13",
+     "confidence": 0.95,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.0,
+      "e11": 0.0,
+      "e12": 0.0,
+      "e13": 0.96,
+      "e14": 0.0,
+      "e15": 0.0,
+      "e16": 0.0,
+      "e17": 0.0,
+      "e18": 0.0,
+      "e19": 0.0,
+      "e2": 0.0,
+      "e20": 0.0,
+      "e21": 0.0,
+      "e22": 0.0,
+      "e23": 0.0,
+      "e24": 0.0,
+      "e25": 0.01,
+      "e26": 0.0,
+      "e27": 0.0,
+      "e28": 0.0,
+      "e29": 0.0,
+      "e3": 0.0,
+      "e30": 0.0,
+      "e31": 0.0,
+      "e32": 0.0,
+      "e33": 0.0,
+      "e34": 0.0,
+      "e35": 0.02,
+      "e36": 0.01,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.0,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "f699f84cd7df1eca86159889e0e9f97a05ea4466c1a7cdae5c1ccbfea9689c03": {
    "answers": {
     "check": {
      "noul": 0.95,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "e31c28f979178132336e1da20df3c72b80ee8e77c66b9c2e2a0f06b533e462fc": {
+  "f7a9032083325852f324aeb356e3e45e11506f3de9ab865dd49795aed6f201ef": {
    "answers": {
-    "is_target": {
-     "noul": 0.96,
+    "check": {
+     "noul": 0.71,
      "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "e4aa95624ef7c96acf514b7ec5242d3a768181cd02f00b3e91981267cefbfcf3": {
+  "fa11df2608a4f2fbb1677dc1cbda2f185cc8160e96bfb060377dacb93e43c3ee": {
+   "answers": {
+    "action": {
+     "choice": "done",
+     "confidence": 1.0,
+     "probabilities": {
+      "back": 0.0,
+      "clear": 0.0,
+      "done": 1.0,
+      "double_tap": 0.0,
+      "hide_keyboard": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "press_enter": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 0.0,
+      "type": 0.0,
+      "wait": 0.0
+     },
+     "type": "choice"
+    },
+    "field": {
+     "choice": "e11",
+     "confidence": 0.97,
+     "probabilities": {
+      "e11": 0.99,
+      "e7": 0.01
+     },
+     "type": "choice"
+    },
+    "target": {
+     "choice": "e11",
+     "confidence": 0.88,
+     "probabilities": {
+      "e1": 0.0,
+      "e10": 0.02,
+      "e11": 0.9,
+      "e12": 0.0,
+      "e13": 0.01,
+      "e2": 0.0,
+      "e3": 0.01,
+      "e4": 0.0,
+      "e5": 0.0,
+      "e6": 0.0,
+      "e7": 0.0,
+      "e8": 0.06,
+      "e9": 0.0
+     },
+     "type": "choice"
+    },
+    "value": {
+     "choice": "v0",
+     "confidence": 1.0,
+     "probabilities": {
+      "v0": 1.0
+     },
+     "type": "choice"
+    }
+   },
+   "served_by": "jev-1.13.0"
+  },
+  "fb0075c5eaf76a70fc9cc0ff76d1fa374452f04a0fba30962621095e4787bfd1": {
    "answers": {
     "action": {
      "choice": "tap",
      "confidence": 0.99,
      "probabilities": {
-      "back": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 1,
-      "wait": 0
+      "back": 0.0,
+      "done": 0.0,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
+      "tap": 1.0,
+      "wait": 0.0
      },
      "type": "choice"
     },
@@ -2276,457 +3875,86 @@
      "probabilities": {
       "e1": 0.04,
       "e2": 0.96,
-      "e3": 0,
-      "e4": 0
+      "e3": 0.0,
+      "e4": 0.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "e7267d1b130430e6aefa93a19c07efcad9362dcc149a2d9ebe69a7a45b57996e": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0,
-      "done": 0.01,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.99,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e5",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0,
-      "e2": 0.01,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0.99,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "eca11e8774a4f2f9b58d6ba74a3bb8aa3594f0e864272e50ff599a20574f41f3": {
+  "fd429a60a9f070435239c2f52d99274c015fc61116b1eaa1f2f7be687d5a4711": {
    "answers": {
     "action": {
      "choice": "done",
-     "confidence": 0.96,
+     "confidence": 0.98,
      "probabilities": {
-      "back": 0,
-      "done": 0.97,
-      "double_tap": 0,
-      "impossible": 0.02,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
+      "back": 0.0,
+      "done": 0.99,
+      "double_tap": 0.0,
+      "impossible": 0.0,
+      "long_press": 0.0,
+      "scroll_down": 0.0,
+      "scroll_left": 0.0,
+      "scroll_right": 0.0,
+      "scroll_up": 0.0,
+      "swipe_left_on": 0.0,
+      "swipe_right_on": 0.0,
       "tap": 0.01,
-      "wait": 0
+      "wait": 0.0
      },
      "type": "choice"
     },
     "target": {
      "choice": "e2",
-     "confidence": 0.29,
+     "confidence": 0.28,
      "probabilities": {
-      "e1": 0.1,
-      "e10": 0.05,
-      "e11": 0,
+      "e1": 0.14,
+      "e10": 0.06,
+      "e11": 0.0,
       "e12": 0.01,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0.15,
-      "e2": 0.35000000000000003,
-      "e3": 0,
-      "e4": 0.27,
-      "e5": 0,
-      "e6": 0.06,
-      "e7": 0,
-      "e8": 0.01,
-      "e9": 0
+      "e13": 0.0,
+      "e14": 0.0,
+      "e15": 0.07,
+      "e2": 0.34,
+      "e3": 0.0,
+      "e4": 0.29,
+      "e5": 0.0,
+      "e6": 0.07,
+      "e7": 0.0,
+      "e8": 0.02,
+      "e9": 0.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "ecc241a1467daaa37ae03d1cc6fc386fad73f88fe81d7c4616575d46a1c09515": {
+  "fde4b40d45258347176d12a5d337b4150398c63da9bbfccba16e8041fba71bea": {
    "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.83,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.15,
-      "type": 0.85,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 1,
-     "probabilities": {
-      "e2": 1,
-      "e3": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0,
-      "e2": 1,
-      "e3": 0,
-      "e4": 0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 1,
-      "v1": 0
-     },
-     "type": "choice"
+    "is_target": {
+     "noul": 0.96,
+     "type": "noul"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   },
-  "f3684c0f263af63d57d47dd2c34deee44d932710e3bcf95d501a4177a5ef4c1c": {
+  "fff13789469a1c79e7d5c974c91d09762e86b2e786276781c93a451e06752db1": {
    "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 1,
+    "element": {
+     "choice": "e21",
+     "confidence": 0.98,
      "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "hide_keyboard": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "press_enter": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0,
-      "type": 1,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 1,
-     "probabilities": {
-      "e2": 0,
-      "e3": 1
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.35,
-     "probabilities": {
-      "e1": 0,
-      "e2": 0.03,
-      "e3": 0.52,
-      "e4": 0.45
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 0,
-      "v1": 1
+      "e20": 0.01,
+      "e21": 0.99,
+      "not_on_screen": 0.0
      },
      "type": "choice"
     }
    },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "f3986abd6a13abf192cf1cc3a8f7d4ab61adfec68617dafaa1de035c08a79b33": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 1,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e4",
-     "confidence": 1,
-     "probabilities": {
-      "e4": 1
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e13",
-     "confidence": 0.59,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0.63,
-      "e14": 0,
-      "e15": 0.34,
-      "e2": 0.02,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0.01
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "f6506230abd6d8d831f5567171cc3128e791e8b5a250244b53aab35e734b0889": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.64,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0.01,
-      "long_press": 0,
-      "scroll_down": 0.02,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.3,
-      "type": 0.67,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 1,
-     "probabilities": {
-      "e11": 0,
-      "e7": 1
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e7",
-     "confidence": 0.92,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e16": 0,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0,
-      "e22": 0,
-      "e3": 0.06,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0.93,
-      "e8": 0.01,
-      "e9": 0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1,
-     "probabilities": {
-      "v0": 1
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "fdf9bbda3564545c3d2f20a2eeef8fd42202020177a396a49da538bb5eb55f6e": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.97,
-     "probabilities": {
-      "back": 0,
-      "done": 0.97,
-      "double_tap": 0,
-      "impossible": 0,
-      "long_press": 0,
-      "scroll_down": 0,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.03,
-      "wait": 0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.95,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0,
-      "e13": 0,
-      "e14": 0,
-      "e15": 0,
-      "e2": 0,
-      "e3": 0,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0.96,
-      "e9": 0.04
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
-  },
-  "fdfa56683bc8ddfb604028b5440f9c49a6b79a2ddee76547185a5a2abbb78699": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.5,
-     "probabilities": {
-      "back": 0,
-      "clear": 0,
-      "done": 0,
-      "double_tap": 0,
-      "impossible": 0.06,
-      "long_press": 0,
-      "scroll_down": 0.25,
-      "scroll_left": 0,
-      "scroll_right": 0,
-      "scroll_up": 0.02,
-      "swipe_left_on": 0,
-      "swipe_right_on": 0,
-      "tap": 0.54,
-      "wait": 0.13
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 0.54,
-     "probabilities": {
-      "e11": 0.23,
-      "e7": 0.77
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e13",
-     "confidence": 0.73,
-     "probabilities": {
-      "e1": 0,
-      "e10": 0,
-      "e11": 0,
-      "e12": 0.04,
-      "e13": 0.75,
-      "e14": 0,
-      "e15": 0,
-      "e16": 0,
-      "e17": 0,
-      "e18": 0,
-      "e19": 0,
-      "e2": 0,
-      "e20": 0,
-      "e21": 0,
-      "e22": 0,
-      "e3": 0.21,
-      "e4": 0,
-      "e5": 0,
-      "e6": 0,
-      "e7": 0,
-      "e8": 0,
-      "e9": 0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "typesafe/jev-1.13-20260917"
+   "served_by": "jev-1.13.0"
   }
  },
- "model": "typesafe/jev-1.13",
+ "model": "jev-1.13.0",
  "version": 1
 }
