@@ -79,6 +79,8 @@ tests:
     fresh: true
     steps:
       - use: Open an item from the list
+      - scroll_to: Item 26   # below the screen when the phone is on its side
+        direction: down
       - swipe: left
         target: Item 26
         see: Item 26 deleted
@@ -116,6 +118,8 @@ tests:
     fresh: true
     steps:
       - use: Open the web page
+      - scroll_to: I agree to the terms   # below the screen when the phone is on its side
+        direction: down
       - tap: I agree to the terms
         see: Terms accepted
       - scroll_to: Show more
@@ -136,6 +140,7 @@ tests:
         see: Native screen
       - clear: Nickname
       - type: { text: "Bret", into: Nickname }
+      - hide_keyboard   # on a phone on its side, the keyboard covers the button
       - tap: Save nickname
         see: "Saved: Bret"
       - tap: Dark theme
@@ -179,6 +184,7 @@ tests:
       - do: Type "Bert" into the name field
       - do: Clear the name field
       - do: Type "Bret" into the name field
+      - hide_keyboard
       - tap: Say hello
         see: Hello, Bret!
       - do: Type "secret1" into the web password field
@@ -190,7 +196,8 @@ tests:
       - tap: I agree to the terms
         see: Terms accepted
       - tap: Submit form
-        see: "Submitted: Canada, Pro plan, with a password"
+      - scroll_to: "Submitted: Canada, Pro plan, with a password"   # below the button on a phone on its side
+        direction: down
 
   - name: Web alert and navigation
     fresh: true
