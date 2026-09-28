@@ -1,560 +1,5 @@
 {
  "decisions": {
-  "01b942a2fc0b0f26f595bd2ad71aa40f43a9837c3da46fd82f7d9d9994d2a242": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.98,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.01,
-      "double_tap": 0.01,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.98,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 1.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "02f35102b3df0d5c944bbe8075326fc26b80f45ee5cdb700d202eec4a58b20d1": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 0.96,
-     "probabilities": {
-      "e13": 0.02,
-      "e8": 0.98
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e9",
-     "confidence": 0.91,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.07,
-      "e9": 0.92
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "08541a4c0971b2cc38b528d09c3212e22e613d61b7c16e2e5e35c6a9e4cb5025": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.98,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.99,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.01,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.94,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.96,
-      "e9": 0.04
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "085c55b6335f39a365c3f2676ea389f9a8eda8c9c91b7f7b589dcd3be0c1ec3f": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 0.35,
-     "probabilities": {
-      "e13": 0.32,
-      "e8": 0.68
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e16",
-     "confidence": 0.62,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.31,
-      "e15": 0.01,
-      "e16": 0.65,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.01,
-      "e26": 0.0,
-      "e27": 0.0,
-      "e28": 0.0,
-      "e29": 0.0,
-      "e3": 0.02,
-      "e30": 0.0,
-      "e31": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "1000ce657afff38d1d956f206787ba5842574df0bc8e897c0ce140afd1b51225": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 1.0,
-     "probabilities": {
-      "e13": 0.0,
-      "e8": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.79,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.01,
-      "e26": 0.0,
-      "e27": 0.0,
-      "e28": 0.01,
-      "e29": 0.05,
-      "e3": 0.0,
-      "e30": 0.02,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.01,
-      "e7": 0.0,
-      "e8": 0.81,
-      "e9": 0.09
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "11bbaf7dddddca1da276f13afd9168a6f6778df6e931c4037b9a7d962a3fb70a": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.72,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.26,
-      "type": 0.74,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 1.0,
-     "probabilities": {
-      "e2": 1.0,
-      "e3": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.99,
-      "e3": 0.0,
-      "e4": 0.01
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0,
-      "v1": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "1212862652a18a0ae09e9921f92db68cdd1d0c87c6e95266ed17927c10f5f8cd": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.99,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.01,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 0.5,
-     "probabilities": {
-      "e11": 0.25,
-      "e7": 0.75
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e13",
-     "confidence": 0.93,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.03,
-      "e13": 0.93,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.02,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "12a0a7db7f102351fac6ad1366e250dbe1ecd18958de1870495e5214921e0ef8": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.98,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.0,
-      "double_tap": 0.01,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.99,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 1.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "14b76c5529dedcf8e99567875581d30945f976ea5e88edf1249c0aab973d72d9": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.93,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.03,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.02,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.95,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.16,
-     "probabilities": {
-      "e2": 0.42,
-      "e3": 0.58
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 1.0,
-      "e5": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 0.14,
-     "probabilities": {
-      "v0": 0.43,
-      "v1": 0.57
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
   "1896798e6b160a58d05a6d34c6ab4e10fa2bfa5b2a0d4e17f82eee51fa2c32d6": {
    "answers": {
     "check": {
@@ -567,70 +12,8 @@
   "1984e31a8c47a2b736c46423eb7be7cb6ea6fca3753b34e8ca77c74b80ae6129": {
    "answers": {
     "check": {
-     "noul": 0.95,
+     "noul": 0.94,
      "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "1ba4ca09f7be81878bd6de0ec8291eebd942e9c77cd5a498f8cea432a6550f4a": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 1.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e4",
-     "confidence": 1.0,
-     "probabilities": {
-      "e4": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e21",
-     "confidence": 0.97,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.02,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.98,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
     }
    },
    "served_by": "jev-1.13.0"
@@ -638,968 +21,8 @@
   "1e8f7e7c8c2d38782cb6a6568ce823ba696433d37cac42d791cf3f5099ecbc2b": {
    "answers": {
     "check": {
-     "noul": 0.81,
+     "noul": 0.79,
      "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "237564efe3f52aa630dc9d4c9ca06de597ad0fefb88b951c9436e676c4455076": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.92,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.01,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.03,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.03,
-      "type": 0.93,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.99,
-     "probabilities": {
-      "e2": 0.0,
-      "e3": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.95,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.0,
-      "e3": 0.97,
-      "e4": 0.01,
-      "e5": 0.02
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 0.0,
-      "v1": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "2418329d7a7025f1adf479648ede1693adf1a458937a90e851783d5747fb1752": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 1.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 1.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "283d960541abc7dbddd9da4cea79326f611f97015fbf7302200255ae4599ccec": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.98,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.02,
-      "done": 0.98,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 1.0,
-     "probabilities": {
-      "e11": 0.0,
-      "e7": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e7",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 1.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "2be73185f50a7e56b5b4dc00e82bfff37203bcb4db90364214b3cb16c307ba34": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.47,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.51,
-      "type": 0.49,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e11",
-     "confidence": 1.0,
-     "probabilities": {
-      "e11": 1.0,
-      "e7": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e11",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 1.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "2da40c4a984c27b608e08f8cb7bac0b46490ab1f0976cb81b4493c23adc09e71": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.94,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.02,
-      "long_press": 0.0,
-      "scroll_down": 0.01,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.03,
-      "type": 0.94,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 0.99,
-     "probabilities": {
-      "e13": 0.0,
-      "e8": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.77,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.1,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.79,
-      "e9": 0.11
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "2e55fb9619dd328aa2db3da8aae304ed7d81aadb758c8dbecd4804511935864f": {
-   "answers": {
-    "action": {
-     "choice": "clear",
-     "confidence": 0.98,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.99,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.01,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 1.0,
-     "probabilities": {
-      "e11": 0.0,
-      "e7": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e7",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 1.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "2edba5947e07722ff375410d1481cadcab2f7eed1f7b3b2c01f239e85885eddf": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.89,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.06999999999999999,
-      "e4": 0.91,
-      "e5": 0.0,
-      "e6": 0.02,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "3134fc0f646fac2539519087c1d7563a806a3a110361d1353d0b276701a9c3e1": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.98,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.01,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.99,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 1.0,
-     "probabilities": {
-      "e13": 0.0,
-      "e8": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.99,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "33b98c56f6268c2328690f617cb066d1a05f31f59df3455bf26dcc3328d73aa9": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.94,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.05,
-      "done": 0.95,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 1.0,
-     "probabilities": {
-      "e13": 0.0,
-      "e8": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.97,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e26": 0.0,
-      "e27": 0.0,
-      "e28": 0.0,
-      "e29": 0.01,
-      "e3": 0.0,
-      "e30": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.98,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "3628139066755b9ab5d6058102474c9ace51d182f20e606fecfc72f91021e0b8": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 1.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 1.0,
-     "probabilities": {
-      "e13": 0.0,
-      "e8": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.96,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e26": 0.0,
-      "e27": 0.0,
-      "e28": 0.0,
-      "e29": 0.0,
-      "e3": 0.0,
-      "e30": 0.03,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.97,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "3b51f97b8ccb82db8a4ce532455841003d3fd7f65fa377308c8b3155df621832": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.75,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.0,
-      "double_tap": 0.23,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.77,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.99,
-      "e5": 0.0,
-      "e6": 0.01,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "3ca2b4a9663e84c64e51127027584cade37793855600c0059a36a10535523d24": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.86,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.08,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.04,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.88,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e13",
-     "confidence": 0.1,
-     "probabilities": {
-      "e13": 0.55,
-      "e8": 0.45
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e16",
-     "confidence": 0.92,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.03,
-      "e15": 0.0,
-      "e16": 0.93,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e26": 0.0,
-      "e27": 0.0,
-      "e28": 0.0,
-      "e29": 0.0,
-      "e3": 0.04,
-      "e30": 0.0,
-      "e31": 0.0,
-      "e32": 0.0,
-      "e33": 0.0,
-      "e34": 0.0,
-      "e35": 0.0,
-      "e36": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "44ddaddea471b7809f298a7078fe597e318e012d7349510c2d86ab0a94b2bf5b": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.62,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.01,
-      "long_press": 0.0,
-      "scroll_down": 0.03,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.31,
-      "type": 0.65,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 1.0,
-     "probabilities": {
-      "e11": 0.0,
-      "e7": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e7",
-     "confidence": 0.91,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.06,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.92,
-      "e8": 0.02,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "44eb9a26d1870dc67debc101a860bbcaec138961f99e77f429e368640795eab8": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.99,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.01,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.95,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.96,
-      "e9": 0.04
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "45f83cff7bb6bfaa745b014132cfd1a55ec71f84e25e2b44e3c3de77e98d57b1": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.93,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.03,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.03,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.9400000000000001,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.4,
-     "probabilities": {
-      "e2": 0.3,
-      "e3": 0.7
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 1.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 0.57,
-     "probabilities": {
-      "v0": 0.21,
-      "v1": 0.79
-     },
-     "type": "choice"
     }
    },
    "served_by": "jev-1.13.0"
@@ -1607,125 +30,8 @@
   "47834c595cd0d8642c954aae5e4ecbeaa8b31ed9b4b84f04a1fa37ab192f5572": {
    "answers": {
     "check": {
-     "noul": 0.91,
+     "noul": 0.89,
      "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "47b7285d71a42c16abda14460d9c8c10a9b39d5c0fdf33200385eee871523917": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 1.0,
-     "probabilities": {
-      "e11": 0.0,
-      "e7": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e7",
-     "confidence": 0.85,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.87,
-      "e8": 0.13,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "4a7ac5bdefdeb746daaea3fb57a3fe9f648e8b8e6e02bd2dda5ad161fc2fb9f5": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.99,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.01,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 1.0,
-     "probabilities": {
-      "e2": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.46,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.28,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.52,
-      "e9": 0.2
-     },
-     "type": "choice"
     }
    },
    "served_by": "jev-1.13.0"
@@ -1739,222 +45,11 @@
    },
    "served_by": "jev-1.13.0"
   },
-  "537d31f2971f5a8adbd3d1a73544b42b472251f342d313bf6cbc861359d2eef5": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.9,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.07,
-      "e4": 0.92,
-      "e5": 0.0,
-      "e6": 0.01,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
   "540338a0a331f598ad397ab3c24bd9580d587154105a2d832848f2e41122cfd5": {
    "answers": {
     "check": {
      "noul": 0.98,
      "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "576d0147ad639fc3118b6b1d16a3a0ac5d0a757d8363e33db499ef92220347db": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 1.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e6",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.99,
-      "e7": 0.01,
-      "e8": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "5b8e00c756007fc4470ff6caea7fdea4fc8832686f67e2f127b971f88687c4eb": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.45,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.01,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.05,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.48,
-      "type": 0.46,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.91,
-     "probabilities": {
-      "e2": 0.04,
-      "e3": 0.96
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.0,
-      "e3": 0.99,
-      "e4": 0.01
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 0.0,
-      "v1": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "5b9705a5f064f138c44836d981c00f9e455a95e4b302b1fb09d7e6dbe657ddfc": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.97,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.02,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.01,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.97,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 0.97,
-     "probabilities": {
-      "e11": 0.02,
-      "e7": 0.98
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e2": 0.0,
-      "e3": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.99,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
     }
    },
    "served_by": "jev-1.13.0"
@@ -1977,358 +72,11 @@
    },
    "served_by": "jev-1.13.0"
   },
-  "702ce6dee35a20196dcaa76f104e70fb79260a1a8990ba6c1d5a16d024cb6c48": {
+  "73478efbab2d8b8bf4dbadb6b5d10ca929c90b720780f203f9b8a0a286d6cd72": {
    "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.95,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.02,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.02,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.96,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.46,
-     "probabilities": {
-      "e2": 0.27,
-      "e3": 0.73
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.97,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.0,
-      "e3": 0.02,
-      "e4": 0.98,
-      "e5": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 0.17,
-     "probabilities": {
-      "v0": 0.58,
-      "v1": 0.42
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "76c756c0f2bbac1f4954acc4ae2ba49be16eda1bfe41689da49dc167d44f0a25": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.01,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.99,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e5",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.01,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.99,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "772a39a4ed8526bc3b64de51d8e21f3eb13c62858702e48a9778b504f7bd2b2a": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 1.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 1.0,
-     "probabilities": {
-      "e11": 0.0,
-      "e7": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e7",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e2": 0.0,
-      "e3": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.99,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "77ff9c95b709e03693b9b78fcfc2e655ac663cd9878b905bae33ca3ab267b43c": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 0.99,
-     "probabilities": {
-      "e11": 0.0,
-      "e7": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.91,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.06,
-      "e8": 0.92,
-      "e9": 0.01
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "7a39c121b0fa83b04a5b168dcc886de94b5300a79ef672ef1214d30766986284": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.49,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.01,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.04,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.42,
-      "type": 0.53,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.96,
-     "probabilities": {
-      "e2": 0.02,
-      "e3": 0.98
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.98,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.0,
-      "e3": 0.99,
-      "e4": 0.01
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 0.0,
-      "v1": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "7d13f3868536bf6a281ba4788356a2acfbc76e1ed8f1ba1c46de47252fba9f96": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.78,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.2,
-      "type": 0.8,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 1.0,
-     "probabilities": {
-      "e2": 1.0,
-      "e3": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 1.0,
-      "e3": 0.0,
-      "e4": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0,
-      "v1": 0.0
-     },
-     "type": "choice"
+    "check": {
+     "noul": 0.98,
+     "type": "noul"
     }
    },
    "served_by": "jev-1.13.0"
@@ -2338,238 +86,6 @@
     "check": {
      "noul": 0.97,
      "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "8adcf72f24f222747d9323bd3258b744f6865de5fdedc90c6984dedf57b54af5": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 1.0,
-     "probabilities": {
-      "e13": 0.0,
-      "e8": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.85,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.01,
-      "e26": 0.0,
-      "e27": 0.0,
-      "e28": 0.0,
-      "e29": 0.04,
-      "e3": 0.0,
-      "e30": 0.02,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.86,
-      "e9": 0.06999999999999999
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "8aefdff7b0484ab2374691e122944c9c63f4dde20c3876cc6f8c38208d13b579": {
-   "answers": {
-    "action": {
-     "choice": "clear",
-     "confidence": 0.97,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.98,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.02,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 1.0,
-     "probabilities": {
-      "e13": 0.0,
-      "e8": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e26": 0.0,
-      "e27": 0.0,
-      "e28": 0.0,
-      "e29": 0.0,
-      "e3": 0.0,
-      "e30": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.99,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "8b111812fc444985b4b55990919ed2f912d85a906a928afae75dbfb52f6144ed": {
-   "answers": {
-    "check": {
-     "noul": 0.97,
-     "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "8b971d5f3b2c533cab64a5159106c970bd1d0e247397ba22b946eaed00393212": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 1.0,
-     "probabilities": {
-      "e11": 0.0,
-      "e7": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e7",
-     "confidence": 0.83,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.85,
-      "e8": 0.15,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
     }
    },
    "served_by": "jev-1.13.0"
@@ -2586,259 +102,8 @@
   "903389af2457c0ddb6c1bbebef901df9a3189707de11dc78800221d24f844308": {
    "answers": {
     "check": {
-     "noul": 0.91,
+     "noul": 0.92,
      "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "90884764126a044a33320234eab99268c9265dab668488ef648c6e4a992e2d33": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.93,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.05,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.02,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.93,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e11",
-     "confidence": 0.36,
-     "probabilities": {
-      "e11": 0.68,
-      "e7": 0.32
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e13",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 1.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "98d5b0150a039e79093acf265b5e36129a72f996587af6e9785353cd30560587": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.97,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.01,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.01,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.98,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e13",
-     "confidence": 1.0,
-     "probabilities": {
-      "e13": 1.0,
-      "e8": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e13",
-     "confidence": 0.98,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.98,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.01,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "9a8a682bc34a7beffe75894c602cb55c83011059fc46cbf08fa68a2c1b76685c": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.9,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.91,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.01,
-      "impossible": 0.02,
-      "long_press": 0.0,
-      "press_enter": 0.01,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.02,
-      "type": 0.0,
-      "wait": 0.03
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.21,
-     "probabilities": {
-      "e2": 0.39,
-      "e3": 0.61
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.72,
-     "probabilities": {
-      "e1": 0.01,
-      "e2": 0.04,
-      "e3": 0.08,
-      "e4": 0.77,
-      "e5": 0.1
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 0.14,
-     "probabilities": {
-      "v0": 0.57,
-      "v1": 0.43
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "a0f9a1617933d54aa4d86e012ed7615f59b58d5ea036a0ae95d546bb6da2befd": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.93,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.02,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.05,
-      "type": 0.93,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.99,
-     "probabilities": {
-      "e2": 0.0,
-      "e3": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.95,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.0,
-      "e3": 0.96,
-      "e4": 0.02,
-      "e5": 0.02
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 0.0,
-      "v1": 1.0
-     },
-     "type": "choice"
     }
    },
    "served_by": "jev-1.13.0"
@@ -2846,55 +111,8 @@
   "a76b6405e6e09607334e00046153cdc8d937e39359d19c0d7ca3c2816e1e15c6": {
    "answers": {
     "check": {
-     "noul": 0.72,
+     "noul": 0.71,
      "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "af1c329762690e349a15f46f4af3df4df990b668348df56a9bf23d3002721262": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.97,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.98,
-      "double_tap": 0.0,
-      "impossible": 0.01,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.01,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 0.28,
-     "probabilities": {
-      "e1": 0.12,
-      "e10": 0.1,
-      "e11": 0.0,
-      "e12": 0.01,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.1,
-      "e2": 0.33,
-      "e3": 0.0,
-      "e4": 0.26,
-      "e5": 0.0,
-      "e6": 0.06,
-      "e7": 0.0,
-      "e8": 0.02,
-      "e9": 0.0
-     },
-     "type": "choice"
     }
    },
    "served_by": "jev-1.13.0"
@@ -2904,111 +122,6 @@
     "check": {
      "noul": 0.99,
      "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "b8b07fda2593cacb6e8ab10f35a3d9fd672f2913e6a29e06056e09443b9c4452": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.69,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.0,
-      "double_tap": 0.28,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.72,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.98,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.99,
-      "e5": 0.0,
-      "e6": 0.01,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "be1908875338681f737947015540ba74ce1f094e2ef67b19d9bf2ce925b16cf5": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 1.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.98,
-     "probabilities": {
-      "e2": 0.01,
-      "e3": 0.99
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e3",
-     "confidence": 0.31,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.08,
-      "e3": 0.48,
-      "e4": 0.44
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v1",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 0.0,
-      "v1": 1.0
-     },
-     "type": "choice"
     }
    },
    "served_by": "jev-1.13.0"
@@ -3031,185 +144,6 @@
    },
    "served_by": "jev-1.13.0"
   },
-  "c1a0b7b081e830c3626552382557ae821d499406802cc1f39d840d80568cab50": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.6,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.01,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.36,
-      "type": 0.63,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 1.0,
-     "probabilities": {
-      "e11": 0.0,
-      "e7": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e7",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 1.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "c87e4be1cb00894cb819b4c03ac8db55e88d97a624a61269e2f1000461897545": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.67,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.3,
-      "type": 0.7,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 1.0,
-     "probabilities": {
-      "e2": 1.0,
-      "e3": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 0.99,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 1.0,
-      "e3": 0.0,
-      "e4": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 0.98,
-     "probabilities": {
-      "v0": 0.99,
-      "v1": 0.01
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "cbff6e81b604dec10e1366994c392bee6a1c0a2ad0af0f1e4bb0708a629f1d3c": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 1.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e8",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 1.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
   "ccbe4616c80358a7fd47d621b40fb1107f96362c814a0d65d6930ee6bb4354c2": {
    "answers": {
     "check": {
@@ -3228,541 +162,6 @@
    },
    "served_by": "jev-1.13.0"
   },
-  "d2c1e7dcd434c815665fbe1b16a4422535e9881b72daf6a979f020a71d87409f": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.96,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.01,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.02,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.01,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.96,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e8",
-     "confidence": 0.98,
-     "probabilities": {
-      "e13": 0.01,
-      "e8": 0.99
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e9",
-     "confidence": 0.96,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e26": 0.0,
-      "e27": 0.0,
-      "e28": 0.0,
-      "e29": 0.0,
-      "e3": 0.03,
-      "e30": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.01,
-      "e9": 0.96
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "debe092d575b96a26a048f59d74d326ba66297dc8dfe4738244336b08c5a6386": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.93,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.02,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.04,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.93,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.05,
-     "probabilities": {
-      "e2": 0.48,
-      "e3": 0.52
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.0,
-      "e3": 0.0,
-      "e4": 1.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 0.24,
-     "probabilities": {
-      "v0": 0.62,
-      "v1": 0.38
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "e10af5192f952eaed721b04b9dd712861ae42cf141fcb98e720d03c8a6e3c0e3": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.91,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.91,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.02,
-      "impossible": 0.01,
-      "long_press": 0.0,
-      "press_enter": 0.01,
-      "scroll_down": 0.01,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.02,
-      "type": 0.01,
-      "wait": 0.01
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e3",
-     "confidence": 0.19,
-     "probabilities": {
-      "e2": 0.41,
-      "e3": 0.59
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e4",
-     "confidence": 0.74,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 0.01,
-      "e3": 0.1,
-      "e4": 0.78,
-      "e5": 0.03,
-      "e6": 0.08
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 0.38,
-     "probabilities": {
-      "v0": 0.69,
-      "v1": 0.31
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "e114fa3f74990d4710ae99accf277b261ec6082bafec7f5fb59543457e0be2c9": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e4",
-     "confidence": 1.0,
-     "probabilities": {
-      "e4": 1.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e13",
-     "confidence": 0.61,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.64,
-      "e14": 0.0,
-      "e15": 0.34,
-      "e2": 0.01,
-      "e3": 0.0,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.01
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "e71f3f6aa6c81a834f2aa557190707767bb5a271c528f20b76cdbbebc27f5b63": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 0.81,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.17,
-      "type": 0.83,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e2",
-     "confidence": 1.0,
-     "probabilities": {
-      "e2": 1.0,
-      "e3": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 1.0,
-     "probabilities": {
-      "e1": 0.0,
-      "e2": 1.0,
-      "e3": 0.0,
-      "e4": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 0.98,
-     "probabilities": {
-      "v0": 0.99,
-      "v1": 0.01
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "e75b2f095e8cc5b493d812f368b2af97612be7ff004725e34293f49e4b090bfb": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.49,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.07,
-      "long_press": 0.0,
-      "scroll_down": 0.25,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.03,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.53,
-      "wait": 0.12
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e7",
-     "confidence": 0.41,
-     "probabilities": {
-      "e11": 0.3,
-      "e7": 0.7
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e13",
-     "confidence": 0.63,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.03,
-      "e13": 0.65,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.0,
-      "e3": 0.32,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "e9e9d5ac546f7dd38446f8c722499eeb87e1301c4d109d9e81f551b6b1c6ed4b": {
-   "answers": {
-    "action": {
-     "choice": "type",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 1.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e11",
-     "confidence": 1.0,
-     "probabilities": {
-      "e11": 1.0,
-      "e7": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e11",
-     "confidence": 0.96,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.01,
-      "e11": 0.97,
-      "e12": 0.0,
-      "e13": 0.0,
-      "e2": 0.0,
-      "e3": 0.02,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "f5b761dcc2f420e33bb26d03b580f6f0fcab0496539f4cadd18057f4d8a3d349": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e13",
-     "confidence": 0.99,
-     "probabilities": {
-      "e13": 0.99,
-      "e8": 0.01
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e13",
-     "confidence": 0.95,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.0,
-      "e11": 0.0,
-      "e12": 0.0,
-      "e13": 0.96,
-      "e14": 0.0,
-      "e15": 0.0,
-      "e16": 0.0,
-      "e17": 0.0,
-      "e18": 0.0,
-      "e19": 0.0,
-      "e2": 0.0,
-      "e20": 0.0,
-      "e21": 0.0,
-      "e22": 0.0,
-      "e23": 0.0,
-      "e24": 0.0,
-      "e25": 0.01,
-      "e26": 0.0,
-      "e27": 0.0,
-      "e28": 0.0,
-      "e29": 0.0,
-      "e3": 0.0,
-      "e30": 0.0,
-      "e31": 0.0,
-      "e32": 0.0,
-      "e33": 0.0,
-      "e34": 0.0,
-      "e35": 0.02,
-      "e36": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.0,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
   "f699f84cd7df1eca86159889e0e9f97a05ea4466c1a7cdae5c1ccbfea9689c03": {
    "answers": {
     "check": {
@@ -3775,157 +174,8 @@
   "f7a9032083325852f324aeb356e3e45e11506f3de9ab865dd49795aed6f201ef": {
    "answers": {
     "check": {
-     "noul": 0.71,
+     "noul": 0.73,
      "type": "noul"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "fa11df2608a4f2fbb1677dc1cbda2f185cc8160e96bfb060377dacb93e43c3ee": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 1.0,
-     "probabilities": {
-      "back": 0.0,
-      "clear": 0.0,
-      "done": 1.0,
-      "double_tap": 0.0,
-      "hide_keyboard": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "press_enter": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.0,
-      "type": 0.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "field": {
-     "choice": "e11",
-     "confidence": 0.97,
-     "probabilities": {
-      "e11": 0.99,
-      "e7": 0.01
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e11",
-     "confidence": 0.88,
-     "probabilities": {
-      "e1": 0.0,
-      "e10": 0.02,
-      "e11": 0.9,
-      "e12": 0.0,
-      "e13": 0.01,
-      "e2": 0.0,
-      "e3": 0.01,
-      "e4": 0.0,
-      "e5": 0.0,
-      "e6": 0.0,
-      "e7": 0.0,
-      "e8": 0.06,
-      "e9": 0.0
-     },
-     "type": "choice"
-    },
-    "value": {
-     "choice": "v0",
-     "confidence": 1.0,
-     "probabilities": {
-      "v0": 1.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "fb0075c5eaf76a70fc9cc0ff76d1fa374452f04a0fba30962621095e4787bfd1": {
-   "answers": {
-    "action": {
-     "choice": "tap",
-     "confidence": 0.99,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.0,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 1.0,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 0.94,
-     "probabilities": {
-      "e1": 0.04,
-      "e2": 0.96,
-      "e3": 0.0,
-      "e4": 0.0
-     },
-     "type": "choice"
-    }
-   },
-   "served_by": "jev-1.13.0"
-  },
-  "fd429a60a9f070435239c2f52d99274c015fc61116b1eaa1f2f7be687d5a4711": {
-   "answers": {
-    "action": {
-     "choice": "done",
-     "confidence": 0.98,
-     "probabilities": {
-      "back": 0.0,
-      "done": 0.99,
-      "double_tap": 0.0,
-      "impossible": 0.0,
-      "long_press": 0.0,
-      "scroll_down": 0.0,
-      "scroll_left": 0.0,
-      "scroll_right": 0.0,
-      "scroll_up": 0.0,
-      "swipe_left_on": 0.0,
-      "swipe_right_on": 0.0,
-      "tap": 0.01,
-      "wait": 0.0
-     },
-     "type": "choice"
-    },
-    "target": {
-     "choice": "e2",
-     "confidence": 0.28,
-     "probabilities": {
-      "e1": 0.14,
-      "e10": 0.06,
-      "e11": 0.0,
-      "e12": 0.01,
-      "e13": 0.0,
-      "e14": 0.0,
-      "e15": 0.07,
-      "e2": 0.34,
-      "e3": 0.0,
-      "e4": 0.29,
-      "e5": 0.0,
-      "e6": 0.07,
-      "e7": 0.0,
-      "e8": 0.02,
-      "e9": 0.0
-     },
-     "type": "choice"
     }
    },
    "served_by": "jev-1.13.0"
@@ -3956,5 +206,431 @@
   }
  },
  "model": "jev-1.13.0",
- "version": 1
+ "steps": {
+  "android \u00b7 Camera permission prompt \u00b7 step 5 \u00b7 Allow camera access": [
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "While using the app",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "android \u00b7 Counter buttons \u00b7 step 2 \u00b7 Tap the Add one button two times": [
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Add one",
+     "nth": 1
+    },
+    "text": null
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Add one",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "android \u00b7 Notifications switch \u00b7 step 2 \u00b7 Turn notifications on": [
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "switch",
+     "name": "Notifications",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "android \u00b7 Sign in \u00b7 step 1 \u00b7 Sign in with email \"${DEMO_EMAIL}\" and password \"${DEMO_PASSWORD}\"": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Email",
+     "nth": 1
+    },
+    "text": "${DEMO_EMAIL}"
+   },
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "password_field",
+     "name": "Password",
+     "nth": 1
+    },
+    "text": "${DEMO_PASSWORD}"
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Sign in",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "android \u00b7 Web form \u00b7 step 2 \u00b7 Type \"Bert\" into the name field": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "name",
+     "nth": 1
+    },
+    "text": "Bert"
+   }
+  ],
+  "android \u00b7 Web form \u00b7 step 3 \u00b7 Clear the name field": [
+   {
+    "action": "clear",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Bert",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "android \u00b7 Web form \u00b7 step 4 \u00b7 Type \"Bret\" into the name field": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "name",
+     "nth": 1
+    },
+    "text": "Bret"
+   }
+  ],
+  "android \u00b7 Web form \u00b7 step 7 \u00b7 Type \"secret1\" into the web password field": [
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "password_field",
+     "name": "pw",
+     "nth": 1
+    },
+    "text": null
+   },
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "password_field",
+     "name": "pw",
+     "nth": 1
+    },
+    "text": "secret1"
+   }
+  ],
+  "android \u00b7 Web form \u00b7 step 8 \u00b7 Choose Canada in the Country dropdown": [
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Choose a country",
+     "nth": 1
+    },
+    "text": null
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Choose a country",
+     "nth": 1
+    },
+    "text": null
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "checkedtextview",
+     "name": "Canada",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "android \u00b7 Web page greets by name \u00b7 step 2 \u00b7 Type \"Bret\" into the name box on the web page and press Say hello": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "name",
+     "nth": 1
+    },
+    "text": "Bret"
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Say hello",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "android \u00b7 Wrong password is rejected \u00b7 step 1 \u00b7 Sign in with email \"demo@jevtest.dev\" and password \"nope\"": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Email",
+     "nth": 1
+    },
+    "text": "demo@jevtest.dev"
+   },
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "password_field",
+     "name": "Password",
+     "nth": 1
+    },
+    "text": "nope"
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Sign in",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "ios \u00b7 Camera permission prompt \u00b7 step 5 \u00b7 Allow camera access": [
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Allow",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "ios \u00b7 Counter buttons \u00b7 step 2 \u00b7 Tap the Add one button two times": [
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Add one",
+     "nth": 1
+    },
+    "text": null
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Add one",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "ios \u00b7 Notifications switch \u00b7 step 2 \u00b7 Turn notifications on": [
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "switch",
+     "name": "Notifications",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "ios \u00b7 Sign in \u00b7 step 1 \u00b7 Sign in with email \"${DEMO_EMAIL}\" and password \"${DEMO_PASSWORD}\"": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Email",
+     "nth": 1
+    },
+    "text": "${DEMO_EMAIL}"
+   },
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Password",
+     "nth": 1
+    },
+    "text": "${DEMO_PASSWORD}"
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Sign in",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "ios \u00b7 Web form \u00b7 step 2 \u00b7 Type \"Bert\" into the name field": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Your name",
+     "nth": 1
+    },
+    "text": "Bert"
+   }
+  ],
+  "ios \u00b7 Web form \u00b7 step 3 \u00b7 Clear the name field": [
+   {
+    "action": "clear",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Your name: Bert",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "ios \u00b7 Web form \u00b7 step 4 \u00b7 Type \"Bret\" into the name field": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Your name",
+     "nth": 1
+    },
+    "text": "Bret"
+   }
+  ],
+  "ios \u00b7 Web form \u00b7 step 7 \u00b7 Type \"secret1\" into the web password field": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "password_field",
+     "name": "Web password",
+     "nth": 1
+    },
+    "text": "secret1"
+   }
+  ],
+  "ios \u00b7 Web form \u00b7 step 8 \u00b7 Choose Canada in the Country dropdown": [
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "text",
+     "name": "Country: Choose a country",
+     "nth": 1
+    },
+    "text": null
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Canada",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "ios \u00b7 Web page greets by name \u00b7 step 2 \u00b7 Type \"Bret\" into the name box on the web page and press Say hello": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Your name",
+     "nth": 1
+    },
+    "text": "Bret"
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Say hello",
+     "nth": 1
+    },
+    "text": null
+   }
+  ],
+  "ios \u00b7 Wrong password is rejected \u00b7 step 1 \u00b7 Sign in with email \"demo@jevtest.dev\" and password \"nope\"": [
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Email",
+     "nth": 1
+    },
+    "text": "demo@jevtest.dev"
+   },
+   {
+    "action": "type",
+    "target": {
+     "count": 1,
+     "kind": "text_field",
+     "name": "Password",
+     "nth": 1
+    },
+    "text": "nope"
+   },
+   {
+    "action": "tap",
+    "target": {
+     "count": 1,
+     "kind": "button",
+     "name": "Sign in",
+     "nth": 1
+    },
+    "text": null
+   }
+  ]
+ },
+ "version": 2
 }
