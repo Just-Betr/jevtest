@@ -199,6 +199,7 @@ def test_agent_commands(drv, env):
         ("/tap", {"x": 8, "y": 5}),
         ("/tree", {}),
         ("/key", {"key": "delete", "count": 3}),
+        ("/tree", {}),  # a key goes into a field: the keyboard is up
         ("/key", {"key": "enter"}),
         ("/back", {}),
         ("/home", {}),
@@ -352,3 +353,16 @@ def test_a_link_no_app_opens_says_so_on_an_iphone(env, tmp_path, monkeypatch):
     )
     with pytest.raises(DeviceError, match="^No app on the device opens x://y"):
         drv.open_url("x://y")
+
+
+def test_a_key_with_no_keyboard_up_says_ios_needs_a_field(drv, env, monkeypatch):
+    env[1].replies["/tree"] = {"width": 402, "height": 874, "elements": [], "keyboard": False}
+    ticks = iter([0, 1, 4])
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+    with pytest.raises(
+        DeviceError,
+        match="^No keyboard came up within 3 seconds: iOS presses keys only into a field, so tap one first$",
+    ):
+        drv.key("enter")
+    assert "/key" not in env[1].paths()

@@ -64,6 +64,8 @@ emulator and the iOS simulator.
   `open_url` now read what it prints.
 - A `do:` that Jev gives up on, when its goal has nothing in quotes, says `The goal has no "quoted" values, so Jev
   can't type anything` (`do: Type hello into Email` failed as `Stuck repeating: tap text_field 'Email'`).
+- iOS: `key:` with no keyboard up failed with XCUITest's `Neither element nor any descendant has keyboard focus`;
+  it now waits for the keyboard and says iOS presses keys only into a field.
 - `grant:` with a permission Android won't grant says why (`not a changeable permission type`), not the first line
   of a Java stack trace.
 - An `include:` that isn't there names the file that includes it.

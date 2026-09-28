@@ -381,9 +381,17 @@ class IOSDevice(BaseDevice):
         self.wait_until(lambda s: s.keyboard_visible, "The keyboard did not come up for the text field")
 
     def key(self, name: str) -> None:
-        """Press a named key: iOS has only the keys every platform has."""
+        """Press a named key: iOS has only the keys every platform has, and takes them only into a field.
+
+        XCUITest types keys into the field with keyboard focus; with none, it fails (measured). So the keyboard
+        must be up.
+        """
         if name not in KEYS:
             raise DeviceError(f"iOS has no key '{name}': it presses only {', '.join(KEYS)}")
+        try:
+            self.wait_until(lambda s: s.keyboard_visible, "No keyboard came up")
+        except DeviceError as e:
+            raise DeviceError(f"{e}: iOS presses keys only into a field, so tap one first") from None
         self._call("/key", key=name)
 
     def back(self) -> None:
