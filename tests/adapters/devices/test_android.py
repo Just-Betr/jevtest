@@ -496,3 +496,9 @@ def test_restore_puts_back_once(drv, adb, agent):
     drv.restore()  # already put back: nothing to do
     restores = [c for c in adb.shell() if c.startswith("settings put system user_rotation 0;")]
     assert len(restores) == 1
+
+
+def test_looks_is_a_fingerprint_of_the_elements_pixels(drv, agent):
+    agent.replies["/pixels"] = "3fa9"
+    assert drv.looks(Element("button", "OK", bounds=(10, 20, 110, 70))) == "3fa9"
+    assert agent.paths()[-1] == "/pixels?x1=10&y1=20&x2=110&y2=70"

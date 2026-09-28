@@ -293,3 +293,8 @@ def test_typing_waits_until_the_keyboard_is_up(drv, env, slept):
 def test_network_is_not_supported(drv):
     with pytest.raises(DeviceError, match="can.t turn an iPhone.s or simulator.s network off"):
         drv.network(on=False)
+
+
+def test_looks_says_nothing_on_ios_where_frames_move_with_their_animation(drv, env):
+    assert drv.looks(Element("button", "OK", bounds=(0, 0, 9, 9))) == ""
+    assert not any(p == "/pixels" for p, _ in env[1].calls)

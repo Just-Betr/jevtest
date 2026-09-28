@@ -370,6 +370,10 @@ class IOSDevice(BaseDevice):
         """Press Home."""
         self._call("/home")
 
+    def looks(self, element: Element) -> str:  # noqa: ARG002 - the Device port; iOS needs no pixels
+        """Nothing: on iOS an element's frame moves with its animation (measured), so its bounds say it all."""
+        return ""
+
     def hide_keyboard(self) -> None:
         """Close the keyboard, and wait until it's gone."""
         self._call("/hide_keyboard")

@@ -142,6 +142,7 @@ class FakeDevice(BaseDevice):
         self.app_id = "dev.fake"
         self.clock: FakeClock | None = None  # set by the runner tests
         self.closed = False
+        self.drawn = [""]  # what looks() says, one per call; the last one repeats
 
     def _rec(self, name, *args):
         self.calls.append((name, *args))
@@ -173,6 +174,10 @@ class FakeDevice(BaseDevice):
 
     def resume(self):
         self._rec("resume")
+
+    def looks(self, element):
+        self._rec("looks", element.text)
+        return self.drawn.pop(0) if len(self.drawn) > 1 else self.drawn[0]
 
     @override
     def screen(self):

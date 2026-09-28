@@ -338,7 +338,7 @@ class TestRunner:
         wanted = self._value(target)
         asked: dict[Screen, Located | None] = {}  # Jev picks among exact matches once per screen
         covered: list[Located] = []  # found, but under the keyboard: touching it would hit a key
-        last: list[Element] = []  # where it was at the previous check
+        last: list[tuple[object, ...]] = []  # where it was, and how it looked, at the previous check
 
         def pool(screen: Screen) -> Sequence[Element]:
             return screen.editable if editable else screen.elements
@@ -353,7 +353,7 @@ class TestRunner:
             if screen.under_keyboard(located.element) and not (typing and screen.takes_keys(located.element)):
                 covered.append(located)
                 return None
-            return (located, screen) if _still(located.element, last) else None
+            return (located, screen) if self._still(located.element, last) else None
 
         def why(screen: Screen) -> str:
             if covered:
@@ -362,6 +362,17 @@ class TestRunner:
 
         what = "a text field" if editable else "an element"
         return self._wait_until(found, settings, f"{what} says '{target}' on screen and stopped moving", why)
+
+    def _still(self, element: Element, last: list[tuple[object, ...]]) -> bool:
+        """Whether `element` is where it was, and looks as it did, at the previous check (`last`, then updated).
+
+        It has stopped moving when two checks in a row find it so. How it looks matters where its bounds can't show
+        it moving (a system dialog fading in on Android reports its final bounds at once).
+        """
+        now = (element.kind, element.text, element.bounds, self.device.looks(element))
+        still = bool(last) and last[0] == now
+        last[:] = [now]
+        return still
 
     def _check_app(self, action: Action) -> None:
         """Fail if the app crashed or left the foreground during the action."""
@@ -378,8 +389,15 @@ class TestRunner:
         wanted = self._value(check.text)
         if isinstance(check, Expect):
             answers: dict[Screen, float] = {}  # one question per screen, however often it's checked
+            previous: list[Screen] = []
 
             def judged(screen: Screen) -> str | None:
+                # only a screen that stopped moving (the same at two checks in a row) is judged: its answer is
+                # recorded for that exact screen, and a replay sees it again; a frame mid-animation it never would
+                still = bool(previous) and previous[0] == screen
+                previous[:] = [screen]
+                if not still:
+                    return None
                 if screen not in answers:
                     answers[screen] = self.brain.check(wanted, screen)
                 yes = answers[screen]
@@ -388,7 +406,7 @@ class TestRunner:
             def last_answer(screen: Screen) -> str:
                 return f"; Jev says false ({answers[screen]:.2f})" if screen in answers else ""
 
-            return self._wait_until(judged, settings, "Jev judged it true", last_answer)
+            return self._wait_until(judged, settings, "Jev judged it true of a screen that stopped moving", last_answer)
         present = isinstance(check, See)
 
         def seen(screen: Screen) -> str | None:
@@ -589,7 +607,7 @@ class TestRunner:
             self._make(_page_move(step), self.device.screen(), settings)
             return
         found: list[int] = []  # how many elements have its kind and name, on the last screen read
-        last: list[Element] = []  # where it was at the previous check
+        last: list[tuple[object, ...]] = []  # where it was, and how it looked, at the previous check
 
         def match(screen: Screen) -> tuple[Element, Screen] | None:
             same = [el for el in screen.elements if el.kind == target.kind and self._name(el) == target.name]
@@ -598,7 +616,7 @@ class TestRunner:
                 last.clear()
                 return None
             element = same[target.nth - 1]
-            return (element, screen) if _still(element, last) else None
+            return (element, screen) if self._still(element, last) else None
 
         def why(_: Screen) -> str:
             if not found or found[0] == 0:
@@ -739,17 +757,6 @@ def _page_move(step: SavedStep) -> PageMove:
     if step.action.startswith("scroll_"):
         return ScrollPage(Direction(step.action.removeprefix("scroll_")))
     return _PAGE_MOVES[step.action]
-
-
-def _still(element: Element, last: list[Element]) -> bool:
-    """Whether `element` is where it was at the previous check (`last`, which is then updated).
-
-    It has stopped moving when two checks in a row find it in the same place.
-    """
-    here = (element.kind, element.text, element.bounds)
-    still = bool(last) and (last[0].kind, last[0].text, last[0].bounds) == here
-    last[:] = [element]
-    return still
 
 
 def _changed_from(before: Screen) -> Callable[[Screen], Screen | None]:

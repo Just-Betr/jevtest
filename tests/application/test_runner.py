@@ -399,10 +399,19 @@ def test_expect_passes_above_threshold(tmp_path, clock, out):
 MISS = NotRecorded("This screen and question are not in t.lock.json, and --lock frozen only replays recorded decisions")
 
 
-def test_expect_asks_jev_about_each_new_screen_until_it_holds(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Loading"), login_screen())
+def test_expect_asks_jev_about_each_screen_that_stopped_moving_until_it_holds(tmp_path, clock, out):
+    d = FakeDevice(*held(screen_with("Loading"), login_screen()))
     res, _, model = run1(tmp_path, clock, out, {"expect": "Login form"}, device=d, model=FakeModel(yes(0.2), yes(0.9)))
     assert res.status is Status.PASS and len(model.asked) == 2
+
+
+def test_expect_never_asks_about_a_screen_caught_moving(tmp_path, clock, out):
+    """A frame mid-animation is never seen again: an answer about it couldn't be replayed."""
+    frames = [screen_with(f"Turning {i}") for i in range(30)]
+    model = FakeModel()  # asking it anything fails the test
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "Home", "timeout": 2}, device=FakeDevice(*frames), model=model)
+    assert failure_of(res).endswith("Waited 2s until Jev judged it true of a screen that stopped moving")
+    assert not model.asked
 
 
 def test_frozen_expect_looks_again_once_the_screen_changes(tmp_path, clock, out):
@@ -414,9 +423,11 @@ def test_frozen_expect_looks_again_once_the_screen_changes(tmp_path, clock, out)
 
 def test_frozen_expect_reports_the_last_answer_when_a_later_screen_was_recorded(tmp_path, clock, out):
     """A miss on an early screen isn't the reason when a later, recorded screen said no."""
-    d = FakeDevice(screen_with("Loading"), login_screen())
+    d = FakeDevice(*held(screen_with("Loading")), login_screen())
     res, _, _ = run1(tmp_path, clock, out, {"expect": "Home", "timeout": 5}, device=d, model=FakeModel(MISS, yes(0.2)))
-    assert failure_of(res).endswith("Waited 5s until Jev judged it true; Jev says false (0.20)")
+    assert failure_of(res).endswith(
+        "Waited 5s until Jev judged it true of a screen that stopped moving; Jev says false (0.20)"
+    )
 
 
 def test_frozen_expect_fails_with_the_lockfile_message_when_no_recorded_screen_comes(tmp_path, clock, out):
@@ -697,7 +708,9 @@ def test_same_inputs_give_identical_runs(tmp_path):
 def test_unchanged_screen_is_not_rejudged(tmp_path, clock, out):
     """Checking an expect every interval on an identical screen must not spend model calls."""
     res, d, model = run1(tmp_path, clock, out, {"expect": "x", "timeout": 5}, model=FakeModel(yes(0.1)))
-    assert failure_of(res).endswith("Waited 5s until Jev judged it true; Jev says false (0.10)")
+    assert failure_of(res).endswith(
+        "Waited 5s until Jev judged it true of a screen that stopped moving; Jev says false (0.10)"
+    )
     assert len(model.asked) == 1 and d.names().count("screen") == 21  # every 0.25 s for 5 s
 
 
@@ -817,8 +830,8 @@ def test_every_move_is_saved_and_repeated_the_same(tmp_path, clock, out, action,
         tmp_path, FakeClock(), out, {"do": "Go"}, device=FakeDevice(login_screen(keyboard_visible=True)), model=again
     )
     assert second.status is Status.PASS and not again.asked
-    acted = [c for c in d1.calls if c[0] not in ("screen", "app_state")]
-    assert acted == [c for c in d2.calls if c[0] not in ("screen", "app_state")]
+    looking = ("screen", "app_state", "looks")  # reading the screen, not acting on it
+    assert [c for c in d1.calls if c[0] not in looking] == [c for c in d2.calls if c[0] not in looking]
 
 
 # --- ${NAME} values --------------------------------------------------------------------
@@ -1027,3 +1040,11 @@ def test_an_element_is_touched_only_once_it_has_stopped_moving(tmp_path, clock, 
     res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=FakeDevice(*sliding, s))
     assert res.status is Status.PASS
     assert [c for c in d.calls if c[0] == "tap"] == [("tap", 500, 450)]  # not at 800 or 600, where it passed by
+
+
+def test_an_element_is_touched_only_once_it_is_drawn_the_same_twice(tmp_path, clock, out):
+    """A system dialog fading in on Android reports its final bounds at once: only its pixels show it moving."""
+    d = FakeDevice(login_screen())
+    d.drawn = ["faint", "fainter", "solid", "solid"]
+    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=d)
+    assert res.status is Status.PASS and d.names().count("looks") == 4 and clock.slept == [0.25] * 3

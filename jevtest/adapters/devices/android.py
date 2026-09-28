@@ -366,6 +366,11 @@ class AndroidDevice(BaseDevice):
         """Press Home."""
         self.key("home")
 
+    def looks(self, element: Element) -> str:
+        """A fingerprint of how the element is drawn now: a dialog fading in reports its final bounds at once."""
+        x1, y1, x2, y2 = element.bounds
+        return self._agent(f"/pixels?x1={x1}&y1={y1}&x2={x2}&y2={y2}")
+
     def hide_keyboard(self) -> None:
         """Close the keyboard with Back, if it's up, and wait until it's gone."""
         # Back closes the keyboard, but with no keyboard it leaves the screen: check right before.

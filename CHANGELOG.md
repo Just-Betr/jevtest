@@ -5,7 +5,8 @@
 **Every wait is a wait until.** A step waits until what it needs is true, checking every `interval` (0.25 s) for at
 most its `timeout` (10 s), and otherwise fails saying what it waited for: `Waited 10s until an element says
 'Save' on screen and stopped moving`. An element counts once it's in the same place at two checks in a row, so a tap
-never lands where a button sliding in was a moment ago. There's no more waiting for the screen to "settle" after an action, no quiet windows, and the
+never lands where a button sliding in was a moment ago (on Android also drawn the same: a system dialog fading in
+reports its final place at once). `expect:` asks Jev only about a screen that stopped moving. There's no more waiting for the screen to "settle" after an action, no quiet windows, and the
 on-device agents never wait (their `/idle` and `/change` calls are gone).
 
 **`do:` goals are worked out once, then repeated.** The first run, Jev works out a `do:`'s steps, each on a
