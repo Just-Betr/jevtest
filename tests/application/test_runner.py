@@ -404,15 +404,28 @@ def test_jev_is_never_asked_about_a_screen_still_changing(tmp_path, clock, out):
     assert "Loading" not in asked and "Almost" not in asked
 
 
-def test_a_screen_that_never_stops_changing_is_judged_after_settle(tmp_path, clock, out):
-    """A clock or a progress bar: each read is taken as it is after `settle`, like the wait after an action."""
+def test_a_screen_that_never_stops_changing_fails_loudly_and_jev_is_never_asked(tmp_path, clock, out):
+    """A clock or a counter: no answer about it could be replayed, so none is asked for."""
     ticking = [screen_with(f"12:00:{i:02d}") for i in range(60)] * 10
-    d = FakeDevice(*ticking)
-    model = FakeModel(*[yes(0.2)] * 20)
-    res, _, _ = run1(tmp_path, clock, out, {"expect": "The clock", "timeout": 10}, device=d, model=model)
+    model = FakeModel()  # asking it anything fails the test
+    res, _, _ = run1(
+        tmp_path, clock, out, {"expect": "The clock", "timeout": 5}, device=FakeDevice(*ticking), model=model
+    )
+    assert failure_of(res).endswith(
+        "The screen never stopped changing in 5 s: Jev is only asked about a screen that holds still, since one "
+        "that keeps changing (a clock, a counter) can't be recorded or replayed"
+    )
+    assert not model.asked
+
+
+def test_an_answer_about_a_screen_that_held_still_stands_when_it_changes_for_good(tmp_path, clock, out):
+    still = screen_with("Loading")
+    ticking = [screen_with(f"{i}%") for i in range(200)]
+    model = FakeModel(yes(0.2))
+    d = FakeDevice(still, still, *ticking)
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "Done", "timeout": 5}, device=d, model=model)
     assert failure_of(res).endswith("Jev says false (0.20)")
-    assert 3 <= len(model.asked) <= 5  # about one question per `settle` (3 s) of the 10 s timeout, not one in all
-    assert clock.now() < 20
+    assert len(model.asked) == 1
 
 
 def test_frozen_expect_looks_again_once_the_screen_changes(tmp_path, clock, out):

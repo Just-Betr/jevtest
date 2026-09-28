@@ -8,8 +8,9 @@
 - iOS `rotate:` waits until the app has turned, like Android, and fails if it doesn't (an app locked to one
   orientation).
 - The demo's native iOS screen closes its keyboard on Done, like a well-behaved UIKit field.
-- Waiting for a still screen before asking Jev takes at most `settle` per read, so a screen that never stops
-  changing (a clock, a progress bar) still gets a question every few seconds instead of one per timeout.
+- A step that asks Jev about a screen that never stops changing (a clock, a counter) fails with "The screen never
+  stopped changing": Jev is only asked about a screen that holds still, since no answer about a changing one
+  could be recorded or replayed.
 - When the keyboard closes over an element Jev picked and the screen then shows it twice, the error says so.
 
 ## 0.8.0

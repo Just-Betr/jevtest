@@ -248,27 +248,35 @@ class TestRunner:
         timeout: float,
         failure: Callable[[Screen], str],
         *,
-        steady: float | None = None,
+        steady: bool = False,
     ) -> T:
         """Call `attempt` until it returns something, or time runs out.
 
         `attempt` runs again only when the screen has changed, so an unchanged screen is never judged
         twice. Between reads it waits for the next change. When time runs out, `failure` says why, from the
-        last screen. With `steady` seconds, each screen is one that has stopped changing (see `_steady_screen`),
-        waited for up to that long: for attempts that ask Jev, whose answer is recorded for that exact screen.
+        last screen. With `steady`, each screen is one that has stopped changing (see `_steady_screen`): for
+        attempts that ask Jev, whose answer is recorded for that exact screen.
 
         A screen that isn't in the lockfile (``--lock frozen``) may be one still changing: the next one is
         looked up too, and if the last one wasn't recorded either, that is the error.
+
+        Raises:
+            StepFailed: Time ran out: `failure` says why. With `steady`, also when the screen never stopped
+                changing at all.
         """
         deadline = self.clock.now() + timeout
         last: Screen | None = None
         missed: list[NotRecorded] = []
         while True:
-            screen = (
-                self.device.screen()
-                if steady is None
-                else self._steady_screen(min(deadline, self.clock.now() + steady))
-            )
+            screen = self._steady_screen(deadline) if steady else self.device.screen()
+            if screen is None:  # never still until the deadline
+                if last is None:
+                    raise StepFailed(
+                        f"The screen never stopped changing in {timeout:g} s: Jev is only asked about a screen "
+                        "that holds still, since one that keeps changing (a clock, a counter) can't be recorded "
+                        "or replayed"
+                    )
+                screen = last  # it did hold still before: that one's answer stands
             if screen != last:
                 last = screen
                 try:
@@ -286,21 +294,20 @@ class TestRunner:
                 raise StepFailed(failure(screen))
             self.device.wait_change(left)
 
-    def _steady_screen(self, until: float) -> Screen:
-        """The screen once two reads a still moment apart agree; at `until`, the last one read.
+    def _steady_screen(self, deadline: float) -> Screen | None:
+        """The screen once two reads a still moment apart agree; None if that doesn't happen by `deadline`.
 
         A still moment alone can come in the middle of an animation, like a keyboard sliding up, and a screen
-        read then is never seen again: its recorded answer would never be replayed. A screen that never stops
-        changing (a clock, a progress bar) is taken as it is at `until`, like the wait after an action.
+        read then is never seen again: its recorded answer would never be replayed.
         """
         screen = self.device.screen()
-        while (left := until - self.clock.now()) > 0:
+        while (left := deadline - self.clock.now()) > 0:
             self.device.wait_idle(left)
             again = self.device.screen()
             if again == screen:
-                break
+                return screen
             screen = again
-        return screen
+        return None
 
     def _near(self, text: str, elements: Sequence[Element]) -> str:
         """The close-but-not-exact texts on screen, for an error. Never matched: shown so the test can be fixed.
@@ -384,7 +391,7 @@ class TestRunner:
                 last.append(self.brain.check(wanted, screen))
                 return f"Jev {last[-1]:.2f}" if last[-1] > settings.confidence else None
 
-            return self._poll(judged, timeout, lambda _: f"Jev says false ({last[-1]:.2f})", steady=settings.settle)
+            return self._poll(judged, timeout, lambda _: f"Jev says false ({last[-1]:.2f})", steady=True)
         present = isinstance(check, See)
 
         def seen(screen: Screen) -> str | None:
@@ -564,7 +571,7 @@ class TestRunner:
                 lambda s: (self.brain.next_action(goal, s, taken), s),
                 settings.timeout,
                 lambda _: "",
-                steady=settings.settle,
+                steady=True,
             )
             decisions.append(decision)
             move = decision.move
