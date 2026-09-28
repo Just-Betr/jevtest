@@ -21,7 +21,7 @@ from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
 
 from ._typing import override
-from .android_screen import has_empty_webview, keyboard_up, parse_screen
+from .android_screen import has_empty_webview, keyboard_up, parse_screen, typing_ready
 from .android_tools import aapt2_path, adb_path, build_agent, devices, http_get, pick_device
 from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, run, run_bytes, start_process, stop_process
 
@@ -279,8 +279,7 @@ class AndroidDevice(BaseDevice):
         """
         deadline = time.monotonic() + FOLLOW_UP
         while True:
-            screen = parse_screen(self._agent("/tree"), self.size)
-            if screen.keyboard_visible and any(el.editable and el.focused for el in screen.elements):
+            if typing_ready(self._agent("/tree")):
                 return
             left = deadline - time.monotonic()
             if left <= 0:

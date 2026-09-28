@@ -20,7 +20,15 @@ Also:
 - In landscape (or with any keyboard tall enough), the keyboard can cover the element a step needs, and a tap
   there typed a key instead. A `do:` goal now closes the keyboard first and finds the element again; `tap:`,
   `type:` and the other exact steps fail with "... is under the keyboard: close it first with a
-  `hide_keyboard` step".
+  `hide_keyboard` step". A `type:` into a field that already has focus with the keyboard up types without tapping
+  it (a tap would move the cursor, or with the keyboard over the field, hit a key).
+- Android: typing into a web page's field in landscape failed with "The text field did not get keyboard focus":
+  the page scrolls the focused field to the keyboard's edge, 0 pixels tall, and jevtest looked for it on screen.
+  It now asks the device whether a text field has focus, wherever it is.
+- A Jev request that hasn't answered in 15 seconds is retried (was 30): measured against TypeSafe, answers take
+  0.2 s typically and 7.4 s at the slowest, but a few requests in a run never answer.
+- The demo's tests pass on a phone lying on its side: they scroll to what is below the screen in landscape and
+  close the keyboard before tapping what it covers.
 - **Security:** the iOS agent listened on every network interface without authentication, so while a test ran,
   another device on the same network could read the screen and tap. Each run now has a random token that every
   request must carry, and a simulator's agent listens on loopback only.

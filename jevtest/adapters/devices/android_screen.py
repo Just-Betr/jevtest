@@ -69,6 +69,18 @@ def keyboard_up(root: ET.Element) -> bool:
     return root.get("ime") == "true"
 
 
+def typing_ready(xml: str) -> bool:
+    """Whether typed keys will land: the keyboard is up and a text field has focus.
+
+    Read from the whole tree, not the screen's elements: with the keyboard up in landscape, a web page can scroll
+    the focused field until nothing of it is left on screen, and it still takes the keys.
+    """
+    root = ET.fromstring(xml)
+    return keyboard_up(root) and any(
+        node.get("focused") == "true" and node.get("class", "").split(".")[-1] in EDITABLE for node in root.iter("node")
+    )
+
+
 def has_empty_webview(xml: str) -> bool:
     """Whether a WebView is on screen with no content yet (its page reaches the tree a moment later)."""
     return any(

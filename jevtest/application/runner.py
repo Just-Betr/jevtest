@@ -293,7 +293,13 @@ class TestRunner:
         )
         return replace(decision, move=replace(move, element=masked))
 
-    def _locate(self, target: str, timeout: float, *, editable: bool = False) -> Located:
+    def _locate(
+        self, target: str, timeout: float, *, editable: bool = False, typing: bool = False
+    ) -> tuple[Located, Screen]:
+        """The element `target` names, and the screen it was found on.
+
+        Never one under the keyboard, except, when `typing`, a field that already takes the keys (no tap needed).
+        """
         wanted = self._value(target)
 
         def pool(screen: Screen) -> Sequence[Element]:
@@ -301,10 +307,14 @@ class TestRunner:
 
         covered: list[Located] = []  # found, but under the keyboard: touching it would hit a key
 
-        def attempt(screen: Screen) -> Located | None:
+        def attempt(screen: Screen) -> tuple[Located, Screen] | None:
             found = self.brain.locate(wanted, screen, pool(screen))
-            covered[:] = [found] if found is not None and screen.under_keyboard(found.element) else []
-            return None if covered else found
+            if found is None:
+                covered.clear()
+                return None
+            ready = typing and screen.takes_keys(found.element)
+            covered[:] = [found] if screen.under_keyboard(found.element) and not ready else []
+            return None if covered else (found, screen)
 
         def failure(screen: Screen) -> str:
             if covered:
@@ -409,23 +419,24 @@ class TestRunner:
         d = self.device
         match action:
             case Touch(gesture, target):
-                found = self._locate(target, timeout)
+                found, _ = self._locate(target, timeout)
                 self._touch(gesture, found.element)
             case Clear(target):
-                found = self._locate(target, timeout, editable=True)
+                found, _ = self._locate(target, timeout, editable=True)
                 d.clear_text(found.element)
             case TypeText(text, into):
                 if into is None:
                     d.type_text(self._value(text))
                     return None
-                found = self._locate(into, timeout, editable=True)
-                d.type_text(self._value(text), at=found.element.center)  # the device focuses the field
+                found, screen = self._locate(into, timeout, editable=True, typing=True)
+                # the device focuses the field; one that already takes the keys isn't tapped (see `takes_keys`)
+                d.type_text(self._value(text), at=None if screen.takes_keys(found.element) else found.element.center)
                 return f"into {found.describe()}"
             case Swipe(direction, target):
                 if target is None:
                     d.swipe(direction)
                     return None
-                found = self._locate(target, timeout)
+                found, _ = self._locate(target, timeout)
                 d.swipe(direction, element=found.element)
             case _:  # pragma: no cover - every element action is handled above
                 assert_never(action)
@@ -532,8 +543,7 @@ class TestRunner:
         A move on an element under the keyboard closes the keyboard first: a touch there would hit a key.
         """
         d = self.device
-        # a focused field with the keyboard up is ready; tapping it would move the caret
-        ready = isinstance(move, TypeInto) and move.element.focused and screen.keyboard_visible
+        ready = isinstance(move, TypeInto) and screen.takes_keys(move.element)
         if isinstance(move, ElementMove) and not ready and screen.under_keyboard(move.element):
             move = replace(move, element=self._uncovered(move.element, settings))
         match move:

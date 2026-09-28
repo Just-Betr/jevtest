@@ -233,6 +233,16 @@ def test_an_element_under_the_keyboard_is_never_touched(tmp_path, clock, out):
     assert "tap" not in d.names()  # a tap there would have typed a key
 
 
+def test_type_into_a_field_that_takes_the_keys_does_not_tap_it(tmp_path, clock, out):
+    """After `clear:` the field has focus and the keyboard is up; in landscape the keyboard also covers it."""
+    for top in (0, 100):  # the keyboard's edge unknown, and over the field
+        s = _login(focused=True, keyboard=True)
+        screen = dataclasses.replace(s, keyboard_top=top)
+        res, d, _ = run1(tmp_path, clock, out, {"type": {"text": "Bret", "into": "Email"}}, device=FakeDevice(screen))
+        assert res.status is Status.PASS, res
+        assert ("type_text", "Bret", None) in d.calls  # a tap would move the cursor, or hit a key
+
+
 def test_an_element_is_touched_once_the_keyboard_is_closed(tmp_path, clock, out):
     covered = login_screen(keyboard_visible=True, keyboard_top=300)
     res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=FakeDevice(covered, login_screen()))

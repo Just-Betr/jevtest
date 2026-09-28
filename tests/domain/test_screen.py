@@ -82,6 +82,13 @@ def test_under_keyboard_is_where_a_tap_would_hit_a_key():
     assert not Screen(10, 2000).under_keyboard(el(bounds=(0, 1900, 10, 2000)))
 
 
+def test_a_field_takes_the_keys_when_it_has_focus_and_the_keyboard_is_up():
+    field = el("text_field", editable=True, focused=True, bounds=(0, 0, 10, 10))
+    assert Screen(10, 10, keyboard_visible=True).takes_keys(field)
+    assert not Screen(10, 10).takes_keys(field)  # no keyboard: e.g. a web view, where everything reports focus
+    assert not Screen(10, 10, keyboard_visible=True).takes_keys(dataclasses.replace(field, focused=False))
+
+
 def test_element_label_and_points():
     assert Element("button", "OK", bounds=(0, 0, 10, 20)).center == (5, 10)
     assert Element("text_field", bounds=(0, 0, 100, 20)).end == (92, 10)  # just inside the right edge

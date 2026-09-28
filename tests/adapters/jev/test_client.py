@@ -80,7 +80,7 @@ def test_success_returns_the_reply():
     assert req.get_header("Authorization") == "Bearer k"
     assert isinstance(req.data, bytes)
     assert json.loads(req.data) == {"model": MODEL, "state": {"s": 1}, "questions": Q}
-    assert timeout == 30 and not slept
+    assert timeout == 15 and not slept
     assert reply.served_by == "jev-1.13.0" and reply.ms >= 0
     assert reply.cost == pytest.approx(0.042)  # $0.042 per million input tokens; output tokens are free
 

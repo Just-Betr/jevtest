@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from jevtest.adapters.devices.android_screen import has_empty_webview, parse_hierarchy, parse_screen
+from jevtest.adapters.devices.android_screen import has_empty_webview, parse_hierarchy, parse_screen, typing_ready
 
 FIX = Path(__file__).parent / "fixtures"
 LOGIN = (FIX / "android_login.xml").read_text()
@@ -89,3 +89,18 @@ def test_parse_screen_sizes_by_rotation_and_reads_the_keyboard():
     screen = parse_screen(xml, lambda rotation: (2000, 1000) if rotation == 1 else (1000, 2000))
     assert (screen.width, screen.height, screen.keyboard_visible, screen.keyboard_top) == (2000, 1000, True, 700)
     assert [e.text for e in screen.elements] == ["OK"]
+
+
+def _tree(ime: str, cls: str, focused: str) -> str:
+    return (
+        f'<hierarchy rotation="1" ime="{ime}" ime-top="344"><node class="{cls}" focused="{focused}" '
+        'bounds="[66,345][2139,345]"/></hierarchy>'
+    )
+
+
+def test_typing_is_ready_with_the_keyboard_up_and_a_text_field_focused_even_off_screen():
+    assert typing_ready(_tree("true", "android.widget.EditText", "true"))
+    assert typing_ready(_tree("true", "android.widget.AutoCompleteTextView", "true"))
+    assert not typing_ready(_tree("false", "android.widget.EditText", "true"))  # no keyboard: keys are dropped
+    assert not typing_ready(_tree("true", "android.widget.EditText", "false"))
+    assert not typing_ready(_tree("true", "android.widget.Button", "true"))  # focus, but nothing to type into

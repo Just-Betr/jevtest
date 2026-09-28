@@ -25,6 +25,9 @@ RETRY_STATUSES = frozenset({408, 429, *range(500, 600)})
 """Temporary failures, as TypeSafe's docs list them: a timeout, rate limits (429), overload (529), server errors."""
 MAX_RETRY_AFTER = 60
 """Seconds: the longest `retry-after` jevtest waits for. A longer one falls back to its own backoff."""
+TIMEOUT = 15
+"""Seconds to wait for one answer. Measured 2026-09-28 against api.typesafe.ai: the median answer takes 0.2 s and
+the slowest of 60 took 7.4 s, but a few requests in a run never answer; after this long one is retried."""
 UNAUTHORIZED = 401
 KEY_HELP = "Create a key at https://console.typesafe.ai/keys"
 PRICE_PER_INPUT_TOKEN: Mapping[str, float] = {"jev-1.13.0": 0.042 / 1_000_000}
@@ -84,7 +87,7 @@ class JevClient:
         log: Callable[[str], None],
         *,
         url: str = API_URL,
-        timeout: float = 30,
+        timeout: float = TIMEOUT,
         retries: int = 4,
         sleep: Callable[[float], None] = time.sleep,
         urlopen: UrlOpen = urllib.request.urlopen,

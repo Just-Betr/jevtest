@@ -270,6 +270,15 @@ def test_type_into_field_waits_for_focus_and_keyboard(drv, adb, agent):
     assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/change", "/tree"]
 
 
+def test_a_focused_field_scrolled_to_nothing_by_the_keyboard_still_takes_keys(drv, adb, agent):
+    """Measured on a Pixel 4a on its side: the web page put the focused field at the keyboard's edge, 0 px tall."""
+    squeezed = FOCUSED.replace('bounds="[63,352][1017,499]"', 'bounds="[66,345][2139,345]"')
+    assert squeezed != FOCUSED
+    agent.replies["/tree"] = squeezed
+    drv.type_text("hi", at=(540, 425))
+    assert [c for c in adb.shell() if c.startswith("input")] == ["input tap 540 425", "input text hi"]
+
+
 def test_type_into_field_that_never_focuses(drv, adb, agent, monkeypatch):
     ticks = iter([0, 1, 4])
     monkeypatch.setattr(time, "monotonic", lambda: next(ticks))

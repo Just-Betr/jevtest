@@ -118,6 +118,13 @@ class Screen:
         """Whether the keyboard is over the point where a tap on the element lands: touching it would hit a key."""
         return el.center[1] >= self.content_height
 
+    def takes_keys(self, el: Element) -> bool:
+        """Whether typing now goes into the element without a tap: it has focus and the keyboard is up.
+
+        Tapping it anyway would move the text cursor, and with the keyboard over it, hit a key.
+        """
+        return el.focused and self.keyboard_visible
+
     @property
     def editable(self) -> tuple[Element, ...]:
         """The elements that take typed text."""
