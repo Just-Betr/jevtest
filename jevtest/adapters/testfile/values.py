@@ -71,6 +71,8 @@ def text(value: object, what: str) -> str:
         value.encode()
     except UnicodeEncodeError:
         raise TestFileError(f"{what} has characters that aren't valid Unicode: {value!r}") from None
+    if "\x00" in value:
+        raise TestFileError(f"{what} has a null character in it: {value!r}")
     return value
 
 

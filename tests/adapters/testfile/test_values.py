@@ -41,6 +41,7 @@ def test_values_of_the_right_kind_pass_through_exactly():
         (lambda: number(-1, "wait"), "wait must be at least 0, got -1"),
         (lambda: text(42, "tap"), r"tap needs text, got a number \(to use 42 as text, put it in quotes\)"),
         (lambda: text(" a", "tap"), "without leading or trailing spaces"),
+        (lambda: text("a\x00b", "app"), "app has a null character in it"),
         (lambda: choice("DOWN", Direction, "scroll"), "scroll must be one of up, down, left, right; got 'DOWN'"),
         (lambda: on_off("yes", "dark_mode"), r"dark_mode must be on or off \(true or false\), got 'yes'"),
         (lambda: setting("max_actions", 2.5), "`max_actions` must be a whole number from 1 to 50, got 2.5"),
