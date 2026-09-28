@@ -30,6 +30,9 @@ Also:
 - Jev is only asked about a screen that has stopped changing: two reads a still moment apart must agree. A
   screen caught mid-animation (a keyboard sliding up, a rotation) was recorded, and a later run never saw it
   again, so `--lock frozen` failed. On Android, `rotate:` also waits until the screen has turned.
+- Android `rotate:` turns the screen through the agent's UiAutomation instead of the `user_rotation` setting,
+  which a Pixel 4a on Android 13 ignored (the test passed only because the phone was already on its side).
+  Android puts the device's own rotation state back when the agent stops.
 - `--lock frozen`: a step that meets a screen not in the lockfile looks again when the screen changes, until its
   `timeout`, instead of failing at once.
 - The demo's tests pass on a phone lying on its side: they scroll to what is below the screen in landscape and

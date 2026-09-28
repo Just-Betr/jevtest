@@ -380,12 +380,14 @@ class AndroidDevice(BaseDevice):
     # --- device ------------------------------------------------------------------
     def rotate(self, orientation: Orientation) -> None:
         """Rotate the screen; auto-rotate and the orientation are put back on close."""
-        if "rotation" not in self._restore:  # rotating needs auto-rotate off; close() puts both back
+        # Locking the rotation turns auto-rotate off. The agent puts the device's rotation state back when it stops;
+        # close() also puts back both settings, as they were before the first rotate.
+        if "rotation" not in self._restore:
             self._restore["rotation"] = (
                 f"{self._setting('system', 'user_rotation')}; {self._setting('system', 'accelerometer_rotation')}"
             )
-        self.sh("settings put system accelerometer_rotation 0")
-        self.sh(f"settings put system user_rotation {ROTATIONS[orientation]}")
+        if self._agent(f"/rotate?to={ROTATIONS[orientation]}") != "rotated":
+            raise DeviceError(f"The device refused to turn the screen to {orientation}")
         self._wait_for_rotation(orientation)
 
     def _wait_for_rotation(self, orientation: Orientation) -> None:

@@ -32,6 +32,9 @@ import java.util.List;
  *   GET /change?ms=N -> returns as soon as the tree differs from the last one /tree served (max N ms):
  *                       comparing with what the client last saw means a change that lands between
  *                       its /tree and its /change is not missed
+ *   GET /rotate?to=R -> locks the screen to rotation R (0-3, as /tree reports it) through UiAutomation, which
+ *                       works on every Android version (the user_rotation setting doesn't on some phones)
+ *                       and puts the device's own rotation state back when the agent stops
  *   GET /quit        -> stops the agent
  * When it is listening it reports status "ready=1" (visible with `am instrument -r`).
  * Reading the tree this way takes milliseconds instead of the ~2 s that a fresh
@@ -99,6 +102,8 @@ public class Agent extends Instrumentation {
                         body = idle(ui, quiet, ms);
                     } else if (path.equals("/change")) {
                         body = change(ui, ms);
+                    } else if (path.equals("/rotate")) {
+                        body = ui.setRotation((int) param(target, "to", -1)) ? "rotated" : "refused";
                     } else if (path.equals("/quit")) {
                         reply(client, "bye");
                         break;

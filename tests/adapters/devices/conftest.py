@@ -74,7 +74,13 @@ class AgentHttp:
     """Stands in for the on-device agent: replies by path, records every request."""
 
     def __init__(self):
-        self.replies: dict[str, object] = {"/tree": LOGIN, "/idle": "idle", "/change": "changed", "/quit": "bye"}
+        self.replies: dict[str, object] = {
+            "/tree": LOGIN,
+            "/idle": "idle",
+            "/change": "changed",
+            "/rotate": "rotated",
+            "/quit": "bye",
+        }
         self.urls: list[str] = []
         self.started: list[tuple[object, ...]] = []  # helper processes the driver started or stopped
 

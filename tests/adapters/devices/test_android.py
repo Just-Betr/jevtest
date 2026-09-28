@@ -354,8 +354,6 @@ def test_device_commands(drv, adb, agent):
     assert adb.shell() == [
         "settings get system user_rotation",
         "settings get system accelerometer_rotation",
-        "settings put system accelerometer_rotation 0",
-        "settings put system user_rotation 1",
         "am start -W -a android.intent.action.VIEW -d 'https://x.dev/a b'",
         "cmd uimode night",
         "cmd uimode night yes",
@@ -403,7 +401,14 @@ def test_rotate_returns_once_the_screen_has_turned(drv, adb, agent):
     turned = LOGIN.replace('rotation="0"', 'rotation="1"')
     agent.replies["/tree"] = [LOGIN, LOGIN, turned]
     drv.rotate("landscape")
-    assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/change", "/tree", "/change", "/tree"]
+    assert agent.paths()[0] == "/rotate?to=1"  # through UiAutomation: the user_rotation setting isn't enough
+    assert [p.split("?")[0] for p in agent.paths()[1:]] == ["/tree", "/change", "/tree", "/change", "/tree"]
+
+
+def test_rotate_fails_when_the_device_refuses(drv, agent):
+    agent.replies["/rotate"] = "refused"
+    with pytest.raises(DeviceError, match="refused to turn the screen to landscape"):
+        drv.rotate("landscape")
 
 
 def test_rotate_fails_when_the_screen_never_turns(drv, adb, agent, monkeypatch):
