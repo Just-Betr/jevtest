@@ -168,6 +168,7 @@ class Agent:
             "/state": {"state": 4},
             "/rotate": {"raw": 1},
             "/appearance": {"raw": 1},
+            "/tree": {"width": 402, "height": 874, "elements": [], "keyboard": False},
         }
         self.calls: list[tuple[str, dict[str, object]]] = []
 

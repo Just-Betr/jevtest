@@ -1,6 +1,7 @@
 import dataclasses
 import io
 import json
+from typing import Any
 
 import pytest
 
@@ -178,7 +179,7 @@ def test_settle_waits_for_idle_not_a_fixed_time(tmp_path, clock, out):
     _, d, _ = run1(tmp_path, clock, out, "back")
     assert ("wait_idle", 3.0, 0.5) in d.calls  # after launch: a longer quiet window
     assert d.calls.count(("wait_idle", 3.0)) == 1  # after back
-    assert clock.slept == []  # no fixed sleeps
+    assert clock.slept == [FakeDevice.IDLE_AFTER] * 2  # only the device's own idle waits: no fixed sleeps
 
 
 def test_screenshot_step(tmp_path, clock, out):
@@ -247,6 +248,7 @@ def test_an_element_is_touched_once_the_keyboard_is_closed(tmp_path, clock, out)
     covered = login_screen(keyboard_visible=True, keyboard_top=300)
     res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=FakeDevice(covered, login_screen()))
     assert res.status is Status.PASS
+    assert "hide_keyboard" not in d.names()  # the app closed it here; an exact step never does
     assert d.calls.count(("tap", 500, 450)) == 1
 
 
@@ -392,11 +394,25 @@ MISS = NotRecorded("This screen and question are not in t.lock.json, and --lock 
 
 
 def test_jev_is_never_asked_about_a_screen_still_changing(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Loading"), login_screen())  # read once, then gone: caught mid-change
+    # each read differs from the one before until the login screen holds: every other one is mid-change
+    d = FakeDevice(screen_with("Loading"), screen_with("Almost"), login_screen())
     model = FakeModel(yes(0.9))
     res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form"}, device=d, model=model)
     assert res.status is Status.PASS
-    assert len(model.asked) == 1 and "Loading" not in json.dumps(model.asked[0][0])
+    assert len(model.asked) == 1
+    asked = json.dumps(model.asked[0][0])
+    assert "Loading" not in asked and "Almost" not in asked
+
+
+def test_a_screen_that_never_stops_changing_is_judged_after_settle(tmp_path, clock, out):
+    """A clock or a progress bar: each read is taken as it is after `settle`, like the wait after an action."""
+    ticking = [screen_with(f"12:00:{i:02d}") for i in range(60)] * 10
+    d = FakeDevice(*ticking)
+    model = FakeModel(*[yes(0.2)] * 20)
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "The clock", "timeout": 10}, device=d, model=model)
+    assert failure_of(res).endswith("Jev says false (0.20)")
+    assert 3 <= len(model.asked) <= 5  # about one question per `settle` (3 s) of the 10 s timeout, not one in all
+    assert clock.now() < 20
 
 
 def test_frozen_expect_looks_again_once_the_screen_changes(tmp_path, clock, out):
@@ -404,6 +420,14 @@ def test_frozen_expect_looks_again_once_the_screen_changes(tmp_path, clock, out)
     d = FakeDevice(loading, loading, login_screen())
     res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form"}, device=d, model=FakeModel(MISS, yes(0.8)))
     assert res.status is Status.PASS
+
+
+def test_frozen_expect_reports_the_last_answer_when_a_later_screen_was_recorded(tmp_path, clock, out):
+    """A miss on an early screen isn't the reason when a later, recorded screen said no."""
+    loading = screen_with("Loading")
+    d = FakeDevice(loading, loading, login_screen())
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "Home", "timeout": 5}, device=d, model=FakeModel(MISS, yes(0.2)))
+    assert failure_of(res).endswith("Jev says false (0.20)")
 
 
 def test_frozen_expect_fails_with_the_lockfile_message_when_no_recorded_screen_comes(tmp_path, clock, out):
@@ -529,6 +553,19 @@ def test_do_fails_when_the_keyboard_over_the_element_stays(tmp_path, clock, out)
     model = FakeModel(act("tap", target="e3"))
     res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=FakeDevice(covered))
     assert failure_of(res).endswith("button 'Sign in' is under the keyboard, and the keyboard didn't close")
+    assert "tap" not in d.names()
+
+
+def test_do_fails_when_the_element_is_there_twice_once_the_keyboard_closes(tmp_path, clock, out):
+    covered = login_screen(keyboard_visible=True, keyboard_top=300)
+    s = login_screen()
+    twice = dataclasses.replace(
+        s, elements=(*s.elements, dataclasses.replace(s.elements[2], bounds=(0, 600, 1000, 700)))
+    )
+    model = FakeModel(act("tap", target="e3"))
+    device = FakeDevice(covered, covered, twice)
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=device)
+    assert failure_of(res).endswith("the screen shows it 2 times: jevtest won't guess which one Jev meant")
     assert "tap" not in d.names()
 
 
@@ -719,6 +756,29 @@ def test_values_the_screen_shows_are_written_as_their_names_in_all_output(tmp_pa
     decision = res.steps[0].decisions[0]
     assert decision.move.describe() == "tap text_field '${EMAIL}'"
     assert res.steps[1].detail == "on text_field '${EMAIL}'"
+    assert "ann@x.io" not in out.getvalue()
+
+
+@pytest.mark.parametrize("field", ["text", "hint", "resource_id", "value", "parts"])
+def test_a_value_is_masked_in_every_field_of_a_decision(tmp_path, clock, out, field):
+    s = login_screen()
+    fields: dict[str, Any] = {"text": "", "hint": ""}
+    fields[field] = ("ann@x.io",) if field == "parts" else "ann@x.io"
+    email = dataclasses.replace(s.elements[0], **fields)
+    s = dataclasses.replace(s, elements=(email, *s.elements[1:]))
+    model = FakeModel(act("tap", target="e1"), act("done"))
+    res, _, _ = run1(
+        tmp_path, clock, out, {"do": "Tap it"}, model=model, device=FakeDevice(s), variables={"E": "ann@x.io"}
+    )
+    assert res.status is Status.PASS
+    assert "ann@x.io" not in repr(res.steps[0].decisions) and "ann@x.io" not in out.getvalue()
+
+
+def test_a_value_in_a_start_failure_is_shown_by_its_name(tmp_path, clock, out):
+    d = FakeDevice()
+    d.fail["launch"] = DeviceError("could not open ann@x.io")
+    res, _, _ = run1(tmp_path, clock, out, "back", device=d, variables={"E": "ann@x.io"})
+    assert res.failure == "(start app) — could not open ${E}"
     assert "ann@x.io" not in out.getvalue()
 
 

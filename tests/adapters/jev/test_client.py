@@ -108,11 +108,19 @@ def test_timeouts_and_server_errors_are_retried(code):
     assert j.ask("s", Q).answers == GOOD["answers"] and slept == [0.5]
 
 
-@pytest.mark.parametrize(("header", "waited"), [("2", 2.0), ("0", 0.0), ("61", 0.5), ("soon", 0.5), ("nan", 0.5)])
+@pytest.mark.parametrize(
+    ("header", "waited"), [("2", 2.0), ("0", 0.0), ("60", 60.0), ("61", 0.5), ("-1", 0.5), ("soon", 0.5), ("nan", 0.5)]
+)
 def test_retry_after_is_honored_up_to_a_minute(header, waited):
     j, slept = client(http_error(429, retry_after=header), GOOD)
     j.ask("s", Q)
     assert slept == [waited]  # otherwise jevtest's own backoff
+
+
+def test_the_timeout_it_is_given_is_the_one_used():
+    j, _ = client(GOOD, timeout=3)
+    j.ask("s", Q)
+    assert opener_of(j).seen[0][1] == 3
 
 
 def test_retries_network_errors_then_succeeds():

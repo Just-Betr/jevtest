@@ -372,10 +372,11 @@ class AndroidDevice(BaseDevice):
         self.key("home")
 
     def hide_keyboard(self) -> None:
-        """Close the keyboard with Back, if it's up."""
+        """Close the keyboard with Back, if it's up, and wait until it's gone."""
         # Back closes the keyboard, but with no keyboard it leaves the screen: check right before.
         if keyboard_up(ET.fromstring(self._agent("/tree"))):
             self.key("back")
+            self.wait_until(lambda s: not s.keyboard_visible, "The keyboard did not close")
 
     # --- device ------------------------------------------------------------------
     def rotate(self, orientation: Orientation) -> None:

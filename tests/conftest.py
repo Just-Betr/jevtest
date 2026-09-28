@@ -117,6 +117,7 @@ class FakeDevice(BaseDevice):
     """Records every call. `screens` is consumed one per screen() call; the last one repeats."""
 
     CHANGE_AFTER = 0.5  # fake seconds until "the screen changed" when waiting for a change
+    IDLE_AFTER = 0.15  # fake seconds a still screen takes to count as idle (the agents' quiet window)
 
     def __init__(self, *screens: Screen, state=AppState.FOREGROUND):
         self.screens = list(screens) or [login_screen()]
@@ -224,6 +225,8 @@ class FakeDevice(BaseDevice):
     @override
     def wait_idle(self, timeout, quiet=None):
         self._rec("wait_idle", timeout) if quiet is None else self._rec("wait_idle", timeout, quiet)
+        if self.clock:  # like the agents: at least their quiet window, at most `timeout`
+            self.clock.sleep(min(timeout, self.IDLE_AFTER))
 
     @override
     def wait_change(self, timeout):

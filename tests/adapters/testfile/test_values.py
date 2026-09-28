@@ -48,6 +48,7 @@ def test_values_of_the_right_kind_pass_through_exactly():
         (lambda: setting("timeout", 0), "`timeout` must be from 1 to 300, got 0"),
         (lambda: model("gpt-5"), "`model` must be a pinned Jev version"),
         (lambda: model("jev-1.13.0-beta"), "`model` must be a pinned Jev version"),
+        (lambda: model("jev-1.13"), "`model` must be a pinned Jev version"),  # the old name: not a version
     ],
 )
 def test_the_wrong_value_is_an_error_that_says_what_to_write(read, message):

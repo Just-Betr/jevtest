@@ -376,8 +376,9 @@ class IOSDevice(BaseDevice):
         self._call("/home")
 
     def hide_keyboard(self) -> None:
-        """Close the keyboard."""
+        """Close the keyboard, and wait until it's gone."""
         self._call("/hide_keyboard")
+        self.wait_until(lambda s: not s.keyboard_visible, "The keyboard did not close")
 
     # --- device -----------------------------------------------------------------------
     def rotate(self, orientation: Orientation) -> None:

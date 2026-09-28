@@ -205,6 +205,7 @@ def test_agent_commands(drv, env):
         ("/back", {}),
         ("/home", {}),
         ("/hide_keyboard", {}),
+        ("/tree", {}),  # closed: the keyboard is gone
         ("/rotate", {}),
         ("/rotate", {"orientation": "landscape"}),
         ("/idle", {"timeout": 2}),

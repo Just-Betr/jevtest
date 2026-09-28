@@ -248,14 +248,14 @@ class TestRunner:
         timeout: float,
         failure: Callable[[Screen], str],
         *,
-        steady: bool = False,
+        steady: float | None = None,
     ) -> T:
         """Call `attempt` until it returns something, or time runs out.
 
         `attempt` runs again only when the screen has changed, so an unchanged screen is never judged
         twice. Between reads it waits for the next change. When time runs out, `failure` says why, from the
-        last screen. With `steady`, each screen is one that has stopped changing (see `_steady_screen`): for
-        attempts that ask Jev, whose answer is recorded for that exact screen.
+        last screen. With `steady` seconds, each screen is one that has stopped changing (see `_steady_screen`),
+        waited for up to that long: for attempts that ask Jev, whose answer is recorded for that exact screen.
 
         A screen that isn't in the lockfile (``--lock frozen``) may be one still changing: the next one is
         looked up too, and if the last one wasn't recorded either, that is the error.
@@ -264,7 +264,11 @@ class TestRunner:
         last: Screen | None = None
         missed: list[NotRecorded] = []
         while True:
-            screen = self._steady_screen(deadline) if steady else self.device.screen()
+            screen = (
+                self.device.screen()
+                if steady is None
+                else self._steady_screen(min(deadline, self.clock.now() + steady))
+            )
             if screen != last:
                 last = screen
                 try:
@@ -282,14 +286,15 @@ class TestRunner:
                 raise StepFailed(failure(screen))
             self.device.wait_change(left)
 
-    def _steady_screen(self, deadline: float) -> Screen:
-        """The screen once two reads a still moment apart agree (or at `deadline`, the last one read).
+    def _steady_screen(self, until: float) -> Screen:
+        """The screen once two reads a still moment apart agree; at `until`, the last one read.
 
         A still moment alone can come in the middle of an animation, like a keyboard sliding up, and a screen
-        read then is never seen again: its recorded answer would never be replayed.
+        read then is never seen again: its recorded answer would never be replayed. A screen that never stops
+        changing (a clock, a progress bar) is taken as it is at `until`, like the wait after an action.
         """
         screen = self.device.screen()
-        while (left := deadline - self.clock.now()) > 0:
+        while (left := until - self.clock.now()) > 0:
             self.device.wait_idle(left)
             again = self.device.screen()
             if again == screen:
@@ -379,7 +384,7 @@ class TestRunner:
                 last.append(self.brain.check(wanted, screen))
                 return f"Jev {last[-1]:.2f}" if last[-1] > settings.confidence else None
 
-            return self._poll(judged, timeout, lambda _: f"Jev says false ({last[-1]:.2f})", steady=True)
+            return self._poll(judged, timeout, lambda _: f"Jev says false ({last[-1]:.2f})", steady=settings.settle)
         present = isinstance(check, See)
 
         def seen(screen: Screen) -> str | None:
@@ -556,7 +561,10 @@ class TestRunner:
         taken: list[str] = []
         while True:
             decision, screen = self._poll(  # every screen gets a decision; only one not recorded waits for the next
-                lambda s: (self.brain.next_action(goal, s, taken), s), settings.timeout, lambda _: "", steady=True
+                lambda s: (self.brain.next_action(goal, s, taken), s),
+                settings.timeout,
+                lambda _: "",
+                steady=settings.settle,
             )
             decisions.append(decision)
             move = decision.move
@@ -609,6 +617,12 @@ class TestRunner:
         def failure(screen: Screen) -> str:
             if screen.keyboard_visible:
                 return f"{element.label()} is under the keyboard, and the keyboard didn't close"
+            count = sum((el.kind, el.text, el.hint, el.resource_id) == same for el in screen.elements)
+            if count:
+                return (
+                    f"{element.label()} was under the keyboard, and once it closed the screen shows it {count} "
+                    "times: jevtest won't guess which one Jev meant"
+                )
             return f"{element.label()} was under the keyboard, and isn't on screen once it closed"
 
         return self._poll(found, settings.timeout, failure)

@@ -313,11 +313,12 @@ def test_interrupt_exits_130(project, fakes):
 @pytest.mark.parametrize(("signum", "code"), [(signal.SIGTERM, 143), (signal.SIGHUP, 129)])
 def test_a_stop_signal_puts_the_device_back_like_ctrl_c(project, fakes, signum, code):
     """CI cancels a job with SIGTERM; a closed terminal sends SIGHUP. Either used to leave the agent running."""
-    before = signal.getsignal(signum)
+    previous = signal.signal(signum, signal.SIG_DFL)  # as a fresh process starts, whatever ran before
 
     class Stopped(FakeDevice):
         @override
         def install(self, app):
+            assert signal.getsignal(signum) is cli._stop  # else the kill below would end pytest itself
             os.kill(os.getpid(), signum)
             return super().install(app)
 
@@ -328,9 +329,12 @@ def test_a_stop_signal_puts_the_device_back_like_ctrl_c(project, fakes, signum, 
         return made[-1]
 
     fakes.make_device = make_device
-    assert fakes.run() == code
-    assert made[0].closed
-    assert signal.getsignal(signum) == before  # jevtest's handler is gone once it returns
+    try:
+        assert fakes.run() == code
+        assert made[0].closed
+        assert signal.getsignal(signum) is signal.SIG_DFL  # jevtest's handler is gone once it returns
+    finally:
+        signal.signal(signum, previous)
 
 
 def test_a_stop_signal_that_is_ignored_stays_ignored(project, fakes):

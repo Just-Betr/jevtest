@@ -79,6 +79,7 @@ def test_under_keyboard_is_where_a_tap_would_hit_a_key():
     s = Screen(10, 2000, keyboard_visible=True, keyboard_top=1200)
     assert s.under_keyboard(el(bounds=(0, 1150, 10, 1260)))  # its middle is on the keyboard
     assert not s.under_keyboard(el(bounds=(0, 1100, 10, 1290)))  # partly covered, but its middle is above
+    assert s.under_keyboard(el(bounds=(0, 1100, 10, 1300)))  # its middle is exactly where the keyboard starts
     assert not Screen(10, 2000).under_keyboard(el(bounds=(0, 1900, 10, 2000)))
 
 

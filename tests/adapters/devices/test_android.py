@@ -329,9 +329,25 @@ def test_keys(drv, adb):
 
 @pytest.mark.parametrize(("ime", "pressed"), [("true", True), ("false", False)])
 def test_hide_keyboard_only_presses_back_when_open(drv, adb, agent, ime, pressed):
-    agent.replies["/tree"] = LOGIN.replace('<hierarchy rotation="0"', f'<hierarchy rotation="0" ime="{ime}"')
+    agent.replies["/tree"] = [LOGIN.replace('<hierarchy rotation="0"', f'<hierarchy rotation="0" ime="{ime}"'), LOGIN]
     drv.hide_keyboard()
     assert ("input keyevent 4" in adb.shell()) is pressed
+
+
+def test_hide_keyboard_waits_until_the_keyboard_is_gone(drv, adb, agent):
+    """Back only starts closing it: a screen read right after can still show the keyboard, or half of it."""
+    up = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"')
+    agent.replies["/tree"] = [up, up, up, LOGIN]
+    drv.hide_keyboard()
+    assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/tree", "/change", "/tree", "/change", "/tree"]
+
+
+def test_hide_keyboard_fails_when_the_keyboard_stays(drv, adb, agent, monkeypatch):
+    agent.replies["/tree"] = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"')
+    ticks = iter([0, 1, 4])
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
+    with pytest.raises(DeviceError, match="The keyboard did not close within 3 seconds"):
+        drv.hide_keyboard()
 
 
 # --- device ----------------------------------------------------------------------------------------

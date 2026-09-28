@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import threading
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
@@ -181,6 +182,22 @@ class BaseDevice(ABC):
     @abstractmethod
     def wait_change(self, timeout: float) -> None:
         """Return as soon as the screen changes, or after `timeout` seconds."""
+
+    def wait_until(self, done: Callable[[Screen], bool], what: str) -> None:
+        """Wait up to `FOLLOW_UP` seconds for the screen to show an action's effect.
+
+        For actions whose effect comes a moment after they return (the keyboard sliding away, the screen turning):
+        a still screen alone can come before the effect starts.
+
+        Raises:
+            DeviceError: The effect didn't show: the message is "`what` within N seconds".
+        """
+        deadline = time.monotonic() + FOLLOW_UP
+        while not done(self.screen()):
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise DeviceError(f"{what} within {FOLLOW_UP:g} seconds")
+            self.wait_change(left)
 
     def swipe(self, direction: Direction, element: Element | None = None, screen: Screen | None = None) -> None:
         """Finger swipe in `direction`, across an element or across the page.
