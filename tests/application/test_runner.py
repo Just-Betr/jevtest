@@ -215,7 +215,7 @@ def test_a_tap_never_guesses_an_element_no_one_names(tmp_path, clock, out):
     """Only exact text counts: a described target goes in a do: step, not a tap:."""
     model = FakeModel()  # asking it anything fails the test
     res, d, _ = run1(tmp_path, clock, out, {"tap": "the login button", "timeout": 1}, model=model)
-    assert failure_of(res).endswith("Waited 1s until an element says 'the login button' on screen")
+    assert failure_of(res).endswith("Waited 1s until an element says 'the login button' on screen and stopped moving")
     assert "tap" not in d.names() and not model.asked
 
 
@@ -223,13 +223,16 @@ def test_tap_waits_until_the_element_is_on_screen(tmp_path, clock, out):
     d = FakeDevice(screen_with("Loading"), screen_with("Loading"), login_screen())
     res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=d)
     assert res.status is Status.PASS
-    assert d.names().count("screen") == 3 and clock.slept == [0.25, 0.25]  # checked every interval
+    # checked every interval; found at the 3rd check, and in the same place at the 4th: it stopped moving
+    assert d.names().count("screen") == 4 and clock.slept == [0.25] * 3
 
 
 def test_tap_gives_up_after_timeout(tmp_path, clock, out):
     res, _, _ = run1(tmp_path, clock, out, {"tap": "Ghost", "timeout": 1})
     assert res.status is Status.FAIL
-    assert res.failure == "tap: Ghost (timeout: 1) — Waited 1s until an element says 'Ghost' on screen"
+    assert (
+        res.failure == "tap: Ghost (timeout: 1) — Waited 1s until an element says 'Ghost' on screen and stopped moving"
+    )
     assert clock.now() <= 1
 
 
@@ -280,7 +283,7 @@ def test_type_into_field(tmp_path, clock, out):
 
 def test_type_into_missing_field(tmp_path, clock, out):
     res, _, _ = run1(tmp_path, clock, out, {"type": {"text": "a", "into": "Phone"}, "timeout": 1})
-    assert "Waited 1s until a text field says 'Phone' on screen" in failure_of(res)
+    assert "Waited 1s until a text field says 'Phone' on screen and stopped moving" in failure_of(res)
 
 
 def test_type_into_focused_field(tmp_path, clock, out):
@@ -290,7 +293,7 @@ def test_type_into_focused_field(tmp_path, clock, out):
 
 def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
     # after each scroll: wait_until two reads agree (the scroll has stopped gliding)
-    d = FakeDevice(screen_with("Item 1"), *held(screen_with("Item 300"), screen_with("Item 30")))
+    d = FakeDevice(*held(screen_with("Item 1"), screen_with("Item 300"), screen_with("Item 30")))
     res, d, model = run1(tmp_path, clock, out, {"scroll_to": "Item 30", "direction": "down"}, device=d)
     assert res.status is Status.PASS and res.steps[0].detail == "2 scroll(s)"
     assert d.names().count("drag") == 2
@@ -303,7 +306,7 @@ def test_scroll_to_already_on_screen(tmp_path, clock, out):
 
 
 def test_scroll_to_stops_at_the_end_of_the_content(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Item 1"), screen_with("Item 2"))  # then Item 2 for good
+    d = FakeDevice(*held(screen_with("Item 1")), screen_with("Item 2"))  # then Item 2 for good
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "up"}, device=d)
     assert failure_of(res).endswith("Scrolled up to the end but never found 'Item 99'")
     assert d.names().count("drag") == 3  # the last two scrolls moved nothing: that's the end
@@ -311,20 +314,20 @@ def test_scroll_to_stops_at_the_end_of_the_content(tmp_path, clock, out):
 
 def test_scroll_to_keeps_going_after_one_scroll_that_moved_nothing(tmp_path, clock, out):
     """A real phone's web view sometimes ignores a single scroll: that isn't the end."""
-    d = FakeDevice(screen_with("Item 1"), *held(screen_with("Item 1"), screen_with("Back to top")))
+    d = FakeDevice(*held(screen_with("Item 1"), screen_with("Item 1"), screen_with("Back to top")))
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Back to top", "direction": "down"}, device=d)
     assert res.status is Status.PASS and d.names().count("drag") == 2
 
 
 def test_scroll_to_gives_up_after_50_scrolls(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Item 0"), *held(*[screen_with(f"Item {i}") for i in range(1, 60)]))  # endless
+    d = FakeDevice(*held(screen_with("Item 0"), *[screen_with(f"Item {i}") for i in range(1, 60)]))  # endless
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "down"}, device=d)
     assert failure_of(res).endswith("Scrolled down 50 times (max_scrolls) but never found 'Item 99'")
     assert d.names().count("drag") == 50
 
 
 def test_scroll_to_found_after_the_last_allowed_scroll(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Item 0"), *held(*[screen_with(f"Item {i}") for i in range(1, 51)]))
+    d = FakeDevice(*held(screen_with("Item 0"), *[screen_with(f"Item {i}") for i in range(1, 51)]))
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 50", "direction": "down"}, device=d)
     assert res.status is Status.PASS and res.steps[0].detail == "50 scroll(s)"
 
@@ -721,7 +724,7 @@ def test_a_saved_step_waits_until_its_element_is_on_screen(tmp_path, clock, out)
     d = FakeDevice(screen_with("Loading"), screen_with("Loading"), login_screen())
     model = FakeModel(saved={SIGN_IN: (TAP_SIGN_IN,)})
     res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, device=d, model=model)
-    assert res.status is Status.PASS and ("tap", 500, 450) in d.calls and clock.slept == [0.25, 0.25]
+    assert res.status is Status.PASS and ("tap", 500, 450) in d.calls and clock.slept == [0.25] * 3
 
 
 def test_a_saved_step_takes_the_same_one_of_several_namesakes(tmp_path, clock, out):
@@ -739,7 +742,7 @@ def test_frozen_fails_when_the_saved_steps_element_is_not_there_as_saved(tmp_pat
     model = FakeModel(saved={SIGN_IN: (SavedStep("tap", Target("button", "Sign in", 2, 2)),)}, frozen=True)
     res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in", "timeout": 1}, model=model)
     assert failure_of(res).endswith(
-        "Waited 1s until the 2nd of 2 button 'Sign in' is on screen; the screen shows 1, the saved step was made with 2"
+        "Waited 1s until the 2nd of 2 button 'Sign in' is on screen and stopped moving; the screen shows 1, the saved step was made with 2"
     )
     assert "tap" not in d.names() and not model.asked
 
@@ -895,7 +898,7 @@ def test_a_value_in_a_start_failure_is_shown_by_its_name(tmp_path, clock, out):
 
 def test_missing_target_is_reported_by_its_placeholder(tmp_path, clock, out):
     res, _, _ = run1(tmp_path, clock, out, {"tap": "${WHO}", "timeout": 1}, variables={"WHO": "Bob"})
-    assert "Waited 1s until an element says '${WHO}' on screen" in failure_of(res)
+    assert "Waited 1s until an element says '${WHO}' on screen and stopped moving" in failure_of(res)
 
 
 # --- settings ------------------------------------------------------------------------
@@ -910,7 +913,7 @@ def test_a_files_settings_reach_every_step(tmp_path, clock, out):
     res = TestRunner(
         suite, d, Brain(FakeModel()), tmp_path, platform="android", clock=clock, listener=console(out)
     ).run_test(test)
-    assert failure_of(res).endswith("Waited 2s until an element says 'Ghost' on screen")
+    assert failure_of(res).endswith("Waited 2s until an element says 'Ghost' on screen and stopped moving")
     assert clock.slept == [0.5] * 4  # checked at 0, 0.5, 1, 1.5 and 2 seconds
 
 
@@ -932,7 +935,7 @@ def test_do_can_allow_fewer_actions(tmp_path, clock, out):
 
 
 def test_scroll_to_can_allow_fewer_scrolls(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Item 0"), *held(*[screen_with(f"Item {i}") for i in range(1, 10)]))
+    d = FakeDevice(*held(screen_with("Item 0"), *[screen_with(f"Item {i}") for i in range(1, 10)]))
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 9", "direction": "down", "max_scrolls": 3}, device=d)
     assert failure_of(res).endswith("Scrolled down 3 times (max_scrolls) but never found 'Item 9'")
 
@@ -942,7 +945,7 @@ def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
         tmp_path, clock, out, {"do": "Loop", "max_actions": 1}, model=FakeModel(act("back"), act("tap", target="e3"))
     )
     assert failure_of(res).endswith("Goal not reached after 1 action (max_actions)")
-    d = FakeDevice(screen_with("Item 0"), *held(*[screen_with(f"Item {i}") for i in range(1, 5)]))
+    d = FakeDevice(*held(screen_with("Item 0"), *[screen_with(f"Item {i}") for i in range(1, 5)]))
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 4", "direction": "down", "max_scrolls": 1}, device=d)
     assert failure_of(res).endswith("Scrolled down 1 time (max_scrolls) but never found 'Item 4'")
 
@@ -956,7 +959,7 @@ def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
         (
             {"tap": "Save", "timeout": 1},
             ["Unsaved changes", "Save draft"],
-            "Waited 1s until an element says 'Save' on screen; close but not exact: 'Unsaved changes', 'Save draft'",
+            "Waited 1s until an element says 'Save' on screen and stopped moving; close but not exact: 'Unsaved changes', 'Save draft'",
         ),
         (
             {"see": "Taps: 2", "timeout": 1},
@@ -1010,3 +1013,17 @@ def test_the_output_says_when_jev_chose_between_exact_matches(tmp_path, clock, o
     res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=FakeDevice(twice), model=model)
     assert res.steps[0].detail == "on button 'Sign in' (chosen by Jev among 2 exact matches)"
     assert ("tap", 500, 650) in d.calls
+
+
+def test_an_element_is_touched_only_once_it_has_stopped_moving(tmp_path, clock, out):
+    """A page sliding in: a tap where the button is now would land where it was a moment ago."""
+    s = login_screen()
+    sliding = [
+        dataclasses.replace(
+            s, elements=(*s.elements[:2], dataclasses.replace(s.elements[2], bounds=(x, 400, x + 1000, 500)))
+        )
+        for x in (300, 100)
+    ]
+    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=FakeDevice(*sliding, s))
+    assert res.status is Status.PASS
+    assert [c for c in d.calls if c[0] == "tap"] == [("tap", 500, 450)]  # not at 800 or 600, where it passed by

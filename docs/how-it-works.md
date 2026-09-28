@@ -71,17 +71,17 @@ Commit the lockfile. [`--lock`](reference/cli.md#lock-modes) says how each run u
 Every wait in jevtest is the same thing: **wait until a condition is true**, checking it every `interval` (0.25 s), for at most the step's `timeout` (10 s). If it isn't true by then, the step fails and says what it waited for:
 
 ```text
-✗ tap: Save — Waited 10s until an element says 'Save' on screen; close but not exact: 'Save draft'
+✗ tap: Save — Waited 10s until an element says 'Save' on screen and stopped moving; close but not exact: 'Save draft'
 ```
 
 | Step | Waits until |
 |---|---|
-| `tap:`, `type: … into:`, `clear:`, `swipe: … target:` | an element says the target (and isn't under the keyboard) |
+| `tap:`, `type: … into:`, `clear:`, `swipe: … target:` | an element says the target and has stopped moving: it's in the same place at two checks in a row, so a tap never lands where a sliding page's button was a moment ago (and it isn't under the keyboard) |
 | `see:` / `not_see:` | the text is on screen / gone |
 | `expect:` | Jev judges it true of the screen (asked once per new screen) |
-| a saved `do:` step | its element is on screen |
+| a saved `do:` step | its element is on screen and has stopped moving |
 | working a `do:` out with Jev | the screen stopped moving (it reads the same at two checks in a row) |
-| `scroll_to:`, after each scroll | the screen stopped moving |
+| `scroll_to:`, before its first look and after each scroll | the screen stopped moving |
 | `hide_keyboard`, `rotate:` | the keyboard is gone / the screen has turned (3 s) |
 
 An action doesn't wait afterwards: the next step waits for what it needs. The on-device agents never wait either; they answer each read at once.

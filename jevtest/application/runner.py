@@ -329,13 +329,16 @@ class TestRunner:
     def _find(
         self, target: str, settings: Settings, *, editable: bool = False, typing: bool = False
     ) -> tuple[Located, Screen]:
-        """`wait_until` an element says `target` exactly, and isn't under the keyboard.
+        """`wait_until` an element says `target` exactly, has stopped moving, and isn't under the keyboard.
 
-        Under the keyboard is allowed when `typing` into a field that already takes the keys (no tap needed).
+        Stopped moving: found in the same place at two checks in a row, so a tap never lands where an element
+        sliding in (a page, a list coming back) was a moment ago. Under the keyboard is allowed when `typing` into a
+        field that already takes the keys (no tap needed).
         """
         wanted = self._value(target)
         asked: dict[Screen, Located | None] = {}  # Jev picks among exact matches once per screen
         covered: list[Located] = []  # found, but under the keyboard: touching it would hit a key
+        last: list[Element] = []  # where it was at the previous check
 
         def pool(screen: Screen) -> Sequence[Element]:
             return screen.editable if editable else screen.elements
@@ -350,7 +353,7 @@ class TestRunner:
             if screen.under_keyboard(located.element) and not (typing and screen.takes_keys(located.element)):
                 covered.append(located)
                 return None
-            return located, screen
+            return (located, screen) if _still(located.element, last) else None
 
         def why(screen: Screen) -> str:
             if covered:
@@ -358,7 +361,7 @@ class TestRunner:
             return self._near(wanted, pool(screen))
 
         what = "a text field" if editable else "an element"
-        return self._wait_until(found, settings, f"{what} says '{target}' on screen", why)
+        return self._wait_until(found, settings, f"{what} says '{target}' on screen and stopped moving", why)
 
     def _check_app(self, action: Action) -> None:
         """Fail if the app crashed or left the foreground during the action."""
@@ -537,7 +540,7 @@ class TestRunner:
         After each scroll it waits until the screen stopped moving (a scroll glides on for a moment).
         """
         wanted = self._value(text)
-        screen = self.device.screen()
+        screen = self._still_screen(settings)  # a page still sliding in isn't what there is to scroll
         scrolls, unmoved = 0, 0  # unmoved: scrolls in a row that moved nothing
         while True:
             if screen.shows(wanted):
@@ -586,18 +589,23 @@ class TestRunner:
             self._make(_page_move(step), self.device.screen(), settings)
             return
         found: list[int] = []  # how many elements have its kind and name, on the last screen read
+        last: list[Element] = []  # where it was at the previous check
 
         def match(screen: Screen) -> tuple[Element, Screen] | None:
             same = [el for el in screen.elements if el.kind == target.kind and self._name(el) == target.name]
             found[:] = [len(same)]
-            return (same[target.nth - 1], screen) if len(same) == target.count else None
+            if len(same) != target.count:
+                last.clear()
+                return None
+            element = same[target.nth - 1]
+            return (element, screen) if _still(element, last) else None
 
         def why(_: Screen) -> str:
             if not found or found[0] == 0:
                 return ""
             return f"; the screen shows {found[0]}, the saved step was made with {target.count}"
 
-        element, screen = self._wait_until(match, settings, f"{target.describe()} is on screen", why)
+        element, screen = self._wait_until(match, settings, f"{target.describe()} is on screen and stopped moving", why)
         self._make(_element_move(step, element), screen, settings)
 
     def _work_out(self, goal: str, settings: Settings, record: _Record) -> list[SavedStep]:
@@ -731,6 +739,17 @@ def _page_move(step: SavedStep) -> PageMove:
     if step.action.startswith("scroll_"):
         return ScrollPage(Direction(step.action.removeprefix("scroll_")))
     return _PAGE_MOVES[step.action]
+
+
+def _still(element: Element, last: list[Element]) -> bool:
+    """Whether `element` is where it was at the previous check (`last`, which is then updated).
+
+    It has stopped moving when two checks in a row find it in the same place.
+    """
+    here = (element.kind, element.text, element.bounds)
+    still = bool(last) and (last[0].kind, last[0].text, last[0].bounds) == here
+    last[:] = [element]
+    return still
 
 
 def _changed_from(before: Screen) -> Callable[[Screen], Screen | None]:
