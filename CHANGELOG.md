@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.0
 
 **Every wait is a wait until.** A step waits until what it needs is true, checking every `interval` (0.25 s) for at
 most its `timeout` (10 s), and otherwise fails saying what it waited for: `Waited 10s until an element says

@@ -62,6 +62,8 @@ So jevtest keeps a **lockfile** next to the test file (`tests.yaml` → `tests.l
 - **The steps each `do:` took** the first time, worked out by Jev. Every later run repeats exactly those steps, with no network call, and they don't depend on the screen looking exactly as it did: each one only needs its element on screen.
 - **Jev's answer to every other question** (an `expect:`, which of several exact matches a step means), keyed by a hash of the exact model, screen and question: the same screen and question always get the same answer. A recorded answer is never applied to a screen it wasn't recorded on.
 
+Saved steps are kept per platform (Android, iOS), since the same goal takes different steps on each. Devices of one platform share them, so they must show the app the same way: two Android versions can name the same web field differently (see [Troubleshooting](troubleshooting.md)). For devices that don't, use a test file per device, so each has its own lockfile.
+
 If the app changes (a button is renamed), a saved step's element never shows up: `--lock record` works that `do:` out again from where it got to, and `--lock frozen` fails and says so.
 
 Commit the lockfile. [`--lock`](reference/cli.md#lock-modes) says how each run uses it, and [`--prune-lock`](reference/cli.md#-prune-lock) removes what a run no longer used.
