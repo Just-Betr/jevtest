@@ -104,7 +104,9 @@ A list of tests, run in order.
 
 ## `${NAME}` values
 
-Any text in the file can contain `${NAME}`. The value comes from the `.env` next to the test file or from the environment; a name that isn't set in either is an error. In `app` and `device` the value is filled in when the file loads. In steps it's filled in only when the app needs it, so logs and reports keep the name. [Details](../guides/large-suites.md#name-values-secrets-and-per-machine-values).
+Any text in the file can contain `${NAME}`. The value comes from the `.env` next to the test file or from the environment; a name that isn't set in either is an error. In `app` and `device` the value is filled in when the file loads. In steps it's filled in only when the app needs it, so logs and reports keep the name.
+
+The reverse holds for what the app shows: before a screen is sent to Jev or printed, every value on it is replaced by its `${NAME}`. An app that shows the signed-in user's email sends Jev `Welcome, ${DEMO_EMAIL}`, so the value never reaches Jev, the logs or the lockfile, and a lockfile recorded with one person's values replays with another's. [Details](../guides/large-suites.md#name-values-secrets-and-per-machine-values).
 
 !!! warning "Quote `${NAME}` inside `{ }` and `[ ]`"
     YAML reads `{` as the start of a mapping, so `{android: ${PHONE}}` is invalid. Write `{android: "${PHONE}"}`, or use the block style (`android: ${PHONE}` on its own line).

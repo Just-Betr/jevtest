@@ -286,9 +286,9 @@ const _html = """
     </select>
 
     <p>Plan</p>
-    <label><input type="radio" name="plan" value="Free" checked> Free plan</label>
-    <label><input type="radio" name="plan" value="Pro"> Pro plan</label>
-    <label><input id="agree" type="checkbox" onchange="agreed()"> I agree to the terms</label>
+    <label><input type="radio" name="plan" value="Free" aria-label="Free plan" checked> Free plan</label>
+    <label><input type="radio" name="plan" value="Pro" aria-label="Pro plan"> Pro plan</label>
+    <label><input id="agree" type="checkbox" aria-label="I agree to the terms" onchange="agreed()"> I agree to the terms</label>
     <p id="terms">Terms not accepted</p>
     <button onclick="submitForm()">Submit form</button>
     <p id="summary">Form not submitted</p>

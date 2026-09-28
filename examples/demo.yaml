@@ -175,12 +175,13 @@ tests:
     fresh: true
     steps:
       - use: Open the web page
-      - type: { text: "Bert", into: Your name }
-      - clear: Your name
-      - type: { text: "Bret", into: Your name }
+      # Android System WebView 153 gives web text fields no name (see Troubleshooting), so Jev finds them.
+      - do: Type "Bert" into the name field
+      - do: Clear the name field
+      - do: Type "Bret" into the name field
       - tap: Say hello
         see: Hello, Bret!
-      - type: { text: "secret1", into: Web password }
+      - do: Type "secret1" into the web password field
       - do: Choose Canada in the Country dropdown
         expect: Canada is the selected country
       - scroll_to: Submit form

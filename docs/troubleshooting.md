@@ -64,4 +64,19 @@ error: t.yaml has 2 problems:
 - **`The app is no longer running (crashed or closed)`**: the app crashed. The log from `adb logcat` or the device's crash reports will say why.
 - **`expect: … — Jev says false (0.31)`**: Jev judged the statement false. Read the screenshot: it's usually right. If the statement is ambiguous, make it concrete, or use `see:` for exact text.
 
+## Web pages on Android: fields with no name
+
+Android System **WebView 153** (a Play Store update in September 2026) stopped passing some names from web pages to Android's accessibility tree, which is all any test tool can read. Measured on the demo app, with WebView 146 for comparison:
+
+| On the web page | WebView 146 | WebView 153 |
+|---|---|---|
+| `<input type="text">` with a `<label>` and a placeholder | named (`Your name`) | **no name at all**: not the label, the placeholder, `aria-label` or `title` |
+| `<label><input type="radio"> Pro plan</label>` (a radio or checkbox inside its label) | named | no name, and the label's text is missing too |
+| the same, with `aria-label="Pro plan"` on the input | named | named |
+
+What to do:
+
+- **Radios and checkboxes:** give the input an `aria-label` with its visible text. It's also what screen readers need.
+- **Text fields:** nothing on the page brings the name back on WebView 153, so exact steps (`type: … into: Your name`) can't find the field. Use a goal instead: `do: Type "Bret" into the name field`. Jev picks the field from the screen, the step's output says so, and the lockfile replays the choice.
+
 Run with `-v` to see every Jev question with its top answers and probabilities.

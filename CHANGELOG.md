@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- **Security:** the iOS agent listened on every network interface without authentication, so while a test ran,
+  another device on the same network could read the screen and tap. Each run now has a random token that every
+  request must carry, and a simulator's agent listens on loopback only.
+- **Privacy:** every `${NAME}` value the app shows is replaced by its name before the screen is sent to Jev or
+  printed, as the docs promised. Lockfiles no longer depend on anyone's `.env`; recorded lockfiles are asked
+  again once with `--lock record`.
+- Ctrl-C during a multi-device run closes every device: puts back what steps changed, stops the agents.
+- The Jev client retries Cloudflare's temporary 520-524 errors.
+- A null character in a test-file value is a clear error instead of a crash.
+- Docs: Android System WebView 153 gives web text fields no name, and radios or checkboxes inside their `<label>`
+  none either; Troubleshooting says what to do. The demo's web form names its radios and checkbox with
+  `aria-label`, and types into its text fields with `do:` goals.
+
 ## 0.7.2
 
 - The Android agent reads the screen's rotation and a checkbox's state with the current Android APIs (the old ones
