@@ -85,6 +85,10 @@ class Element:
         return f"{self.kind} '{name}'"
 
 
+EDGE = 0.08
+"""The share of the screen's height, at its top and at its bottom, that phones keep for their own gestures."""
+
+
 @dataclass(frozen=True)
 class Screen:
     """Everything on the screen at one moment.
@@ -117,6 +121,15 @@ class Screen:
     def under_keyboard(self, el: Element) -> bool:
         """Whether the keyboard is over the point where a tap on the element lands: touching it would hit a key."""
         return el.center[1] >= self.content_height
+
+    def clear_of_edges(self, el: Element) -> bool:
+        """Whether the element's middle is clear of the top and bottom `EDGE` of the screen.
+
+        Of the part the keyboard leaves, when it's up. Phones keep those edges for their own gestures, like the home
+        swipe.
+        """
+        margin = self.height * EDGE
+        return margin <= el.center[1] <= self.content_height - margin
 
     def takes_keys(self, el: Element) -> bool:
         """Whether typing now goes into the element without a tap: it has focus and the keyboard is up.

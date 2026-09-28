@@ -52,6 +52,11 @@ def held(*screens):
     return [s for screen in screens for s in (screen, screen)]
 
 
+def listed(text: str, y: int = 900) -> Screen:
+    """A screen with one element saying `text`, at height `y` of 2000 (mid-screen: clear of the edges)."""
+    return Screen(1000, 2000, (el("text", text, bounds=(0, y, 1000, y + 80)),))
+
+
 def failure_of(result: TestResult) -> str:
     """Why the test failed; the check fails here if it passed."""
     assert result.failure is not None
@@ -293,7 +298,7 @@ def test_type_into_focused_field(tmp_path, clock, out):
 
 def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
     # after each scroll: wait_until two reads agree (the scroll has stopped gliding)
-    d = FakeDevice(*held(screen_with("Item 1"), screen_with("Item 300"), screen_with("Item 30")))
+    d = FakeDevice(*held(listed("Item 1"), listed("Item 300"), listed("Item 30")))
     res, d, model = run1(tmp_path, clock, out, {"scroll_to": "Item 30", "direction": "down"}, device=d)
     assert res.status is Status.PASS and res.steps[0].detail == "2 scroll(s)"
     assert d.names().count("drag") == 2
@@ -314,7 +319,7 @@ def test_scroll_to_stops_at_the_end_of_the_content(tmp_path, clock, out):
 
 def test_scroll_to_keeps_going_after_one_scroll_that_moved_nothing(tmp_path, clock, out):
     """A real phone's web view sometimes ignores a single scroll: that isn't the end."""
-    d = FakeDevice(*held(screen_with("Item 1"), screen_with("Item 1"), screen_with("Back to top")))
+    d = FakeDevice(*held(listed("Item 1"), listed("Item 1"), listed("Back to top")))
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Back to top", "direction": "down"}, device=d)
     assert res.status is Status.PASS and d.names().count("drag") == 2
 
@@ -1048,3 +1053,22 @@ def test_an_element_is_touched_only_once_it_is_drawn_the_same_twice(tmp_path, cl
     d.drawn = ["faint", "fainter", "solid", "solid"]
     res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=d)
     assert res.status is Status.PASS and d.names().count("looks") == 4 and clock.slept == [0.25] * 3
+
+
+def test_scroll_to_brings_an_element_clear_of_the_edges(tmp_path, clock, out):
+    """Just peeking in at the bottom it sits on the home-gesture strip, where a tap goes home."""
+    d = FakeDevice(*held(listed("Show more", y=1960), listed("Show more", y=1200)))
+    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Show more", "direction": "down"}, device=d)
+    assert res.status is Status.PASS and res.steps[0].detail == "1 scroll(s)"
+
+
+def test_scroll_to_takes_an_element_at_an_edge_at_the_end_of_the_content(tmp_path, clock, out):
+    d = FakeDevice(listed("Show more", y=1960))  # it never moves: the content ends there
+    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Show more", "direction": "down"}, device=d)
+    assert res.status is Status.PASS and d.names().count("drag") == 2
+
+
+def test_scroll_to_takes_an_element_at_an_edge_after_its_last_scroll(tmp_path, clock, out):
+    d = FakeDevice(*held(listed("Item 0"), listed("Item 1"), listed("Show more", y=1960)))
+    res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Show more", "direction": "down", "max_scrolls": 2}, device=d)
+    assert res.status is Status.PASS and res.steps[0].detail == "2 scroll(s)"

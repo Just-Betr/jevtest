@@ -38,7 +38,7 @@ Each takes one value or a list. Checks keep trying for up to 10 seconds, or the 
 | `long_press: target` | Presses and holds it. |
 | `swipe: up\|down\|left\|right` | Swipes across the screen, or on an element with `target:`. |
 | `scroll: up\|down\|left\|right` | Scrolls the content one page. |
-| `scroll_to: text` | Scrolls in `direction:` (required) until an element says exactly the text. Fails when the content stops moving (the end) or after `max_scrolls` (50 by default). |
+| `scroll_to: text` | Scrolls in `direction:` (required) until an element says exactly the text, clear of the screen's top and bottom 8% (phones keep those edges for their own gestures, like the home swipe). Fails when the content stops moving (the end) or after `max_scrolls` (50 by default) without the text on screen. |
 
 **Targets** are found by their exact text ([matching](#matching)): the step waits until an element says it, then acts. If several elements match, the one you can act on wins (a switch over its label); if that still leaves several, Jev chooses among those only, and the step says `(chosen by Jev among 2 exact matches)`. A target is never guessed: one no element says fails the step after 10 seconds (or the step's `timeout:`) with `Waited 10s until an element says '…' on screen`. To describe something instead (`the red delete icon`), use `do:`.
 

@@ -553,15 +553,20 @@ class TestRunner:
                 assert_never(gesture)
 
     def _scroll_to(self, text: str, direction: Direction, settings: Settings) -> str | None:
-        """Scroll until an element says exactly the text, or the content stops moving, or `max_scrolls` scrolls.
+        """Scroll until an element says exactly the text, clear of the screen's edges, or it can't scroll further.
 
-        After each scroll it waits until the screen stopped moving (a scroll glides on for a moment).
+        It can't: the content stopped moving, or `max_scrolls` scrolls. Clear of the edges (`Screen.clear_of_edges`),
+        as a person scrolls: an element just peeking in at the bottom sits on the phone's home-gesture strip, where
+        a tap goes home. When it can't scroll further, an element on screen at an edge is where it is. After each
+        scroll it waits until the screen stopped moving (a scroll glides on for a moment).
         """
         wanted = self._value(text)
         screen = self._still_screen(settings)  # a page still sliding in isn't what there is to scroll
         scrolls, unmoved = 0, 0  # unmoved: scrolls in a row that moved nothing
         while True:
-            if screen.shows(wanted):
+            found = [el for el in screen.elements if el.says(wanted)]
+            last = scrolls == settings.max_scrolls or unmoved == END_OF_CONTENT
+            if found and (last or any(screen.clear_of_edges(el) for el in found)):
                 return f"{scrolls} scroll(s)" if scrolls else None
             if scrolls == settings.max_scrolls:
                 raise StepFailed(
@@ -571,7 +576,7 @@ class TestRunner:
             self.device.scroll(direction, screen=screen)
             before, screen = screen, self._still_screen(settings)
             scrolls, unmoved = scrolls + 1, (unmoved + 1 if screen == before else 0)
-            if unmoved == END_OF_CONTENT:
+            if unmoved == END_OF_CONTENT and not screen.shows(wanted):
                 raise StepFailed(
                     f"Scrolled {direction} to the end but never found '{text}'{self._near(wanted, screen.elements)}"
                 )

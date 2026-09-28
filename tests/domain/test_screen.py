@@ -90,6 +90,14 @@ def test_a_field_takes_the_keys_when_it_has_focus_and_the_keyboard_is_up():
     assert not Screen(10, 10, keyboard_visible=True).takes_keys(dataclasses.replace(field, focused=False))
 
 
+def test_clear_of_edges_is_away_from_the_top_and_bottom_8_percent():
+    s = Screen(10, 2000)
+    assert s.clear_of_edges(el(bounds=(0, 150, 10, 170))) and not s.clear_of_edges(el(bounds=(0, 140, 10, 170)))
+    assert s.clear_of_edges(el(bounds=(0, 1830, 10, 1850))) and not s.clear_of_edges(el(bounds=(0, 1830, 10, 1852)))
+    up = Screen(10, 2000, keyboard_visible=True, keyboard_top=1000)  # measured from the keyboard's edge
+    assert not up.clear_of_edges(el(bounds=(0, 900, 10, 950)))
+
+
 def test_element_label_and_points():
     assert Element("button", "OK", bounds=(0, 0, 10, 20)).center == (5, 10)
     assert Element("text_field", bounds=(0, 0, 100, 20)).end == (92, 10)  # just inside the right edge
