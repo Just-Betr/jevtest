@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.0
 
 **Jev through TypeSafe directly.** jevtest calls TypeSafe's own API (`api.typesafe.ai`) instead of OpenRouter.
 This changes setup:
