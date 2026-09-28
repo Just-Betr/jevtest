@@ -43,6 +43,7 @@ emulator and the iOS simulator.
 - a lockfile with git merge conflict markers says so, instead of only "not valid JSON";
 - `--lock refresh` or `--lock off` without `TYPESAFE_API_KEY`, when a test has a `do:` or an `expect:`;
 - a `network:` step in a test that runs on iOS;
+- text Android can't type (`José`: adb's `input text` is ASCII only), which failed only after tapping the field;
 - an unknown `key:` name (it failed after installing and launching the app). Android also takes `return`, like iOS;
 - `wait:` or `background:` over 300 seconds (`wait: 99999` waited 27 hours);
 - in `.env`, `KEY=value # comment`: is the comment part of the value? Put it on its own line, or quote the value;
