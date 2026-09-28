@@ -7,11 +7,13 @@ within `LIMITS`: a limit is where a setting stops tuning a test and starts hidin
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-JEV_MODELS = "typesafe/jev-"
-"""jevtest uses Jev only: a model name must start with this."""
+JEV_VERSION = re.compile(r"jev-\d+\.\d+\.\d+")
+"""jevtest uses Jev only, pinned to a version (``jev-1.13.0``): an alias such as ``jev-latest`` moves when a new
+Jev ships, so recorded decisions would no longer match what a live run asks."""
 
 
 @dataclass(frozen=True)
@@ -28,7 +30,7 @@ class Settings:
         confidence: An `expect:` passes when Jev's probability that the statement is true is above this.
     """
 
-    model: str = "typesafe/jev-1.13"
+    model: str = "jev-1.13.0"
     timeout: float = 10.0
     settle: float = 3.0
     max_actions: int = 10

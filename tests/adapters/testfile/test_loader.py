@@ -74,11 +74,11 @@ def test_no_settings_means_the_defaults(tmp_path):
 def test_a_files_settings_apply_to_every_step_and_a_step_can_change_its_own(tmp_path):
     body = minimal(
         tests="  - {name: T, fresh: true, steps: [back, {tap: x, timeout: 30}]}\n",
-        extra="settings: {model: typesafe/jev-2, timeout: 20, settle: 5, max_actions: 20, "
+        extra="settings: {model: jev-2.0.0, timeout: 20, settle: 5, max_actions: 20, "
         "max_scrolls: 100, confidence: 0.8}\n",
     )
     suite = load(write(tmp_path, body), {})
-    expected = Settings("typesafe/jev-2", 20, 5, 20, 100, 0.8)
+    expected = Settings("jev-2.0.0", 20, 5, 20, 100, 0.8)
     back, tap = suite.tests[0].steps
     assert suite.settings == expected and back.settings == expected
     assert tap.settings == dataclasses.replace(expected, timeout=30)
@@ -102,7 +102,7 @@ def test_every_bad_setting_is_reported_at_once(tmp_path):
     with pytest.raises(TestFileError, match="3 problems") as e:
         load(write(tmp_path, body), {})
     assert "`timeout` must be from 1 to 300" in str(e.value) and "`confidence` must be" in str(e.value)
-    assert "`model` must be a Jev model" in str(e.value)
+    assert "`model` must be a pinned Jev version" in str(e.value)
 
 
 @pytest.mark.parametrize(
@@ -111,7 +111,9 @@ def test_every_bad_setting_is_reported_at_once(tmp_path):
         ("settings: 5", "`settings` must be a mapping of model, confidence, max_actions, max_scrolls, settle, timeout"),
         ("settings: {}", "`settings` must be a mapping"),
         ("settings: {wait: 5}", "`settings` has an unknown key: wait (it takes model, confidence"),
-        ("settings: {model: gpt-5}", "`model` must be a Jev model (typesafe/jev-...), got 'gpt-5'"),
+        ("settings: {model: gpt-5}", "`model` must be a pinned Jev version like jev-1.13.0, got 'gpt-5'"),
+        ("settings: {model: jev-latest}", "an alias such as jev-latest moves when a new Jev ships"),
+        ("settings: {model: typesafe/jev-1.13}", "must be a pinned Jev version like jev-1.13.0"),
         ("settings: {model: 5}", "`model` needs text"),
         ("settings: {timeout: 1000}", "`timeout` must be from 1 to 300, got 1000"),
         ("settings: {timeout: '5'}", "`timeout` must be a number, got '5' (remove the quotes)"),

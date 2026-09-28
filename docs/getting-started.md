@@ -31,12 +31,12 @@ jevtest only tests. It never boots, shuts down or reconfigures a device: start t
 
 ## 2. Get a Jev API key
 
-jevtest uses exactly one model: TypeSafe's **Jev**, through OpenRouter. Create a key at [openrouter.ai/keys](https://openrouter.ai/keys).
+jevtest uses exactly one model: TypeSafe's **Jev**, through TypeSafe's own API. Create a key at [console.typesafe.ai/keys](https://console.typesafe.ai/keys).
 
 Put it in a `.env` file **next to your test file** (and keep `.env` out of git):
 
 ```bash title=".env"
-OPENROUTER_API_KEY=sk-or-...
+TYPESAFE_API_KEY=apikey_...
 ```
 
 Or set it in the environment, as you would for CI secrets. If both set it to different values, jevtest stops and tells you, rather than picking one.
@@ -82,7 +82,7 @@ jevtest run tests.yaml --lock record --out results
 Both flags are required, so every run says how it treats the lockfile and where its results go.
 
 ```console
-jevtest 0.7.2 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: record
+jevtest 0.7.2 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: record
 
 ▶ App opens on the sign-in screen
   ✓ expect: The sign in screen is showing — Jev 0.98

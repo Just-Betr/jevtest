@@ -48,9 +48,9 @@ error: t.yaml has 2 problems:
 
 | Message | Fix |
 |---|---|
-| `OPENROUTER_API_KEY is not set: put it in the .env next to the test file, or in the environment` | Add the key, or run `--lock frozen` if everything is recorded. |
+| `TYPESAFE_API_KEY is not set: put it in the .env next to the test file, or in the environment` | Add the key, or run `--lock frozen` if everything is recorded. |
 | `This screen and question are not in tests.lock.json, and --lock frozen only replays recorded decisions…` | The app shows a screen that wasn't recorded. Run `--lock record` and commit the lockfile. |
-| `Jev HTTP 429: trying again in 0.5s (retry 1 of 4)` | Printed while OpenRouter is rate-limiting; jevtest retries with backoff and says so each time. |
+| `Jev HTTP 429: trying again in 0.5s (retry 1 of 4)` | Printed while TypeSafe is rate-limiting (429) or overloaded (529); jevtest retries, waiting as long as TypeSafe asks (up to a minute) or with backoff, and says so each time. |
 | `Jev HTTP 401: …` | Check the key. |
 
 ## Tests that fail

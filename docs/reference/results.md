@@ -30,7 +30,7 @@ Every step prints as it runs: the step, how long it took, what it acted on, the 
   PASS Native screen (8.4s)
 ```
 
-A run ends with a summary per device: the tally, each failure with its reason, and how many Jev decisions came from the lockfile or were asked live, with the time and cost.
+A run ends with a summary per device: the tally, each failure with its reason, and how many Jev decisions came from the lockfile or were asked live, with the time and cost (TypeSafe's price per input token; "cost unknown" for a Jev version jevtest has no price for).
 
 ```console
 17/17 passed in 111s

@@ -33,7 +33,7 @@ from jevtest.domain.steps import Suite, Test
 
 from .console import ConsoleListener, Printer, summary
 
-API_KEY = "OPENROUTER_API_KEY"
+API_KEY = "TYPESAFE_API_KEY"
 
 MakeDevice = Callable[[Platform, str, Path, Callable[[str], None]], Device]
 """Makes the device for a platform: (platform, device name, app build, progress) -> device."""

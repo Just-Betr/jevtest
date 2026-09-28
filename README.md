@@ -34,7 +34,7 @@ tests:
 
 ```console
 $ jevtest run login.yaml --lock frozen --out results
-jevtest 0.7.2 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
+jevtest 0.7.2 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: frozen
 
 ▶ Sign in
   ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.6s) — 3 action(s)
@@ -65,7 +65,7 @@ Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.000
 pip install jevtest
 ```
 
-You also need the platform tools for your apps: the Android SDK and a JDK, and/or Xcode. An [OpenRouter key](https://openrouter.ai/keys) gives access to Jev. See [Getting started](https://just-betr.github.io/jevtest/getting-started/).
+You also need the platform tools for your apps: the Android SDK and a JDK, and/or Xcode. A [TypeSafe API key](https://console.typesafe.ai/keys) gives access to Jev. See [Getting started](https://just-betr.github.io/jevtest/getting-started/).
 
 ## Run
 
@@ -76,7 +76,7 @@ jevtest run tests/ --lock frozen --out results         # a whole folder, replaye
 
 ## How it works
 
-A small agent on the device reads the accessibility tree in milliseconds. jevtest describes the screen as text and asks [Jev](https://openrouter.ai), TypeSafe's decision model, to **choose** the next action and element from the options on screen. Jev never writes free text, so everything typed comes from your test file. Each decision is recorded, acted on, and the loop repeats until the goal is done. [More](https://just-betr.github.io/jevtest/how-it-works/).
+A small agent on the device reads the accessibility tree in milliseconds. jevtest describes the screen as text and asks [Jev](https://docs.typesafe.ai), TypeSafe's decision model, to **choose** the next action and element from the options on screen. Jev never writes free text, so everything typed comes from your test file. Each decision is recorded, acted on, and the loop repeats until the goal is done. [More](https://just-betr.github.io/jevtest/how-it-works/).
 
 ## Status
 

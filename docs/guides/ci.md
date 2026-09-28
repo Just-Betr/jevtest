@@ -39,7 +39,7 @@ With `frozen`, any screen not in the lockfile fails the run with `This screen an
               avd-name: ci
               script: jevtest run tests/ --lock record --out results
             env:
-              OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+              TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
               EMAIL: ${{ secrets.QA_EMAIL }}
               PASSWORD: ${{ secrets.QA_PASSWORD }}
               ANDROID_DEVICE: ci
@@ -64,7 +64,7 @@ With `frozen`, any screen not in the lockfile fails the run with `This screen an
           - run: xcrun simctl boot "iPhone 16"
           - run: jevtest run tests/ --lock record --out results
             env:
-              OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+              TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
               IOS_DEVICE: iPhone 16
           - uses: actions/upload-artifact@v4
             if: always()

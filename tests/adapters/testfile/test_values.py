@@ -29,7 +29,7 @@ def test_values_of_the_right_kind_pass_through_exactly():
     assert number(2, "x") == 2.0 and text("Save", "x") == "Save" and on_off(value=True, what="x") is True
     assert choice("down", Direction, "x") is Direction.DOWN
     assert setting("max_actions", 4) == 4 and setting("confidence", 0.8) == 0.8
-    assert model("typesafe/jev-2") == "typesafe/jev-2"
+    assert model("jev-2.0.0") == "jev-2.0.0"
 
 
 @pytest.mark.parametrize(
@@ -46,7 +46,8 @@ def test_values_of_the_right_kind_pass_through_exactly():
         (lambda: on_off("yes", "dark_mode"), r"dark_mode must be on or off \(true or false\), got 'yes'"),
         (lambda: setting("max_actions", 2.5), "`max_actions` must be a whole number from 1 to 50, got 2.5"),
         (lambda: setting("timeout", 0), "`timeout` must be from 1 to 300, got 0"),
-        (lambda: model("gpt-5"), "`model` must be a Jev model"),
+        (lambda: model("gpt-5"), "`model` must be a pinned Jev version"),
+        (lambda: model("jev-1.13.0-beta"), "`model` must be a pinned Jev version"),
     ],
 )
 def test_the_wrong_value_is_an_error_that_says_what_to_write(read, message):

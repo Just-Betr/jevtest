@@ -10,13 +10,13 @@ import pytest
 from jevtest.adapters.jev.client import JevClient
 from jevtest.domain.failures import ModelError
 
-MODEL = "typesafe/jev-1.13"
+MODEL = "jev-1.13.0"
 
 Q = {"q": {"type": "choice", "instructions": "pick", "criteria": {"a": None, "b": None}}}
 GOOD = {
-    "model": "typesafe/jev-1.13-x",
+    "model": "jev-1.13.0",
     "answers": {"q": {"type": "choice", "choice": "a"}},
-    "usage": {"input_tokens": 3, "cost": 0.1},
+    "usage": {"input_tokens": 1_000_000, "output_tokens": 20},
 }
 
 
@@ -49,8 +49,11 @@ class Opener:
         return Resp(o if isinstance(o, bytes) else json.dumps(o).encode())
 
 
-def http_error(code, body=b"nope"):
-    return urllib.error.HTTPError("u", code, "msg", Message(), io.BytesIO(body))
+def http_error(code, body=b"nope", retry_after=None):
+    headers = Message()
+    if retry_after is not None:
+        headers["Retry-After"] = retry_after
+    return urllib.error.HTTPError("u", code, "msg", headers, io.BytesIO(body))
 
 
 def opener_of(j: JevClient) -> Opener:
@@ -73,17 +76,19 @@ def test_success_returns_the_reply():
     reply = j.ask({"s": 1}, Q)
     assert reply.answers == GOOD["answers"]
     req, timeout = opener_of(j).seen[0]
-    assert req.full_url.endswith("/api/v1/systemone")
+    assert req.full_url == "https://api.typesafe.ai/v1/systemone"
     assert req.get_header("Authorization") == "Bearer k"
     assert isinstance(req.data, bytes)
     assert json.loads(req.data) == {"model": MODEL, "state": {"s": 1}, "questions": Q}
     assert timeout == 30 and not slept
-    assert reply.served_by == "typesafe/jev-1.13-x" and reply.cost == 0.1 and reply.ms >= 0
+    assert reply.served_by == "jev-1.13.0" and reply.ms >= 0
+    assert reply.cost == pytest.approx(0.042)  # $0.042 per million input tokens; output tokens are free
 
 
-def test_missing_usage_costs_nothing():
-    j, _ = client({"answers": GOOD["answers"]})
-    assert j.ask("s", Q).cost == 0
+def test_the_cost_is_unknown_without_a_price_or_a_token_count():
+    j, _ = client({**GOOD, "model": "jev-9.0.0"}, {"answers": GOOD["answers"]})
+    assert j.ask("s", Q).cost is None  # a version jevtest has no price for
+    assert j.ask("s", Q).cost is None  # no usage: the price of the model asked, but nothing to count
 
 
 def test_retries_rate_limits_then_succeeds():
@@ -97,10 +102,17 @@ def test_retries_rate_limits_then_succeeds():
     ]
 
 
-@pytest.mark.parametrize("code", [500, 502, 503, 504, 520, 521, 522, 523, 524])
-def test_server_and_cloudflare_errors_are_retried(code):
+@pytest.mark.parametrize("code", [408, 500, 502, 503, 504, 520, 524, 599])
+def test_timeouts_and_server_errors_are_retried(code):
     j, slept = client(http_error(code), GOOD)
     assert j.ask("s", Q).answers == GOOD["answers"] and slept == [0.5]
+
+
+@pytest.mark.parametrize(("header", "waited"), [("2", 2.0), ("0", 0.0), ("61", 0.5), ("soon", 0.5), ("nan", 0.5)])
+def test_retry_after_is_honored_up_to_a_minute(header, waited):
+    j, slept = client(http_error(429, retry_after=header), GOOD)
+    j.ask("s", Q)
+    assert slept == [waited]  # otherwise jevtest's own backoff
 
 
 def test_retries_network_errors_then_succeeds():
@@ -125,7 +137,7 @@ def test_unreachable_after_retries():
 def test_client_errors_are_not_retried():
     j, slept = client(http_error(401, b"bad key"))
     with pytest.raises(
-        ModelError, match=r"HTTP 401: bad key \(check the key; Create a key at https://openrouter.ai/keys\)"
+        ModelError, match=r"HTTP 401: bad key \(check the key; Create a key at https://console.typesafe.ai/keys\)"
     ):
         j.ask("s", Q)
     assert not slept
@@ -151,8 +163,8 @@ def test_a_reply_that_is_not_an_object():
 
 
 def test_missing_key_is_not_looked_up_elsewhere(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")  # only the key it is given counts
-    with pytest.raises(ModelError, match="OPENROUTER_API_KEY is not set: put it in the .env next to the test file"):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "env-key")  # only the key it is given counts
+    with pytest.raises(ModelError, match="TYPESAFE_API_KEY is not set: put it in the .env next to the test file"):
         JevClient(MODEL, None, LOGGED.append)
 
 
@@ -165,8 +177,11 @@ def test_an_answer_that_is_not_an_object():
 @pytest.mark.parametrize(
     ("extra", "served_by", "cost"),
     [
-        ({"model": 5, "usage": "free"}, None, 0.0),
-        ({"usage": {"cost": "lots"}}, None, 0.0),
+        ({"model": 5, "usage": "free"}, None, None),
+        ({"usage": {"input_tokens": "lots"}}, None, None),
+        ({"usage": {"input_tokens": True}}, None, None),
+        ({"usage": {"input_tokens": -1}}, None, None),
+        ({"usage": {"input_tokens": 0}}, None, 0.0),
     ],
 )
 def test_odd_metadata_is_ignored_not_trusted(extra, served_by, cost):

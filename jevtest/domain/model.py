@@ -63,7 +63,7 @@ class ModelCall:
         answers: What it answered.
         recorded: Whether the answers came from the lockfile rather than the model.
         ms: How long the model took (0 when recorded).
-        cost: What the request cost in US dollars (0 when recorded).
+        cost: What the request cost in US dollars (0 when recorded; None when the price isn't known).
         served_by: The model version that answered.
     """
 
@@ -72,5 +72,5 @@ class ModelCall:
     answers: Mapping[str, Answer]
     recorded: bool
     ms: int = 0
-    cost: float = 0.0
+    cost: float | None = 0.0
     served_by: str | None = None

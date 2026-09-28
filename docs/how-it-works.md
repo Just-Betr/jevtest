@@ -8,7 +8,7 @@ sequenceDiagram
     participant J as jevtest
     participant A as On-device agent
     participant L as Lockfile
-    participant M as Jev (OpenRouter)
+    participant M as Jev (TypeSafe)
     T->>J: do: Sign in with "${EMAIL}"
     loop until Jev says done
         J->>A: what's on screen?
@@ -48,9 +48,9 @@ If a target isn't on screen but a longer text contains it, the step fails and li
 
 ## Jev
 
-Jev is TypeSafe's decision model, reached through [OpenRouter](https://openrouter.ai). It reads text and answers **by choosing from options it's given**: it never writes free text. That's why jevtest can trust it with a test: everything it does is one of a fixed list of actions on one of the elements actually on screen, and everything typed comes from your test file.
+Jev is TypeSafe's decision model, reached through [TypeSafe's API](https://docs.typesafe.ai/api). It reads text and answers **by choosing from options it's given**: it never writes free text. That's why jevtest can trust it with a test: everything it does is one of a fixed list of actions on one of the elements actually on screen, and everything typed comes from your test file.
 
-jevtest uses no other model. Each release of jevtest is built and tested against one pinned Jev version (`typesafe/jev-1.13`), printed at the start of every run, so an update on OpenRouter's side can't change behaviour underneath you. A new Jev version comes with a new jevtest release.
+jevtest uses no other model. Each release of jevtest is built and tested against one pinned Jev version (`jev-1.13.0`), printed at the start of every run, so a new Jev can't change behaviour underneath you. A test file's `model` must be a pinned version too: an alias such as `jev-latest` moves when a new Jev ships. A new Jev version comes with a new jevtest release.
 
 ## The lockfile
 

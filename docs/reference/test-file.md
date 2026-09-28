@@ -68,7 +68,7 @@ Most test files need none: the defaults suit most apps. A `settings:` block chan
 | `max_actions` | `10` | 1–50 | Actions a `do:` goal may take before it fails. | `do:` |
 | `max_scrolls` | `50` | 1–500 | Scrolls a `scroll_to:` may make. It also stops at the end of the content. | `scroll_to:` |
 | `confidence` | `0.5` | 0.5–0.99 | An `expect:` passes when Jev's probability that the statement is true is above this. `0.5` means "more likely true than false". | steps with an `expect:` |
-| `model` | `typesafe/jev-1.13` | a Jev model | The Jev version that decides and judges. Changing it re-asks Jev: it's part of every lockfile entry. | the whole file only |
+| `model` | `jev-1.13.0` | a pinned Jev version (`jev-X.Y.Z`) | The Jev version that decides and judges. Changing it re-asks Jev: it's part of every lockfile entry. | the whole file only |
 
 ```yaml
 settings:

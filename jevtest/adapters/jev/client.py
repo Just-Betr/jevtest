@@ -1,8 +1,8 @@
-"""HTTP client for TypeSafe's Jev, reached through OpenRouter.
+"""HTTP client for TypeSafe's Jev, through TypeSafe's own API (https://docs.typesafe.ai/api).
 
 Jev reads a text state and answers typed questions (choice or yes/no) with probabilities. It doesn't generate
-text and doesn't see images. OpenRouter's ``/v1/systemone`` endpoint takes the same request shape as TypeSafe's
-own API. This module speaks that wire format only; `wire` maps it to and from jevtest's own types.
+text and doesn't see images. This module speaks the ``/v1/systemone`` wire format only; `wire` maps it to and
+from jevtest's own types.
 """
 
 from __future__ import annotations
@@ -20,11 +20,15 @@ from jevtest.domain.failures import ModelError
 
 from .wire import RawAnswers
 
-API_URL = "https://openrouter.ai/api/v1/systemone"
-RETRY_STATUSES = frozenset({429, 500, 502, 503, 504, 520, 521, 522, 523, 524, 529})
-"""Temporary failures: rate limits, server errors, and Cloudflare's 52x errors in front of OpenRouter."""
+API_URL = "https://api.typesafe.ai/v1/systemone"
+RETRY_STATUSES = frozenset({408, 429, *range(500, 600)})
+"""Temporary failures, as TypeSafe's docs list them: a timeout, rate limits (429), overload (529), server errors."""
+MAX_RETRY_AFTER = 60
+"""Seconds: the longest `retry-after` jevtest waits for. A longer one falls back to its own backoff."""
 UNAUTHORIZED = 401
-KEY_HELP = "Create a key at https://openrouter.ai/keys"
+KEY_HELP = "Create a key at https://console.typesafe.ai/keys"
+PRICE_PER_INPUT_TOKEN: Mapping[str, float] = {"jev-1.13.0": 0.042 / 1_000_000}
+"""US dollars, from https://docs.typesafe.ai/models: Jev charges per input token; output tokens are free."""
 
 
 class _Response(Protocol):
@@ -44,13 +48,13 @@ class Reply:
         answers: One answer per question id, as Jev sent it.
         ms: How long the request took.
         served_by: The model version that answered.
-        cost: What the request cost in US dollars.
+        cost: What the request cost in US dollars; None for a model whose price jevtest doesn't know.
     """
 
     answers: RawAnswers
     ms: int
     served_by: str | None
-    cost: float
+    cost: float | None
 
 
 class JevClient:
@@ -61,7 +65,7 @@ class JevClient:
 
     Args:
         model: The Jev model to ask.
-        api_key: The OpenRouter key.
+        api_key: The TypeSafe API key.
         log: Told about each retry.
         url: The endpoint.
         timeout: Seconds to wait for one response.
@@ -87,7 +91,7 @@ class JevClient:
     ) -> None:
         if not api_key:
             raise ModelError(
-                "OPENROUTER_API_KEY is not set: put it in the .env next to the test file, or in the "
+                "TYPESAFE_API_KEY is not set: put it in the .env next to the test file, or in the "
                 f"environment. {KEY_HELP}"
             )
         self.api_key = api_key
@@ -115,14 +119,19 @@ class JevClient:
         answers = objects_by_key(raw_answers)
         if answers is None:
             raise ModelError(f"Jev returned an answer that isn't a JSON object: {raw_answers!r}")
-        served_by, usage = data.get("model"), data.get("usage")
-        cost = usage.get("cost", 0) if is_json_object(usage) else 0
+        served_by = data.get("model")
+        served_by = served_by if isinstance(served_by, str) else None
         return Reply(
-            answers,
-            round((time.monotonic() - started) * 1000),
-            served_by if isinstance(served_by, str) else None,
-            float(cost) if isinstance(cost, int | float) else 0.0,
+            answers, round((time.monotonic() - started) * 1000), served_by, self._cost(served_by, data.get("usage"))
         )
+
+    def _cost(self, served_by: str | None, usage: object) -> float | None:
+        """The price of the input tokens `usage` reports, for the model that answered; None when unknown."""
+        price = PRICE_PER_INPUT_TOKEN.get(served_by or self.model)
+        tokens = usage.get("input_tokens") if is_json_object(usage) else None
+        if price is None or isinstance(tokens, bool) or not isinstance(tokens, int) or tokens < 0:
+            return None
+        return tokens * price
 
     def _post(self, body: bytes) -> dict[str, object]:
         attempt = 0
@@ -144,7 +153,7 @@ class JevClient:
                 with e:  # an HTTP error carries the open response
                     detail = e.read().decode(errors="replace")[:500]
                 if e.code in RETRY_STATUSES and not last:
-                    self._retry(f"HTTP {e.code}", attempt)
+                    self._retry(f"HTTP {e.code}", attempt, _retry_after(e.headers.get("retry-after")))
                     attempt += 1
                     continue
                 hint = f" (check the key; {KEY_HELP})" if e.code == UNAUTHORIZED else ""
@@ -163,7 +172,20 @@ class JevClient:
                 raise ModelError(f"Jev returned {type(data).__name__}, expected a JSON object")
             return data
 
-    def _retry(self, why: str, attempt: int) -> None:
-        wait = 0.5 * 2**attempt
+    def _retry(self, why: str, attempt: int, asked: float | None = None) -> None:
+        """Wait before retrying: as long as the server asked (`retry-after`), or an exponential backoff."""
+        wait = asked if asked is not None else 0.5 * 2**attempt
         self._log(f"Jev {why}: trying again in {wait:g}s (retry {attempt + 1} of {self.retries})")
         self._sleep(wait)
+
+
+def _retry_after(header: str | None) -> float | None:
+    """A `retry-after` header in seconds, when it is one jevtest will wait for (0 to `MAX_RETRY_AFTER`).
+
+    The header may also be an HTTP date; jevtest uses its own backoff then.
+    """
+    try:
+        seconds = float(header or "")
+    except ValueError:
+        return None
+    return seconds if 0 <= seconds <= MAX_RETRY_AFTER else None

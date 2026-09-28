@@ -12,7 +12,7 @@ Anywhere in a test file, `${NAME}` is replaced by the value of `NAME`:
 A name that isn't set is an error before anything runs. A name set in both places to **different** values is also an error: jevtest won't guess which one you meant.
 
 ```bash title=".env  (keep it out of git)"
-OPENROUTER_API_KEY=sk-or-...
+TYPESAFE_API_KEY=apikey_...
 EMAIL=qa@example.com
 PASSWORD=correct-horse
 ANDROID_DEVICE=Pixel 8

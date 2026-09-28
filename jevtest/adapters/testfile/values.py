@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import TypeVar
 
 from jevtest.domain.failures import TestFileError
-from jevtest.domain.settings import JEV_MODELS, LIMITS, WHOLE
+from jevtest.domain.settings import JEV_VERSION, LIMITS, WHOLE
 
 E = TypeVar("E", bound=StrEnum)
 
@@ -118,12 +118,15 @@ def setting(name: str, value: object) -> float:
 
 
 def model(value: object) -> str:
-    """A Jev model name.
+    """A pinned Jev version, like ``jev-1.13.0``.
 
     Raises:
-        TestFileError: It isn't text, or names a model that isn't Jev.
+        TestFileError: It isn't text, or isn't a pinned Jev version.
     """
     name = text(value, "`model`")
-    if not name.startswith(JEV_MODELS):
-        raise TestFileError(f"`model` must be a Jev model ({JEV_MODELS}...), got {name!r}: jevtest uses Jev only")
+    if not JEV_VERSION.fullmatch(name):
+        raise TestFileError(
+            f"`model` must be a pinned Jev version like jev-1.13.0, got {name!r}: jevtest uses Jev only, and an "
+            "alias such as jev-latest moves when a new Jev ships"
+        )
     return name

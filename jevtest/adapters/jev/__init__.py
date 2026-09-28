@@ -1,1 +1,1 @@
-"""Jev, reached through OpenRouter, behind the decision lockfile."""
+"""Jev, through TypeSafe's API, behind the decision lockfile."""

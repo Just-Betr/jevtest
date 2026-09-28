@@ -26,7 +26,7 @@ class FakeModel:
     format, so tests can read what was asked.
     """
 
-    def __init__(self, *answers, model="typesafe/jev-1.13"):
+    def __init__(self, *answers, model="jev-1.13.0"):
         self.answers = list(answers)
         self.asked: list[tuple[State, dict[str, dict[str, Any]]]] = []  # (state, the questions as Jev's JSON)
         self.calls: list[ModelCall] = []
@@ -41,7 +41,7 @@ class FakeModel:
             raise scripted
         answers = {qid: answer_from_wire(qid, raw, questions[qid]) for qid, raw in scripted.items() if qid in questions}
         self.calls.append(
-            ModelCall(state, questions, answers, recorded=False, ms=7, cost=0.0001, served_by="typesafe/jev-1.13-test")
+            ModelCall(state, questions, answers, recorded=False, ms=7, cost=0.0001, served_by="jev-1.13.0")
         )
         return answers
 

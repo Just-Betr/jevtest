@@ -44,5 +44,5 @@ Prune with the same devices you record on: decisions recorded on one device's sc
 
 | Variable | Meaning |
 |---|---|
-| `OPENROUTER_API_KEY` | Your OpenRouter key, for Jev. From the environment or the `.env` next to the test file. Not needed when every decision comes from the lockfile. |
+| `TYPESAFE_API_KEY` | Your [TypeSafe API key](https://console.typesafe.ai/keys), for Jev. From the environment or the `.env` next to the test file. Not needed when every decision comes from the lockfile. |
 | `JEVTEST_CACHE` | Where the built on-device agents are cached (default `~/.cache/jevtest`). |

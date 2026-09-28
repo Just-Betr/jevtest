@@ -22,7 +22,7 @@ class FakeClient:
 
     def ask(self, state, questions):
         self.asked.append((state, questions))
-        return Reply(self.answers.pop(0), ms=12, served_by="typesafe/jev-1.13-x", cost=0.0002)
+        return Reply(self.answers.pop(0), ms=12, served_by="jev-1.13.0", cost=0.0002)
 
 
 def locked(tmp_path, mode=LockMode.RECORD, *answers):
@@ -55,14 +55,14 @@ def test_record_then_replay_is_identical_and_offline(tmp_path):
     first, _ = locked(tmp_path, LockMode.RECORD, A1)
     assert first.ask({"screen": "screen"}, Q) == {"q": Probability(0.9)}
     call = first.calls[0]
-    assert (call.recorded, call.ms, call.cost, call.served_by) == (False, 12, 0.0002, "typesafe/jev-1.13-x")
+    assert (call.recorded, call.ms, call.cost, call.served_by) == (False, 12, 0.0002, "jev-1.13.0")
     first.save()
     data = json.loads((tmp_path / "t.lock.json").read_text())
     assert data["version"] == VERSION and len(data["decisions"]) == 1
 
     replay, made = locked(tmp_path, LockMode.RECORD)  # no answers scripted: any live call would fail
     assert replay.ask({"screen": "screen"}, Q) == {"q": Probability(0.9)}
-    assert replay.calls[0].recorded is True and replay.calls[0].served_by == "typesafe/jev-1.13-x"
+    assert replay.calls[0].recorded is True and replay.calls[0].served_by == "jev-1.13.0"
     assert not made  # Jev was never even connected to
 
 

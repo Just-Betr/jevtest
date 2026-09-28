@@ -2,14 +2,32 @@
 
 ## Unreleased
 
+**Jev through TypeSafe directly.** jevtest calls TypeSafe's own API (`api.typesafe.ai`) instead of OpenRouter.
+This changes setup:
+
+- The key is `TYPESAFE_API_KEY` (create one at https://console.typesafe.ai/keys); `OPENROUTER_API_KEY` is no
+  longer read.
+- Models are TypeSafe's pinned versions: the default is `jev-1.13.0`, and a test file's `model` must be one
+  (`jev-X.Y.Z`). An alias such as `jev-latest` is an error: it moves when a new Jev ships.
+- The model name is part of every lockfile entry, so recorded lockfiles are asked again once with
+  `--lock record`.
+- Retries follow TypeSafe's docs: 408, 429 and 5xx, waiting as long as a `retry-after` header asks (up to a
+  minute).
+- The cost in the summary comes from TypeSafe's published price per input token.
+
+Also:
+
+- In landscape (or with any keyboard tall enough), the keyboard can cover the element a step needs, and a tap
+  there typed a key instead. A `do:` goal now closes the keyboard first and finds the element again; `tap:`,
+  `type:` and the other exact steps fail with "... is under the keyboard: close it first with a
+  `hide_keyboard` step".
 - **Security:** the iOS agent listened on every network interface without authentication, so while a test ran,
   another device on the same network could read the screen and tap. Each run now has a random token that every
   request must carry, and a simulator's agent listens on loopback only.
 - **Privacy:** every `${NAME}` value the app shows is replaced by its name before the screen is sent to Jev or
-  printed, as the docs promised. Lockfiles no longer depend on anyone's `.env`; recorded lockfiles are asked
+  printed (the console, JSON and JUnit reports, Jev's moves and every message), as the docs promised. Lockfiles no longer depend on anyone's `.env`; recorded lockfiles are asked
   again once with `--lock record`.
 - Ctrl-C during a multi-device run closes every device: puts back what steps changed, stops the agents.
-- The Jev client retries Cloudflare's temporary 520-524 errors.
 - A null character in a test-file value is a clear error instead of a crash.
 - Docs: Android System WebView 153 gives web text fields no name, and radios or checkboxes inside their `<label>`
   none either; Troubleshooting says what to do. The demo's web form names its radios and checkbox with

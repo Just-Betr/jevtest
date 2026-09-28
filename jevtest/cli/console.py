@@ -120,13 +120,14 @@ def summary(result: RunResult, calls: Sequence[ModelCall], out: Path) -> list[st
     """A device's summary: the tally, each failure's reason, and Jev's share of the run."""
     live = [c for c in calls if not c.recorded]
     jev_s = sum(c.ms for c in live) / 1000
-    cost = sum(c.cost for c in live)
+    costs = [c.cost for c in live]
+    cost = "cost unknown" if None in costs else f"${sum(c for c in costs if c is not None):.4f}"
     share = f" ({jev_s / result.seconds:.0%} of run time)" if result.seconds else ""
     lines = [f"\n{result.passed}/{len(result.tests)} passed in {result.seconds:.0f}s"]
     lines += [f"  FAILED {t.name}: {t.failure}" for t in result.tests if t.status is Status.FAIL]
     lines.append(
         f"Jev: {len(calls)} decision{'' if len(calls) == 1 else 's'}, {len(calls) - len(live)} from "
-        f"lockfile, {len(live)} asked live in {jev_s:.1f}s{share}, ${cost:.4f}"
+        f"lockfile, {len(live)} asked live in {jev_s:.1f}s{share}, {cost}"
     )
     lines.append(f"Results: {out}")
     return lines

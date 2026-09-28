@@ -57,7 +57,7 @@ class FakeJevClient:
             raise AssertionError(f"FakeJevClient ran out of answers; asked {list(questions)}")
         scripted = self.answers.pop(0)
         answers = {qid: scripted.get(qid) or self._first_option(q) for qid, q in questions.items()}
-        return Reply(answers, ms=7, served_by="typesafe/jev-1.13-test", cost=0.0001)
+        return Reply(answers, ms=7, served_by="jev-1.13.0", cost=0.0001)
 
     @staticmethod
     def _first_option(question):
@@ -108,7 +108,7 @@ def fakes():
 def project(tmp_path, monkeypatch, fakes):
     spec_file(tmp_path, tests=TWO_TESTS)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
     return tmp_path
 
 
@@ -155,22 +155,22 @@ def test_the_files_model_asks_jev_and_is_reported(tmp_path, monkeypatch, fakes, 
     spec_file(
         tmp_path,
         tests="  - {name: T, fresh: true, steps: [{expect: Home is showing}]}\n",
-        extra="settings: {model: typesafe/jev-2}\n",
+        extra="settings: {model: jev-2.0.0}\n",
     )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
     fakes.script(yes(0.95))
     assert fakes.run() == 0
-    assert fakes.models == ["typesafe/jev-2"] and "· typesafe/jev-2 ·" in capsys.readouterr().out
+    assert fakes.models == ["jev-2.0.0"] and "· jev-2.0.0 ·" in capsys.readouterr().out
     report = json.loads((stamp_of(tmp_path) / "android" / "emulator-5554" / "report.json").read_text())
-    assert report["model"] == "typesafe/jev-2"
+    assert report["model"] == "jev-2.0.0"
 
 
 def test_a_value_the_app_shows_reaches_jev_only_as_its_name(tmp_path, monkeypatch, fakes):
     spec_file(tmp_path, tests="  - {name: T, fresh: true, steps: [{expect: 'Welcome ${EMAIL} is showing'}]}\n")
-    (tmp_path / ".env").write_text("EMAIL=ann@x.io\nOPENROUTER_API_KEY=k\n")
+    (tmp_path / ".env").write_text("EMAIL=ann@x.io\nTYPESAFE_API_KEY=k\n")
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     fakes.make_device = lambda *_: FakeDevice(screen_with("Welcome ann@x.io"))
     clients = fakes.script(yes(0.95))
     assert fakes.run() == 0
@@ -276,9 +276,9 @@ def test_missing_app(project, fakes, capsys):
 
 
 def test_missing_api_key_is_an_error(project, fakes, monkeypatch, capsys):
-    monkeypatch.delenv("OPENROUTER_API_KEY")
+    monkeypatch.delenv("TYPESAFE_API_KEY")
     assert fakes.run("--test", "Sign in") == 1  # the test fails, saying why
-    assert "OPENROUTER_API_KEY is not set: put it in the .env next to the test file" in capsys.readouterr().out
+    assert "TYPESAFE_API_KEY is not set: put it in the .env next to the test file" in capsys.readouterr().out
 
 
 def test_device_closed_and_lock_saved_even_on_crash(project, fakes):
@@ -405,10 +405,10 @@ def test_each_file_gets_its_own_env(tmp_path, monkeypatch, fakes, capsys):
     for name, secret in (("one", "first"), ("two", "second")):
         test = "  - {name: T" + name + ", fresh: true, steps: [{type: '${SECRET}'}]}\n"
         spec_file(tmp_path, f"{name}/t.yaml", tests=test)
-        (tmp_path / name / ".env").write_text(f"SECRET={secret}\nOPENROUTER_API_KEY=key-{name}\n")
+        (tmp_path / name / ".env").write_text(f"SECRET={secret}\nTYPESAFE_API_KEY=key-{name}\n")
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("SECRET", raising=False)
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     assert fakes.run(files=("one", "two")) == 0
     assert [c[1] for d in fakes.devices for c in d.calls if c[0] == "type_text"] == ["first", "second"]
     assert "first" not in capsys.readouterr().out
@@ -506,8 +506,8 @@ def test_make_device_picks_the_platform(monkeypatch):
 
 
 def test_make_client_reports_retries_on_stderr(capsys):
-    client = cli.make_client("typesafe/jev-1.13", "k")
-    assert client.api_key == "k" and client.model == "typesafe/jev-1.13"
+    client = cli.make_client("jev-1.13.0", "k")
+    assert client.api_key == "k" and client.model == "jev-1.13.0"
     client._log("Jev HTTP 503: trying again")
     assert "Jev HTTP 503: trying again" in capsys.readouterr().err
 

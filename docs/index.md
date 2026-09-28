@@ -5,7 +5,7 @@ hide:
 
 # jevtest
 
-**Plain-English end-to-end tests for Android and iOS apps.** Write what a user does and what they should see; [Jev](https://openrouter.ai/typesafe) works out the taps. Every run is recorded, so CI replays it exactly, offline.
+**Plain-English end-to-end tests for Android and iOS apps.** Write what a user does and what they should see; [Jev](https://docs.typesafe.ai) works out the taps. Every run is recorded, so CI replays it exactly, offline.
 
 ```yaml title="login.yaml"
 app: build/app-debug.apk
@@ -22,7 +22,7 @@ tests:
 
 ```console
 $ jevtest run login.yaml --lock frozen --out results
-jevtest 0.7.2 · android · emulator-5554 · dev.jevtest.jevtest_demo · typesafe/jev-1.13 · lockfile: frozen
+jevtest 0.7.2 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: frozen
 
 ▶ Sign in
   ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.6s) — 3 action(s)
