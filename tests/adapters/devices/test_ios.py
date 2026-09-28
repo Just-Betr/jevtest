@@ -276,13 +276,14 @@ def test_agent_waits(drv, env):
     assert sent["/wait_foreground"] == 10 and sent["/activate"] == 10
 
 
-def test_typing_waits_until_the_field_has_focus_and_the_keyboard_is_up(drv, env, slept):
+def test_typing_waits_until_the_keyboard_is_up(drv, env, slept):
+    """On iOS the keyboard is the sign a field takes keys: XCUITest reports no field as focused (measured)."""
     agent = env[1]
     plain = {"width": 402, "height": 874, "elements": [], "keyboard": False}
     focused = {
         **plain,
         "keyboard": True,
-        "elements": [{"type": "text_field", "x": 0, "y": 0, "w": 9, "h": 9, "focused": True}],
+        "elements": [{"type": "text_field", "x": 0, "y": 0, "w": 9, "h": 9, "focused": False}],
     }
     agent.replies["/tree"] = [plain, focused]  # right after the tap: not yet
     drv.type_text("x", at=(1, 1))

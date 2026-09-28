@@ -201,10 +201,6 @@ class BaseDevice(ABC):
         """
         wait_until(lambda: done(self.screen()), what)
 
-    def typing_ready(self, screen: Screen) -> bool:
-        """Whether typed keys will land: the keyboard is up and a text field has focus."""
-        return screen.keyboard_visible and any(el.editable and el.focused for el in screen.elements)
-
     def swipe(self, direction: Direction, element: Element | None = None, screen: Screen | None = None) -> None:
         """Finger swipe in `direction`, across an element or across the page.
 

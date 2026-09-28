@@ -192,7 +192,7 @@ class Agent:
         self.keyboard = {"/tap": True, "/hide_keyboard": False}.get(path, self.keyboard)
         if path == "/tree" and path not in self.replies:
             width, height = (874, 402) if self.wide else (402, 874)
-            field = {"type": "text_field", "x": 0, "y": 0, "w": 100, "h": 40, "focused": True}
+            field = {"type": "text_field", "x": 0, "y": 0, "w": 100, "h": 40, "focused": False}  # iOS never says
             return {
                 "width": width,
                 "height": height,

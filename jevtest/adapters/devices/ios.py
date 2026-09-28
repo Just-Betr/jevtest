@@ -340,15 +340,23 @@ class IOSDevice(BaseDevice):
         """Type into the focused field, or first focus the field at `at`."""
         if at:  # focus the field; keys sent before the keyboard is up are lost
             self.tap(*at)
-            self.wait_until(self.typing_ready, "The text field did not get keyboard focus")
+            self._wait_for_keyboard()
         self._call("/type", text=text)
 
     def clear_text(self, element: Element) -> None:
         """Erase a text field: put the cursor after its text, then delete exactly what is there."""
         self.tap(*element.end)
-        self.wait_until(self.typing_ready, "The text field did not get keyboard focus")
+        self._wait_for_keyboard()
         if element.value:
             self._call("/key", key="delete", count=len(element.value))
+
+    def _wait_for_keyboard(self) -> None:
+        """`wait_until` the keyboard is up after tapping a field.
+
+        On iOS the keyboard is the sign a field takes keys: XCUITest doesn't report which text field has focus
+        (measured: every field reads unfocused while one is being typed into).
+        """
+        self.wait_until(lambda s: s.keyboard_visible, "The keyboard did not come up for the text field")
 
     def key(self, name: str) -> None:
         """Press a named key."""
