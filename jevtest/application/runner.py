@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TypeVar, assert_never
 
@@ -23,8 +23,10 @@ from jevtest.domain.decisions import (
     Impossible,
     PageMove,
     PressEnter,
+    SavedStep,
     ScrollPage,
     SwipeElement,
+    Target,
     TouchElement,
     TypeInto,
     WaitForScreen,
@@ -75,9 +77,6 @@ from jevtest.domain.variables import fill, hide
 
 from .brain import Brain, Located
 
-LAUNCH_QUIET = 0.5
-"""Seconds without a change that count as "the app has finished starting" (apps pause longer while starting)."""
-
 END_OF_CONTENT = 2
 """Scrolls in a row that must move nothing before `scroll_to:` calls it the end. One isn't enough: a real
 phone's web view sometimes ignores a single scroll."""
@@ -92,11 +91,16 @@ def _count(n: int, noun: str) -> str:
 class TestRunner:
     """Runs a suite's tests on one device.
 
+    Every wait is one `wait_until`: a condition on the screen, checked every `interval` seconds, for at most
+    `timeout` seconds; if it isn't met by then, the step fails and says what it waited for.
+
     Args:
         suite: The test file: its tests, the tests `use:` can name, and its ``${NAME}`` values.
         device: The device, with the app installed.
         brain: jevtest's judgement, backed by the decision model.
         screenshots: Where failure screenshots (and `screenshot:` steps) are saved.
+        platform: The device's platform (``android``, ``ios``): part of the key a `do:` goal's steps are saved
+            under, since the same goal takes different steps on each.
         clock: Time.
         listener: Told about each test, step and check as it finishes.
     """
@@ -104,12 +108,21 @@ class TestRunner:
     __test__ = False  # not a pytest test class
 
     def __init__(
-        self, suite: Suite, device: Device, brain: Brain, screenshots: Path, *, clock: Clock, listener: RunListener
+        self,
+        suite: Suite,
+        device: Device,
+        brain: Brain,
+        screenshots: Path,
+        *,
+        platform: str,
+        clock: Clock,
+        listener: RunListener,
     ) -> None:
         self.suite = suite
         self.device = device
         self.brain = brain
         self.screenshots = screenshots
+        self.platform = platform
         self.clock = clock
         self.listener = listener
         self._app_should_run = False
@@ -138,7 +151,7 @@ class TestRunner:
             )
             self.listener.test_done(result)
             return result
-        steps, status = self._run_steps(test.steps, 0)
+        steps, status = self._run_steps(test.steps, 0, test.name)
         if status is Status.FAIL:
             steps = (*steps[:-1], replace(steps[-1], screenshot=self._screenshot(f"FAIL_{test.name}")))
         result = TestResult(test.name, status, self._since(started), steps)
@@ -152,26 +165,27 @@ class TestRunner:
             self.device.stop()
             self.device.clear_data()
         if fresh or self.device.app_state() is not AppState.FOREGROUND:
-            self.device.launch()
-            self.device.wait_idle(self.suite.settings.settle, quiet=LAUNCH_QUIET)
+            self.device.launch()  # returns once the app is in the foreground; each step waits for what it needs
         self._app_should_run = True
 
-    def _run_steps(self, steps: Sequence[Step], depth: int) -> tuple[tuple[StepResult, ...], Status]:
+    def _run_steps(self, steps: Sequence[Step], depth: int, owner: str) -> tuple[tuple[StepResult, ...], Status]:
+        """Run steps in order until one fails. `owner` is the test that defines them (for saved `do:` steps)."""
         done: list[StepResult] = []
-        for step in steps:
-            done.append(self._run_step(step, depth))
+        for number, step in enumerate(steps, 1):
+            done.append(self._run_step(step, depth, f"{owner} · step {number}"))
             if done[-1].status is Status.FAIL:
                 return tuple(done), Status.FAIL
         return tuple(done), Status.PASS
 
-    def _run_step(self, step: Step, depth: int) -> StepResult:
+    def _run_step(self, step: Step, depth: int, where: str) -> StepResult:
         started = self.clock.now()
         if isinstance(step.action, Use):
             self.listener.use_started(step.action.test, depth)
-            inner, status = self._run_steps(self.suite.library[step.action.test].steps, depth + 1)
+            used = step.action.test
+            inner, status = self._run_steps(self.suite.library[used].steps, depth + 1, used)
             result = StepResult(step, status, self._since(started), steps=inner)
         elif step.action is not None:
-            result = self._run_action(step, step.action, started)
+            result = self._run_action(step, step.action, started, where)
             self.listener.step_done(result, depth)
         else:
             result = StepResult(step, Status.PASS, 0.0)
@@ -181,14 +195,13 @@ class TestRunner:
             result = replace(result, status=status, checks=checks)
         return replace(result, seconds=self._since(started))
 
-    def _run_action(self, step: Step, action: Action, started: float) -> StepResult:
+    def _run_action(self, step: Step, action: Action, started: float, where: str) -> StepResult:
         mark = len(self.brain.model.calls)
         decisions: list[Decision] = []
+        ran: list[str] = []
         status, detail = Status.PASS, None
         try:
-            detail = self._act(step, action, decisions)
-            if action.settles:
-                self._settle(step.settings)
+            detail = self._act(step, action, _Record(decisions, ran, where))
             self._check_app(action)
         except (StepFailed, DeviceError, ModelError) as e:
             status, detail = Status.FAIL, str(e)
@@ -199,6 +212,7 @@ class TestRunner:
             detail and self._masked(detail),
             tuple(self._masked_decision(d) for d in decisions),
             self._calls_since(mark),
+            ran=tuple(self._masked(r) for r in ran),
         )
 
     def _run_checks(self, step: Step, depth: int) -> tuple[CheckResult, ...]:
@@ -217,16 +231,59 @@ class TestRunner:
                 break
         return tuple(results)
 
+    # --- waiting -----------------------------------------------------------------------------------------------
+    def _wait_until(
+        self, check: Callable[[Screen], T | None], settings: Settings, until: str, why: Callable[[Screen], str]
+    ) -> T:
+        """Read the screen and `check` it; if it returns nothing, wait `interval` seconds and check again.
+
+        Stops at the step's `timeout`: the step fails with "Waited N s until `until`" and, from the last screen
+        read, `why`. A check that needs an answer Jev hasn't given for this screen (``--lock frozen``) counts as not
+        met yet; if the last screen's answer is missing too at the timeout, that is the error.
+
+        Raises:
+            StepFailed: The timeout passed without the check being met.
+            NotRecorded: The timeout passed, and the last screen's answer isn't in the lockfile.
+        """
+        deadline = self.clock.now() + settings.timeout
+        missed: list[NotRecorded] = []
+        while True:
+            screen = self.device.screen()
+            try:
+                result = check(screen)
+            except NotRecorded as e:
+                missed[:], result = [e], None
+            else:
+                missed.clear()
+            if result is not None:
+                return result
+            if self.clock.now() + settings.interval > deadline:
+                if missed:
+                    raise missed[0]
+                raise StepFailed(f"Waited {settings.timeout:g}s until {until}{why(screen)}")
+            self.clock.sleep(settings.interval)
+
+    def _still_screen(self, settings: Settings) -> Screen:
+        """`wait_until` the screen reads the same at two checks in a row: it has stopped moving.
+
+        For `do:` before Jev looks at it, and `scroll_to:` after each scroll.
+        """
+        previous: list[Screen] = []
+
+        def still(screen: Screen) -> Screen | None:
+            if previous and previous[0] == screen:
+                return screen
+            previous[:] = [screen]
+            return None
+
+        return self._wait_until(still, settings, "the screen stopped moving", lambda _: "")
+
     # --- helpers -----------------------------------------------------------------------------------------------
     def _since(self, started: float) -> float:
         return round(self.clock.now() - started, 1)
 
     def _calls_since(self, mark: int) -> tuple[ModelCall, ...]:
         return tuple(self.brain.model.calls[mark:])
-
-    def _settle(self, settings: Settings) -> None:
-        """Wait until the screen stops changing: the device reacts to itself, there's no fixed sleep."""
-        self.device.wait_idle(settings.settle)
 
     def _value(self, text: str) -> str:
         """`text` with its ``${NAME}`` values filled in, for what the app sees only."""
@@ -242,78 +299,8 @@ class TestRunner:
             return f"(screenshot failed: {e})"
         return path.name
 
-    def _poll(
-        self,
-        attempt: Callable[[Screen], T | None],
-        timeout: float,
-        failure: Callable[[Screen], str],
-        *,
-        steady: bool = False,
-    ) -> T:
-        """Call `attempt` until it returns something, or time runs out.
-
-        `attempt` runs again only when the screen has changed, so an unchanged screen is never judged
-        twice. Between reads it waits for the next change. When time runs out, `failure` says why, from the
-        last screen. With `steady`, each screen is one that has stopped changing (see `_steady_screen`): for
-        attempts that ask Jev, whose answer is recorded for that exact screen.
-
-        A screen that isn't in the lockfile (``--lock frozen``) may be one still changing: the next one is
-        looked up too, and if the last one wasn't recorded either, that is the error.
-
-        Raises:
-            StepFailed: Time ran out: `failure` says why. With `steady`, also when the screen never stopped
-                changing at all.
-        """
-        deadline = self.clock.now() + timeout
-        last: Screen | None = None
-        missed: list[NotRecorded] = []
-        while True:
-            screen = self._steady_screen(deadline) if steady else self.device.screen()
-            if screen is None:  # never still until the deadline
-                if last is None:
-                    raise StepFailed(
-                        f"The screen never stopped changing in {timeout:g} s: Jev is only asked about a screen "
-                        "that holds still, since one that keeps changing (a clock, a counter) can't be recorded "
-                        "or replayed"
-                    )
-                screen = last  # it did hold still before: that one's answer stands
-            if screen != last:
-                last = screen
-                try:
-                    result = attempt(screen)
-                except NotRecorded as e:
-                    missed[:], result = [e], None
-                else:
-                    missed.clear()
-                if result is not None:
-                    return result
-            left = deadline - self.clock.now()
-            if left <= 0:
-                if missed:
-                    raise missed[0]
-                raise StepFailed(failure(screen))
-            self.device.wait_change(left)
-
-    def _steady_screen(self, deadline: float) -> Screen | None:
-        """The screen once two reads a still moment apart agree; None if that doesn't happen by `deadline`.
-
-        A still moment alone can come in the middle of an animation, like a keyboard sliding up, and a screen
-        read then is never seen again: its recorded answer would never be replayed.
-        """
-        screen = self.device.screen()
-        while (left := deadline - self.clock.now()) > 0:
-            self.device.wait_idle(left)
-            again = self.device.screen()
-            if again == screen:
-                return screen
-            screen = again
-        return None
-
     def _near(self, text: str, elements: Sequence[Element]) -> str:
-        """The close-but-not-exact texts on screen, for an error. Never matched: shown so the test can be fixed.
-
-        A ``${NAME}`` value in them is shown as its name, like everywhere else in the output.
-        """
+        """The close-but-not-exact texts on screen, for an error. Never matched: shown so the test can be fixed."""
         near = near_names(text, elements)
         if not near:
             return ""
@@ -339,36 +326,39 @@ class TestRunner:
         )
         return replace(decision, move=replace(move, element=masked))
 
-    def _locate(
-        self, target: str, timeout: float, *, editable: bool = False, typing: bool = False
+    def _find(
+        self, target: str, settings: Settings, *, editable: bool = False, typing: bool = False
     ) -> tuple[Located, Screen]:
-        """The element `target` names, and the screen it was found on.
+        """`wait_until` an element says `target` exactly, and isn't under the keyboard.
 
-        Never one under the keyboard, except, when `typing`, a field that already takes the keys (no tap needed).
+        Under the keyboard is allowed when `typing` into a field that already takes the keys (no tap needed).
         """
         wanted = self._value(target)
+        asked: dict[Screen, Located | None] = {}  # Jev picks among exact matches once per screen
+        covered: list[Located] = []  # found, but under the keyboard: touching it would hit a key
 
         def pool(screen: Screen) -> Sequence[Element]:
             return screen.editable if editable else screen.elements
 
-        covered: list[Located] = []  # found, but under the keyboard: touching it would hit a key
-
-        def attempt(screen: Screen) -> tuple[Located, Screen] | None:
-            found = self.brain.locate(wanted, screen, pool(screen))
-            if found is None:
-                covered.clear()
+        def found(screen: Screen) -> tuple[Located, Screen] | None:
+            if screen not in asked:
+                asked[screen] = self.brain.locate(wanted, screen, pool(screen))
+            located = asked[screen]
+            covered.clear()
+            if located is None:
                 return None
-            ready = typing and screen.takes_keys(found.element)
-            covered[:] = [found] if screen.under_keyboard(found.element) and not ready else []
-            return None if covered else (found, screen)
+            if screen.under_keyboard(located.element) and not (typing and screen.takes_keys(located.element)):
+                covered.append(located)
+                return None
+            return located, screen
 
-        def failure(screen: Screen) -> str:
+        def why(screen: Screen) -> str:
             if covered:
-                return f"{covered[0].describe()} is under the keyboard: close it first with a `hide_keyboard` step"
-            what = "text field" if editable else "element"
-            return f"Could not find {what} '{target}' on screen{self._near(wanted, pool(screen))}"
+                return f"; {covered[0].describe()} is under the keyboard: close it first with a `hide_keyboard` step"
+            return self._near(wanted, pool(screen))
 
-        return self._poll(attempt, timeout, failure)
+        what = "a text field" if editable else "an element"
+        return self._wait_until(found, settings, f"{what} says '{target}' on screen", why)
 
     def _check_app(self, action: Action) -> None:
         """Fail if the app crashed or left the foreground during the action."""
@@ -381,41 +371,46 @@ class TestRunner:
             raise StepFailed("The app left the foreground")
 
     def _check(self, check: Check, settings: Settings) -> str | None:
-        """`expect:` asks the model; `see:` and `not_see:` compare text. Retries until the step's timeout."""
-        timeout = settings.timeout
+        """`wait_until` the check holds: `see:` / `not_see:` compare text, `expect:` asks Jev about each screen."""
         wanted = self._value(check.text)
         if isinstance(check, Expect):
-            last: list[float] = []
+            answers: dict[Screen, float] = {}  # one question per screen, however often it's checked
 
             def judged(screen: Screen) -> str | None:
-                last.append(self.brain.check(wanted, screen))
-                return f"Jev {last[-1]:.2f}" if last[-1] > settings.confidence else None
+                if screen not in answers:
+                    answers[screen] = self.brain.check(wanted, screen)
+                yes = answers[screen]
+                return f"Jev {yes:.2f}" if yes > settings.confidence else None
 
-            return self._poll(judged, timeout, lambda _: f"Jev says false ({last[-1]:.2f})", steady=True)
+            def last_answer(screen: Screen) -> str:
+                return f"; Jev says false ({answers[screen]:.2f})" if screen in answers else ""
+
+            return self._wait_until(judged, settings, "Jev judged it true", last_answer)
         present = isinstance(check, See)
 
         def seen(screen: Screen) -> str | None:
             return "" if screen.shows(wanted) == present else None
 
-        def failure(screen: Screen) -> str:
-            return f"not on screen{self._near(wanted, screen.elements)}" if present else "still on screen"
+        def why(screen: Screen) -> str:
+            return self._near(wanted, screen.elements) if present else ""
 
-        return self._poll(seen, timeout, failure) or None
+        until = f"'{check.text}' is on screen" if present else f"'{check.text}' is gone"
+        return self._wait_until(seen, settings, until, why) or None
 
     # --- actions -----------------------------------------------------------------------------------------------
-    def _act(self, step: Step, action: Action, decisions: list[Decision]) -> str | None:
+    def _act(self, step: Step, action: Action, record: _Record) -> str | None:
         """Do one action; return what it acted on, for the log."""
         match action:
             case Launch() | Stop() | Restart() | ClearData() | Reinstall():
                 self._lifecycle(action)
             case Touch() | Clear() | TypeText() | Swipe():
-                return self._on_element(action, step.settings.timeout)
+                return self._on_element(action, step.settings)
             case Wait() | Background():
                 self._pause(action)
             case ScrollTo(text, direction):
                 return self._scroll_to(text, direction, step.settings)
             case Do(goal):
-                return self._achieve(goal, decisions, step.settings)
+                return self._do(goal, step.settings, record)
             case Screenshot(name):
                 return f"saved {self._screenshot(name)}"
             case Back() | Home() | HideKeyboard() | Key() | Scroll() | OpenUrl():
@@ -460,21 +455,21 @@ class TestRunner:
                 assert_never(action)
         self._app_should_run = isinstance(action, Launch | Restart)
 
-    def _on_element(self, action: Touch | Clear | TypeText | Swipe, timeout: float) -> str | None:
-        """An action on an element the step names: find it (waiting up to `timeout`), then act on it."""
+    def _on_element(self, action: Touch | Clear | TypeText | Swipe, settings: Settings) -> str | None:
+        """An action on the element a step names: `wait_until` it's on screen, then act on it."""
         d = self.device
         match action:
             case Touch(gesture, target):
-                found, _ = self._locate(target, timeout)
+                found, _ = self._find(target, settings)
                 self._touch(gesture, found.element)
             case Clear(target):
-                found, _ = self._locate(target, timeout, editable=True)
+                found, _ = self._find(target, settings, editable=True)
                 d.clear_text(found.element)
             case TypeText(text, into):
                 if into is None:
                     d.type_text(self._value(text))
                     return None
-                found, screen = self._locate(into, timeout, editable=True, typing=True)
+                found, screen = self._find(into, settings, editable=True, typing=True)
                 # the device focuses the field; one that already takes the keys isn't tapped (see `takes_keys`)
                 d.type_text(self._value(text), at=None if screen.takes_keys(found.element) else found.element.center)
                 return f"into {found.describe()}"
@@ -482,7 +477,7 @@ class TestRunner:
                 if target is None:
                     d.swipe(direction)
                     return None
-                found, _ = self._locate(target, timeout)
+                found, _ = self._find(target, settings)
                 d.swipe(direction, element=found.element)
             case _:  # pragma: no cover - every element action is handled above
                 assert_never(action)
@@ -539,8 +534,7 @@ class TestRunner:
     def _scroll_to(self, text: str, direction: Direction, settings: Settings) -> str | None:
         """Scroll until an element says exactly the text, or the content stops moving, or `max_scrolls` scrolls.
 
-        The text is matched in code, exactly, like `see:`: a model asked whether absent text is there tends to
-        pick something similar.
+        After each scroll it waits until the screen stopped moving (a scroll glides on for a moment).
         """
         wanted = self._value(text)
         screen = self.device.screen()
@@ -554,41 +548,110 @@ class TestRunner:
                     f"{self._near(wanted, screen.elements)}"
                 )
             self.device.scroll(direction, screen=screen)
-            self._settle(settings)
-            before, screen = screen, self.device.screen()
+            before, screen = screen, self._still_screen(settings)
             scrolls, unmoved = scrolls + 1, (unmoved + 1 if screen == before else 0)
             if unmoved == END_OF_CONTENT:
                 raise StepFailed(
                     f"Scrolled {direction} to the end but never found '{text}'{self._near(wanted, screen.elements)}"
                 )
 
-    # --- the goal loop -----------------------------------------------------------------------------------------
-    def _achieve(self, goal: str, decisions: list[Decision], settings: Settings) -> str:
-        """Look at the screen, let the model pick the next move, make it; repeat until the goal is done."""
-        taken: list[str] = []
+    # --- do: goals ---------------------------------------------------------------------------------------------
+    def _do(self, goal: str, settings: Settings, record: _Record) -> str:
+        """Repeat the steps saved for this goal; if there are none, work them out with Jev and save them.
+
+        With ``--lock record``, saved steps that no longer fit the app (a step's element never shows up) are
+        worked out again from where they stopped. With ``--lock frozen`` that's a failure.
+        """
+        key = f"{self.platform} · {record.where} · {goal}"
+        model = self.brain.model
+        saved = model.saved_steps(key)
+        if saved is not None:
+            try:
+                for step in saved:
+                    self._repeat(step, settings)
+                    record.ran.append(step.describe())
+                return f"{_count(len(saved), 'saved step')}"
+            except StepFailed:
+                if model.replays_only:
+                    raise
+        done = saved[: len(record.ran)] if saved else ()
+        steps = self._work_out(goal, settings, record)
+        model.save_steps(key, [*done, *steps])
+        return f"{_count(len(done) + len(steps), 'step')}, worked out by Jev"
+
+    def _repeat(self, step: SavedStep, settings: Settings) -> None:
+        """One saved step: `wait_until` its element is on screen (the same one of the same count), then act."""
+        target = step.target
+        if target is None:
+            self._make(_page_move(step), self.device.screen(), settings)
+            return
+        found: list[int] = []  # how many elements have its kind and name, on the last screen read
+
+        def match(screen: Screen) -> tuple[Element, Screen] | None:
+            same = [el for el in screen.elements if el.kind == target.kind and self._name(el) == target.name]
+            found[:] = [len(same)]
+            return (same[target.nth - 1], screen) if len(same) == target.count else None
+
+        def why(_: Screen) -> str:
+            if not found or found[0] == 0:
+                return ""
+            return f"; the screen shows {found[0]}, the saved step was made with {target.count}"
+
+        element, screen = self._wait_until(match, settings, f"{target.describe()} is on screen", why)
+        self._make(_element_move(step, element), screen, settings)
+
+    def _work_out(self, goal: str, settings: Settings, record: _Record) -> list[SavedStep]:
+        """Let Jev pick moves toward the goal, each from a screen that has stopped moving; return them as steps."""
+        taken = list(record.ran)
+        steps: list[SavedStep] = []
         while True:
-            decision, screen = self._poll(  # every screen gets a decision; only one not recorded waits for the next
-                lambda s: (self.brain.next_action(goal, s, taken), s),
-                settings.timeout,
-                lambda _: "",
-                steady=True,
-            )
-            decisions.append(decision)
+            screen = self._still_screen(settings)
+            decision = self.brain.next_action(goal, screen, taken)
+            record.decisions.append(decision)
             move = decision.move
             if isinstance(move, Finished):
-                return f"{len(taken)} action(s)"
+                return steps
             if isinstance(move, Impossible):
                 raise StepFailed("Jev says the goal is impossible from this screen")
             if len(taken) == settings.max_actions:
                 raise StepFailed(f"Goal not reached after {_count(len(taken), 'action')} (max_actions)")
             if taken[-2:] == [move.describe()] * 2:
                 raise StepFailed(f"Stuck repeating: {move.describe()}")
-            self._make(move, screen, settings)
+            if isinstance(move, WaitForScreen):  # still loading: wait_until it changes; nothing to save
+                self._wait_until(_changed_from(screen), settings, "the screen changed", lambda _: "")
+            else:
+                steps.append(self._saved(move, screen))
+                self._make(move, screen, settings)
             taken.append(move.describe())
-            self._settle(settings)
+
+    def _name(self, el: Element) -> str:
+        """What a saved step calls an element: its text, else its hint, else its id; ``${NAME}`` values masked."""
+        return self._masked(el.text or el.hint or el.resource_id)
+
+    def _saved(self, move: ElementMove | PageMove, screen: Screen) -> SavedStep:
+        """The move as a step later runs can repeat: its element by kind, name and place among its namesakes."""
+        if isinstance(move, ScrollPage):
+            return SavedStep(f"scroll_{move.direction}")
+        if not isinstance(move, ElementMove):
+            return SavedStep(next(action for action, page in _PAGE_MOVES.items() if page == move))
+        el = move.element
+        name = self._name(el)
+        same = [e.id for e in screen.elements if e.kind == el.kind and self._name(e) == name]
+        target = Target(el.kind, name, same.index(el.id) + 1, len(same))
+        match move:
+            case TouchElement(gesture, _):
+                return SavedStep(str(gesture), target)
+            case SwipeElement(direction, _):
+                return SavedStep(f"swipe_{direction}", target)
+            case TypeInto(_, text):
+                return SavedStep("type", target, text)
+            case ClearField():
+                return SavedStep("clear", target)
+            case _:  # pragma: no cover - every element move is handled above
+                assert_never(move)
 
     def _make(self, move: ElementMove | PageMove, screen: Screen, settings: Settings) -> None:
-        """Make one of the model's moves on the device.
+        """Make a move on the device.
 
         A move on an element under the keyboard closes the keyboard first: a touch there would hit a key.
         """
@@ -606,35 +669,9 @@ class TestRunner:
             case ClearField(element):
                 d.clear_text(element)
             case _:
-                self._make_on_page(move, screen, settings)
+                self._make_on_page(move, screen)
 
-    def _uncovered(self, element: Element, settings: Settings) -> Element:
-        """Close the keyboard over `element`, then find it again: the screen may move once the keyboard is gone.
-
-        Raises:
-            StepFailed: The keyboard stays up, or the element isn't on screen exactly once without it.
-        """
-        self.device.hide_keyboard()
-        same = (element.kind, element.text, element.hint, element.resource_id)
-
-        def found(screen: Screen) -> Element | None:
-            matches = [el for el in screen.elements if (el.kind, el.text, el.hint, el.resource_id) == same]
-            return matches[0] if not screen.keyboard_visible and len(matches) == 1 else None
-
-        def failure(screen: Screen) -> str:
-            if screen.keyboard_visible:
-                return f"{element.label()} is under the keyboard, and the keyboard didn't close"
-            count = sum((el.kind, el.text, el.hint, el.resource_id) == same for el in screen.elements)
-            if count:
-                return (
-                    f"{element.label()} was under the keyboard, and once it closed the screen shows it {count} "
-                    "times: jevtest won't guess which one Jev meant"
-                )
-            return f"{element.label()} was under the keyboard, and isn't on screen once it closed"
-
-        return self._poll(found, settings.timeout, failure)
-
-    def _make_on_page(self, move: PageMove, screen: Screen, settings: Settings) -> None:
+    def _make_on_page(self, move: PageMove, screen: Screen) -> None:
         d = self.device
         match move:
             case ScrollPage(direction):
@@ -645,7 +682,68 @@ class TestRunner:
                 d.key("enter")
             case CloseKeyboard():
                 d.hide_keyboard()
-            case WaitForScreen():
-                d.wait_change(settings.settle)
+            case WaitForScreen():  # pragma: no cover - _work_out waits itself, and it is never saved
+                raise AssertionError("wait is not made on the device")
             case _:  # pragma: no cover - every page move is handled above
                 assert_never(move)
+
+    def _uncovered(self, element: Element, settings: Settings) -> Element:
+        """Close the keyboard over `element`, then `wait_until` it's on screen once, with the keyboard gone."""
+        self.device.hide_keyboard()
+        same = (element.kind, element.text, element.hint, element.resource_id)
+
+        def found(screen: Screen) -> Element | None:
+            matches = [el for el in screen.elements if (el.kind, el.text, el.hint, el.resource_id) == same]
+            return matches[0] if not screen.keyboard_visible and len(matches) == 1 else None
+
+        def why(screen: Screen) -> str:
+            if screen.keyboard_visible:
+                return "; the keyboard didn't close"
+            count = sum((el.kind, el.text, el.hint, el.resource_id) == same for el in screen.elements)
+            if count:
+                return f"; the screen shows it {count} times: jevtest won't guess which one Jev meant"
+            return "; it isn't on screen once the keyboard closed"
+
+        return self._wait_until(found, settings, f"{element.label()} is clear of the keyboard", why)
+
+
+@dataclass
+class _Record:
+    """What an action reports as it goes, and where its step is (for a `do:` goal's saved steps).
+
+    Attributes:
+        decisions: The moves Jev chose, for a `do:` it worked out.
+        ran: The saved steps repeated, for a `do:` that had them.
+        where: The test that defines the step, and its number there, e.g. ``Sign in · step 1``.
+    """
+
+    decisions: list[Decision]
+    ran: list[str]
+    where: str
+
+
+_PAGE_MOVES: dict[str, PageMove] = {"back": GoBack(), "press_enter": PressEnter(), "hide_keyboard": CloseKeyboard()}
+"""The saved steps without a target, other than scrolls, and the moves they repeat."""
+
+
+def _page_move(step: SavedStep) -> PageMove:
+    """The page move a saved step without a target repeats."""
+    if step.action.startswith("scroll_"):
+        return ScrollPage(Direction(step.action.removeprefix("scroll_")))
+    return _PAGE_MOVES[step.action]
+
+
+def _changed_from(before: Screen) -> Callable[[Screen], Screen | None]:
+    """A `wait_until` check: met by any screen other than `before`."""
+    return lambda screen: screen if screen != before else None
+
+
+def _element_move(step: SavedStep, element: Element) -> ElementMove:
+    """The element move a saved step with a target repeats, on the element found for it."""
+    if step.action in (Gesture.TAP, Gesture.DOUBLE_TAP, Gesture.LONG_PRESS):
+        return TouchElement(Gesture(step.action), element)
+    if step.action.startswith("swipe_"):
+        return SwipeElement(Direction(step.action.removeprefix("swipe_")), element)
+    if step.action == "clear":
+        return ClearField(element)
+    return TypeInto(element, step.text or "")

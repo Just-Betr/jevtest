@@ -1,28 +1,29 @@
-# jevtest example: the bundled demo app (demo_app/), 17 tests.
+# Tests for the demo app in demo_app/.
 #
-#   cp examples/.env.example examples/.env     # then fill in your devices
-#   jevtest run examples/demo.yaml --lock record --out jevtest-results
+# Each test is a list of steps. A step does something, then checks what should be true:
 #
-# Every step is an action, then what should be true after it:
+#   do:      what a person would do, in plain English (Jev works out the taps and typing)
+#   tap:     tap the thing with this exact text
+#   see:     this exact text should be on the screen
+#   expect:  this should be true of the screen (Jev judges it)
 #
-#   - do: <what to do, in plain English>     Jev works out the taps and typing
-#     expect: <what should now be true>      Jev judges it against the screen
-#     see: <exact text on screen>            plain text check, no model
+# Steps wait for what they need: `tap: Close` waits until "Close" is on the screen.
+# If it doesn't show up within 10 seconds, the test fails. A slow step can say `timeout: 30`.
 #
-# `use: <test name>` runs another test's steps first, so tests build on each other.
-# Every ${NAME} comes from examples/.env (or the environment). Each step waits up to 10 seconds
-# for what it looks for; add `timeout: 30` to a step that needs longer.
+# The first run works out each `do:` with Jev and saves the steps it took; later runs repeat
+# those exact steps. `use: Sign in` runs the Sign in test first. ${NAME} values come from .env.
+#
+# Run it:  jevtest run examples/demo.yaml --lock record --out jevtest-results
 
 app:
   android: ../demo_app/build/app/outputs/flutter-apk/app-debug.apk
-  ios: ${IOS_APP}                # the simulator build, or a device build for a real iPhone
+  ios: ${IOS_APP}
 
 device:
-  android: ${ANDROID_DEVICE}     # exact serial, model or AVD name (see `adb devices`)
-  ios: ${IOS_DEVICE}             # exact name or UDID of a booted simulator or a connected iPhone
-  # Several devices split the tests and run at the same time: android: [Pixel 4a, Pixel_10]
+  android: ${ANDROID_DEVICE}
+  ios: ${IOS_DEVICE}
 
-include: shared/auth.yaml        # the "Sign in" building block
+include: shared/auth.yaml
 
 tests:
   - name: Sign in works
@@ -73,13 +74,13 @@ tests:
         direction: down
       - tap: Item 25
         see: Details for Item 25
-      - back           # an action with no check is fine too
+      - back
 
   - name: Swipe to delete an item
     fresh: true
     steps:
       - use: Open an item from the list
-      - scroll_to: Item 26   # below the screen when the phone is on its side
+      - scroll_to: Item 26
         direction: down
       - swipe: left
         target: Item 26
@@ -97,7 +98,6 @@ tests:
       - restart:
         expect: The sign in screen is showing
 
-  # In-app WebView: plain HTML (input, button, checkbox, link) inside the app.
   - name: Open the web page
     fresh: true
     steps:
@@ -118,7 +118,7 @@ tests:
     fresh: true
     steps:
       - use: Open the web page
-      - scroll_to: I agree to the terms   # below the screen when the phone is on its side
+      - scroll_to: I agree to the terms
         direction: down
       - tap: I agree to the terms
         see: Terms accepted
@@ -129,7 +129,6 @@ tests:
         direction: down
         see: Here is more content from the web page.
 
-  # Native (non-Flutter) screen: Android Views / iOS UIKit.
   - name: Native screen
     fresh: true
     steps:
@@ -140,7 +139,7 @@ tests:
         see: Native screen
       - clear: Nickname
       - type: { text: "Bret", into: Nickname }
-      - hide_keyboard   # on a phone on its side, the keyboard covers the button
+      - hide_keyboard
       - tap: Save nickname
         see: "Saved: Bret"
       - tap: Dark theme
@@ -150,7 +149,6 @@ tests:
       - tap: Delete
         see: Account deleted
 
-  # A system permission prompt (owned by the OS, not the app).
   - name: Camera permission prompt
     fresh: true
     steps:
@@ -164,7 +162,6 @@ tests:
       - do: Allow camera access
         see: "Camera: allowed"
 
-  # Content that arrives later (like a network response): checks wait for it, no sleeps needed.
   - name: Slow loading
     fresh: true
     steps:
@@ -174,13 +171,10 @@ tests:
       - tap: Load data
         see: Data loaded
 
-  # In-app web: a full form, a dropdown, radio buttons, clearing, a JavaScript alert,
-  # navigation between web pages, and scrolling a long page.
   - name: Web form
     fresh: true
     steps:
       - use: Open the web page
-      # Android System WebView 153 gives web text fields no name (see Troubleshooting), so Jev finds them.
       - do: Type "Bert" into the name field
       - do: Clear the name field
       - do: Type "Bret" into the name field
@@ -196,7 +190,7 @@ tests:
       - tap: I agree to the terms
         see: Terms accepted
       - tap: Submit form
-      - scroll_to: "Submitted: Canada, Pro plan, with a password"   # below the button on a phone on its side
+      - scroll_to: "Submitted: Canada, Pro plan, with a password"
         direction: down
 
   - name: Web alert and navigation

@@ -4,14 +4,14 @@ jevtest is built to run unattended: one exit code, JUnit XML for your CI's test 
 
 ## Which lock mode in CI?
 
-| Mode | Replays recorded screens | New or changed screens | Needs the API key | Good for |
+| Mode | Saved `do:` steps and recorded answers | New goals, changed screens | Needs the API key | Good for |
 |---|---|---|---|---|
-| `record` | exactly | asks Jev, records the answer | yes | **everyday CI**: tests follow UI changes without anyone re-recording |
-| `frozen` | exactly | **fails the run** | no | release gates, reproducing a failure exactly, offline runs |
+| `record` | repeated exactly | asks Jev, saves the steps and answers | yes | **everyday CI**: tests follow UI changes without anyone re-recording |
+| `frozen` | repeated exactly | **fails the run** | no | release gates, reproducing a failure exactly, offline runs |
 
-With `record`, a screen that was recorded always gets the same decision; only screens the app hasn't shown before go to Jev. Each new decision costs a fraction of a cent. Answers recorded in CI stay in that run's workspace unless you commit them back, so the next CI run asks again for screens that are still new. Re-record locally and commit the lockfile when the app's screens change.
+With `record`, each `do:` repeats its saved steps; only a new goal, or one whose saved steps no longer fit the app (an element was renamed), goes to Jev, and only from where the saved steps stopped fitting. Each new decision costs a fraction of a cent. What's recorded in CI stays in that run's workspace unless you commit it back, so re-record locally and commit the lockfile when the app changes.
 
-With `frozen`, a step that meets a screen not in the lockfile looks again each time the screen changes (it may still have been moving), and when its `timeout` runs out without a recorded screen, fails the run with `This screen and question are not in tests.lock.json, and --lock frozen only replays recorded decisions`. That's exact but strict: a renamed button means re-recording locally and committing the lockfile.
+With `frozen`, nothing new is asked: a `do:` without saved steps fails with `No steps are saved for this do: in tests.lock.json, and --lock frozen only repeats saved steps`, and a saved step whose element never shows up fails with what the screen shows instead. That's exact but strict: a renamed button means re-recording locally and committing the lockfile.
 
 ## GitHub Actions
 

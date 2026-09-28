@@ -33,7 +33,7 @@ from jevtest.domain.failures import ModelError
 from jevtest.domain.kinds import Direction, Gesture
 from jevtest.domain.model import Answer, Choice, Picked, Probability, Question, State, YesNo
 from jevtest.domain.ports import DecisionModel
-from jevtest.domain.screen import Element, Screen, near_names
+from jevtest.domain.screen import Element, Screen
 from jevtest.domain.variables import hide
 
 QUOTED = re.compile(r'"([^"]+)"|“([^”]+)”')
@@ -283,13 +283,11 @@ class Brain:
         return TypeInto(field, values[int(_picked(get("value")).choice[1:])])
 
     def locate(self, target: str, screen: Screen, candidates: Sequence[Element] | None = None) -> Located | None:
-        """The element the test file names, or None if it isn't on the screen.
+        """The element the test file names, or None if no element on the screen says it.
 
         Only an exact match counts: an element whose whole text, one of its parts, its hint or its id is the
-        target, ignoring case (`Element.says`). If several match, Jev chooses among those only. If none does but a
-        longer text contains the target, that's a mistake in the test file, and nothing is chosen: the caller
-        reports the close texts. Only a target unlike any text on the screen (a
-        description) goes to Jev, which picks an element and must then confirm it.
+        target, ignoring case (`Element.says`). If several match, Jev chooses among those only (and must confirm
+        its choice). A target no element says is never guessed: describe it in a `do:` step instead.
         """
         pool: Sequence[Element] = screen.elements if candidates is None else candidates
         exact = _prefer_actionable([el for el in pool if el.says(target)])
@@ -297,9 +295,7 @@ class Brain:
             return Located(exact[0])
         if exact:
             return self._chosen(target, screen, exact, f"chosen by Jev among {len(exact)} exact matches")
-        if not pool or near_names(target, pool):
-            return None
-        return self._chosen(target, screen, pool, "chosen by Jev")
+        return None
 
     def _chosen(self, target: str, screen: Screen, pool: Sequence[Element], how: str) -> Located | None:
         element = self._ask_which(target, screen, pool)

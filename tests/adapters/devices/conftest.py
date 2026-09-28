@@ -2,6 +2,7 @@ import json
 import plistlib
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import NamedTuple
 
@@ -68,6 +69,14 @@ class Adb:
 
     def shell(self):
         return [c.split(" shell ", 1)[1] for c in self.cmds if " shell " in c]
+
+
+@pytest.fixture(autouse=True)
+def slept(monkeypatch):
+    """A device's own waits check again after `CHECK_INTERVAL`: here the sleeps are recorded, not slept."""
+    seconds: list[float] = []
+    monkeypatch.setattr(time, "sleep", seconds.append)
+    return seconds
 
 
 class AgentHttp:
@@ -172,6 +181,7 @@ class Agent:
         self.calls: list[tuple[str, dict[str, object]]] = []
         self.wide = False  # like the real app: it turns when told to (`turns = False` for one that doesn't)
         self.turns = True
+        self.keyboard = False  # like the real app: a tap focuses a field and raises the keyboard
 
     def __call__(self, url, body, timeout, token):
         assert token == self.token, "every agent call must carry the device's token"
@@ -179,9 +189,16 @@ class Agent:
         self.calls.append((path, body))
         if path == "/rotate" and "orientation" in body and self.turns:
             self.wide = body["orientation"] in ("landscape", "landscape_right")
+        self.keyboard = {"/tap": True, "/hide_keyboard": False}.get(path, self.keyboard)
         if path == "/tree" and path not in self.replies:
             width, height = (874, 402) if self.wide else (402, 874)
-            return {"width": width, "height": height, "elements": [], "keyboard": False}
+            field = {"type": "text_field", "x": 0, "y": 0, "w": 100, "h": 40, "focused": True}
+            return {
+                "width": width,
+                "height": height,
+                "elements": [field] if self.keyboard else [],
+                "keyboard": self.keyboard,
+            }
         reply = self.replies.get(path, {"ok": True})
         if isinstance(reply, list):
             reply = reply.pop(0)

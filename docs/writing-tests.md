@@ -44,7 +44,9 @@ Values can come from `.env` or the environment with `${NAME}`: `do: Sign in with
 - back
 ```
 
-Exact steps don't ask Jev what to do. They find elements by their exact text, in code: `tap: Save` taps the element that says *Save*, never *Save draft* ([matching](reference/steps.md#matching)). Only a description that isn't on-screen text (`tap: the red delete icon`) asks Jev which element it means; Jev must then confirm its pick, and the step's output says `(chosen by Jev)`.
+Exact steps don't ask Jev what to do. They wait until an element says their exact text, in code, then act: `tap: Save` taps the element that says *Save*, never *Save draft* ([matching](reference/steps.md#matching)). They never guess: to describe something instead of naming it (an icon, a field with no label), write a `do:` step.
+
+**Exact step or `do:`?** Use an exact step when you can name what's on screen (`tap: Save nickname`, `see: Data loaded`). Use `do:` when you'd describe it the way a person would: a goal that takes several actions (`do: Sign in with email "…" and password "…"`), something with no text to name, or when the test shouldn't depend on exact labels (`do: Turn notifications on`). The first run works each `do:` out with Jev and saves the steps; later runs repeat them.
 
 ## Checks
 

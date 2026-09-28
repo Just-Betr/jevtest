@@ -9,6 +9,7 @@ from jevtest.adapters.testfile.steps import parse_step
 from jevtest.application.brain import Brain
 from jevtest.application.runner import TestRunner
 from jevtest.cli.console import ConsoleListener
+from jevtest.domain.decisions import SavedStep, Target
 from jevtest.domain.failures import DeviceError, ModelError, NotRecorded
 from jevtest.domain.kinds import AppState, Status
 from jevtest.domain.results import TestResult
@@ -40,8 +41,15 @@ def make(tmp_path, clock, out, *steps, device=None, model=None, verbose=False, t
     device = device or FakeDevice()
     device.clock = clock
     model = model or FakeModel()
-    runner = TestRunner(suite, device, Brain(model), tmp_path, clock=clock, listener=console(out, verbose=verbose))
+    runner = TestRunner(
+        suite, device, Brain(model), tmp_path, platform="android", clock=clock, listener=console(out, verbose=verbose)
+    )
     return runner, device, model
+
+
+def held(*screens):
+    """Each screen twice in a row: read twice, it has stopped moving (a do: or scroll_to: waits for that)."""
+    return [s for screen in screens for s in (screen, screen)]
 
 
 def failure_of(result: TestResult) -> str:
@@ -115,7 +123,7 @@ def test_first_failure_stops_the_test_and_screenshots(tmp_path, clock, out):
     assert res.status is Status.FAIL
     assert "back" not in d.names()
     assert res.steps[-1].screenshot == "001_FAIL_T.png"
-    assert res.failure == "see: Nope — not on screen"
+    assert res.failure == "see: Nope — Waited 1s until 'Nope' is on screen"
 
 
 def test_screenshot_failure_is_reported_not_raised(tmp_path, clock, out):
@@ -175,11 +183,11 @@ def test_wait_and_background_use_the_clock(tmp_path, clock, out):
     assert [n for n in d.names() if n in ("home", "resume")] == ["home", "resume"]
 
 
-def test_settle_waits_for_idle_not_a_fixed_time(tmp_path, clock, out):
+def test_an_action_does_not_wait_afterwards(tmp_path, clock, out):
+    """Nothing waits for the screen to settle: the next step waits until what it needs is there."""
     _, d, _ = run1(tmp_path, clock, out, "back")
-    assert ("wait_idle", 3.0, 0.5) in d.calls  # after launch: a longer quiet window
-    assert d.calls.count(("wait_idle", 3.0)) == 1  # after back
-    assert clock.slept == [FakeDevice.IDLE_AFTER] * 2  # only the device's own idle waits: no fixed sleeps
+    assert d.names() == ["restore", "stop", "clear_data", "launch", "back", "app_state"]
+    assert clock.slept == []
 
 
 def test_screenshot_step(tmp_path, clock, out):
@@ -203,26 +211,26 @@ def test_touch_actions_find_the_element(tmp_path, clock, out, kind):
     assert res.steps[0].detail == "on button 'Sign in'"
 
 
-def test_tap_asks_the_model_when_no_exact_match(tmp_path, clock, out):
-    _, d, model = run1(tmp_path, clock, out, {"tap": "the login button"}, model=FakeModel(pick("e3"), confirm()))
-    assert ("tap", 500, 450) in d.calls and len(model.asked) == 2  # pick, then confirm
+def test_a_tap_never_guesses_an_element_no_one_names(tmp_path, clock, out):
+    """Only exact text counts: a described target goes in a do: step, not a tap:."""
+    model = FakeModel()  # asking it anything fails the test
+    res, d, _ = run1(tmp_path, clock, out, {"tap": "the login button", "timeout": 1}, model=model)
+    assert failure_of(res).endswith("Waited 1s until an element says 'the login button' on screen")
+    assert "tap" not in d.names() and not model.asked
 
 
-def test_tap_waits_for_the_element(tmp_path, clock, out):
+def test_tap_waits_until_the_element_is_on_screen(tmp_path, clock, out):
     d = FakeDevice(screen_with("Loading"), screen_with("Loading"), login_screen())
-    res, d, model = run1(
-        tmp_path, clock, out, {"tap": "Sign in"}, device=d, model=FakeModel(pick("not_on_screen"))
-    )  # the unchanged second screen is not re-asked
+    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=d)
     assert res.status is Status.PASS
-    assert d.names().count("wait_change") == 2 and len(model.asked) == 1
+    assert d.names().count("screen") == 3 and clock.slept == [0.25, 0.25]  # checked every interval
 
 
 def test_tap_gives_up_after_timeout(tmp_path, clock, out):
-    res, _, _ = run1(
-        tmp_path, clock, out, {"tap": "Ghost", "timeout": 1}, model=FakeModel(*[pick("not_on_screen")] * 10)
-    )
+    res, _, _ = run1(tmp_path, clock, out, {"tap": "Ghost", "timeout": 1})
     assert res.status is Status.FAIL
-    assert res.failure == "tap: Ghost (timeout: 1) — Could not find element 'Ghost' on screen"
+    assert res.failure == "tap: Ghost (timeout: 1) — Waited 1s until an element says 'Ghost' on screen"
+    assert clock.now() <= 1
 
 
 def test_an_element_under_the_keyboard_is_never_touched(tmp_path, clock, out):
@@ -271,14 +279,8 @@ def test_type_into_field(tmp_path, clock, out):
 
 
 def test_type_into_missing_field(tmp_path, clock, out):
-    res, _, _ = run1(
-        tmp_path,
-        clock,
-        out,
-        {"type": {"text": "a", "into": "Phone"}, "timeout": 1},
-        model=FakeModel(pick("not_on_screen")),
-    )
-    assert "Could not find text field 'Phone'" in failure_of(res)
+    res, _, _ = run1(tmp_path, clock, out, {"type": {"text": "a", "into": "Phone"}, "timeout": 1})
+    assert "Waited 1s until a text field says 'Phone' on screen" in failure_of(res)
 
 
 def test_type_into_focused_field(tmp_path, clock, out):
@@ -287,7 +289,8 @@ def test_type_into_focused_field(tmp_path, clock, out):
 
 
 def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Item 1"), screen_with("Item 300"), screen_with("Item 30"))
+    # after each scroll: wait_until two reads agree (the scroll has stopped gliding)
+    d = FakeDevice(screen_with("Item 1"), *held(screen_with("Item 300"), screen_with("Item 30")))
     res, d, model = run1(tmp_path, clock, out, {"scroll_to": "Item 30", "direction": "down"}, device=d)
     assert res.status is Status.PASS and res.steps[0].detail == "2 scroll(s)"
     assert d.names().count("drag") == 2
@@ -300,7 +303,7 @@ def test_scroll_to_already_on_screen(tmp_path, clock, out):
 
 
 def test_scroll_to_stops_at_the_end_of_the_content(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Item 1"), screen_with("Item 2"), screen_with("Item 2"), screen_with("Item 2"))
+    d = FakeDevice(screen_with("Item 1"), screen_with("Item 2"))  # then Item 2 for good
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "up"}, device=d)
     assert failure_of(res).endswith("Scrolled up to the end but never found 'Item 99'")
     assert d.names().count("drag") == 3  # the last two scrolls moved nothing: that's the end
@@ -308,20 +311,20 @@ def test_scroll_to_stops_at_the_end_of_the_content(tmp_path, clock, out):
 
 def test_scroll_to_keeps_going_after_one_scroll_that_moved_nothing(tmp_path, clock, out):
     """A real phone's web view sometimes ignores a single scroll: that isn't the end."""
-    d = FakeDevice(screen_with("Item 1"), screen_with("Item 1"), screen_with("Back to top"))
+    d = FakeDevice(screen_with("Item 1"), *held(screen_with("Item 1"), screen_with("Back to top")))
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Back to top", "direction": "down"}, device=d)
     assert res.status is Status.PASS and d.names().count("drag") == 2
 
 
 def test_scroll_to_gives_up_after_50_scrolls(tmp_path, clock, out):
-    d = FakeDevice(*[screen_with(f"Item {i}") for i in range(60)])  # an endless feed
+    d = FakeDevice(screen_with("Item 0"), *held(*[screen_with(f"Item {i}") for i in range(1, 60)]))  # endless
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 99", "direction": "down"}, device=d)
     assert failure_of(res).endswith("Scrolled down 50 times (max_scrolls) but never found 'Item 99'")
     assert d.names().count("drag") == 50
 
 
 def test_scroll_to_found_after_the_last_allowed_scroll(tmp_path, clock, out):
-    d = FakeDevice(*[screen_with(f"Item {i}") for i in range(51)])
+    d = FakeDevice(screen_with("Item 0"), *held(*[screen_with(f"Item {i}") for i in range(1, 51)]))
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 50", "direction": "down"}, device=d)
     assert res.status is Status.PASS and res.steps[0].detail == "50 scroll(s)"
 
@@ -378,7 +381,7 @@ def test_see_waits_for_text(tmp_path, clock, out):
 
 def test_not_see_fails_when_text_stays(tmp_path, clock, out):
     res, _, _ = run1(tmp_path, clock, out, {"not_see": "Sign in", "timeout": 1})
-    assert res.failure == "not_see: Sign in — still on screen"
+    assert res.failure == "not_see: Sign in — Waited 1s until 'Sign in' is gone"
 
 
 def test_expect_passes_above_threshold(tmp_path, clock, out):
@@ -393,39 +396,10 @@ def test_expect_passes_above_threshold(tmp_path, clock, out):
 MISS = NotRecorded("This screen and question are not in t.lock.json, and --lock frozen only replays recorded decisions")
 
 
-def test_jev_is_never_asked_about_a_screen_still_changing(tmp_path, clock, out):
-    # each read differs from the one before until the login screen holds: every other one is mid-change
-    d = FakeDevice(screen_with("Loading"), screen_with("Almost"), login_screen())
-    model = FakeModel(yes(0.9))
-    res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form"}, device=d, model=model)
-    assert res.status is Status.PASS
-    assert len(model.asked) == 1
-    asked = json.dumps(model.asked[0][0])
-    assert "Loading" not in asked and "Almost" not in asked
-
-
-def test_a_screen_that_never_stops_changing_fails_loudly_and_jev_is_never_asked(tmp_path, clock, out):
-    """A clock or a counter: no answer about it could be replayed, so none is asked for."""
-    ticking = [screen_with(f"12:00:{i:02d}") for i in range(60)] * 10
-    model = FakeModel()  # asking it anything fails the test
-    res, _, _ = run1(
-        tmp_path, clock, out, {"expect": "The clock", "timeout": 5}, device=FakeDevice(*ticking), model=model
-    )
-    assert failure_of(res).endswith(
-        "The screen never stopped changing in 5 s: Jev is only asked about a screen that holds still, since one "
-        "that keeps changing (a clock, a counter) can't be recorded or replayed"
-    )
-    assert not model.asked
-
-
-def test_an_answer_about_a_screen_that_held_still_stands_when_it_changes_for_good(tmp_path, clock, out):
-    still = screen_with("Loading")
-    ticking = [screen_with(f"{i}%") for i in range(200)]
-    model = FakeModel(yes(0.2))
-    d = FakeDevice(still, still, *ticking)
-    res, _, _ = run1(tmp_path, clock, out, {"expect": "Done", "timeout": 5}, device=d, model=model)
-    assert failure_of(res).endswith("Jev says false (0.20)")
-    assert len(model.asked) == 1
+def test_expect_asks_jev_about_each_new_screen_until_it_holds(tmp_path, clock, out):
+    d = FakeDevice(screen_with("Loading"), login_screen())
+    res, _, model = run1(tmp_path, clock, out, {"expect": "Login form"}, device=d, model=FakeModel(yes(0.2), yes(0.9)))
+    assert res.status is Status.PASS and len(model.asked) == 2
 
 
 def test_frozen_expect_looks_again_once_the_screen_changes(tmp_path, clock, out):
@@ -437,22 +411,21 @@ def test_frozen_expect_looks_again_once_the_screen_changes(tmp_path, clock, out)
 
 def test_frozen_expect_reports_the_last_answer_when_a_later_screen_was_recorded(tmp_path, clock, out):
     """A miss on an early screen isn't the reason when a later, recorded screen said no."""
-    loading = screen_with("Loading")
-    d = FakeDevice(loading, loading, login_screen())
+    d = FakeDevice(screen_with("Loading"), login_screen())
     res, _, _ = run1(tmp_path, clock, out, {"expect": "Home", "timeout": 5}, device=d, model=FakeModel(MISS, yes(0.2)))
-    assert failure_of(res).endswith("Jev says false (0.20)")
+    assert failure_of(res).endswith("Waited 5s until Jev judged it true; Jev says false (0.20)")
 
 
 def test_frozen_expect_fails_with_the_lockfile_message_when_no_recorded_screen_comes(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form", "timeout": 1}, model=FakeModel(MISS))
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form", "timeout": 1}, model=FakeModel(*[MISS] * 5))
     assert failure_of(res).endswith(str(MISS))
 
 
-def test_frozen_do_waits_for_a_recorded_screen(tmp_path, clock, out):
-    loading = screen_with("Loading")
-    d = FakeDevice(loading, loading, login_screen())
-    res, _, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, device=d, model=FakeModel(MISS, act("done")))
-    assert res.status is Status.PASS and res.steps[0].detail == "0 action(s)"
+def test_frozen_do_without_saved_steps_fails(tmp_path, clock, out):
+    model = FakeModel(frozen=True)
+    res, _, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model)
+    assert failure_of(res).endswith("No steps are saved for android · T · step 1 · Sign in")
+    assert not model.asked
 
 
 @pytest.mark.parametrize(("p", "passes"), [(0.5, False), (0.51, True)])
@@ -506,7 +479,7 @@ def test_failure_inside_use_is_reported(tmp_path, clock, out):
     inner = make_test("Inner", {"see": "Nope", "timeout": 1})
     runner, d, _ = make(tmp_path, clock, out, tests=[make_test("Outer", {"use": "Inner"}, "home")], library=[inner])
     res = runner.run().tests[0]
-    assert res.failure == "see: Nope — not on screen"
+    assert res.failure == "see: Nope — Waited 1s until 'Nope' is on screen"
     assert "home" not in d.names()
 
 
@@ -531,20 +504,20 @@ def test_do_types_and_taps_until_done(tmp_path, clock, out):
         act("type", field="e1", value="v0"),
         act("done"),
     )
-    res, d, _ = run1(
-        tmp_path,
-        clock,
-        out,
-        {"do": 'Type "a" then "b" into email'},
-        device=FakeDevice(*(s for screen in screens for s in (screen, screen))),  # each holds still
-        model=model,
-    )
-    assert res.status is Status.PASS and res.steps[0].detail == "3 action(s)"
+    goal = 'Type "a" then "b" into email'
+    res, d, _ = run1(tmp_path, clock, out, {"do": goal}, device=FakeDevice(*held(*screens)), model=model)
+    assert res.status is Status.PASS and res.steps[0].detail == "3 steps, worked out by Jev"
     typed = [c for c in d.calls if c[0] == "type_text"]
     # focused with the keyboard up: type without tapping (tapping would move the caret)
     assert [(c[1], c[2]) for c in typed] == [("a", (500, 150)), ("b", None), ("a", (500, 150))]
     assert res.steps[0].decisions[-1].move.describe() == "done"
-    assert "→ done  (confidence 0.90)" in out.getvalue()
+    assert "→ done  (Jev, confidence 0.90)" in out.getvalue()
+    email = Target("text_field", "Email")
+    assert model.saved[f"android · T · step 1 · {goal}"] == (
+        SavedStep("type", email, "a"),
+        SavedStep("type", email, "b"),
+        SavedStep("type", email, "a"),
+    )
 
 
 def test_do_closes_the_keyboard_over_the_element_jev_picked(tmp_path, clock, out):
@@ -565,7 +538,9 @@ def test_do_fails_when_the_keyboard_over_the_element_stays(tmp_path, clock, out)
     covered = login_screen(keyboard_visible=True, keyboard_top=300)
     model = FakeModel(act("tap", target="e3"))
     res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=FakeDevice(covered))
-    assert failure_of(res).endswith("button 'Sign in' is under the keyboard, and the keyboard didn't close")
+    assert failure_of(res).endswith(
+        "Waited 10s until button 'Sign in' is clear of the keyboard; the keyboard didn't close"
+    )
     assert "tap" not in d.names()
 
 
@@ -587,7 +562,7 @@ def test_do_fails_when_the_element_is_gone_once_the_keyboard_closes(tmp_path, cl
     model = FakeModel(act("tap", target="e3"))
     device = FakeDevice(covered, covered, screen_with("Elsewhere"))
     res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=device)
-    assert failure_of(res).endswith("button 'Sign in' was under the keyboard, and isn't on screen once it closed")
+    assert failure_of(res).endswith("; it isn't on screen once the keyboard closed")
     assert "tap" not in d.names()
 
 
@@ -625,12 +600,15 @@ def test_do_performs_each_action(tmp_path, clock, out, action, call):
     assert call in d.calls
 
 
-def test_do_wait_waits_for_a_change(tmp_path, clock, out):
+def test_do_wait_waits_until_the_screen_changes_and_saves_nothing(tmp_path, clock, out):
+    loading = screen_with("Loading")
     model = FakeModel(
         {"action": {"type": "choice", "choice": "wait", "confidence": 1, "probabilities": {}}}, act("done")
     )
-    _, d, _ = run1(tmp_path, clock, out, {"do": "Do it"}, model=model)
-    assert "wait_change" in d.names()
+    d = FakeDevice(loading, loading, loading, login_screen())
+    res, _, _ = run1(tmp_path, clock, out, {"do": "Do it"}, device=d, model=model)
+    assert res.status is Status.PASS
+    assert model.saved["android · T · step 1 · Do it"] == ()  # waiting isn't a step to repeat
 
 
 def test_do_impossible(tmp_path, clock, out):
@@ -714,10 +692,130 @@ def test_same_inputs_give_identical_runs(tmp_path):
 
 
 def test_unchanged_screen_is_not_rejudged(tmp_path, clock, out):
-    """Retrying an expect on an identical screen must not spend model calls."""
+    """Checking an expect every interval on an identical screen must not spend model calls."""
     res, d, model = run1(tmp_path, clock, out, {"expect": "x", "timeout": 5}, model=FakeModel(yes(0.1)))
-    assert res.status is Status.FAIL and len(model.asked) == 1
-    assert d.names().count("wait_change") >= 5
+    assert failure_of(res).endswith("Waited 5s until Jev judged it true; Jev says false (0.10)")
+    assert len(model.asked) == 1 and d.names().count("screen") == 21  # every 0.25 s for 5 s
+
+
+# --- saved do: steps ---------------------------------------------------------------------------
+
+SIGN_IN = "android · T · step 1 · Sign in"
+TAP_SIGN_IN = SavedStep("tap", Target("button", "Sign in"))
+
+
+def test_do_repeats_its_saved_steps_without_asking_jev(tmp_path, clock, out):
+    model = FakeModel(saved={SIGN_IN: (SavedStep("type", Target("text_field", "Email"), "${E}"), TAP_SIGN_IN)})
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, variables={"E": "ann@x.io"})
+    assert res.status is Status.PASS and res.steps[0].detail == "2 saved steps"
+    assert [c for c in d.calls if c[0] in ("type_text", "tap")] == [
+        ("type_text", "ann@x.io", (500, 150)),
+        ("tap", 500, 450),
+    ]
+    assert res.steps[0].ran == ("type \"${E}\" into text_field 'Email'", "tap button 'Sign in'")
+    assert not model.asked
+    assert "→ tap button 'Sign in'" in out.getvalue() and "ann@x.io" not in out.getvalue()
+
+
+def test_a_saved_step_waits_until_its_element_is_on_screen(tmp_path, clock, out):
+    d = FakeDevice(screen_with("Loading"), screen_with("Loading"), login_screen())
+    model = FakeModel(saved={SIGN_IN: (TAP_SIGN_IN,)})
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, device=d, model=model)
+    assert res.status is Status.PASS and ("tap", 500, 450) in d.calls and clock.slept == [0.25, 0.25]
+
+
+def test_a_saved_step_takes_the_same_one_of_several_namesakes(tmp_path, clock, out):
+    s = login_screen()
+    twice = dataclasses.replace(
+        s, elements=(*s.elements, dataclasses.replace(s.elements[2], bounds=(0, 600, 1000, 700)))
+    )
+    model = FakeModel(saved={SIGN_IN: (SavedStep("tap", Target("button", "Sign in", 2, 2)),)})
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, device=FakeDevice(twice), model=model)
+    assert res.status is Status.PASS and ("tap", 500, 650) in d.calls
+    assert res.steps[0].ran == ("tap the 2nd of 2 button 'Sign in'",)
+
+
+def test_frozen_fails_when_the_saved_steps_element_is_not_there_as_saved(tmp_path, clock, out):
+    model = FakeModel(saved={SIGN_IN: (SavedStep("tap", Target("button", "Sign in", 2, 2)),)}, frozen=True)
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in", "timeout": 1}, model=model)
+    assert failure_of(res).endswith(
+        "Waited 1s until the 2nd of 2 button 'Sign in' is on screen; the screen shows 1, the saved step was made with 2"
+    )
+    assert "tap" not in d.names() and not model.asked
+
+
+def test_record_works_a_goal_out_again_from_where_its_saved_steps_stopped_fitting(tmp_path, clock, out):
+    """The app changed (here the button's text): Jev picks up from where the saved steps got to, and it's saved."""
+    key = 'android · T · step 1 · Sign in as "a"'
+    typed = SavedStep("type", Target("text_field", "Email"), "a")
+    model = FakeModel(
+        act("tap", target="e3"), act("done"), saved={key: (typed, SavedStep("tap", Target("button", "Log in")))}
+    )
+    res, _, _ = run1(tmp_path, clock, out, {"do": 'Sign in as "a"', "timeout": 1}, model=model)
+    assert res.status is Status.PASS, res
+    assert res.steps[0].detail == "2 steps, worked out by Jev"
+    assert model.saved[key] == (typed, TAP_SIGN_IN)
+    assert model.asked[0][0]["actions_taken"] == ["type \"a\" into text_field 'Email'"]
+
+
+def test_a_used_tests_do_is_saved_under_that_test(tmp_path, clock, out):
+    inner = make_test("Sign in", {"do": "Sign in"})
+    model = FakeModel(act("tap", target="e3"), act("done"))
+    runner, _, _ = make(tmp_path, clock, out, tests=[make_test("T", {"use": "Sign in"})], library=[inner], model=model)
+    assert runner.run().tests[0].status is Status.PASS
+    assert list(model.saved) == ["android · Sign in · step 1 · Sign in"]
+
+
+def test_saved_steps_name_elements_as_the_output_does(tmp_path, clock, out):
+    """By kind and name, a ${NAME} value by its name, and which of several with that name."""
+    s = login_screen()
+    email = dataclasses.replace(s.elements[0], text="ann@x.io", hint="")
+    twice = dataclasses.replace(
+        s,
+        elements=(email, s.elements[1], s.elements[2], dataclasses.replace(s.elements[2], bounds=(0, 600, 1000, 700))),
+    )
+    model = FakeModel(act("clear", field="e1"), act("tap", target="e4"), act("done"))
+    run1(
+        tmp_path,
+        clock,
+        out,
+        {"do": "Clear it and sign in"},
+        device=FakeDevice(twice),
+        model=model,
+        variables={"E": "ann@x.io"},
+    )
+    assert model.saved["android · T · step 1 · Clear it and sign in"] == (
+        SavedStep("clear", Target("text_field", "${E}")),
+        SavedStep("tap", Target("button", "Sign in", 2, 2)),
+    )
+
+
+@pytest.mark.parametrize(
+    ("action", "saved"),
+    [
+        ("scroll_down", SavedStep("scroll_down")),
+        ("back", SavedStep("back")),
+        ("press_enter", SavedStep("press_enter")),
+        ("hide_keyboard", SavedStep("hide_keyboard")),
+        ("double_tap", SavedStep("double_tap", Target("button", "Sign in"))),
+        ("long_press", SavedStep("long_press", Target("button", "Sign in"))),
+        ("swipe_left_on", SavedStep("swipe_left", Target("button", "Sign in"))),
+        ("clear", SavedStep("clear", Target("text_field", "Email"))),
+    ],
+)
+def test_every_move_is_saved_and_repeated_the_same(tmp_path, clock, out, action, saved):
+    model = FakeModel(act(action, target="e3", field="e1"), act("done"))
+    _, d1, _ = run1(
+        tmp_path, clock, out, {"do": "Go"}, device=FakeDevice(login_screen(keyboard_visible=True)), model=model
+    )
+    assert model.saved["android · T · step 1 · Go"] == (saved,)
+    again = FakeModel(saved=model.saved, frozen=True)
+    second, d2, _ = run1(
+        tmp_path, FakeClock(), out, {"do": "Go"}, device=FakeDevice(login_screen(keyboard_visible=True)), model=again
+    )
+    assert second.status is Status.PASS and not again.asked
+    acted = [c for c in d1.calls if c[0] not in ("screen", "app_state")]
+    assert acted == [c for c in d2.calls if c[0] not in ("screen", "app_state")]
 
 
 # --- ${NAME} values --------------------------------------------------------------------
@@ -796,33 +894,29 @@ def test_a_value_in_a_start_failure_is_shown_by_its_name(tmp_path, clock, out):
 
 
 def test_missing_target_is_reported_by_its_placeholder(tmp_path, clock, out):
-    res, _, _ = run1(
-        tmp_path,
-        clock,
-        out,
-        {"tap": "${WHO}", "timeout": 1},
-        model=FakeModel(pick("not_on_screen")),
-        variables={"WHO": "Bob"},
-    )
-    assert "Could not find element '${WHO}'" in failure_of(res)
+    res, _, _ = run1(tmp_path, clock, out, {"tap": "${WHO}", "timeout": 1}, variables={"WHO": "Bob"})
+    assert "Waited 1s until an element says '${WHO}' on screen" in failure_of(res)
 
 
 # --- settings ------------------------------------------------------------------------
 
 
-def test_a_files_settings_reach_launch_and_every_step(tmp_path, clock, out):
-    settings = Settings(settle=7)
-    test = Test("T", True, (parse_step("back", settings),))
+def test_a_files_settings_reach_every_step(tmp_path, clock, out):
+    settings = Settings(timeout=2, interval=0.5)
+    test = Test("T", True, (parse_step({"tap": "Ghost"}, settings),))
     suite = Suite(tmp_path / "t.yaml", {}, {}, (test,), {"T": test}, {}, settings=settings)
     d = FakeDevice()
     d.clock = clock
-    TestRunner(suite, d, Brain(FakeModel()), tmp_path, clock=clock, listener=console(out)).run()
-    assert ("wait_idle", 7, 0.5) in d.calls and ("wait_idle", 7) in d.calls
+    res = TestRunner(
+        suite, d, Brain(FakeModel()), tmp_path, platform="android", clock=clock, listener=console(out)
+    ).run_test(test)
+    assert failure_of(res).endswith("Waited 2s until an element says 'Ghost' on screen")
+    assert clock.slept == [0.5] * 4  # checked at 0, 0.5, 1, 1.5 and 2 seconds
 
 
-def test_a_step_can_settle_longer(tmp_path, clock, out):
-    _, d, _ = run1(tmp_path, clock, out, {"back": None, "settle": 5})
-    assert ("wait_idle", 5) in d.calls
+def test_a_step_can_check_less_often(tmp_path, clock, out):
+    run1(tmp_path, clock, out, {"tap": "Ghost", "timeout": 1, "interval": 0.5})
+    assert clock.slept == [0.5, 0.5]
 
 
 @pytest.mark.parametrize(("p", "passes"), [(0.8, False), (0.81, True)])
@@ -838,7 +932,7 @@ def test_do_can_allow_fewer_actions(tmp_path, clock, out):
 
 
 def test_scroll_to_can_allow_fewer_scrolls(tmp_path, clock, out):
-    d = FakeDevice(*[screen_with(f"Item {i}") for i in range(10)])
+    d = FakeDevice(screen_with("Item 0"), *held(*[screen_with(f"Item {i}") for i in range(1, 10)]))
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 9", "direction": "down", "max_scrolls": 3}, device=d)
     assert failure_of(res).endswith("Scrolled down 3 times (max_scrolls) but never found 'Item 9'")
 
@@ -848,7 +942,7 @@ def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
         tmp_path, clock, out, {"do": "Loop", "max_actions": 1}, model=FakeModel(act("back"), act("tap", target="e3"))
     )
     assert failure_of(res).endswith("Goal not reached after 1 action (max_actions)")
-    d = FakeDevice(*[screen_with(f"Item {i}") for i in range(5)])
+    d = FakeDevice(screen_with("Item 0"), *held(*[screen_with(f"Item {i}") for i in range(1, 5)]))
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 4", "direction": "down", "max_scrolls": 1}, device=d)
     assert failure_of(res).endswith("Scrolled down 1 time (max_scrolls) but never found 'Item 4'")
 
@@ -862,10 +956,18 @@ def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
         (
             {"tap": "Save", "timeout": 1},
             ["Unsaved changes", "Save draft"],
-            "Could not find element 'Save' on screen; close but not exact: 'Unsaved changes', 'Save draft'",
+            "Waited 1s until an element says 'Save' on screen; close but not exact: 'Unsaved changes', 'Save draft'",
         ),
-        ({"see": "Taps: 2", "timeout": 1}, ["Taps: 20"], "not on screen; close but not exact: 'Taps: 20'"),
-        ({"see": "Sign in", "timeout": 1}, ["Sign in now"], "not on screen; close but not exact: 'Sign in now'"),
+        (
+            {"see": "Taps: 2", "timeout": 1},
+            ["Taps: 20"],
+            "Waited 1s until 'Taps: 2' is on screen; close but not exact: 'Taps: 20'",
+        ),
+        (
+            {"see": "Sign in", "timeout": 1},
+            ["Sign in now"],
+            "Waited 1s until 'Sign in' is on screen; close but not exact: 'Sign in now'",
+        ),
         (
             {"scroll_to": "Item 3", "direction": "down"},
             ["Item 30"],
@@ -899,7 +1001,12 @@ def test_a_value_in_a_near_match_is_shown_by_its_name(tmp_path, clock, out):
     assert failure_of(res).endswith("close but not exact: 'Welcome ${NAME}'") and "Ann" not in out.getvalue()
 
 
-def test_the_output_says_when_jev_chose_the_element(tmp_path, clock, out):
-    res, _, _ = run1(tmp_path, clock, out, {"tap": "the login button"}, model=FakeModel(pick("e3"), confirm()))
-    assert res.steps[0].detail == "on button 'Sign in' (chosen by Jev)"
-    assert "✓ tap: the login button" in out.getvalue() and "(chosen by Jev)" in out.getvalue()
+def test_the_output_says_when_jev_chose_between_exact_matches(tmp_path, clock, out):
+    s = login_screen()
+    twice = dataclasses.replace(
+        s, elements=(*s.elements, dataclasses.replace(s.elements[2], bounds=(0, 600, 1000, 700)))
+    )
+    model = FakeModel(pick("e4"), confirm())
+    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=FakeDevice(twice), model=model)
+    assert res.steps[0].detail == "on button 'Sign in' (chosen by Jev among 2 exact matches)"
+    assert ("tap", 500, 650) in d.calls

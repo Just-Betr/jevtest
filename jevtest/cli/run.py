@@ -164,7 +164,13 @@ class Runs:
             )
             printer.block(job.tag, [header])
             result = TestRunner(
-                job.suite, device, Brain(model, job.suite.variables), job.out, clock=self.clock, listener=listener
+                job.suite,
+                device,
+                Brain(model, job.suite.variables),
+                job.out,
+                platform=job.platform.value,
+                clock=self.clock,
+                listener=listener,
             ).run()
         finally:
             self._close(device)
@@ -338,7 +344,7 @@ def _run_file(
             if any(r.result.failed for r in done):
                 print(f"{model.path.name}: not pruned, because a test failed", flush=True)
             else:
-                print(f"{model.path.name}: pruned {model.prune()} unused decision(s)", flush=True)
+                print(f"{model.path.name}: pruned {model.prune()} unused entries", flush=True)
     finally:
         model.save()
     return done

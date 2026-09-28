@@ -1,7 +1,7 @@
 """Settings: what a test file may tune, the defaults that suit most apps, and the limits that keep a test honest.
 
 A test file needs no settings at all. Its `settings:` block changes a default for every step in the file, and a
-step can change `timeout`, `settle`, `max_actions`, `max_scrolls` or `confidence` for itself. Every value must be
+step can change `timeout`, `interval`, `max_actions`, `max_scrolls` or `confidence` for itself. Every value must be
 within `LIMITS`: a limit is where a setting stops tuning a test and starts hiding a problem in the app.
 """
 
@@ -22,9 +22,8 @@ class Settings:
 
     Attributes:
         model: The Jev version that decides and judges. Part of every lockfile key, so changing it re-asks Jev.
-        timeout: Seconds a step waits for what it looks for (an element, a check).
-        settle: Most seconds to wait for the screen to stop changing after an action. The wait ends as soon as the
-            screen is still, so a higher value only costs time on screens that never stop moving.
+        timeout: Seconds a step waits until what it needs is true (its element is on screen, its check holds).
+        interval: Seconds between two checks of what a step waits for.
         max_actions: Actions a `do:` goal may take.
         max_scrolls: Scrolls a `scroll_to:` may make. It also stops at the end of the content.
         confidence: An `expect:` passes when Jev's probability that the statement is true is above this.
@@ -32,7 +31,7 @@ class Settings:
 
     model: str = "jev-1.13.0"
     timeout: float = 10.0
-    settle: float = 3.0
+    interval: float = 0.25
     max_actions: int = 10
     max_scrolls: int = 50
     confidence: float = 0.5
@@ -46,7 +45,7 @@ class Settings:
         return Settings(
             model=self.model,
             timeout=get("timeout", self.timeout),
-            settle=get("settle", self.settle),
+            interval=get("interval", self.interval),
             max_actions=int(get("max_actions", self.max_actions)),
             max_scrolls=int(get("max_scrolls", self.max_scrolls)),
             confidence=get("confidence", self.confidence),
@@ -55,7 +54,7 @@ class Settings:
 
 LIMITS: Mapping[str, tuple[float, float]] = {
     "timeout": (1, 300),
-    "settle": (1, 30),
+    "interval": (0.05, 2),
     "max_actions": (1, 50),
     "max_scrolls": (1, 500),
     "confidence": (0.5, 0.99),
@@ -67,6 +66,11 @@ WHOLE = frozenset({"max_actions", "max_scrolls"})
 
 STEP_SETTINGS = frozenset(LIMITS)
 """Settings a step can change for itself. `model` is for the whole file: one file, one Jev."""
+
+REMOVED: Mapping[str, str] = {
+    "settle": "`settle` is gone (jevtest 0.9): each step waits until what it needs is on screen; remove it",
+}
+"""Settings older versions took, and what to do instead."""
 
 DEFAULTS = Settings()
 """The settings of a file without a `settings:` block."""

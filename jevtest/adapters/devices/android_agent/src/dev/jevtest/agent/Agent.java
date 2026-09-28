@@ -3,12 +3,10 @@ package dev.jevtest.agent;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
-import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
 import android.os.Bundle;
 import android.view.Display;
-import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 
@@ -27,29 +25,17 @@ import java.util.List;
  * it keeps one UiAutomation connection open and answers on 127.0.0.1:port:
  *   GET /tree        -> the active window as uiautomator-style XML, plus ime="true|false",
  *                       ime-top="<y where the keyboard starts>" and package="..." on the root element
- *   GET /idle?ms=N&quiet=Q -> returns once the tree has not changed for Q ms (default 150; max N ms);
- *                       while windows differ from what the client last saw, the pixels too
- *   GET /change?ms=N -> returns as soon as the tree differs from the last one /tree served (max N ms):
- *                       comparing with what the client last saw means a change that lands between
- *                       its /tree and its /change is not missed
  *   GET /rotate?to=R -> locks the screen to rotation R (0-3, as /tree reports it) through UiAutomation, which
  *                       works on every Android version (the user_rotation setting doesn't on some phones)
  *                       and puts the device's own rotation state back when the agent stops
  *   GET /quit        -> stops the agent
  * When it is listening it reports status "ready=1" (visible with `am instrument -r`).
  * Reading the tree this way takes milliseconds instead of the ~2 s that a fresh
- * `uiautomator dump` process needs each time.
+ * `uiautomator dump` process needs each time. The agent never waits: jevtest reads the screen when a step
+ * checks what it waits for.
  */
 public class Agent extends Instrumentation {
-    private static final long QUIET_MS = 150;
-    // Re-read the tree on every accessibility event, and at least this often: some changes send
-    // no event (a dialog moving into place, a WebView swapping its content).
-    private static final long CHECK_MS = 50;
     private int port = 7912;
-    private final Object changed = new Object();
-    private long changes = 0;
-    private String served = "";         // the tree the client last received
-    private String servedWindows = "";  // and the windows on screen at that moment
 
     @Override
     public void onCreate(Bundle arguments) {
@@ -68,17 +54,6 @@ public class Agent extends Instrumentation {
                 | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
                 | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         ui.setServiceInfo(info);
-        ui.setOnAccessibilityEventListener(event -> {
-            int type = event.getEventType();
-            if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
-                    || type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-                    || type == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
-                synchronized (changed) {
-                    changes++;
-                    changed.notifyAll();
-                }
-            }
-        });
         try (ServerSocket server = new ServerSocket(port, 8, InetAddress.getByName("127.0.0.1"))) {
             Bundle ready = new Bundle();
             ready.putString("ready", "1");
@@ -87,21 +62,14 @@ public class Agent extends Instrumentation {
                 try (Socket client = server.accept()) {
                     BufferedReader in = new BufferedReader(
                             new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
-                    // Request line: "GET /path?ms=N&quiet=Q HTTP/1.1"
+                    // Request line: "GET /path?to=R HTTP/1.1"
                     String[] parts = String.valueOf(in.readLine()).split(" ");
                     String target = parts.length > 1 ? parts[1] : "";
                     int q = target.indexOf('?');
                     String path = q < 0 ? target : target.substring(0, q);
-                    long ms = param(target, "ms", 0);
-                    long quiet = param(target, "quiet", QUIET_MS);
                     String body;
                     if (path.equals("/tree")) {
-                        body = served = tree(ui);
-                        servedWindows = windows(ui);
-                    } else if (path.equals("/idle")) {
-                        body = idle(ui, quiet, ms);
-                    } else if (path.equals("/change")) {
-                        body = change(ui, ms);
+                        body = tree(ui);
                     } else if (path.equals("/rotate")) {
                         body = ui.setRotation((int) param(target, "to", -1)) ? "rotated" : "refused";
                     } else if (path.equals("/quit")) {
@@ -131,76 +99,6 @@ public class Agent extends Instrumentation {
             }
         }
         return fallback;
-    }
-
-    /** Idle = the tree has not changed for `quiet` ms. While the set of windows differs from what
-     *  the client last saw (a dialog, a permission prompt, a new screen), the pixels must be still
-     *  too: a window sliding in reports its final element positions only when it lands, so only
-     *  the pixels show it moving. In a window that stays put, decoration such as a tap ripple or a
-     *  blinking cursor changes pixels but moves nothing, so it is not waited for. */
-    private String idle(UiAutomation ui, long quiet, long ms) throws InterruptedException {
-        long deadline = System.currentTimeMillis() + ms;
-        String last = tree(ui);
-        Bitmap lastPixels = null;
-        long stableSince = System.currentTimeMillis();
-        try {
-            while (System.currentTimeMillis() - stableSince < quiet) {
-                long left = deadline - System.currentTimeMillis();
-                if (left <= 0) {
-                    return "busy";
-                }
-                synchronized (changed) {
-                    changed.wait(Math.min(CHECK_MS, left));  // an event wakes it early
-                }
-                String now = tree(ui);
-                boolean moved = false;
-                if (!windows(ui).equals(servedWindows)) {
-                    Bitmap pixels = ui.takeScreenshot();
-                    moved = pixels == null || lastPixels == null || !pixels.sameAs(lastPixels);
-                    if (lastPixels != null) {
-                        lastPixels.recycle();
-                    }
-                    lastPixels = pixels;
-                }
-                if (!now.equals(last) || moved) {
-                    last = now;
-                    stableSince = System.currentTimeMillis();
-                }
-            }
-            return "idle";
-        } finally {
-            if (lastPixels != null) {
-                lastPixels.recycle();
-            }
-        }
-    }
-
-    /** Which windows are on screen (id, type, layer): changes when a dialog, prompt or screen opens. */
-    private static String windows(UiAutomation ui) {
-        StringBuilder sb = new StringBuilder();
-        for (AccessibilityWindowInfo w : ui.getWindows()) {
-            sb.append(w.getId()).append(':').append(w.getType()).append(':').append(w.getLayer()).append(';');
-        }
-        return sb.toString();
-    }
-
-    /** Returns once the tree differs from the one the client last received. Re-reads the tree on
-     *  every accessibility event and at least every CHECK_MS: some changes arrive with no event
-     *  (a WebView swapping its content), and some events change nothing (a blinking cursor). */
-    private String change(UiAutomation ui, long ms) throws InterruptedException {
-        long deadline = System.currentTimeMillis() + ms;
-        while (true) {
-            if (!tree(ui).equals(served)) {
-                return "changed";
-            }
-            long left = deadline - System.currentTimeMillis();
-            if (left <= 0) {
-                return "unchanged";
-            }
-            synchronized (changed) {
-                changed.wait(Math.min(CHECK_MS, left));  // an event wakes it early
-            }
-        }
     }
 
     private static void reply(Socket client, String body) throws Exception {

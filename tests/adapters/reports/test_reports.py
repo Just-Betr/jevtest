@@ -26,6 +26,7 @@ FAILED = TestResult(
             checks=(CheckResult(See("X"), Status.FAIL, "not on screen"),),
             steps=(StepResult(parse_step("home"), Status.PASS, 0.1),),
             screenshot="001_FAIL_B.png",
+            ran=("tap button 'Sign in'",),
         ),
     ),
 )
@@ -64,6 +65,7 @@ def test_json_report(tmp_path):
     step = report["tests"][1]["steps"][0]
     assert step["step"] == "tap: X" and step["detail"] == "on button 'X'"
     assert step["decisions"] == [{"did": "done", "confidence": 0.9, "probabilities": {"done": 0.9}}]
+    assert step["ran"] == ["tap button 'Sign in'"]  # a do:'s saved steps, as repeated
     assert step["checks"] == [{"check": "see", "text": "X", "status": "fail", "detail": "not on screen"}]
     assert step["steps"][0]["step"] == "home" and step["screenshot"] == "001_FAIL_B.png"
     assert report["tests"][2]["failure"] == "(start app) — locked" and report["tests"][2]["screenshot"]

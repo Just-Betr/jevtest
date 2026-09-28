@@ -36,11 +36,12 @@ class StepResult:
         status: Pass or fail.
         seconds: How long it took.
         detail: What the action did (e.g. which element it tapped), or why it failed.
-        decisions: For a `do:` step, the moves Jev chose, in order.
+        decisions: For a `do:` step worked out by Jev, the moves it chose, in order.
         model_calls: The model requests the action made (the checks keep their own).
         checks: The checks that ran, in order; the first failure stops them.
         steps: For a `use:` step, the used test's step results.
         screenshot: The screenshot taken when this step failed the test.
+        ran: For a `do:` step that repeated its saved steps, each one as it ran.
     """
 
     step: Step
@@ -52,6 +53,7 @@ class StepResult:
     checks: tuple[CheckResult, ...] = ()
     steps: tuple[StepResult, ...] = ()
     screenshot: str | None = None
+    ran: tuple[str, ...] = ()
 
     @property
     def failure(self) -> str | None:

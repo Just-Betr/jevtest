@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Protocol
 
+from .decisions import SavedStep
 from .kinds import AppState, Direction, Orientation
 from .model import Answer, ModelCall, Question, State
 from .results import CheckResult, StepResult, TestResult
@@ -61,14 +62,6 @@ class Device(Protocol):
 
     def screenshot(self, path: Path) -> None:
         """Save a PNG of the screen."""
-        ...
-
-    def wait_idle(self, timeout: float, quiet: float | None = None) -> None:
-        """Return once the screen has stopped changing (for `quiet` seconds), or after `timeout` seconds."""
-        ...
-
-    def wait_change(self, timeout: float) -> None:
-        """Return as soon as the screen may have changed, or after `timeout` seconds."""
         ...
 
     def tap(self, x: int, y: int) -> None:
@@ -159,12 +152,30 @@ class DecisionModel(Protocol):
         """Every request made so far, in order."""
         ...
 
+    @property
+    def replays_only(self) -> bool:
+        """Whether only recorded answers and saved steps may be used (``--lock frozen``): nothing new is asked."""
+        ...
+
     def ask(self, state: State, questions: Mapping[str, Question]) -> Mapping[str, Answer]:
         """Ask several questions about one state; get one answer per question.
 
         Raises:
             ModelError: The model couldn't be asked, or answered outside the options.
+            NotRecorded: The answer isn't recorded, and only recorded answers may be used.
         """
+        ...
+
+    def saved_steps(self, key: str) -> tuple[SavedStep, ...] | None:
+        """The steps saved for the `do:` goal `key`, to repeat; None when it's to be worked out with Jev.
+
+        Raises:
+            NotRecorded: None are saved, and only saved steps may be used.
+        """
+        ...
+
+    def save_steps(self, key: str, steps: Sequence[SavedStep]) -> None:
+        """Save the steps the `do:` goal `key` took, for later runs to repeat."""
         ...
 
 

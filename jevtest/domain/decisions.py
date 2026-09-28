@@ -149,3 +149,81 @@ class Decision:
     move: Move
     confidence: float
     probabilities: Mapping[str, float] = field(default_factory=dict[str, float])
+
+
+# --- what a `do:` goal saves, so later runs repeat it without Jev ----------------------------------------------
+
+
+def ordinal(n: int) -> str:
+    """``1st``, ``2nd``, ``3rd``, ``4th``, ... ``11th``, ``21st``."""
+    teens = range(10, 21)  # 11th, 12th, 13th: never 11st
+    suffix = "th" if n % 100 in teens else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+@dataclass(frozen=True)
+class Target:
+    """Which element a saved step acts on: its kind and name, and which of the elements with both it is.
+
+    Attributes:
+        kind: The element's kind (``button``, ``text_field``, ...).
+        name: What it says: its text, else its hint, else its id; empty for an element with none of them (a web
+            field on some Android versions). A ``${NAME}`` value in it is written as its name.
+        nth: Which of the elements with this kind and name, counting from the top of the screen (1 = first).
+        count: How many elements had this kind and name when the step was saved.
+    """
+
+    kind: str
+    name: str
+    nth: int = 1
+    count: int = 1
+
+    def describe(self) -> str:
+        """E.g. ``button 'Sign in'``, ``the 2nd of 3 button 'Delete'``, ``the 1st of 2 text_field (no name)``."""
+        what = f"{self.kind} '{self.name}'" if self.name else f"{self.kind} (no name)"
+        return what if self.count == 1 else f"the {ordinal(self.nth)} of {self.count} {what}"
+
+
+STEP_ACTIONS = frozenset(
+    {
+        "tap",
+        "double_tap",
+        "long_press",
+        "swipe_left",
+        "swipe_right",
+        "type",
+        "clear",
+        "scroll_up",
+        "scroll_down",
+        "scroll_left",
+        "scroll_right",
+        "back",
+        "press_enter",
+        "hide_keyboard",
+    }
+)
+"""The actions a saved step can be. `type`, `clear`, taps and swipes have a target; `type` also has text."""
+
+
+@dataclass(frozen=True)
+class SavedStep:
+    """One step a `do:` goal took, saved in the lockfile so later runs repeat it without Jev.
+
+    Attributes:
+        action: One of `STEP_ACTIONS`.
+        target: The element it acts on, for taps, swipes, `type` and `clear`; None for the others.
+        text: For `type`: the value as the goal writes it, a ``${NAME}`` as its name.
+    """
+
+    action: str
+    target: Target | None = None
+    text: str | None = None
+
+    def describe(self) -> str:
+        """E.g. ``tap button 'Sign in'``, ``type "${EMAIL}" into text_field 'Email'``, ``scroll down``."""
+        words = self.action.replace("_", " ")
+        if self.action == "type" and self.target is not None:
+            return f'type "{self.text}" into {self.target.describe()}'
+        if self.target is not None:
+            return f"{words} {self.target.describe()}"
+        return words

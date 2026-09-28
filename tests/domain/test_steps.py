@@ -31,7 +31,7 @@ from jevtest.domain.steps import (
     TypeText,
     Use,
     Wait,
-    finds_element,
+    waits,
 )
 
 EVERY_ACTION = [
@@ -69,16 +69,12 @@ EVERY_ACTION = [
 @pytest.mark.parametrize("action", EVERY_ACTION, ids=repr)
 def test_every_action_says_what_it_is(action):
     """The traits the runner and loader rely on, spelled out for every action."""
-    settles = not isinstance(action, Stop | ClearData | Reinstall | Home | Wait | Screenshot | ScrollTo | Do | Use)
-    watches = not isinstance(action, Stop | ClearData | Reinstall | Home | Wait | Screenshot | Use)
     leaves = isinstance(action, Stop | ClearData | Reinstall | Home | OpenUrl)
-    finds = isinstance(action, Touch | Clear) or action in (TypeText("a", "Email"), Swipe(Direction.LEFT, "Row"))
-    assert (action.settles, action.watches_screen, action.app_may_leave, finds_element(action)) == (
-        settles,
-        watches,
-        leaves,
-        finds,
+    waiting = isinstance(action, Touch | Clear | Do | ScrollTo) or action in (
+        TypeText("a", "Email"),
+        Swipe(Direction.LEFT, "Row"),
     )
+    assert (action.app_may_leave, waits(action)) == (leaves, waiting)
 
 
 @pytest.mark.parametrize(
@@ -88,9 +84,12 @@ def test_every_action_says_what_it_is(action):
         ("timeout", Back(), (See("x"),), True),
         ("timeout", Back(), (), False),
         ("timeout", None, (See("x"),), True),
-        ("settle", Back(), (), True),
-        ("settle", Wait(1), (), False),
-        ("settle", None, (See("x"),), False),
+        ("timeout", Do("g"), (), True),
+        ("timeout", ScrollTo("x", Direction.DOWN), (), True),
+        ("interval", Touch(Gesture.TAP, "x"), (), True),
+        ("interval", None, (See("x"),), True),
+        ("interval", Back(), (), False),
+        ("interval", Wait(1), (), False),
         ("max_actions", Do("g"), (), True),
         ("max_actions", Back(), (), False),
         ("max_scrolls", ScrollTo("x", Direction.DOWN), (), True),

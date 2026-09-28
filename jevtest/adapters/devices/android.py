@@ -12,7 +12,6 @@ import shlex
 import shutil
 import subprocess
 import tempfile
-import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -23,7 +22,16 @@ from jevtest.domain.screen import Element, Point, Screen
 from ._typing import override
 from .android_screen import has_empty_webview, keyboard_up, parse_screen, typing_ready
 from .android_tools import aapt2_path, adb_path, build_agent, devices, http_get, pick_device
-from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, run, run_bytes, start_process, stop_process
+from .common import (
+    BaseDevice,
+    Progress,
+    cache_dir,
+    run,
+    run_bytes,
+    start_process,
+    stop_process,
+    wait_until,
+)
 
 KEYCODES = {
     "enter": 66,
@@ -62,6 +70,7 @@ PERMISSION_PROMPT = re.compile(r"com\.(google\.)?android\.permissioncontroller")
 AGENT_ID = "dev.jevtest.agent"
 AGENT_STOP_TIMEOUT = 10  # seconds for the agent to finish after /quit
 AGENT_PORT = 7912  # on the device; adb forwards a free local port to it
+AGENT_CALL_TIMEOUT = 10  # seconds for one agent call to answer (it answers at once: this catches a lost agent)
 
 
 class AndroidDevice(BaseDevice):
@@ -117,11 +126,11 @@ class AndroidDevice(BaseDevice):
             timeout=AGENT_START_TIMEOUT,
         )
 
-    def _agent(self, path: str, wait_ms: int = 0, extra: str = "") -> str:
-        """Call the agent. `wait_ms` is how long it may wait for the screen before answering."""
-        url = f"http://127.0.0.1:{self.port}{path}" + (f"?ms={wait_ms}{extra}" if wait_ms else "")
+    def _agent(self, path: str) -> str:
+        """Call the agent: it answers at once, it never waits for the screen."""
+        url = f"http://127.0.0.1:{self.port}{path}"
         try:
-            return http_get(url, timeout=wait_ms / 1000 + 10)
+            return http_get(url, timeout=AGENT_CALL_TIMEOUT)
         except OSError as e:
             raise DeviceError(f"Lost the Android agent during {path} ({e})") from None
 
@@ -145,17 +154,6 @@ class AndroidDevice(BaseDevice):
         for command in self._restore.values():
             self.sh(command, check=False)
         self._restore.clear()
-
-    @override
-    def wait_idle(self, timeout: float, quiet: float | None = None) -> None:
-        """Return once the screen has stopped changing (for `quiet` seconds), or after `timeout` seconds."""
-        extra = f"&quiet={int(quiet * 1000)}" if quiet is not None else ""
-        self._agent("/idle", int(timeout * 1000), extra)
-
-    @override
-    def wait_change(self, timeout: float) -> None:
-        """Return as soon as the screen changes, or after `timeout` seconds."""
-        self._agent("/change", int(timeout * 1000))
 
     # --- plumbing ------------------------------------------------------------
     def sh(self, cmd: str, timeout: float = 60, *, check: bool = True) -> str:
@@ -277,27 +275,24 @@ class AndroidDevice(BaseDevice):
         Keys sent before the keyboard is connected are dropped. Not "the field under the tap": on a real phone
         the keyboard slides up and the app scrolls the focused field out from under it.
         """
-        deadline = time.monotonic() + FOLLOW_UP
-        while True:
-            if typing_ready(self._agent("/tree")):
-                return
-            left = deadline - time.monotonic()
-            if left <= 0:
-                raise DeviceError("The text field did not get keyboard focus")
-            self.wait_change(left)
+        wait_until(lambda: typing_ready(self._agent("/tree")), "The text field did not get keyboard focus")
 
     def tree(self) -> str:
         """The UI hierarchy XML.
 
-        A WebView's content arrives a moment after the WebView itself, so while a WebView is still empty,
-        wait for the screen to change.
+        A WebView's content arrives a moment after the WebView itself: while a WebView is empty, it's read
+        again every `CHECK_INTERVAL`, for up to `FOLLOW_UP` seconds (then as it is: some web views are empty).
         """
-        xml = self._agent("/tree")
-        deadline = time.monotonic() + FOLLOW_UP
-        while has_empty_webview(xml) and time.monotonic() < deadline:
-            self.wait_change(deadline - time.monotonic())
-            xml = self._agent("/tree")
-        return xml
+        xml = [self._agent("/tree")]
+
+        def filled() -> bool:
+            if has_empty_webview(xml[0]):
+                xml[0] = self._agent("/tree")
+            return not has_empty_webview(xml[0])
+
+        with contextlib.suppress(DeviceError):
+            wait_until(filled, "A web view stayed empty")
+        return xml[0]
 
     @override
     def screen(self) -> Screen:
@@ -400,12 +395,10 @@ class AndroidDevice(BaseDevice):
         Raises:
             DeviceError: The screen didn't turn within `FOLLOW_UP` seconds.
         """
-        deadline = time.monotonic() + FOLLOW_UP
-        while int(ET.fromstring(self._agent("/tree")).get("rotation", "0")) != ROTATIONS[orientation]:
-            left = deadline - time.monotonic()
-            if left <= 0:
-                raise DeviceError(f"The screen did not turn to {orientation} within {FOLLOW_UP:g} seconds")
-            self.wait_change(left)
+        wait_until(
+            lambda: int(ET.fromstring(self._agent("/tree")).get("rotation", "0")) == ROTATIONS[orientation],
+            f"The screen did not turn to {orientation}",
+        )
 
     def _setting(self, namespace: str, key: str) -> str:
         """The shell command that puts an Android setting back to its current value."""

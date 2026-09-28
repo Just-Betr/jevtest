@@ -133,7 +133,8 @@ def test_run_writes_report_junit_and_lockfile(project, fakes, capsys):
     clients = fakes.script(act("done"), yes(0.95))
     assert fakes.run() == 1  # "Broken" fails
     out = capsys.readouterr().out
-    assert "1/2 passed" in out and "FAILED Broken: see: Nothing like this — not on screen" in out
+    assert "1/2 passed" in out
+    assert "FAILED Broken: see: Nothing like this — Waited 1s until 'Nothing like this' is on screen" in out
     assert "Jev: 2 decisions, 0 from lockfile, 2 asked live" in out and "$0.0002" in out
     assert fakes.devices[0].calls[0][0] == "install" and clients[0].api_key == "test-key"
     assert fakes.devices[0].closed
@@ -146,7 +147,9 @@ def test_run_writes_report_junit_and_lockfile(project, fakes, capsys):
     junit = ET.parse(stamp / "junit.xml").getroot().find("testsuite")
     assert junit is not None
     assert (junit.attrib["name"], junit.attrib["failures"]) == ("jevtest.android.emulator-5554", "1")
-    assert len(json.loads((project / "t.lock.json").read_text())["decisions"]) == 2
+    lockfile = json.loads((project / "t.lock.json").read_text())
+    assert len(lockfile["decisions"]) == 2
+    assert lockfile["steps"] == {"android · Sign in · step 1 · Press sign in": []}  # Jev said done at once
 
 
 def test_second_run_replays_lockfile_without_jev(project, fakes, capsys):
@@ -156,7 +159,9 @@ def test_second_run_replays_lockfile_without_jev(project, fakes, capsys):
     clients = fakes.script()  # no answers: any live call would fail
     before = len(clients)
     assert fakes.run("--test", "Sign in", lock="frozen") == 0
-    assert "2 from lockfile, 0 asked live" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "do: Press sign in" in out and "0 saved steps" in out  # the do: repeats its saved steps
+    assert "1 decision, 1 from lockfile, 0 asked live" in out  # the expect: is a recorded answer
     assert len(fakes.clients) == before  # Jev was never connected to
 
 
@@ -191,7 +196,7 @@ def test_a_value_the_app_shows_reaches_jev_only_as_its_name(tmp_path, monkeypatc
 
 def test_frozen_fails_on_unrecorded_screen(project, fakes, capsys):
     assert fakes.run("--test", "Sign in", lock="frozen") == 1
-    assert "not in t.lock.json, and --lock frozen only replays" in capsys.readouterr().out
+    assert "No steps are saved for this do: in t.lock.json, and --lock frozen" in capsys.readouterr().out
 
 
 def test_lock_off_leaves_no_file(project, fakes):
@@ -529,7 +534,8 @@ def test_prune_lock_after_a_passing_run(project, fakes, capsys):
     lock.write_text(json.dumps(data))
     spec_file(project, tests=TWO_TESTS.split("  - name: Broken", maxsplit=1)[0])  # only the passing test
     assert fakes.run("--prune-lock") == 0
-    assert "t.lock.json: pruned 1 unused decision(s)" in capsys.readouterr().out
+    # the stale one, and Jev's answer while working out the do: (its saved steps repeat without asking again)
+    assert "t.lock.json: pruned 2 unused entries" in capsys.readouterr().out
     assert "stale" not in json.loads(lock.read_text())["decisions"]
 
 

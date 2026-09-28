@@ -63,8 +63,8 @@ Most test files need none: the defaults suit most apps. A `settings:` block chan
 
 | Setting | Default | Limits | What it does | A step can set it on |
 |---|---|---|---|---|
-| `timeout` | `10` | 1–300 s | How long a step waits for what it looks for: an element to act on, or its checks to pass. It ends as soon as they're there. | steps with checks, and steps that find an element |
-| `settle` | `3` | 1–30 s | After an action, the longest wait for the screen to stop changing. It ends as soon as the screen is still. | any step whose action changes the screen |
+| `timeout` | `10` | 1–300 s | How long a step waits until what it needs is true: its element on screen, its checks passing, a `do:` or `scroll_to:` screen that stopped moving. Then it fails. | steps that wait: with checks, an element, `do:`, `scroll_to:` |
+| `interval` | `0.25` | 0.05–2 s | How often a waiting step checks again. | the same steps as `timeout` |
 | `max_actions` | `10` | 1–50 | Actions a `do:` goal may take before it fails. | `do:` |
 | `max_scrolls` | `50` | 1–500 | Scrolls a `scroll_to:` may make. It also stops at the end of the content. | `scroll_to:` |
 | `confidence` | `0.5` | 0.5–0.99 | An `expect:` passes when Jev's probability that the statement is true is above this. `0.5` means "more likely true than false". | steps with an `expect:` |
@@ -88,7 +88,6 @@ The limits are where a setting stops tuning a test and starts hiding a problem: 
 **When to change one:**
 
 - **`timeout`** on the one step that's slow for a reason (an upload, a payment). Raise it for the file only if the whole app is slow, e.g. a debug build.
-- **`settle`** when the screen keeps moving after an action for longer than 3 seconds. A screen that never stops (a spinner, a video) always costs the full `settle`, so don't raise it for those.
 - **`max_actions`**: lower it to hold a goal to a short path; raise it for a long form. A goal that needs more than 20 is usually two steps.
 - **`confidence`**: raise it (0.8 is a good strict value) when an `expect:` must not pass on a guess.
 

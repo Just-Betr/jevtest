@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 
 from jevtest.domain.kinds import Direction
-from jevtest.domain.settings import DEFAULTS
 
 PLATFORM = os.environ.get("JEVTEST_DEVICE")
 NAME = os.environ.get("JEVTEST_DEVICE_NAME")
@@ -44,94 +43,68 @@ def fresh(device):
     device.stop()
     device.clear_data()
     device.launch()
-    device.wait_idle(DEFAULTS.settle, quiet=0.5)
     return device
+
+
+def until(check, what, timeout=5):
+    """Like the runner's wait_until: check every 0.25 s until `check` returns something truthy, or fail."""
+    deadline = time.monotonic() + timeout
+    while True:
+        found = check()
+        if found:
+            return found
+        if time.monotonic() + 0.25 > deadline:
+            raise AssertionError(f"waited {timeout}s until {what}")
+        time.sleep(0.25)
 
 
 def find(driver, name, timeout=5, **match):
     """The element that says exactly `name` (its text, a part of it such as iOS's label in "Email: value", its
-    hint or id), waiting for it the way the runner does: re-read when the screen changes."""
-    deadline = time.monotonic() + timeout
-    while True:
-        elements = driver.screen().elements
-        for el in elements:
+    hint or id), waiting until it's on screen the way the runner does."""
+
+    def found():
+        for el in driver.screen().elements:
             if el.says(name) and all(getattr(el, k) == v for k, v in match.items()):
                 return el
-        if time.monotonic() >= deadline:
-            raise AssertionError(f"{name!r} not on screen: {[e.text or e.hint for e in elements]}")
-        driver.wait_change(deadline - time.monotonic())
+        return None
 
-
-def settle(driver):
-    driver.wait_idle(DEFAULTS.settle)
+    return until(found, f"{name!r} is on screen", timeout)
 
 
 def sign_in(d):
-    email = find(d, "Email", editable=True)
-    d.type_text("me@x.dev", at=email.center)
+    d.type_text("me@x.dev", at=find(d, "Email", editable=True).center)
     d.type_text("hunter22", at=find(d, "Password", editable=True).center)
-    d.hide_keyboard()
-    settle(d)
+    d.hide_keyboard()  # returns once the keyboard is gone
     d.tap(*find(d, "Sign in", clickable=True).center)
-    settle(d)
+    find(d, "Load data", timeout=10)
 
 
 def test_keyboard_is_not_part_of_the_screen(fresh):
-    fresh.type_text("a", at=find(fresh, "Email", editable=True).center)
-    settle(fresh)
+    fresh.type_text("a", at=find(fresh, "Email", editable=True).center)  # returns once the keyboard is up
     s = fresh.screen()
     assert s.keyboard_visible
     assert not {"Emoji", "Dictate", "delete", "space", "return"} & {e.text for e in s.elements}
 
 
 def test_tree_has_the_login_form(fresh):
-    s = fresh.screen()
-    assert [e.editable for e in s.elements].count(True) == 2
-    assert any(e.clickable and e.text == "Sign in" for e in s.elements)
+    find(fresh, "Sign in", clickable=True)
+    assert [e.editable for e in fresh.screen().elements].count(True) == 2
 
 
 def test_typing_and_clearing_are_exact(fresh):
-    email = find(fresh, "Email", editable=True)
-    fresh.type_text("abc@x.dev", at=email.center)
-    settle(fresh)
-    assert find(fresh, "Email", editable=True).value == "abc@x.dev"
+    fresh.type_text("abc@x.dev", at=find(fresh, "Email", editable=True).center)
+    until(lambda: find(fresh, "Email", editable=True).value == "abc@x.dev", "the field holds what was typed")
     fresh.clear_text(find(fresh, "Email", editable=True))
-    settle(fresh)
-    assert find(fresh, "Email", editable=True).value == ""
+    until(lambda: find(fresh, "Email", editable=True).value == "", "the field is empty")
 
 
-def test_idle_returns_quickly_on_a_still_screen(fresh):
+def test_reading_the_screen_answers_at_once(fresh):
+    """The agent never waits: a step's wait_until reads the screen every interval."""
+    find(fresh, "Sign in")
     start = time.monotonic()
-    fresh.wait_idle(5)
-    assert time.monotonic() - start < 1.0
-
-
-def test_change_wait_returns_early_on_a_change_and_times_out_without_one(fresh):
-    fresh.screen()  # "changed" means: differs from the screen the caller last saw
-    start = time.monotonic()
-    fresh.wait_change(1.0)  # nothing happens
-    assert time.monotonic() - start >= 0.9
-    sign_in(fresh)
-    fresh.scroll(Direction.DOWN)
-    settle(fresh)
-    fresh.tap(*find(fresh, "Load data", clickable=True).center)  # "Data loaded" appears 1 s later
-    settle(fresh)
-    assert find(fresh, "Loading...")
-    fresh.screen()
-    start = time.monotonic()
-    fresh.wait_change(5)
-    assert time.monotonic() - start < 2.0  # back as soon as the data arrived, long before the timeout
-    assert find(fresh, "Data loaded", timeout=0)
-
-
-def test_a_change_before_the_wait_is_not_missed(fresh):
-    before = fresh.screen()
-    fresh.tap(*find(fresh, "Email", editable=True).center)  # changes focus and shows the keyboard
-    settle(fresh)
-    start = time.monotonic()
-    fresh.wait_change(3)  # the change happened before this call; it must still count
-    assert time.monotonic() - start < 0.5
-    assert fresh.screen() != before
+    for _ in range(5):
+        fresh.screen()
+    assert time.monotonic() - start < 2.5
 
 
 def is_deny(text):
@@ -142,18 +115,13 @@ def is_deny(text):
 def test_system_permission_prompt_is_on_screen(fresh):
     sign_in(fresh)
     fresh.scroll(Direction.DOWN)
-    settle(fresh)
     fresh.tap(*find(fresh, "Open native screen").center)
-    settle(fresh)
     fresh.tap(*find(fresh, "Ask for camera").center)
-    deadline = time.monotonic() + 10
-    while time.monotonic() < deadline:
-        deny = [e for e in fresh.screen().elements if is_deny(e.text)]
-        if deny:  # Android: "Don't allow"; iOS: "Don't Allow"
-            # Answer it: a prompt left open outlives the app and would be on every screen of the next run.
-            fresh.tap(*deny[0].center)
-            settle(fresh)
-            assert not any(is_deny(e.text) for e in fresh.screen().elements)
-            return
-        fresh.wait_change(deadline - time.monotonic())
-    raise AssertionError("the system permission prompt never appeared in the tree")
+    deny = until(
+        lambda: [e for e in fresh.screen().elements if is_deny(e.text)],  # Android: "Don't allow"; iOS: "Don't Allow"
+        "the system permission prompt is in the tree",
+        timeout=10,
+    )
+    # Answer it: a prompt left open outlives the app and would be on every screen of the next run.
+    fresh.tap(*deny[0].center)
+    until(lambda: not any(is_deny(e.text) for e in fresh.screen().elements), "the prompt is gone")

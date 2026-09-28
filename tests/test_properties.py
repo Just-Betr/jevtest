@@ -183,6 +183,8 @@ elements = st.builds(
 class NeverAsked:
     """A decision model for the exact path: asking it at all is a failure, except for a true description."""
 
+    replays_only = False
+
     def __init__(self) -> None:
         self.asked: list[object] = []
         self.calls: list[ModelCall] = []  # what DecisionModel reports; this fake records `asked` instead
@@ -190,6 +192,12 @@ class NeverAsked:
     def ask(self, state, questions):
         self.asked.append(questions)
         return {"element": Picked("not_on_screen", 1.0, {})}
+
+    def saved_steps(self, key):
+        raise AssertionError("locate never uses saved steps")
+
+    def save_steps(self, key, steps):
+        raise AssertionError("locate never saves steps")
 
 
 def _folded_names(el):
@@ -206,5 +214,5 @@ def test_a_target_is_matched_only_by_an_element_that_says_it_exactly_ignoring_ca
     found = Brain(model).locate(target, screen)
     if found is not None and found.chosen is None:
         assert found.element in says_it  # matched in code: only ever an exact match
-    if not says_it and screen.near(target):
-        assert found is None and not model.asked  # a near match is never used, and Jev is never asked
+    if not says_it:
+        assert found is None and not model.asked  # nothing is guessed, and Jev is never asked

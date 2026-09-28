@@ -12,22 +12,22 @@ jevtest run PATH... --lock MODE --out DIR [--test NAME]... [--prune-lock] [-v]
 | `--lock MODE` | yes | How the [lockfile](../how-it-works.md#the-lockfile) is used. |
 | `--out DIR` | yes | Where results go. Each run adds a timestamped folder inside it. |
 | `--test NAME` | no | Only run this test. Repeatable; names can come from any of the files. |
-| `--prune-lock` | no | After a run where every test passed, remove recorded decisions the run didn't use. |
+| `--prune-lock` | no | After a run where every test passed, remove saved steps and recorded answers the run didn't use. |
 | `-v`, `--verbose` | no | Also print every Jev question with its top answers and probabilities. |
 | `--version` | no | Print the version. |
 
 ## Lock modes
 
-| `--lock` | Recorded decision | Unrecorded decision | Writes the lockfile |
-|---|---|---|---|
-| `record` | used | Jev is asked; the answer is recorded | yes |
-| `frozen` | used | **the step fails** | no |
-| `refresh` | ignored: Jev is asked again | Jev is asked | yes, overwriting |
-| `off` | ignored | Jev is asked | no |
+| `--lock` | A `do:` with saved steps | A `do:` without | Other Jev questions (`expect:`, …) | Writes the lockfile |
+|---|---|---|---|---|
+| `record` | repeats them; if one no longer fits, Jev works the rest out again | Jev works it out; the steps are saved | recorded answer, else Jev (recorded) | yes |
+| `frozen` | repeats them; if one no longer fits, **the step fails** | **the step fails** | recorded answer, else **the step fails** | no |
+| `refresh` | Jev works it out again | Jev works it out | Jev is asked again | yes, overwriting |
+| `off` | Jev works it out | Jev works it out | Jev is asked | no |
 
 ## `--prune-lock`
 
-The lockfile only grows: a screen that no longer exists keeps its recorded answers. `--prune-lock` removes them. It only acts after a run of **every** test in which **every** test passed, because a failing test stops early and skips screens that are still real. So it refuses to combine with `--test` or `--lock off`, and after a failure it says `not pruned, because a test failed`.
+The lockfile only grows: a `do:` or a screen that no longer exists keeps its saved steps or recorded answers. `--prune-lock` removes them, and the answers Jev gave while working out a `do:` whose steps are now saved (later runs repeat the steps without asking). It only acts after a run of **every** test in which **every** test passed, because a failing test stops early and skips screens that are still real. So it refuses to combine with `--test` or `--lock off`, and after a failure it says `not pruned, because a test failed`.
 
 Prune with the same devices you record on: decisions recorded on one device's screens are unused on another's.
 

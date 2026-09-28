@@ -17,45 +17,25 @@ from .settings import DEFAULTS, Settings
 
 
 class _Action:
-    """What every action says about itself. The runner and the test-file loader read these, never a list of types.
+    """What every action says about itself. The runner reads this, never a list of types.
 
     Attributes:
-        settles: After the action, wait for the screen to stop changing. False for actions that do their own
-            waiting (`do:`, `scroll_to:`), wait a fixed time, or leave nothing to wait for.
-        watches_screen: The `settle` setting means something for this action: it waits for the screen at all.
         app_may_leave: The app may be closed or in the background afterwards, and that isn't a failure.
     """
 
     __slots__ = ()
-    settles: ClassVar[bool] = True
-    watches_screen: ClassVar[bool] = True
     app_may_leave: ClassVar[bool] = False
 
 
-class _Still(_Action):
-    """An action that changes nothing to wait for on screen."""
-
-    __slots__ = ()
-    settles: ClassVar[bool] = False
-    watches_screen: ClassVar[bool] = False
-
-
-class _WaitsItself(_Action):
-    """An action that waits for the screen itself, between its own moves."""
-
-    __slots__ = ()
-    settles: ClassVar[bool] = False
-
-
 @dataclass(frozen=True)
-class Do(_WaitsItself):
+class Do(_Action):
     """Reach a plain-English goal: Jev picks the actions. Quoted values are what it may type."""
 
     goal: str
 
 
 @dataclass(frozen=True)
-class Use(_Still):
+class Use(_Action):
     """Run another test's steps here."""
 
     test: str
@@ -100,7 +80,7 @@ class Swipe(_Action):
 
 
 @dataclass(frozen=True)
-class ScrollTo(_WaitsItself):
+class ScrollTo(_Action):
     """Scroll until the text is on screen."""
 
     text: str
@@ -115,7 +95,7 @@ class Key(_Action):
 
 
 @dataclass(frozen=True)
-class Wait(_Still):
+class Wait(_Action):
     """Wait a fixed time."""
 
     seconds: float
@@ -173,7 +153,7 @@ class Network(_Action):
 
 
 @dataclass(frozen=True)
-class Screenshot(_Still):
+class Screenshot(_Action):
     """Save a screenshot."""
 
     name: str
@@ -185,7 +165,7 @@ class Launch(_Action):
 
 
 @dataclass(frozen=True)
-class Stop(_Still):
+class Stop(_Action):
     """Stop the app."""
 
     app_may_leave: ClassVar[bool] = True
@@ -197,14 +177,14 @@ class Restart(_Action):
 
 
 @dataclass(frozen=True)
-class ClearData(_Still):
+class ClearData(_Action):
     """Stop the app and clear its data."""
 
     app_may_leave: ClassVar[bool] = True
 
 
 @dataclass(frozen=True)
-class Reinstall(_Still):
+class Reinstall(_Action):
     """Uninstall and install the build again."""
 
     app_may_leave: ClassVar[bool] = True
@@ -216,7 +196,7 @@ class Back(_Action):
 
 
 @dataclass(frozen=True)
-class Home(_Still):
+class Home(_Action):
     """Go to the home screen."""
 
     app_may_leave: ClassVar[bool] = True
@@ -258,10 +238,14 @@ Action = (
 """Everything a step can do."""
 
 
-def finds_element(action: Action) -> bool:
-    """Whether the action looks for an element first, so it can wait (`timeout`) for one to appear."""
+def waits(action: Action) -> bool:
+    """Whether the action waits until something is true.
+
+    That's its element being on screen (`tap:`, `type: into`, ...), or its own condition (`do:` before each move,
+    `scroll_to:` after each scroll).
+    """
     match action:
-        case Touch() | Clear():
+        case Touch() | Clear() | Do() | ScrollTo():
             return True
         case TypeText(_, into):
             return into is not None
@@ -382,11 +366,12 @@ class Scope:
 
 SETTING_SCOPES: Mapping[str, Scope] = {
     "timeout": Scope(
-        "a step that finds an element or has checks",
-        lambda action, checks: bool(checks) or (action is not None and finds_element(action)),
+        "a step that waits (for its element, its checks, or a do:/scroll_to: condition)",
+        lambda action, checks: bool(checks) or (action is not None and waits(action)),
     ),
-    "settle": Scope(
-        "a step whose action changes the screen", lambda action, _: action is not None and action.watches_screen
+    "interval": Scope(
+        "a step that waits (for its element, its checks, or a do:/scroll_to: condition)",
+        lambda action, checks: bool(checks) or (action is not None and waits(action)),
     ),
     "max_actions": Scope("a do: step", lambda action, _: isinstance(action, Do)),
     "max_scrolls": Scope("a scroll_to: step", lambda action, _: isinstance(action, ScrollTo)),

@@ -74,11 +74,11 @@ def test_no_settings_means_the_defaults(tmp_path):
 def test_a_files_settings_apply_to_every_step_and_a_step_can_change_its_own(tmp_path):
     body = minimal(
         tests="  - {name: T, fresh: true, steps: [back, {tap: x, timeout: 30}]}\n",
-        extra="settings: {model: jev-2.0.0, timeout: 20, settle: 5, max_actions: 20, "
+        extra="settings: {model: jev-2.0.0, timeout: 20, interval: 0.5, max_actions: 20, "
         "max_scrolls: 100, confidence: 0.8}\n",
     )
     suite = load(write(tmp_path, body), {})
-    expected = Settings("jev-2.0.0", 20, 5, 20, 100, 0.8)
+    expected = Settings("jev-2.0.0", 20, 0.5, 20, 100, 0.8)
     back, tap = suite.tests[0].steps
     assert suite.settings == expected and back.settings == expected
     assert tap.settings == dataclasses.replace(expected, timeout=30)
@@ -86,15 +86,32 @@ def test_a_files_settings_apply_to_every_step_and_a_step_can_change_its_own(tmp_
 
 def test_included_tests_run_with_the_settings_of_the_file_being_run(tmp_path):
     (tmp_path / "lib.yaml").write_text("tests:\n  - {name: L, fresh: true, steps: [back]}\n")
-    body = minimal(extra="include: lib.yaml\nsettings: {settle: 9}\n")
-    assert load(write(tmp_path, body), {}).library["L"].steps[0].settings.settle == 9
+    body = minimal(extra="include: lib.yaml\nsettings: {interval: 1}\n")
+    assert load(write(tmp_path, body), {}).library["L"].steps[0].settings.interval == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "settings: {settle: 3}\n",
+        None,  # on a step
+    ],
+)
+def test_the_removed_settle_setting_says_what_to_do(tmp_path, body):
+    text = (
+        minimal(extra=body) if body else minimal(tests="  - {name: T, fresh: true, steps: [{back: null, settle: 3}]}\n")
+    )
+    with pytest.raises(TestFileError, match="`settle` is gone .jevtest 0.9.: each step waits until what it needs"):
+        load(write(tmp_path, text), {})
 
 
 def test_every_bad_step_in_a_test_is_reported_at_once(tmp_path):
-    body = minimal(tests="  - {name: T, fresh: true, steps: [{tap: x, max_actions: 3}, back, {wait: 1, settle: 5}]}\n")
+    body = minimal(
+        tests="  - {name: T, fresh: true, steps: [{tap: x, max_actions: 3}, back, {wait: 1, interval: 1}]}\n"
+    )
     with pytest.raises(TestFileError, match="2 problems") as e:
         load(write(tmp_path, body), {})
-    assert "Test 'T', step 1: `max_actions`" in str(e.value) and "Test 'T', step 3: `settle`" in str(e.value)
+    assert "Test 'T', step 1: `max_actions`" in str(e.value) and "Test 'T', step 3: `interval`" in str(e.value)
 
 
 def test_every_bad_setting_is_reported_at_once(tmp_path):
@@ -108,7 +125,10 @@ def test_every_bad_setting_is_reported_at_once(tmp_path):
 @pytest.mark.parametrize(
     ("settings", "message"),
     [
-        ("settings: 5", "`settings` must be a mapping of model, confidence, max_actions, max_scrolls, settle, timeout"),
+        (
+            "settings: 5",
+            "`settings` must be a mapping of model, confidence, interval, max_actions, max_scrolls, timeout",
+        ),
         ("settings: {}", "`settings` must be a mapping"),
         ("settings: {wait: 5}", "`settings` has an unknown key: wait (it takes model, confidence"),
         ("settings: {model: gpt-5}", "`model` must be a pinned Jev version like jev-1.13.0, got 'gpt-5'"),

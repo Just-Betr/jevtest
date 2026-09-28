@@ -236,22 +236,36 @@ def test_several_exact_matches_jev_chooses_among_those_only():
     assert found.describe() == "button 'Delete' (chosen by Jev among 2 exact matches)"
 
 
-def test_a_description_goes_to_jev_which_must_confirm_and_says_so():
-    model = FakeModel(pick("e3"), confirm(0.9))
-    found = Brain(model).locate("the login button", login_screen())
-    assert found is not None
-    assert found.element.text == "Sign in" and found.describe() == "button 'Sign in' (chosen by Jev)"
+def two_sign_ins() -> Screen:
+    s = login_screen()
+    return dataclasses.replace(
+        s, elements=(*s.elements, dataclasses.replace(s.elements[2], bounds=(0, 600, 1000, 700)))
+    )
+
+
+def test_a_target_no_element_says_is_never_guessed():
+    """A description ("the login button") goes in a do: step: locate only matches exact text."""
+    model = FakeModel()  # asking it anything fails the test
+    assert Brain(model).locate("the login button", login_screen()) is None and not model.asked
+
+
+def test_between_exact_matches_jev_chooses_and_must_confirm_and_says_so():
+    model = FakeModel(pick("e4"), confirm(0.9))
+    found = Brain(model).locate("Sign in", two_sign_ins())
+    assert found is not None and found.element.bounds == (0, 600, 1000, 700)
+    assert found.describe() == "button 'Sign in' (chosen by Jev among 2 exact matches)"
+    assert set(model.asked[0][1]["element"]["criteria"]) == {"e3", "e4", "not_on_screen"}
     question = model.asked[1][1]["is_target"]
-    assert question["type"] == "noul" and question["instructions"]["target"] == "the login button"
+    assert question["type"] == "noul" and question["instructions"]["target"] == "Sign in"
 
 
-def test_locate_rejects_a_closest_but_wrong_pick():
-    """A Choice always picks something; the yes/no check catches a target that isn't there."""
-    assert Brain(FakeModel(pick("e3"), confirm(0.2))).locate("Here is more content", login_screen()) is None
+def test_locate_rejects_a_pick_jev_does_not_confirm():
+    """A Choice always picks something; the yes/no check catches a pick Jev isn't sure of."""
+    assert Brain(FakeModel(pick("e3"), confirm(0.2))).locate("Sign in", two_sign_ins()) is None
 
 
-def test_locate_not_on_screen():
-    assert Brain(FakeModel(pick("not_on_screen"))).locate("settings gear", login_screen()) is None
+def test_locate_when_jev_says_none_of_the_matches_is_it():
+    assert Brain(FakeModel(pick("not_on_screen"))).locate("Sign in", two_sign_ins()) is None
 
 
 def test_locate_with_no_candidates():
@@ -259,10 +273,8 @@ def test_locate_with_no_candidates():
 
 
 def test_locate_limits_candidates():
-    model = FakeModel(pick("e1"), confirm())
-    s = login_screen()
-    Brain(model).locate("the first box", s, candidates=s.editable)
-    assert set(model.asked[0][1]["element"]["criteria"]) == {"e1", "e2", "not_on_screen"}
+    s = two_sign_ins()
+    assert Brain(FakeModel()).locate("Sign in", s, candidates=s.editable) is None  # no text field says it
 
 
 def test_check_returns_probability():
@@ -284,11 +296,15 @@ def test_answers_must_be_of_the_kind_asked():
 
 def test_jev_is_never_sent_a_variables_value():
     """What the app shows (a signed-in email) reaches Jev as its ${NAME}: in the screen, options and questions."""
-    screen = screen_of(el("text", "Welcome, ann@x.io"), el("button", "Log out ann@x.io", clickable=True))
+    screen = screen_of(
+        el("text", "Welcome, ann@x.io"),
+        el("button", "Log out ann@x.io", clickable=True),
+        el("button", "Log out ann@x.io", clickable=True, bounds=(0, 300, 10, 310)),
+    )
     model = FakeModel(yes(0.9), pick("e2"), confirm())
     brain = Brain(model, {"EMAIL": "ann@x.io"})
     assert brain.check("Welcome, ann@x.io is showing", screen) == 0.9
-    located(brain, "the log out button for ann@x.io", screen)
+    located(brain, "Log out ann@x.io", screen)
     sent = json.dumps(model.asked)
     assert "ann@x.io" not in sent
-    assert "Welcome, ${EMAIL}" in sent and "the log out button for ${EMAIL}" in sent
+    assert "Welcome, ${EMAIL}" in sent and "Log out ${EMAIL}" in sent

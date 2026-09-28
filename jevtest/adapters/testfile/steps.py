@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from jevtest.adapters.shapes import is_list, is_mapping
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Direction, Gesture, Orientation
-from jevtest.domain.settings import DEFAULTS, STEP_SETTINGS, Settings
+from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
 from jevtest.domain.steps import (
     SETTING_SCOPES,
     Action,
@@ -201,6 +201,9 @@ def _step_keys(raw: Mapping[object, object]) -> dict[str, object]:
 def _reject_unknown_keys(raw: Mapping[object, object]) -> None:
     if "text" in raw:
         raise TestFileError("`text` goes inside type: `type: {text: hello, into: Email}`")
+    removed = [k for k in raw if isinstance(k, str) and k in REMOVED]
+    if removed:
+        raise TestFileError(REMOVED[removed[0]])
     known = ACTIONS.keys() | CHECKS.keys() | OPTIONS
     unknown = [k for k in raw if not isinstance(k, str) or k not in known]
     if unknown:

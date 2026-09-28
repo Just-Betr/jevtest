@@ -19,7 +19,23 @@ from jevtest.domain.screen import Element, Screen
 
 FOLLOW_UP = 3.0
 """Seconds a device waits for its own follow-ups to an action: a tapped field taking keyboard focus, a web
-view's content arriving after the web view."""
+view's content arriving after the web view, the keyboard closing, the screen turning."""
+
+CHECK_INTERVAL = 0.25
+"""Seconds between two checks of such a follow-up (the same as a step's default `interval`)."""
+
+
+def wait_until(condition: Callable[[], bool], what: str) -> None:
+    """Check `condition`; if it's false, wait `CHECK_INTERVAL` seconds and check again, for up to `FOLLOW_UP`.
+
+    Raises:
+        DeviceError: It's still false: the message is "`what` within N seconds".
+    """
+    deadline = time.monotonic() + FOLLOW_UP
+    while not condition():
+        if time.monotonic() + CHECK_INTERVAL > deadline:
+            raise DeviceError(f"{what} within {FOLLOW_UP:g} seconds")
+        time.sleep(CHECK_INTERVAL)
 
 
 def run_bytes(cmd: list[str], *, timeout: float = 120, check: bool = True) -> bytes:
@@ -175,29 +191,19 @@ class BaseDevice(ABC):
     def close(self) -> None:
         """Release what the device started."""
 
-    @abstractmethod
-    def wait_idle(self, timeout: float, quiet: float | None = None) -> None:
-        """Return once the screen has stopped changing, or after `timeout` seconds."""
-
-    @abstractmethod
-    def wait_change(self, timeout: float) -> None:
-        """Return as soon as the screen changes, or after `timeout` seconds."""
-
     def wait_until(self, done: Callable[[Screen], bool], what: str) -> None:
-        """Wait up to `FOLLOW_UP` seconds for the screen to show an action's effect.
+        """`wait_until` the screen shows an action's effect.
 
-        For actions whose effect comes a moment after they return (the keyboard sliding away, the screen turning):
-        a still screen alone can come before the effect starts.
+        The effect comes a moment after the action returns: the keyboard sliding away, the screen turning.
 
         Raises:
             DeviceError: The effect didn't show: the message is "`what` within N seconds".
         """
-        deadline = time.monotonic() + FOLLOW_UP
-        while not done(self.screen()):
-            left = deadline - time.monotonic()
-            if left <= 0:
-                raise DeviceError(f"{what} within {FOLLOW_UP:g} seconds")
-            self.wait_change(left)
+        wait_until(lambda: done(self.screen()), what)
+
+    def typing_ready(self, screen: Screen) -> bool:
+        """Whether typed keys will land: the keyboard is up and a text field has focus."""
+        return screen.keyboard_visible and any(el.editable and el.focused for el in screen.elements)
 
     def swipe(self, direction: Direction, element: Element | None = None, screen: Screen | None = None) -> None:
         """Finger swipe in `direction`, across an element or across the page.

@@ -67,7 +67,7 @@ All of these are in the [contributing guide](contributing.md#checks), with the s
 
 | Module | What it does |
 |---|---|
-| `domain/steps.py` | Each action is a type that says what it is (`settles`, `watches_screen`, `app_may_leave`); `finds_element` and `SETTING_SCOPES` say where each setting applies. The runner and the loader read these instead of keeping lists of types. |
+| `domain/steps.py` | Each action is a type that says what it is (`app_may_leave`); `waits` and `SETTING_SCOPES` say where each setting applies. The runner and the loader read these instead of keeping lists of types. |
 | `domain/settings.py` | The settings, their defaults and their limits. |
 | `adapters/testfile/steps.py` | `ACTIONS`: the one table of how each action key reads in YAML. |
 | `adapters/devices/android_screen.py`, `ios_screen.py` | The agents' screen dumps into a `Screen`: pure functions, tested on real captures. |

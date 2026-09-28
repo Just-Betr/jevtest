@@ -14,10 +14,7 @@ final class JevAgentUITests: XCTestCase {
     private var app: XCUIApplication?
     private var bundleId = ""
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-    private var served = ""  // signature of the tree the client last received
-    private static let quiet: TimeInterval = 0.15        // same quiet window as the Android agent
-    private static let barHeight: CGFloat = 60           // points: the most a bar above the keyboard is tall
-    private static let pollInterval: TimeInterval = 0.05 // no change events on iOS: this is the pace
+    private static let barHeight: CGFloat = 60  // points: the most a bar above the keyboard is tall
     private var issues: [String] = []
     private var token = Data()
 
@@ -164,9 +161,7 @@ final class JevAgentUITests: XCTestCase {
         case "/state":
             return ["state": app.state.rawValue]
         case "/tree":
-            let (reply, signature) = try tree(app)
-            served = signature
-            return reply
+            return try tree(app)
         case "/tap":
             point(touched(app), body["x"], body["y"]).tap()
         case "/double_tap":
@@ -180,33 +175,6 @@ final class JevAgentUITests: XCTestCase {
                 withVelocity: .fast, thenHoldForDuration: 0.05)
         case "/type":
             app.typeText((body["text"] as? String) ?? "")
-        case "/change":
-            // iOS has no "UI changed" event (WebDriverAgent and Maestro poll too), so poll here,
-            // on the device. "Changed" = differs from the tree the client last received, so a
-            // change that lands between its /tree and its /change is not missed.
-            let deadline = Date().addingTimeInterval((body["timeout"] as? Double) ?? 3)
-            while true {
-                if try signature(app) != served { return ["changed": true] }
-                if Date() >= deadline { break }
-                RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(Self.pollInterval)))
-            }
-            return ["changed": false]
-        case "/idle":
-            // XCUITest's own idle wait only sees UIKit; Flutter and web views draw their own
-            // animations. Idle = the screen has not changed for a quiet window (like Android's
-            // UiAutomation.waitForIdle), so a UI that has not started reacting yet is not "idle".
-            let deadline = Date().addingTimeInterval((body["timeout"] as? Double) ?? 3)
-            var last = try signature(app)
-            var stableSince = Date()
-            let quiet = (body["quiet"] as? Double) ?? Self.quiet
-            while Date() < deadline, Date().timeIntervalSince(stableSince) < quiet {
-                RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(Self.pollInterval)))
-                let now = try signature(app)
-                if now != last {
-                    last = now
-                    stableSince = Date()
-                }
-            }
         case "/key":
             let keys: [String: String] = [
                 "enter": "\n", "return": "\n", "tab": "\t",
@@ -294,33 +262,17 @@ final class JevAgentUITests: XCTestCase {
         return roots
     }
 
-    /// A line per element: identical for identical screens. Used to detect change and idleness.
-    private static func line(_ s: XCUIElementSnapshot) -> String {
-        "\(s.elementType.rawValue)|\(s.label)|\(s.value ?? "")|\(s.frame)|\(s.hasFocus)"
-    }
-
-    private func signature(_ app: XCUIApplication) throws -> String {
-        var parts: [String] = []
-        func walk(_ s: XCUIElementSnapshot) {
-            parts.append(Self.line(s))
-            s.children.forEach(walk)
-        }
-        try snapshots(app).forEach(walk)
-        return parts.joined(separator: "\n")
-    }
-
-    /// The screen for the client, and its signature, from one snapshot pass.
-    private func tree(_ app: XCUIApplication) throws -> ([String: Any], String) {
+    /// The screen for the client, from one snapshot pass. The agent never waits: the client reads the
+    /// screen when a step checks what it waits for.
+    private func tree(_ app: XCUIApplication) throws -> [String: Any] {
         guard app.state == .runningForeground else {
-            return (["elements": [], "width": 0, "height": 0, "keyboard": false], "")
+            return ["elements": [], "width": 0, "height": 0, "keyboard": false]
         }
         var out: [[String: Any]] = []
-        var parts: [String] = []
         func hasKeyboard(_ s: XCUIElementSnapshot) -> Bool {
             s.elementType == .keyboard || s.children.contains(where: hasKeyboard)
         }
         func walk(_ s: XCUIElementSnapshot, keyboardWindow: Bool) {
-            parts.append(Self.line(s))
             // The keyboard's window (keys, suggestion strip, emoji and dictation buttons) is not
             // the app's UI: noise for Jev. Whether it is up is reported as "keyboard" below.
             let skip = keyboardWindow || s.elementType == .keyboard || (s.elementType == .window && hasKeyboard(s))
@@ -346,7 +298,7 @@ final class JevAgentUITests: XCTestCase {
             "keyboard": app.keyboards.count > 0,
             "keyboard_top": app.keyboards.count > 0 ? app.keyboards.firstMatch.frame.minY : 0,
         ]
-        return (reply, parts.joined(separator: "\n"))
+        return reply
     }
 
     private static func typeName(_ t: XCUIElement.ElementType) -> String {

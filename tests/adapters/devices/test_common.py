@@ -145,5 +145,5 @@ def test_a_device_must_say_how_it_restores_waits_and_closes():
             raise NotImplementedError
 
     # Python words this message differently between versions; the method names are what matter.
-    with pytest.raises(TypeError, match="check_ready'?, '?close'?, '?restore'?, '?wait_change'?, '?wait_idle"):
+    with pytest.raises(TypeError, match="check_ready'?, '?close'?, '?restore"):
         Partial()  # type: ignore[abstract]  # instantiating it is what this test checks

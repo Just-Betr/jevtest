@@ -4,7 +4,8 @@ import pytest
 
 from jevtest.adapters.jev.client import Reply
 from jevtest.adapters.jev.lockfile import VERSION, LockedModel, LockMode, request_key
-from jevtest.domain.failures import ModelError
+from jevtest.domain.decisions import SavedStep, Target
+from jevtest.domain.failures import ModelError, NotRecorded
 from jevtest.domain.model import Probability, YesNo
 
 A1 = {"q": {"type": "noul", "noul": 0.9}}
@@ -135,11 +136,32 @@ def test_a_recorded_answer_that_no_longer_fits_the_question_is_an_error(tmp_path
     ("content", "message"),
     [
         ("{", "not valid JSON"),
-        ("[]", "not a jevtest v1 lockfile"),
-        ('{"version": 99}', "not a jevtest v1"),
-        ('{"version": 1, "decisions": []}', "not a jevtest v1"),
-        ('{"version": 1, "decisions": {"k": "answers"}}', "not a jevtest v1"),
-        ('{"version": 1, "decisions": {"k": {"answers": {"q": 1}}}}', "not a jevtest v1"),
+        ("[]", "not a jevtest v2 lockfile"),
+        ('{"version": 99}', "not a jevtest v2"),
+        ('{"version": 1, "decisions": {}}', "not a jevtest v2"),  # before saved steps: re-record
+        ('{"version": 2, "decisions": []}', "not a jevtest v2"),
+        ('{"version": 2, "decisions": {"k": "answers"}}', "not a jevtest v2"),
+        ('{"version": 2, "decisions": {"k": {"answers": {"q": 1}}}}', "not a jevtest v2"),
+        ('{"version": 2, "steps": []}', "not a jevtest v2"),
+        ('{"version": 2, "steps": {"k": {}}}', "not a jevtest v2"),
+        ('{"version": 2, "steps": {"k": [{"action": "fly"}]}}', "not a jevtest v2"),
+        ('{"version": 2, "steps": {"k": [{"action": "back", "text": 3}]}}', "not a jevtest v2"),
+        ('{"version": 2, "steps": {"k": [{"action": "tap", "target": "Save"}]}}', "not a jevtest v2"),
+        ('{"version": 2, "steps": {"k": [{"action": "tap", "target": {"kind": "button"}}]}}', "not a jevtest v2"),
+        (
+            (
+                '{"version": 2, "steps": {"k": [{"action": "tap", "target": '
+                '{"kind": "button", "name": "Go", "nth": 3, "count": 2}}]}}'
+            ),
+            "not a jevtest v2",
+        ),
+        (
+            (
+                '{"version": 2, "steps": {"k": [{"action": "tap", "target": '
+                '{"kind": "button", "name": "Go", "nth": true, "count": 2}}]}}'
+            ),
+            "not a jevtest v2",
+        ),
     ],
 )
 def test_bad_lockfile(tmp_path, content, message):
@@ -185,3 +207,55 @@ def test_a_recorded_model_version_that_is_not_text_is_not_trusted(tmp_path):
     )
     model, _ = locked(tmp_path, LockMode.FROZEN)
     assert model.ask({"screen": "s"}, Q) == {"q": Probability(0.9)} and model.calls[0].served_by is None
+
+
+TAP = SavedStep("tap", Target("button", "Sign in", 2, 3))
+TYPE = SavedStep("type", Target("text_field", ""), "${EMAIL}")
+
+
+def test_saved_steps_are_written_and_read_back(tmp_path):
+    model, _ = locked(tmp_path)
+    assert model.saved_steps("android · Sign in · step 1 · Sign in") is None  # nothing yet: work it out
+    model.save_steps("android · Sign in · step 1 · Sign in", [TYPE, TAP, SavedStep("back")])
+    model.save()
+    data = json.loads((tmp_path / "t.lock.json").read_text())
+    assert data["version"] == VERSION == 2
+    assert data["steps"]["android · Sign in · step 1 · Sign in"][1] == {
+        "action": "tap",
+        "target": {"kind": "button", "name": "Sign in", "nth": 2, "count": 3},
+        "text": None,
+    }
+    again, _ = locked(tmp_path, LockMode.FROZEN)
+    assert again.saved_steps("android · Sign in · step 1 · Sign in") == (TYPE, TAP, SavedStep("back"))
+    assert again.replays_only and not model.replays_only
+
+
+def test_frozen_without_saved_steps_says_what_to_do(tmp_path):
+    model, _ = locked(tmp_path, LockMode.FROZEN)
+    with pytest.raises(NotRecorded, match="No steps are saved for this do: in t.lock.json, and --lock frozen"):
+        model.saved_steps("k")
+
+
+def test_refresh_and_off_work_every_goal_out_again(tmp_path):
+    first, _ = locked(tmp_path)
+    first.save_steps("k", [TAP])
+    first.save()
+    refresh, _ = locked(tmp_path, LockMode.REFRESH)
+    assert refresh.saved_steps("k") is None
+    off, _ = locked(tmp_path, LockMode.OFF)
+    assert off.saved_steps("k") is None
+    off.save_steps("k", [TYPE])  # nothing is saved with --lock off
+    off.save()
+    assert json.loads((tmp_path / "t.lock.json").read_text())["steps"]["k"][0]["action"] == "tap"
+
+
+def test_prune_drops_saved_steps_this_run_did_not_use(tmp_path):
+    first, _ = locked(tmp_path)
+    first.save_steps("old", [TAP])
+    first.save_steps("kept", [TAP])
+    first.save()
+    second, _ = locked(tmp_path)
+    second.fork().saved_steps("kept")
+    assert second.prune() == 1
+    second.save()
+    assert list(json.loads((tmp_path / "t.lock.json").read_text())["steps"]) == ["kept"]

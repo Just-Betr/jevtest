@@ -26,7 +26,7 @@ from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
 
 from ._typing import override
-from .common import FOLLOW_UP, BaseDevice, Progress, cache_dir, digest, start_process, stop_process
+from .common import BaseDevice, Progress, cache_dir, digest, start_process, stop_process
 from .ios_screen import AgentTree, parse_tree
 from .ios_tools import (
     AGENT_LOCK,
@@ -336,30 +336,17 @@ class IOSDevice(BaseDevice):
         """Press, move, lift."""
         self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2)
 
-    @override
-    def wait_idle(self, timeout: float, quiet: float | None = None) -> None:
-        """Return once the screen has stopped changing (for `quiet` seconds), or after `timeout` seconds."""
-        if quiet is None:
-            self._call("/idle", timeout=timeout)
-        else:
-            self._call("/idle", timeout=timeout, quiet=quiet)
-
-    @override
-    def wait_change(self, timeout: float) -> None:
-        """Return as soon as the screen changes, or after `timeout` seconds."""
-        self._call("/change", timeout=timeout)
-
     def type_text(self, text: str, at: Point | None = None) -> None:
         """Type into the focused field, or first focus the field at `at`."""
-        if at:  # focus the field and let the focus change finish
+        if at:  # focus the field; keys sent before the keyboard is up are lost
             self.tap(*at)
-            self.wait_idle(FOLLOW_UP)
+            self.wait_until(self.typing_ready, "The text field did not get keyboard focus")
         self._call("/type", text=text)
 
     def clear_text(self, element: Element) -> None:
         """Erase a text field: put the cursor after its text, then delete exactly what is there."""
         self.tap(*element.end)
-        self.wait_idle(FOLLOW_UP)
+        self.wait_until(self.typing_ready, "The text field did not get keyboard focus")
         if element.value:
             self._call("/key", key="delete", count=len(element.value))
 

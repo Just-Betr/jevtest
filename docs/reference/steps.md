@@ -26,7 +26,7 @@ Each takes one value or a list. Checks keep trying for up to 10 seconds, or the 
 
 | Action | Does |
 |---|---|
-| `do: goal` | Jev picks actions (tap, double tap, long press, type, clear, swipe on an element, scroll, back, enter, hide the keyboard, wait for loading) until it judges the goal done. Values in `"quotes"` are what it may type. Fails if Jev says the goal is impossible from the screen, repeats one action three times, or needs more than `max_actions` (10 by default). |
+| `do: goal` | What a person would do, in plain English. The first run, Jev picks the steps (tap, double tap, long press, type, clear, swipe on an element, scroll, back, enter, hide the keyboard), each on a screen that stopped moving, until it judges the goal done; the steps are saved in the lockfile. Every later run repeats the saved steps, each waiting until its element is on screen. Values in `"quotes"` are what it may type. Fails if Jev says the goal is impossible from the screen, repeats one action three times, or needs more than `max_actions` (10 by default). |
 | `use: test name` | Runs that test's steps here. |
 
 ### Touch
@@ -40,7 +40,7 @@ Each takes one value or a list. Checks keep trying for up to 10 seconds, or the 
 | `scroll: up\|down\|left\|right` | Scrolls the content one page. |
 | `scroll_to: text` | Scrolls in `direction:` (required) until an element says exactly the text. Fails when the content stops moving (the end) or after `max_scrolls` (50 by default). |
 
-**Targets** are found by their exact text ([matching](#matching)). If several elements match, the one you can act on wins (a switch over its label); if that still leaves several, Jev chooses among those only, and the step says `(chosen by Jev among 2 exact matches)`. A target that is a description rather than on-screen text (`tap: the red delete icon`) goes to Jev, which picks an element and must then confirm it; the step says `(chosen by Jev)`. A target that can't be found fails the step after 10 seconds, or the step's `timeout:`.
+**Targets** are found by their exact text ([matching](#matching)): the step waits until an element says it, then acts. If several elements match, the one you can act on wins (a switch over its label); if that still leaves several, Jev chooses among those only, and the step says `(chosen by Jev among 2 exact matches)`. A target is never guessed: one no element says fails the step after 10 seconds (or the step's `timeout:`) with `Waited 10s until an element says '…' on screen`. To describe something instead (`the red delete icon`), use `do:`.
 
 ### Matching
 
@@ -115,8 +115,8 @@ Each option belongs to certain actions; anywhere else it's an error.
 
 | Option | On | Meaning |
 |---|---|---|
-| `timeout: seconds` | steps with checks, `tap`, `double_tap`, `long_press`, `clear`, `type` with `into`, `swipe` with `target` | How long this step waits for what it looks for, instead of the file's `timeout` (10 s by default). |
-| `settle: seconds` | any step whose action changes the screen | The longest wait for the screen to stop changing after the action (3 s by default). |
+| `timeout: seconds` | steps that wait: steps with checks, `tap`, `double_tap`, `long_press`, `clear`, `type` with `into`, `swipe` with `target`, `do`, `scroll_to` | How long this step waits until what it needs is true, instead of the file's `timeout` (10 s by default). |
+| `interval: seconds` | the same steps as `timeout` | How often this step checks again (0.25 s by default). |
 | `max_actions: n` | `do` | Actions this goal may take (10 by default). |
 | `max_scrolls: n` | `scroll_to` | Scrolls this step may make (50 by default). |
 | `confidence: p` | steps with `expect` | How sure Jev must be for this step's `expect:` checks to pass (0.5 by default). |

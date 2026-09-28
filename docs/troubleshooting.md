@@ -19,7 +19,8 @@ error: t.yaml has 2 problems:
 | `'tap' needs text, got a number (to use 42 as text, put it in quotes)` | `tap: "42"`. |
 | `'scroll_to' needs direction: (up, down, left or right)` | Add `direction: down` to the step. |
 | `` `direction` belongs to scroll_to, not to tap `` | Options only go on the actions they apply to ([table](reference/steps.md#options)). |
-| `` `timeout` only applies to a step that finds an element or has checks `` (or `settle`, `max_actions`, `max_scrolls`, `confidence`) | The setting means nothing on that step: remove it, or move it to the step it was meant for ([settings](reference/test-file.md#settings-optional)). |
+| `` `timeout` only applies to a step that waits (for its element, its checks, or a do:/scroll_to: condition) `` (or `interval`, `max_actions`, `max_scrolls`, `confidence`) | The setting means nothing on that step: remove it, or move it to the step it was meant for ([settings](reference/test-file.md#settings-optional)). |
+| `` `settle` is gone (jevtest 0.9): each step waits until what it needs is on screen; remove it `` | Remove `settle`: there's no waiting after an action any more. A step that needs longer gets `timeout:`. |
 | `` `timeout` must be from 1 to 300, got 1000 `` | Each setting has [limits](reference/test-file.md#settings-optional). A step that needs more is usually waiting on something the app should do faster, or is two steps. |
 | `t.yaml is not valid YAML: … A value starting with ${ must be quoted inside { } or [ ]` | `{android: "${PHONE}"}`. |
 | ``Not set: ${PASSWORD}. Add them to .env next to the test file, or to the environment`` | Define the value. Only the `.env` **next to the test file** is read. |
@@ -48,9 +49,11 @@ error: t.yaml has 2 problems:
 
 | Message | Fix |
 |---|---|
-| `The screen never stopped changing in N s: Jev is only asked about a screen that holds still` | Something on screen keeps changing (a clock, a timer, a counter), so no answer about it could be replayed. Check that step with `see:` instead, or give the app a test mode where it holds still. |
+| `Waited 10s until the screen stopped moving` | A `do:` being worked out, or a `scroll_to:`, needs the screen to read the same twice in a row, and something on it keeps changing (a clock, a timer, a counter). Use exact steps there, or give the app a test mode where it holds still. |
 | `TYPESAFE_API_KEY is not set: put it in the .env next to the test file, or in the environment` | Add the key, or run `--lock frozen` if everything is recorded. |
-| `This screen and question are not in tests.lock.json, and --lock frozen only replays recorded decisions…` | The app shows a screen that wasn't recorded. Run `--lock record` and commit the lockfile. |
+| `No steps are saved for this do: in tests.lock.json, and --lock frozen only repeats saved steps…` | This `do:` hasn't been worked out yet (or its text changed). Run `--lock record` and commit the lockfile. |
+| `This screen and question are not in tests.lock.json, and --lock frozen only replays recorded decisions…` | An `expect:` (or a choice between exact matches) met a screen that wasn't recorded. Run `--lock record` and commit the lockfile. |
+| `Waited 10s until the 2nd of 2 button 'Delete' is on screen; the screen shows 1, the saved step was made with 2` | The app changed since the `do:` was worked out. Run `--lock record`: it works the goal out again from where the saved steps stopped fitting. |
 | `Jev HTTP 429: trying again in 0.5s (retry 1 of 4)` | Printed while TypeSafe is rate-limiting (429) or overloaded (529); jevtest retries, waiting as long as TypeSafe asks (up to a minute) or with backoff, and says so each time. |
 | `Jev HTTP 401: …` | Check the key. |
 

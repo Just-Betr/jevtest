@@ -13,7 +13,8 @@ from jevtest.adapters.devices._typing import override
 from jevtest.adapters.devices.common import BaseDevice
 from jevtest.adapters.jev.wire import answer_from_wire, questions_to_wire
 from jevtest.cli.console import ConsoleListener, Printer
-from jevtest.domain.failures import DeviceError
+from jevtest.domain.decisions import SavedStep
+from jevtest.domain.failures import DeviceError, NotRecorded
 from jevtest.domain.kinds import AppState
 from jevtest.domain.model import ModelCall, State
 from jevtest.domain.screen import Element, Screen
@@ -26,11 +27,25 @@ class FakeModel:
     format, so tests can read what was asked.
     """
 
-    def __init__(self, *answers, model="jev-1.13.0"):
+    def __init__(self, *answers, model="jev-1.13.0", saved=None, frozen=False):
         self.answers = list(answers)
         self.asked: list[tuple[State, dict[str, dict[str, Any]]]] = []  # (state, the questions as Jev's JSON)
         self.calls: list[ModelCall] = []
         self.model = model
+        self.saved: dict[str, tuple[SavedStep, ...]] = dict(saved or {})  # a do: goal's saved steps, by key
+        self.frozen = frozen
+
+    @property
+    def replays_only(self):
+        return self.frozen
+
+    def saved_steps(self, key):
+        if key not in self.saved and self.frozen:
+            raise NotRecorded(f"No steps are saved for {key}")
+        return self.saved.get(key)
+
+    def save_steps(self, key, steps):
+        self.saved[key] = tuple(steps)
 
     def ask(self, state, questions):
         self.asked.append((state, json.loads(json.dumps(questions_to_wire(questions)))))
@@ -114,10 +129,10 @@ def screen_with(*texts, **kw) -> Screen:
 
 
 class FakeDevice(BaseDevice):
-    """Records every call. `screens` is consumed one per screen() call; the last one repeats."""
+    """Records every call. `screens` is consumed one per screen() call; the last one repeats.
 
-    CHANGE_AFTER = 0.5  # fake seconds until "the screen changed" when waiting for a change
-    IDLE_AFTER = 0.15  # fake seconds a still screen takes to count as idle (the agents' quiet window)
+    Time passes only through the runner's clock (each `interval` between two checks of a `wait_until`).
+    """
 
     def __init__(self, *screens: Screen, state=AppState.FOREGROUND):
         self.screens = list(screens) or [login_screen()]
@@ -221,18 +236,6 @@ class FakeDevice(BaseDevice):
     def check_ready(self):  # not logged: only matters when a test makes it fail
         if "check_ready" in self.fail:
             raise self.fail["check_ready"]
-
-    @override
-    def wait_idle(self, timeout, quiet=None):
-        self._rec("wait_idle", timeout) if quiet is None else self._rec("wait_idle", timeout, quiet)
-        if self.clock:  # like the agents: at least their quiet window, at most `timeout`
-            self.clock.sleep(min(timeout, self.IDLE_AFTER))
-
-    @override
-    def wait_change(self, timeout):
-        self._rec("wait_change")
-        if self.clock:
-            self.clock.sleep(min(timeout, self.CHANGE_AFTER))
 
     @override
     def restore(self):

@@ -1,8 +1,10 @@
-"""The decision lockfile: makes runs deterministic even though Jev's answers wobble.
+"""The lockfile: makes runs repeat exactly, even though Jev's answers wobble.
 
-Jev's probabilities vary slightly between identical calls, so a close call can flip. The lockfile stores Jev's
-answer for every exact (model, state, questions) request: the same screen and question always get the same
-answer, with no network call. A changed screen is a new request and is asked fresh.
+It keeps two things:
+
+- The steps each `do:` goal took the first time (Jev worked them out), so later runs repeat those steps.
+- Jev's answer to every other question (an `expect:`, which of several exact matches a step means), keyed by
+  the exact (model, state, questions) request: the same screen and question always get the same answer.
 """
 
 from __future__ import annotations
@@ -13,17 +15,18 @@ import threading
 from collections.abc import Callable, Mapping, Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol, TypedDict
+from typing import Protocol, TypedDict, TypeGuard
 
-from jevtest.adapters.shapes import is_json_object, objects_by_key
+from jevtest.adapters.shapes import is_json_object, is_list, objects_by_key
+from jevtest.domain.decisions import STEP_ACTIONS, SavedStep, Target
 from jevtest.domain.failures import ModelError, NotRecorded
 from jevtest.domain.model import Answer, ModelCall, Question, State
 
 from .client import Reply
 from .wire import RawAnswers, answers_from_wire, questions_to_wire
 
-VERSION = 1
-"""The lockfile format version."""
+VERSION = 2
+"""The lockfile format version. Version 1 had no saved steps."""
 
 
 class JevAsker(Protocol):
@@ -38,11 +41,11 @@ class LockMode(StrEnum):
     """How a run uses the lockfile."""
 
     RECORD = "record"
-    """Use recorded answers; ask Jev about anything new and record it."""
+    """Use saved steps and recorded answers; work out anything new with Jev and record it."""
     FROZEN = "frozen"
-    """Use recorded answers only; anything new fails (no key or network needed)."""
+    """Use saved steps and recorded answers only; anything new fails (no key or network needed)."""
     REFRESH = "refresh"
-    """Ask Jev about everything again and re-record it."""
+    """Work out everything with Jev again and re-record it."""
     OFF = "off"
     """Don't read or write a lockfile."""
 
@@ -65,26 +68,75 @@ class Entry(TypedDict):
     answers: RawAnswers
 
 
+def _bad(name: str) -> ModelError:
+    return ModelError(f"{name} is not a jevtest v{VERSION} lockfile; delete it to re-record")
+
+
 def _entries(data: object, name: str) -> dict[str, Entry]:
     """The recorded decisions of a parsed lockfile, checked.
 
     Raises:
         ModelError: It isn't a jevtest lockfile of this version.
     """
-    bad = ModelError(f"{name} is not a jevtest v{VERSION} lockfile; delete it to re-record")
     if not is_json_object(data) or data.get("version") != VERSION:
-        raise bad
+        raise _bad(name)
     decisions = data.get("decisions", {})
     if not is_json_object(decisions):
-        raise bad
+        raise _bad(name)
     entries: dict[str, Entry] = {}
     for key, entry in decisions.items():
         answers = objects_by_key(entry.get("answers")) if is_json_object(entry) else None
         if answers is None or not is_json_object(entry):
-            raise bad
+            raise _bad(name)
         served_by = entry.get("served_by")
         entries[key] = {"served_by": served_by if isinstance(served_by, str) else None, "answers": answers}
     return entries
+
+
+def _saved(data: object, name: str) -> dict[str, tuple[SavedStep, ...]]:
+    """The saved steps of a parsed lockfile (already checked to be this version), each checked.
+
+    Raises:
+        ModelError: A saved step isn't one jevtest writes.
+    """
+    raw = data.get("steps", {}) if is_json_object(data) else None
+    if not is_json_object(raw):
+        raise _bad(name)
+    saved: dict[str, tuple[SavedStep, ...]] = {}
+    for key, steps in raw.items():
+        if not is_list(steps):
+            raise _bad(name)
+        saved[key] = tuple(_step(step, name) for step in steps)
+    return saved
+
+
+def _step(raw: object, name: str) -> SavedStep:
+    if not is_json_object(raw) or raw.get("action") not in STEP_ACTIONS:
+        raise _bad(name)
+    action = str(raw["action"])
+    text, target = raw.get("text"), raw.get("target")
+    if text is not None and not isinstance(text, str):
+        raise _bad(name)
+    if target is None:
+        return SavedStep(action, None, text)
+    if not is_json_object(target):
+        raise _bad(name)
+    kind, label, nth, count = (target.get(k) for k in ("kind", "name", "nth", "count"))
+    if not (isinstance(kind, str) and isinstance(label, str) and _whole(nth) and _whole(count)):
+        raise _bad(name)
+    if not 1 <= nth <= count:
+        raise _bad(name)
+    return SavedStep(action, Target(kind, label, nth, count), text)
+
+
+def _whole(value: object) -> TypeGuard[int]:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _step_to_wire(step: SavedStep) -> dict[str, object]:
+    t = step.target
+    target = None if t is None else {"kind": t.kind, "name": t.name, "nth": t.nth, "count": t.count}
+    return {"action": step.action, "target": target, "text": step.text}
 
 
 class _Store:
@@ -94,7 +146,9 @@ class _Store:
         self.path = path
         self.lock = threading.Lock()
         self.entries: dict[str, Entry] = {}
+        self.steps: dict[str, tuple[SavedStep, ...]] = {}
         self.used: set[str] = set()
+        self.used_steps: set[str] = set()
         self.dirty = False
         if mode is not LockMode.OFF and path.exists():
             try:
@@ -102,6 +156,7 @@ class _Store:
             except json.JSONDecodeError as e:
                 raise ModelError(f"{path.name} is not valid JSON ({e}); delete it to re-record") from None
             self.entries = _entries(data, path.name)
+            self.steps = _saved(data, path.name)
 
 
 class LockedModel:
@@ -137,6 +192,38 @@ class LockedModel:
     def calls(self) -> Sequence[ModelCall]:
         """Every request this model (not its forks) made, in order."""
         return self._calls
+
+    @property
+    def replays_only(self) -> bool:
+        """Whether only saved steps and recorded answers may be used (``--lock frozen``)."""
+        return self.mode is LockMode.FROZEN
+
+    def saved_steps(self, key: str) -> tuple[SavedStep, ...] | None:
+        """The steps saved for the `do:` goal `key` (record, frozen); None to work it out with Jev.
+
+        Raises:
+            NotRecorded: Frozen, and no steps are saved for it.
+        """
+        store = self._store
+        with store.lock:
+            store.used_steps.add(key)
+            steps = store.steps.get(key) if self.mode in (LockMode.RECORD, LockMode.FROZEN) else None
+        if steps is None and self.mode is LockMode.FROZEN:
+            raise NotRecorded(
+                f"No steps are saved for this do: in {store.path.name}, and --lock frozen only repeats saved "
+                "steps. Run with --lock record to work them out, then commit the lockfile."
+            )
+        return steps
+
+    def save_steps(self, key: str, steps: Sequence[SavedStep]) -> None:
+        """Save the steps the `do:` goal `key` took (not with ``--lock off``)."""
+        if self.mode is LockMode.OFF:
+            return
+        store = self._store
+        with store.lock:
+            store.used_steps.add(key)
+            store.steps[key] = tuple(steps)
+            store.dirty = True
 
     def fork(self) -> LockedModel:
         """A model for another device: its own calls, the same recorded decisions."""
@@ -193,8 +280,11 @@ class LockedModel:
             stale = [k for k in store.entries if k not in store.used]
             for k in stale:
                 del store.entries[k]
-            store.dirty = store.dirty or bool(stale)
-        return len(stale)
+            stale_steps = [k for k in store.steps if k not in store.used_steps]
+            for k in stale_steps:
+                del store.steps[k]
+            store.dirty = store.dirty or bool(stale) or bool(stale_steps)
+        return len(stale) + len(stale_steps)
 
     def save(self) -> None:
         """Write the lockfile, if anything was recorded or pruned."""
@@ -202,6 +292,11 @@ class LockedModel:
         with store.lock:
             if not store.dirty:
                 return
-            data = {"version": VERSION, "model": self.model, "decisions": store.entries}
+            data = {
+                "version": VERSION,
+                "model": self.model,
+                "steps": {key: [_step_to_wire(step) for step in steps] for key, steps in store.steps.items()},
+                "decisions": store.entries,
+            }
             store.path.write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
             store.dirty = False

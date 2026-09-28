@@ -10,19 +10,21 @@ sequenceDiagram
     participant L as Lockfile
     participant M as Jev (TypeSafe)
     T->>J: do: Sign in with "${EMAIL}"
-    loop until Jev says done
-        J->>A: what's on screen?
-        A-->>J: accessibility tree (ms)
-        J->>L: this screen + these questions?
-        alt recorded
-            L-->>J: recorded answer
-        else new
+    J->>L: saved steps for this do:?
+    alt saved (every later run)
+        loop each saved step
+            J->>A: wait until its element is on screen
+            J->>A: tap / type / swipe
+        end
+    else first run
+        loop until Jev says done
+            J->>A: wait until the screen stopped moving
+            A-->>J: accessibility tree (ms)
             J->>M: screen as text + choice questions
             M-->>J: chosen option + probabilities
-            J->>L: record it
+            J->>A: tap / type / swipe
         end
-        J->>A: tap / type / swipe
-        J->>A: wait until the screen stops changing
+        J->>L: save the steps it took
     end
     J->>T: ✓ or ✗ with the reason
 ```
@@ -30,8 +32,10 @@ sequenceDiagram
 1. **Read the screen.** A small agent on the device (an instrumentation APK on Android, an XCUITest runner on iOS) stays running for the whole run and returns the accessibility tree in milliseconds (about 3 ms on Android, 40 ms on iOS).
 2. **Describe it as text.** Each element becomes a short line: `{"id": "e4", "type": "button", "text": "Sign in", "position": "top-center"}`.
 3. **Ask Jev to choose.** One request, several questions: *what's the next action* (tap, type, scroll, back, done, impossible, …), *on which element*, and *which quoted value to type*. Jev answers each by choosing one of the options, with probabilities.
-4. **Act** through the agent or `adb`, then **wait** until the screen stops changing.
+4. **Act** through the agent or `adb`, and **save the step**: its action and its element, by kind and name (and which one, if several have that name).
 5. **Repeat** until Jev answers `done` or `impossible`. A goal gets at most 10 actions, or its [`max_actions`](reference/test-file.md#settings-optional).
+
+Later runs don't ask Jev at all: they repeat the saved steps, each waiting until its element is on screen, like a `tap:` does.
 
 `expect:` checks are one yes/no question each, passed when Jev finds the statement more likely true than false (yes-probability above 0.5, or the [`confidence`](reference/test-file.md#settings-optional) setting). `see:` and `not_see:` never ask Jev.
 
@@ -39,12 +43,9 @@ sequenceDiagram
 
 `tap: Save`, `see: Saved` and `scroll_to: Item 30` are matched in code, **exactly**: an element matches when its whole text, a part of its text (an iOS label or value, an Android text or description), its hint or its id is the target, ignoring case ([details](reference/steps.md#matching)). There's no "contains" anywhere, so a step never lands on *Unsaved changes* or *Save draft*, and `see: "Taps: 2"` never passes on *Taps: 20*.
 
-Jev is involved only when code can't decide:
+A step never guesses. If nothing says the target, it waits for it, and fails at its `timeout` with the texts that come close. To describe something instead of naming it (an icon, a field with no label), write a `do:` step.
 
-- **Several exact matches** (two *Delete* buttons): Jev chooses among those only, and the step output says so.
-- **A description**, not on-screen text (`tap: the gear icon`): Jev picks an element, then must confirm it with a yes/no question; the output says `(chosen by Jev)`.
-
-If a target isn't on screen but a longer text contains it, the step fails and lists those texts. They are never used, and Jev isn't asked: a near miss is a test-file mistake, not a description.
+Jev is involved in an exact step only when **several elements say the target exactly** (two *Delete* buttons): Jev chooses among those only, must confirm its choice, and the output says so.
 
 ## Jev
 
@@ -56,22 +57,34 @@ jevtest uses no other model. Each release of jevtest is built and tested against
 
 Jev's probabilities wobble slightly between identical calls, so a close decision can come out differently. Measured on this project: across 20 identical repeats, 4 of 97 action decisions changed at least once. Yes/no checks never changed.
 
-So jevtest records every decision in a **lockfile** next to the test file (`tests.yaml` → `tests.lock.json`), keyed by a hash of the exact model, screen and questions:
+So jevtest keeps a **lockfile** next to the test file (`tests.yaml` → `tests.lock.json`) with:
 
-- The **first** time a screen is seen, Jev is asked and the answer is recorded.
-- After that, the **same screen and question always get the same answer**, with no network call.
-- If the app changes, its screen text changes, so it's a **new** question and Jev is asked fresh. A recorded answer is never applied to a screen it wasn't recorded on.
+- **The steps each `do:` took** the first time, worked out by Jev. Every later run repeats exactly those steps, with no network call, and they don't depend on the screen looking exactly as it did: each one only needs its element on screen.
+- **Jev's answer to every other question** (an `expect:`, which of several exact matches a step means), keyed by a hash of the exact model, screen and question: the same screen and question always get the same answer. A recorded answer is never applied to a screen it wasn't recorded on.
 
-Commit the lockfile. [`--lock`](reference/cli.md#lock-modes) says how each run uses it, and [`--prune-lock`](reference/cli.md#-prune-lock) removes answers for screens that no longer exist.
+If the app changes (a button is renamed), a saved step's element never shows up: `--lock record` works that `do:` out again from where it got to, and `--lock frozen` fails and says so.
 
-## Waiting without sleeping
+Commit the lockfile. [`--lock`](reference/cli.md#lock-modes) says how each run uses it, and [`--prune-lock`](reference/cli.md#-prune-lock) removes what a run no longer used.
 
-jevtest has no fixed sleeps. It reacts to the device:
+## Waiting: wait until, or fail
 
-- **After an action** it waits until the screen has not changed for 150 ms (0.5 s after launching the app, because apps pause longer while starting), up to 3 seconds (the [`settle`](reference/test-file.md#settings-optional) setting).
-    - On Android, "changed" means the accessibility tree, plus the pixels while a window is opening or closing: a dialog sliding in reports its final position only when it lands, so only the pixels show it moving. A blinking cursor or a ripple inside a window that stays put isn't waited for.
-    - On iOS there are no change events, so the agent compares snapshots, as WebDriverAgent and Maestro do.
-- **When a check or element isn't there yet**, it waits for the screen to change, then looks again. Jev is asked again only when the screen actually changed.
+Every wait in jevtest is the same thing: **wait until a condition is true**, checking it every `interval` (0.25 s), for at most the step's `timeout` (10 s). If it isn't true by then, the step fails and says what it waited for:
+
+```text
+✗ tap: Save — Waited 10s until an element says 'Save' on screen; close but not exact: 'Save draft'
+```
+
+| Step | Waits until |
+|---|---|
+| `tap:`, `type: … into:`, `clear:`, `swipe: … target:` | an element says the target (and isn't under the keyboard) |
+| `see:` / `not_see:` | the text is on screen / gone |
+| `expect:` | Jev judges it true of the screen (asked once per new screen) |
+| a saved `do:` step | its element is on screen |
+| working a `do:` out with Jev | the screen stopped moving (it reads the same at two checks in a row) |
+| `scroll_to:`, after each scroll | the screen stopped moving |
+| `hide_keyboard`, `rotate:` | the keyboard is gone / the screen has turned (3 s) |
+
+An action doesn't wait afterwards: the next step waits for what it needs. The on-device agents never wait either; they answer each read at once.
 
 ## Nothing assumed
 

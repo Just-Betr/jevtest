@@ -186,9 +186,6 @@ def test_agent_commands(drv, env):
     drv.home()
     drv.hide_keyboard()
     drv.rotate("landscape")
-    drv.wait_idle(2)
-    drv.wait_idle(2, quiet=0.5)
-    drv.wait_change(1.5)
     sent = [(p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in env[1].calls]
     assert sent == [
         ("/tap", {"x": 1, "y": 2}),
@@ -197,10 +194,10 @@ def test_agent_commands(drv, env):
         ("/drag", {"x1": 1, "y1": 2, "x2": 3, "y2": 4}),
         ("/type", {"text": "hi"}),
         ("/tap", {"x": 5, "y": 6}),
-        ("/idle", {"timeout": 3.0}),
+        ("/tree", {}),  # focused, with the keyboard up
         ("/type", {"text": "hi"}),
         ("/tap", {"x": 8, "y": 5}),
-        ("/idle", {"timeout": 3}),
+        ("/tree", {}),
         ("/key", {"key": "delete", "count": 3}),
         ("/key", {"key": "enter"}),
         ("/back", {}),
@@ -210,9 +207,6 @@ def test_agent_commands(drv, env):
         ("/rotate", {}),
         ("/rotate", {"orientation": "landscape"}),
         ("/tree", {}),  # turned: the app is wider than tall
-        ("/idle", {"timeout": 2}),
-        ("/idle", {"timeout": 2, "quiet": 0.5}),
-        ("/change", {"timeout": 1.5}),
     ]
     assert all(b["bundle_id"] == "dev.demo" for _, b in env[1].calls)
 
@@ -225,13 +219,13 @@ def test_simctl_device_commands(drv, env):
     assert tails == ["location A set 1.5,-2.5", "openurl A app://x", "privacy A grant photos dev.demo"]
 
 
-def test_rotate_waits_until_the_app_has_turned(drv, env):
+def test_rotate_waits_until_the_app_has_turned(drv, env, slept):
     agent = env[1]
     portrait = {"width": 402, "height": 874, "elements": [], "keyboard": False}
     agent.replies["/tree"] = [portrait, {**portrait, "width": 874, "height": 402}]  # the first read: not yet
     drv.rotate("landscape")
     paths = [p for p, _ in agent.calls]
-    assert paths[-4:] == ["/rotate", "/tree", "/change", "/tree"]
+    assert paths[-3:] == ["/rotate", "/tree", "/tree"] and slept == [0.25]
 
 
 def test_rotate_fails_when_the_app_never_turns(drv, env, monkeypatch):
@@ -272,15 +266,27 @@ def test_a_lost_agent_does_not_stop_close(drv, env):
 
 def test_clear_empty_field_only_focuses(drv, env):
     drv.clear_text(Element("text_field", hint="Name", bounds=(0, 0, 100, 10)))
-    assert [p for p, _ in env[1].calls] == ["/tap", "/idle"]
+    assert [p for p, _ in env[1].calls] == ["/tap", "/tree"]  # focused, with the keyboard up: nothing to delete
 
 
 def test_agent_waits(drv, env):
     drv.launch()
     drv.resume()
-    drv.type_text("x", at=(1, 1))
     sent = {p: b.get("timeout") for p, b in env[1].calls}
-    assert sent["/wait_foreground"] == 10 and sent["/activate"] == 10 and sent["/idle"] == 3
+    assert sent["/wait_foreground"] == 10 and sent["/activate"] == 10
+
+
+def test_typing_waits_until_the_field_has_focus_and_the_keyboard_is_up(drv, env, slept):
+    agent = env[1]
+    plain = {"width": 402, "height": 874, "elements": [], "keyboard": False}
+    focused = {
+        **plain,
+        "keyboard": True,
+        "elements": [{"type": "text_field", "x": 0, "y": 0, "w": 9, "h": 9, "focused": True}],
+    }
+    agent.replies["/tree"] = [plain, focused]  # right after the tap: not yet
+    drv.type_text("x", at=(1, 1))
+    assert [p for p, _ in agent.calls][-4:] == ["/tap", "/tree", "/tree", "/type"] and slept == [0.25]
 
 
 def test_network_is_not_supported(drv):

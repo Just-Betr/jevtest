@@ -2,15 +2,33 @@
 
 ## Unreleased
 
+**Every wait is a wait until.** A step waits until what it needs is true, checking every `interval` (0.25 s) for at
+most its `timeout` (10 s), and otherwise fails saying what it waited for: `Waited 10s until an element says
+'Save' on screen`. There's no more waiting for the screen to "settle" after an action, no quiet windows, and the
+on-device agents never wait (their `/idle` and `/change` calls are gone).
+
+**`do:` goals are worked out once, then repeated.** The first run, Jev works out a `do:`'s steps, each on a
+screen that stopped moving, and the lockfile saves them: the action and its element by kind and name (and which
+one, when several have that name). Every later run repeats exactly those steps, each waiting until its element is
+on screen, without asking Jev: replays no longer depend on a screen looking exactly as it did (a keyboard caught
+mid-slide). With `--lock record`, steps that no longer fit the app are worked out again from where they stopped.
+
+This changes test files and lockfiles:
+
+- `settle` is gone: remove it (it's an error that says so). `interval` is new, and rarely needed.
+- `tap:`, `type: into:`, `clear:` and `swipe: target:` match exact text only. A target no element says is never
+  guessed by Jev any more: describe it in a `do:` step instead. (Jev still chooses between several exact matches.)
+- `timeout` also applies to `do:` and `scroll_to:`.
+- Lockfiles are version 2: record them again once with `--lock record`.
+
+Also:
+
 - `hide_keyboard` waits until the keyboard is gone (it slides away after the key or tap that closes it), and fails
   if it's still up after 3 seconds. Checking this showed that on iOS it often didn't close at all: it pressed
   Return, which a web field ignores. It now taps the Done on the bar above the keyboard, as a person would.
 - iOS `rotate:` waits until the app has turned, like Android, and fails if it doesn't (an app locked to one
   orientation).
 - The demo's native iOS screen closes its keyboard on Done, like a well-behaved UIKit field.
-- A step that asks Jev about a screen that never stops changing (a clock, a counter) fails with "The screen never
-  stopped changing": Jev is only asked about a screen that holds still, since no answer about a changing one
-  could be recorded or replayed.
 - When the keyboard closes over an element Jev picked and the screen then shows it twice, the error says so.
 
 ## 0.8.0

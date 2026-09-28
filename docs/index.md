@@ -53,7 +53,7 @@ Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.000
 
 -   :material-lock-check-outline: **Deterministic by design**
 
-    Every Jev decision is recorded in a lockfile. `--lock frozen` replays a run exactly, with no network and no API key. A changed screen is a new question, never a stale answer.
+    The first run saves the steps Jev worked out for each `do:`, and its answers to every check, in a lockfile. Later runs repeat them exactly, with no network and no API key.
 
 -   :material-alert-octagon-outline: **Nothing assumed**
 
@@ -63,9 +63,9 @@ Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.000
 
     Android emulators and phones, iOS simulators and iPhones. Native, Flutter, React Native, and **in-app WebViews**, all driven the same way. jevtest never turns off animations or changes the device.
 
--   :material-timer-sand-complete: **No sleeps**
+-   :material-timer-sand-complete: **Wait until, or fail**
 
-    It waits for the screen to stop changing, reacting to the device, not a timer. Content that loads late passes when it arrives.
+    Each step waits until what it needs is on screen, up to its timeout, and then fails saying what it waited for. No sleeps, no guessing when the app is "ready".
 
 -   :material-server-network: **Built for CI**
 
@@ -77,14 +77,12 @@ Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.000
 
 ```mermaid
 flowchart LR
-    A[Step: do / tap / expect] --> B[Read the screen<br/>accessibility tree]
-    B --> C[Screen as text<br/>elements + positions]
-    C --> D{Lockfile has<br/>this exact question?}
-    D -- yes --> F[Recorded answer]
-    D -- no --> E[Ask Jev<br/>choose from options] --> F
-    F --> G[Act on the device<br/>adb / XCUITest]
-    G --> H[Wait until the screen<br/>stops changing]
-    H --> B
+    A[Step: tap / see / do / expect] --> B[Wait until what it needs<br/>is on screen]
+    B --> C{do: with<br/>saved steps?}
+    C -- yes --> D[Repeat the saved steps]
+    C -- no --> E[Ask Jev<br/>choose from options] --> F[Act and save the step]
+    D --> G[Next step]
+    F --> G
 ```
 
 Jev is TypeSafe's decision model: it reads text and **chooses from the options jevtest gives it**. It never writes free text, so what gets typed always comes from your test file. [More on how it works](how-it-works.md).

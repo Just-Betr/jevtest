@@ -201,17 +201,10 @@ def test_size_is_cached_and_validated(drv, adb):
         drv.size()
 
 
-def test_empty_webview_waits_for_its_content(drv, agent):
+def test_empty_webview_waits_for_its_content(drv, agent, slept):
     agent.replies["/tree"] = [EMPTY_WEB, EMPTY_WEB, WEB]
     assert drv.tree() == WEB
-    assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/change", "/tree", "/change", "/tree"]
-
-
-def test_webview_wait_follows_the_settle_rule(drv, agent, monkeypatch):
-    monkeypatch.setattr(time, "monotonic", lambda: 100.0)
-    agent.replies["/tree"] = [EMPTY_WEB, WEB]
-    drv.tree()
-    assert agent.paths()[1] == "/change?ms=3000"
+    assert agent.paths() == ["/tree", "/tree", "/tree"] and slept == [0.25]  # read again every interval
 
 
 def test_really_blank_webview_is_accepted(drv, agent, monkeypatch):
@@ -225,13 +218,6 @@ def test_lost_agent(drv, agent):
     agent.replies["/tree"] = OSError("refused")
     with pytest.raises(DeviceError, match="Lost the Android agent during /tree"):
         drv.screen()
-
-
-def test_waits_are_forwarded_to_the_agent(drv, agent):
-    drv.wait_idle(1.5)
-    drv.wait_idle(1.5, quiet=0.5)
-    drv.wait_change(2)
-    assert agent.paths() == ["/idle?ms=1500", "/idle?ms=1500&quiet=500", "/change?ms=2000"]
 
 
 def test_screenshot(drv, adb, tmp_path):
@@ -262,12 +248,12 @@ FOCUSED = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime=
 )
 
 
-def test_type_into_field_waits_for_focus_and_keyboard(drv, adb, agent):
+def test_type_into_field_waits_for_focus_and_keyboard(drv, adb, agent, slept):
     assert FOCUSED != LOGIN
     agent.replies["/tree"] = [LOGIN, FOCUSED]  # right after the tap: not yet focused; then ready
     drv.type_text("hi", at=(540, 425))
     assert [c for c in adb.shell() if c.startswith("input")] == ["input tap 540 425", "input text hi"]
-    assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/change", "/tree"]
+    assert agent.paths() == ["/tree", "/tree"] and slept == [0.25]
 
 
 def test_a_focused_field_scrolled_to_nothing_by_the_keyboard_still_takes_keys(drv, adb, agent):
@@ -334,12 +320,12 @@ def test_hide_keyboard_only_presses_back_when_open(drv, adb, agent, ime, pressed
     assert ("input keyevent 4" in adb.shell()) is pressed
 
 
-def test_hide_keyboard_waits_until_the_keyboard_is_gone(drv, adb, agent):
+def test_hide_keyboard_waits_until_the_keyboard_is_gone(drv, adb, agent, slept):
     """Back only starts closing it: a screen read right after can still show the keyboard, or half of it."""
     up = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"')
     agent.replies["/tree"] = [up, up, up, LOGIN]
     drv.hide_keyboard()
-    assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/tree", "/change", "/tree", "/change", "/tree"]
+    assert agent.paths() == ["/tree"] * 4 and slept == [0.25, 0.25]
 
 
 def test_hide_keyboard_fails_when_the_keyboard_stays(drv, adb, agent, monkeypatch):
@@ -412,13 +398,12 @@ def test_rotation_restores_the_users_auto_rotate(drv, adb, agent):
     assert adb.shell()[-1] == "settings delete system user_rotation; settings put system accelerometer_rotation 1"
 
 
-def test_rotate_returns_once_the_screen_has_turned(drv, adb, agent):
+def test_rotate_returns_once_the_screen_has_turned(drv, adb, agent, slept):
     """The setting takes effect a moment later; a screen read before then would show the old layout."""
     turned = LOGIN.replace('rotation="0"', 'rotation="1"')
     agent.replies["/tree"] = [LOGIN, LOGIN, turned]
     drv.rotate("landscape")
-    assert agent.paths()[0] == "/rotate?to=1"  # through UiAutomation: the user_rotation setting isn't enough
-    assert [p.split("?")[0] for p in agent.paths()[1:]] == ["/tree", "/change", "/tree", "/change", "/tree"]
+    assert agent.paths() == ["/rotate?to=1", "/tree", "/tree", "/tree"] and slept == [0.25, 0.25]
 
 
 def test_rotate_fails_when_the_device_refuses(drv, agent):

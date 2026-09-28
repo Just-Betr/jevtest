@@ -16,7 +16,7 @@ import yaml
 from jevtest.adapters.shapes import is_list, is_mapping
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Platform
-from jevtest.domain.settings import DEFAULTS, STEP_SETTINGS, Settings
+from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
 from jevtest.domain.steps import Step, Suite, Test, Use
 from jevtest.domain.variables import VARIABLE, fill
 
@@ -218,6 +218,8 @@ def _settings(raw: object, problems: Problems) -> Settings:
     settings, changes = DEFAULTS, dict[str, float]()
     for name, value in raw.items():
         with problems.collect():
+            if isinstance(name, str) and name in REMOVED:
+                raise TestFileError(REMOVED[name])
             if not isinstance(name, str) or name not in allowed:
                 raise TestFileError(f"`settings` has an unknown key: {name} (it takes {', '.join(allowed)})")
             if name == "model":

@@ -91,13 +91,15 @@ class ConsoleListener:
         self._emit(f"{'  ' * (depth + 1)}▸ use: {name}")
 
     def step_done(self, result: StepResult, depth: int) -> None:
-        """An action finished: the action, what it did, Jev's moves."""
+        """An action finished: the action, what it did, and for a `do:` the steps it took."""
         pad = "  " * (depth + 1)
         mark = "✓" if result.status is Status.PASS else "✗"
         extra = f" — {result.detail}" if result.detail else ""
         self._emit(f"{pad}{mark} {result.step.label} ({result.seconds}s){extra}")
+        for step in result.ran:
+            self._emit(f"{pad}    → {step}")
         for d in result.decisions:
-            self._emit(f"{pad}    → {d.move.describe()}  (confidence {d.confidence:.2f})")
+            self._emit(f"{pad}    → {d.move.describe()}  (Jev, confidence {d.confidence:.2f})")
         self._calls(pad, result.model_calls)
 
     def check_done(self, result: CheckResult, depth: int) -> None:

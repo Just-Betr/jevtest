@@ -54,6 +54,8 @@ def _step(s: StepResult) -> dict[str, object]:
     out: dict[str, object] = {"step": s.step.label, "status": s.status.value, "seconds": s.seconds}
     if s.detail:
         out["detail"] = s.detail
+    if s.ran:
+        out["ran"] = list(s.ran)
     if s.decisions:
         out["decisions"] = [
             {"did": d.move.describe(), "confidence": d.confidence, "probabilities": dict(d.probabilities)}
