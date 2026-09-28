@@ -85,9 +85,9 @@ class FakeClock:
     def now(self):
         return self.t
 
-    def sleep(self, s):
-        self.slept.append(s)
-        self.t += s
+    def sleep(self, seconds):
+        self.slept.append(seconds)
+        self.t += seconds
 
 
 def el(kind="button", text="", **kw) -> Element:

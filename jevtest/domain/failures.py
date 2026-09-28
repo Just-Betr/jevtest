@@ -25,5 +25,12 @@ class ModelError(JevtestError):
     """The decision model (Jev) couldn't be asked, or answered something unusable."""
 
 
+class NotRecorded(ModelError):
+    """``--lock frozen``: the screen and question aren't in the lockfile.
+
+    The screen may still be changing, so a step that waits looks again until its timeout.
+    """
+
+
 class StepFailed(JevtestError):
     """A step or check didn't get the result the test expects: the test fails, the run goes on."""

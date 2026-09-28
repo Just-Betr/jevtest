@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Protocol, TypedDict
 
 from jevtest.adapters.shapes import is_json_object, objects_by_key
-from jevtest.domain.failures import ModelError
+from jevtest.domain.failures import ModelError, NotRecorded
 from jevtest.domain.model import Answer, ModelCall, Question, State
 
 from .client import Reply
@@ -159,7 +159,7 @@ class LockedModel:
             self._calls.append(ModelCall(state, questions, answers, recorded=True, served_by=entry.get("served_by")))
             return answers
         if self.mode is LockMode.FROZEN:
-            raise ModelError(
+            raise NotRecorded(
                 f"This screen and question are not in {store.path.name}, and --lock frozen only "
                 "replays recorded decisions. Run with --lock record to record it, then commit the "
                 "lockfile."

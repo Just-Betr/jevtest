@@ -386,6 +386,23 @@ class AndroidDevice(BaseDevice):
             )
         self.sh("settings put system accelerometer_rotation 0")
         self.sh(f"settings put system user_rotation {ROTATIONS[orientation]}")
+        self._wait_for_rotation(orientation)
+
+    def _wait_for_rotation(self, orientation: Orientation) -> None:
+        """Wait until the screen has turned.
+
+        The setting takes effect a moment later, and the screen can be still before it does: waiting for a still
+        screen alone could read the old layout, or one halfway through turning.
+
+        Raises:
+            DeviceError: The screen didn't turn within `FOLLOW_UP` seconds.
+        """
+        deadline = time.monotonic() + FOLLOW_UP
+        while int(ET.fromstring(self._agent("/tree")).get("rotation", "0")) != ROTATIONS[orientation]:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise DeviceError(f"The screen did not turn to {orientation} within {FOLLOW_UP:g} seconds")
+            self.wait_change(left)
 
     def _setting(self, namespace: str, key: str) -> str:
         """The shell command that puts an Android setting back to its current value."""

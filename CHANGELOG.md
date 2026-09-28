@@ -27,6 +27,11 @@ Also:
   It now asks the device whether a text field has focus, wherever it is.
 - A Jev request that hasn't answered in 15 seconds is asked again (was 30). Measured against TypeSafe with 74
   real requests: half answered within 0.2 s, but a quarter took 8 to 29 s, and in runs some took over 30 s.
+- Jev is only asked about a screen that has stopped changing: two reads a still moment apart must agree. A
+  screen caught mid-animation (a keyboard sliding up, a rotation) was recorded, and a later run never saw it
+  again, so `--lock frozen` failed. On Android, `rotate:` also waits until the screen has turned.
+- `--lock frozen`: a step that meets a screen not in the lockfile looks again when the screen changes, until its
+  `timeout`, instead of failing at once.
 - The demo's tests pass on a phone lying on its side: they scroll to what is below the screen in landscape and
   close the keyboard before tapping what it covers.
 - **Security:** the iOS agent listened on every network interface without authentication, so while a test ran,

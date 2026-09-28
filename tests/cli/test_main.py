@@ -14,7 +14,7 @@ from jevtest.cli import main as cli
 from jevtest.cli.run import slug
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Platform
-from tests.conftest import FakeDevice, act, screen_with, yes
+from tests.conftest import FakeClock, FakeDevice, act, screen_with, yes
 
 TWO_TESTS = """  - name: Sign in
     fresh: true
@@ -76,6 +76,7 @@ class Fakes:
         self.models: list[str] = []
         self.answers: list[object] = []  # scripted Jev answers (dicts) or errors
         self.make_device = self.default_device
+        self.clock = FakeClock()  # waiting for a screen takes no real time
 
     def default_device(self, platform, device, app, progress):
         self.devices.append(FakeDevice())
@@ -94,11 +95,17 @@ class Fakes:
 
     def run(self, *args, files=("t.yaml",), lock="record"):
         return cli.main(
-            ["run", *files, "--out", "res", "--lock", lock, *args], devices=self._device, client=self.client
+            ["run", *files, "--out", "res", "--lock", lock, *args],
+            devices=self._device,
+            client=self.client,
+            clock=self.clock,
         )
 
     def _device(self, platform, device, app, progress):
-        return self.make_device(platform, device, app, progress)  # looked up per call: tests swap it
+        made = self.make_device(platform, device, app, progress)  # looked up per call: tests swap it
+        if isinstance(made, FakeDevice):
+            made.clock = self.clock  # waiting for a change moves the fake clock on
+        return made
 
 
 @pytest.fixture

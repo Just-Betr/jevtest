@@ -29,7 +29,7 @@ from jevtest.domain.decisions import (
     TypeInto,
     WaitForScreen,
 )
-from jevtest.domain.failures import DeviceError, ModelError, StepFailed
+from jevtest.domain.failures import DeviceError, ModelError, NotRecorded, StepFailed
 from jevtest.domain.kinds import AppState, Direction, Gesture, Status
 from jevtest.domain.model import ModelCall
 from jevtest.domain.ports import Clock, Device, RunListener
@@ -242,26 +242,60 @@ class TestRunner:
             return f"(screenshot failed: {e})"
         return path.name
 
-    def _poll(self, attempt: Callable[[Screen], T | None], timeout: float, failure: Callable[[Screen], str]) -> T:
+    def _poll(
+        self,
+        attempt: Callable[[Screen], T | None],
+        timeout: float,
+        failure: Callable[[Screen], str],
+        *,
+        steady: bool = False,
+    ) -> T:
         """Call `attempt` until it returns something, or time runs out.
 
         `attempt` runs again only when the screen has changed, so an unchanged screen is never judged
         twice. Between reads it waits for the next change. When time runs out, `failure` says why, from the
-        last screen.
+        last screen. With `steady`, each screen is one that has stopped changing (see `_steady_screen`): for
+        attempts that ask Jev, whose answer is recorded for that exact screen.
+
+        A screen that isn't in the lockfile (``--lock frozen``) may be one still changing: the next one is
+        looked up too, and if the last one wasn't recorded either, that is the error.
         """
         deadline = self.clock.now() + timeout
         last: Screen | None = None
+        missed: list[NotRecorded] = []
         while True:
-            screen = self.device.screen()
+            screen = self._steady_screen(deadline) if steady else self.device.screen()
             if screen != last:
                 last = screen
-                result = attempt(screen)
+                try:
+                    result = attempt(screen)
+                except NotRecorded as e:
+                    missed[:], result = [e], None
+                else:
+                    missed.clear()
                 if result is not None:
                     return result
             left = deadline - self.clock.now()
             if left <= 0:
+                if missed:
+                    raise missed[0]
                 raise StepFailed(failure(screen))
             self.device.wait_change(left)
+
+    def _steady_screen(self, deadline: float) -> Screen:
+        """The screen once two reads a still moment apart agree (or at `deadline`, the last one read).
+
+        A still moment alone can come in the middle of an animation, like a keyboard sliding up, and a screen
+        read then is never seen again: its recorded answer would never be replayed.
+        """
+        screen = self.device.screen()
+        while (left := deadline - self.clock.now()) > 0:
+            self.device.wait_idle(left)
+            again = self.device.screen()
+            if again == screen:
+                break
+            screen = again
+        return screen
 
     def _near(self, text: str, elements: Sequence[Element]) -> str:
         """The close-but-not-exact texts on screen, for an error. Never matched: shown so the test can be fixed.
@@ -345,7 +379,7 @@ class TestRunner:
                 last.append(self.brain.check(wanted, screen))
                 return f"Jev {last[-1]:.2f}" if last[-1] > settings.confidence else None
 
-            return self._poll(judged, timeout, lambda _: f"Jev says false ({last[-1]:.2f})")
+            return self._poll(judged, timeout, lambda _: f"Jev says false ({last[-1]:.2f})", steady=True)
         present = isinstance(check, See)
 
         def seen(screen: Screen) -> str | None:
@@ -521,8 +555,9 @@ class TestRunner:
         """Look at the screen, let the model pick the next move, make it; repeat until the goal is done."""
         taken: list[str] = []
         while True:
-            screen = self.device.screen()
-            decision = self.brain.next_action(goal, screen, taken)
+            decision, screen = self._poll(  # every screen gets a decision; only one not recorded waits for the next
+                lambda s: (self.brain.next_action(goal, s, taken), s), settings.timeout, lambda _: "", steady=True
+            )
             decisions.append(decision)
             move = decision.move
             if isinstance(move, Finished):

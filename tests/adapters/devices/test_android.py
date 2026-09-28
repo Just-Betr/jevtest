@@ -337,7 +337,8 @@ def test_hide_keyboard_only_presses_back_when_open(drv, adb, agent, ime, pressed
 # --- device ----------------------------------------------------------------------------------------
 
 
-def test_device_commands(drv, adb):
+def test_device_commands(drv, adb, agent):
+    agent.replies["/tree"] = LOGIN.replace('rotation="0"', 'rotation="1"')  # the screen turns at once
     adb.rules["settings get system accelerometer_rotation"] = "1\n"
     adb.rules["settings get system user_rotation"] = "0\n"
     adb.rules["cmd uimode night"] = "Night mode: auto\n"
@@ -389,11 +390,27 @@ def test_unreadable_dark_mode_is_an_error_not_a_guess(drv, adb):
 
 def test_rotation_restores_the_users_auto_rotate(drv, adb, agent):
     adb.rules["settings get system accelerometer_rotation"] = "1\n"
+    agent.replies["/tree"] = [LOGIN.replace('rotation="0"', 'rotation="1"'), LOGIN]
     drv.rotate("landscape")
     drv.rotate("portrait")
     assert adb.shell().count("settings get system accelerometer_rotation") == 1  # remembered once
     drv.close()
     assert adb.shell()[-1] == "settings delete system user_rotation; settings put system accelerometer_rotation 1"
+
+
+def test_rotate_returns_once_the_screen_has_turned(drv, adb, agent):
+    """The setting takes effect a moment later; a screen read before then would show the old layout."""
+    turned = LOGIN.replace('rotation="0"', 'rotation="1"')
+    agent.replies["/tree"] = [LOGIN, LOGIN, turned]
+    drv.rotate("landscape")
+    assert [p.split("?")[0] for p in agent.paths()] == ["/tree", "/change", "/tree", "/change", "/tree"]
+
+
+def test_rotate_fails_when_the_screen_never_turns(drv, adb, agent, monkeypatch):
+    ticks = iter([0, 1, 4])
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
+    with pytest.raises(DeviceError, match="did not turn to landscape within 3 seconds"):
+        drv.rotate("landscape")
 
 
 def test_location_on_emulator_only(drv, adb):
@@ -464,7 +481,8 @@ def test_reinstall_needs_an_installed_app(adb):
         AndroidDevice("emulator-5554", PROGRESS).reinstall()
 
 
-def test_restore_puts_back_once(drv, adb):
+def test_restore_puts_back_once(drv, adb, agent):
+    agent.replies["/tree"] = LOGIN.replace('rotation="0"', 'rotation="1"')
     adb.rules["settings get system accelerometer_rotation"] = "1\n"
     adb.rules["settings get system user_rotation"] = "0\n"
     drv.rotate(Orientation.LANDSCAPE)

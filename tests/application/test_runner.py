@@ -8,7 +8,7 @@ from jevtest.adapters.testfile.steps import parse_step
 from jevtest.application.brain import Brain
 from jevtest.application.runner import TestRunner
 from jevtest.cli.console import ConsoleListener
-from jevtest.domain.failures import DeviceError, ModelError
+from jevtest.domain.failures import DeviceError, ModelError, NotRecorded
 from jevtest.domain.kinds import AppState, Status
 from jevtest.domain.results import TestResult
 from jevtest.domain.screen import Screen
@@ -380,11 +380,42 @@ def test_not_see_fails_when_text_stays(tmp_path, clock, out):
 
 
 def test_expect_passes_above_threshold(tmp_path, clock, out):
-    d = FakeDevice(screen_with("Loading"), login_screen())
+    loading = screen_with("Loading")
+    d = FakeDevice(loading, loading, login_screen())  # Jev is asked about a screen only once it holds still
     res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form"}, device=d, model=FakeModel(yes(0.3), yes(0.8)))
     check = res.steps[0].checks[0]
     assert (check.check, check.status, check.detail) == (Expect("Login form"), Status.PASS, "Jev 0.80")
     assert len(check.model_calls) == 2
+
+
+MISS = NotRecorded("This screen and question are not in t.lock.json, and --lock frozen only replays recorded decisions")
+
+
+def test_jev_is_never_asked_about_a_screen_still_changing(tmp_path, clock, out):
+    d = FakeDevice(screen_with("Loading"), login_screen())  # read once, then gone: caught mid-change
+    model = FakeModel(yes(0.9))
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form"}, device=d, model=model)
+    assert res.status is Status.PASS
+    assert len(model.asked) == 1 and "Loading" not in json.dumps(model.asked[0][0])
+
+
+def test_frozen_expect_looks_again_once_the_screen_changes(tmp_path, clock, out):
+    loading = screen_with("Loading")
+    d = FakeDevice(loading, loading, login_screen())
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form"}, device=d, model=FakeModel(MISS, yes(0.8)))
+    assert res.status is Status.PASS
+
+
+def test_frozen_expect_fails_with_the_lockfile_message_when_no_recorded_screen_comes(tmp_path, clock, out):
+    res, _, _ = run1(tmp_path, clock, out, {"expect": "Login form", "timeout": 1}, model=FakeModel(MISS))
+    assert failure_of(res).endswith(str(MISS))
+
+
+def test_frozen_do_waits_for_a_recorded_screen(tmp_path, clock, out):
+    loading = screen_with("Loading")
+    d = FakeDevice(loading, loading, login_screen())
+    res, _, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, device=d, model=FakeModel(MISS, act("done")))
+    assert res.status is Status.PASS and res.steps[0].detail == "0 action(s)"
 
 
 @pytest.mark.parametrize(("p", "passes"), [(0.5, False), (0.51, True)])
@@ -464,7 +495,12 @@ def test_do_types_and_taps_until_done(tmp_path, clock, out):
         act("done"),
     )
     res, d, _ = run1(
-        tmp_path, clock, out, {"do": 'Type "a" then "b" into email'}, device=FakeDevice(*screens), model=model
+        tmp_path,
+        clock,
+        out,
+        {"do": 'Type "a" then "b" into email'},
+        device=FakeDevice(*(s for screen in screens for s in (screen, screen))),  # each holds still
+        model=model,
     )
     assert res.status is Status.PASS and res.steps[0].detail == "3 action(s)"
     typed = [c for c in d.calls if c[0] == "type_text"]
@@ -480,7 +516,8 @@ def test_do_closes_the_keyboard_over_the_element_jev_picked(tmp_path, clock, out
     moved = dataclasses.replace(s.elements[2], bounds=(0, 600, 1000, 700))  # the layout moves once it closes
     closed = dataclasses.replace(s, elements=(*s.elements[:2], moved))
     model = FakeModel(act("tap", target="e3"), act("done"))
-    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=FakeDevice(covered, closed))
+    device = FakeDevice(covered, covered, closed)
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=device)
     assert res.status is Status.PASS, res
     names = d.names()
     assert names.index("hide_keyboard") < names.index("tap")  # a tap on the keyboard would have typed a key
@@ -498,7 +535,7 @@ def test_do_fails_when_the_keyboard_over_the_element_stays(tmp_path, clock, out)
 def test_do_fails_when_the_element_is_gone_once_the_keyboard_closes(tmp_path, clock, out):
     covered = login_screen(keyboard_visible=True, keyboard_top=300)
     model = FakeModel(act("tap", target="e3"))
-    device = FakeDevice(covered, screen_with("Elsewhere"))
+    device = FakeDevice(covered, covered, screen_with("Elsewhere"))
     res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=device)
     assert failure_of(res).endswith("button 'Sign in' was under the keyboard, and isn't on screen once it closed")
     assert "tap" not in d.names()

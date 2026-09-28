@@ -11,7 +11,7 @@ jevtest is built to run unattended: one exit code, JUnit XML for your CI's test 
 
 With `record`, a screen that was recorded always gets the same decision; only screens the app hasn't shown before go to Jev. Each new decision costs a fraction of a cent. Answers recorded in CI stay in that run's workspace unless you commit them back, so the next CI run asks again for screens that are still new. Re-record locally and commit the lockfile when the app's screens change.
 
-With `frozen`, any screen not in the lockfile fails the run with `This screen and question are not in tests.lock.json, and --lock frozen only replays recorded decisions`. That's exact but strict: a renamed button means re-recording locally and committing the lockfile.
+With `frozen`, a step that meets a screen not in the lockfile looks again each time the screen changes (it may still have been moving), and when its `timeout` runs out without a recorded screen, fails the run with `This screen and question are not in tests.lock.json, and --lock frozen only replays recorded decisions`. That's exact but strict: a renamed button means re-recording locally and committing the lockfile.
 
 ## GitHub Actions
 
