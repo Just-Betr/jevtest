@@ -43,6 +43,13 @@ def test_an_element_says_its_text_parts_hint_and_id_exactly():
     assert field.names() == ("Email: a@b.c", "Email", "a@b.c", "you@example.com", "email")
 
 
+def test_a_targets_spaces_and_line_breaks_count_as_the_screens_do():
+    """The screen's text is read with its spaces and line breaks collapsed to one space; a target is too."""
+    taps = Element("text", "Taps: 2")
+    assert taps.says("Taps:  2") and taps.says("Taps:\n2")
+    assert not taps.says("Taps:2")
+
+
 def test_near_lists_longer_texts_containing_the_target_only():
     s = Screen(10, 10, tuple(el("text", t) for t in ("Save draft", "SAVE", "Unsaved changes", "Cancel", "Save")))
     assert s.near("Save") == ("Save draft", "Unsaved changes")  # SAVE and Save match; they aren't near

@@ -27,6 +27,8 @@ emulator and the iOS simulator.
   it instead (`Jev's next would be …`).
 - Android typed `%` as `\%`, and `%s` as a space (adb's `input text` has no escape for it): `50%` became `50\%`.
   Every character now arrives as written (measured on the emulator and a Pixel 4a).
+- A target with two spaces, or a line break, between words never matched: the screen's text is read with them
+  collapsed, and now the test's text is too.
 - `--out` naming a file crashed with a traceback and exit code 1, as if a test had failed. It's now an error before
   anything runs.
 - Two runs started in the same second with the same `--out` shared a results folder, and the second's `junit.xml`

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -11,6 +12,14 @@ Bounds = tuple[int, int, int, int]
 
 Point = tuple[int, int]
 """A point on the screen, in the device's own units."""
+
+
+BETWEEN_WORDS = re.compile(r"(?<=\S)\s+(?=\S)")
+
+
+def one_space(text: str) -> str:
+    """`text` with the spaces and line breaks between its words made one space; its ends as they are."""
+    return BETWEEN_WORDS.sub(" ", text)
 
 
 @dataclass(frozen=True)
@@ -70,9 +79,10 @@ class Element:
 
         Case is ignored because platforms render the same text in different case (Android shows many buttons in
         capitals; the permission prompt says "Don't allow" on Android and "Don't Allow" on iOS). Nothing else is:
-        the whole text must be the target, never a part of a longer text.
+        the whole text must be the target, never a part of a longer text. Spaces and line breaks between the target's
+        words count as one space, as they do in the screen's text when it's read.
         """
-        wanted = target.casefold()
+        wanted = one_space(target).casefold()
         return any(name.casefold() == wanted for name in self.names())
 
     def names(self) -> tuple[str, ...]:

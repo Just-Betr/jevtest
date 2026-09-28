@@ -54,7 +54,7 @@ Text is matched **exactly**: the whole text, never part of a longer text. Case d
 | its hint (placeholder) | a field with the hint `Search` | `Search` |
 | its id (resource id or accessibility identifier) | `login_button` | `login_button` |
 
-So `tap: Save` never taps *Unsaved changes* or *Save draft*, and `see: "Taps: 2"` never passes on *Taps: 20*; `tap: Save nickname` does tap *SAVE NICKNAME*. Spaces inside a screen's text are collapsed to one, as the parsers read it.
+So `tap: Save` never taps *Unsaved changes* or *Save draft*, and `see: "Taps: 2"` never passes on *Taps: 20*; `tap: Save nickname` does tap *SAVE NICKNAME*. Spaces and line breaks between words count as one space, both in the screen's text and in yours: `see: "Taps:  2"` matches *Taps: 2*.
 
 When nothing matches but a longer text contains the target, the step fails and lists what's there, so you can fix the test file. A close text is never used:
 
