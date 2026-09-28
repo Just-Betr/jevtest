@@ -75,7 +75,7 @@ from jevtest.domain.steps import (
 )
 from jevtest.domain.variables import fill, hide
 
-from .brain import Brain, Located
+from .brain import Brain, Located, quoted_values
 
 END_OF_CONTENT = 2
 """Scrolls in a row that must move nothing before `scroll_to:` calls it the end. One isn't enough: a real
@@ -657,6 +657,9 @@ class TestRunner:
         """Let Jev pick moves toward the goal, each from a screen that has stopped moving; return them as steps."""
         taken = list(record.ran)
         steps: list[SavedStep] = []
+        # Jev types only the goal's quoted values: say so when it gives up on a goal that has none
+        cant_type = "" if quoted_values(goal) else '. The goal has no "quoted" values, so Jev can\'t type anything'
+
         while True:
             screen = self._still_screen(settings)
             decision = self.brain.next_action(goal, screen, taken)
@@ -666,15 +669,15 @@ class TestRunner:
             if isinstance(move, Finished):
                 return steps
             if isinstance(move, Impossible):
-                raise StepFailed("Jev says the goal is impossible from this screen")
+                raise StepFailed(f"Jev says the goal is impossible from this screen{cant_type}")
             # a move not made isn't listed with the ones that were
             if len(taken) == settings.max_actions:
                 raise StepFailed(
                     f"Goal not reached after {_count(len(taken), 'action')} (max_actions); "
-                    f"Jev's next would be {move.describe()}"
+                    f"Jev's next would be {move.describe()}{cant_type}"
                 )
             if taken[-2:] == [move.describe()] * 2:
-                raise StepFailed(f"Stuck repeating: {move.describe()}")
+                raise StepFailed(f"Stuck repeating: {move.describe()}{cant_type}")
             record.decisions.append(decision)
             if isinstance(move, WaitForScreen):  # still loading: wait_until it changes; nothing to save
                 self._wait_until(_changed_from(screen), settings, "the screen changed", lambda _: "")

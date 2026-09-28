@@ -153,6 +153,7 @@ def test_options_where_they_apply(raw):
         ({"expect": "x", "confidence": 0.3}, "`confidence` must be from 0.5 to 0.99, got 0.3"),
         ({"tap": "x", "timeout": 0}, "`timeout` must be from 1 to 300, got 0"),
         ({"tap": "x", "interval": 0.01}, "`interval` must be from 0.05 to 2, got 0.01"),
+        ({"tap": "x", "timeout": 1, "interval": 2}, r"`interval` \(2s\) is longer than `timeout` \(1s\)"),
         ({"back": None, "settle": 3}, "`settle` is gone"),
         ({"tap": "x", "direction": "up"}, "`direction` belongs to scroll_to, not to tap"),
         ({"see": "x", "direction": "up"}, "`direction` belongs to scroll_to, not to a checks-only step"),

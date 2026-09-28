@@ -64,7 +64,7 @@ Most test files need none: the defaults suit most apps. A `settings:` block chan
 | Setting | Default | Limits | What it does | A step can set it on |
 |---|---|---|---|---|
 | `timeout` | `10` | 1–300 s | How long a step waits until what it needs is true: its element on screen, its checks passing, a `do:` or `scroll_to:` screen that stopped moving. Then it fails. | steps that wait: with checks, an element, `do:`, `scroll_to:` |
-| `interval` | `0.25` | 0.05–2 s | How often a waiting step checks again. | the same steps as `timeout` |
+| `interval` | `0.25` | 0.05–2 s, and no longer than `timeout` | How often a waiting step checks again. | the same steps as `timeout` |
 | `max_actions` | `10` | 1–50 | Actions a `do:` goal may take before it fails. | `do:` |
 | `max_scrolls` | `50` | 1–500 | Scrolls a `scroll_to:` may make. It also stops at the end of the content. | `scroll_to:` |
 | `confidence` | `0.5` | 0.5–0.99 | An `expect:` passes when Jev's probability that the statement is true is above this. `0.5` means "more likely true than false". | steps with an `expect:` |

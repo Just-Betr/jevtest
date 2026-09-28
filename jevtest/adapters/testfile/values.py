@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import TypeVar
 
 from jevtest.domain.failures import TestFileError
-from jevtest.domain.settings import JEV_VERSION, LIMITS, WHOLE
+from jevtest.domain.settings import JEV_VERSION, LIMITS, WHOLE, Settings
 
 E = TypeVar("E", bound=StrEnum)
 
@@ -115,6 +115,20 @@ def setting(name: str, value: object) -> float:
     if not low <= result <= high:
         raise TestFileError(f"`{name}` must be from {low:g} to {high:g}, got {result:g}")
     return result
+
+
+def coherent(settings: Settings) -> Settings:
+    """The settings, if they make sense together.
+
+    Raises:
+        TestFileError: `interval` is longer than `timeout`: a wait would check once, yet say it waited.
+    """
+    if settings.interval > settings.timeout:
+        raise TestFileError(
+            f"`interval` ({settings.interval:g}s) is longer than `timeout` ({settings.timeout:g}s): a step would check "
+            "only once"
+        )
+    return settings
 
 
 def model(value: object) -> str:

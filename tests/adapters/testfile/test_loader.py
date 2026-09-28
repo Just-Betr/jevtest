@@ -417,3 +417,8 @@ def test_a_missing_library_names_the_file_that_includes_it(tmp_path):
         TestFileError, match=r"t\.yaml includes shared/auth\.yaml, which isn't there: .*/shared/auth\.yaml"
     ):
         load(write(tmp_path, minimal() + "include: shared/auth.yaml\n"), {})
+
+
+def test_file_settings_must_make_sense_together(tmp_path):
+    with pytest.raises(TestFileError, match="is longer than `timeout`"):
+        load(write(tmp_path, minimal(extra="settings: {timeout: 1, interval: 1.5}\n")), {})

@@ -43,7 +43,8 @@ emulator and the iOS simulator.
 - a `network:` step in a test that runs on iOS;
 - an unknown `key:` name (it failed after installing and launching the app). Android also takes `return`, like iOS;
 - `wait:` or `background:` over 300 seconds (`wait: 99999` waited 27 hours);
-- in `.env`, `KEY=value # comment`: is the comment part of the value? Put it on its own line, or quote the value.
+- in `.env`, `KEY=value # comment`: is the comment part of the value? Put it on its own line, or quote the value;
+- an `interval` longer than the `timeout`: the step checked once, then said it had waited the whole timeout.
 
 **Clearer messages**
 
@@ -59,10 +60,14 @@ emulator and the iOS simulator.
 - `open_url:` with a link no app handles says so, instead of printing the raw adb, simctl or agent error. On Android 13
   it passed: `am start` exits 0 there after printing its error (measured on a Pixel 4a), so `launch`, `resume` and
   `open_url` now read what it prints.
+- A `do:` that Jev gives up on, when its goal has nothing in quotes, says `The goal has no "quoted" values, so Jev
+  can't type anything` (`do: Type hello into Email` failed as `Stuck repeating: tap text_field 'Email'`).
 - `grant:` with a permission Android won't grant says why (`not a changeable permission type`), not the first line
   of a Java stack trace.
 - An `include:` that isn't there names the file that includes it.
 - `jevtest run notes.txt` says test files are .yaml or .yml; `jevtest` alone says a COMMAND is required.
+- A failure inside a `use:` names it: `FAILED Checkout: use: Sign in › see: Welcome — …`.
+- Jev's API errors show TypeSafe's own message (`Jev HTTP 400: Unknown model: jev-9.9.9`), not the JSON body.
 - A folder run no longer requires YAML in hidden folders (`.github/workflows/ci.yml`) to be a library; test files
   there still run.
 

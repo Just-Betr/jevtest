@@ -57,7 +57,7 @@ from jevtest.domain.steps import (
     Wait,
 )
 
-from .values import choice, kind, number, on_off, setting, text
+from .values import choice, coherent, kind, number, on_off, setting, text
 
 Options = Mapping[str, object]
 """A step's options (`direction:`, `into:`, `timeout:`, ...), as written."""
@@ -279,7 +279,7 @@ def _settings(action: Action | None, checks: tuple[Check, ...], options: Options
         if not scope.applies(action, checks):
             raise TestFileError(f"`{name}` only applies to {scope.where}")
         changes[name] = setting(name, options[name])
-    return base.changed(changes)
+    return coherent(base.changed(changes))
 
 
 def _unpack_type(value: object, options: dict[str, object]) -> object:

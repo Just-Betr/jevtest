@@ -160,7 +160,7 @@ class JevClient:
                     attempt += 1
                     continue
                 hint = f" (check the key; {KEY_HELP})" if e.code == UNAUTHORIZED else ""
-                raise ModelError(f"Jev HTTP {e.code}: {detail}{hint}") from None
+                raise ModelError(f"Jev HTTP {e.code}: {_message(detail)}{hint}") from None
             except (urllib.error.URLError, TimeoutError) as e:
                 if not last:
                     self._retry(f"unreachable ({e})", attempt)
@@ -192,3 +192,14 @@ def _retry_after(header: str | None) -> float | None:
     except ValueError:
         return None
     return seconds if 0 <= seconds <= MAX_RETRY_AFTER else None
+
+
+def _message(detail: str) -> str:
+    """TypeSafe's own words from an error body (``{"detail": {"message": ...}}``); else the body as it came."""
+    try:
+        body: object = json.loads(detail)
+    except json.JSONDecodeError:
+        return detail
+    inner = body.get("detail") if isinstance(body, dict) else None
+    message = inner.get("message") if isinstance(inner, dict) else inner
+    return message if isinstance(message, str) and message else detail

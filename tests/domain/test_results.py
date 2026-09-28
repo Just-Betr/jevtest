@@ -28,7 +28,7 @@ def test_the_failure_of_a_step_without_checks_is_its_action():
 def test_a_use_step_fails_with_its_inner_failure():
     inner = StepResult(BACK, Status.FAIL, 1.0, "x")
     outer = StepResult(parse_step({"use": "T"}), Status.FAIL, 1.0, steps=(StepResult(BACK, Status.PASS, 0.1), inner))
-    assert outer.failure == "back — x"
+    assert outer.failure == "use: T › back — x"
 
 
 def test_test_results():

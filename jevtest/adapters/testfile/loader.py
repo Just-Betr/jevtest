@@ -22,7 +22,7 @@ from jevtest.domain.steps import Step, Suite, Test, Use
 from jevtest.domain.variables import VARIABLE, fill
 
 from .steps import parse_step
-from .values import model, on_off, setting, text
+from .values import coherent, model, on_off, setting, text
 
 Document = Mapping[object, object]
 """A YAML file's top-level mapping. YAML keys can be numbers or dates too, so they're checked, not assumed."""
@@ -241,7 +241,7 @@ def _settings(raw: object, problems: Problems) -> Settings:
                 settings = Settings(model=model(value))
             else:
                 changes[name] = setting(name, value)
-    return settings.changed(changes)
+    return coherent(settings.changed(changes))
 
 
 # --- tests -------------------------------------------------------------------------------------------------------

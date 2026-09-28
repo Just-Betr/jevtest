@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import urllib.error
 import urllib.request
 from email.message import Message
@@ -149,6 +150,24 @@ def test_client_errors_are_not_retried():
     ):
         j.ask("s", Q)
     assert not slept
+
+
+@pytest.mark.parametrize(
+    ("body", "shown"),
+    [
+        (
+            b'{"detail":{"error_type":"api_usage_error","message":"Unknown model: jev-9.9.9"}}',
+            "Unknown model: jev-9.9.9",
+        ),
+        (b'{"detail":"Not authenticated"}', "Not authenticated"),
+        (b'{"detail":{"message":""}}', '{"detail":{"message":""}}'),
+        (b"[1]", "[1]"),
+    ],
+)
+def test_an_error_shows_typesafes_own_message(body, shown):
+    j, _ = client(http_error(400, body))
+    with pytest.raises(ModelError, match=rf"^Jev HTTP 400: {re.escape(shown)}$"):
+        j.ask("s", Q)
 
 
 def test_invalid_json():

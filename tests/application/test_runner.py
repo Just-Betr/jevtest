@@ -548,7 +548,7 @@ def test_failure_inside_use_is_reported(tmp_path, clock, out):
     inner = make_test("Inner", {"see": "Nope", "timeout": 1})
     runner, d, _ = make(tmp_path, clock, out, tests=[make_test("Outer", {"use": "Inner"}, "home")], library=[inner])
     res = runner.run().tests[0]
-    assert res.failure == "see: Nope — Waited 1s until 'Nope' is on screen"
+    assert res.failure == "use: Inner › see: Nope — Waited 1s until 'Nope' is on screen"
     assert "home" not in d.names()
 
 
@@ -705,6 +705,14 @@ def test_a_do_move_that_leaves_the_app_ends_the_step_at_once(tmp_path, clock, ou
     res, d, _ = run1(tmp_path, clock, out, {"do": "Buy a laptop"}, device=LeavesOnBack(), model=model)
     assert failure_of(res).endswith("The app left the foreground after back")
     assert "tap" not in d.names() and len(model.asked) == 1
+
+
+def test_a_failing_goal_with_nothing_quoted_says_jev_cant_type(tmp_path, clock, out):
+    model = FakeModel(*[act("tap", target="e1")] * 3)
+    res, _, _ = run1(tmp_path, clock, out, {"do": "Type hello into Email"}, model=model)
+    assert failure_of(res).endswith(
+        "Stuck repeating: tap text_field 'Email'. The goal has no \"quoted\" values, so Jev can't type anything"
+    )
 
 
 def test_do_detects_being_stuck(tmp_path, clock, out):
