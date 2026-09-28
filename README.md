@@ -34,25 +34,25 @@ tests:
 
 ```console
 $ jevtest run login.yaml --lock frozen --out results
-jevtest 0.9.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: frozen
+jevtest 0.9.1 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: frozen
 
 ▶ Sign in
-  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.6s) — 3 action(s)
-      → type "${DEMO_EMAIL}" into text_field 'Email'  (confidence 0.83)
-      → type "${DEMO_PASSWORD}" into password_field 'Password'  (confidence 0.76)
-      → tap button 'Sign in'  (confidence 0.93)
-      → done  (confidence 0.96)
-      ✓ expect: The home screen is showing — Jev 0.95
+  ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.6s) — 3 saved steps
+      → type "${DEMO_EMAIL}" into text_field 'Email'
+      → type "${DEMO_PASSWORD}" into password_field 'Password'
+      → tap button 'Sign in'
+      ✓ expect: The home screen is showing — Jev 0.96
       ✓ see: Welcome, ${DEMO_EMAIL}
-  PASS Sign in (7.1s)
+  PASS Sign in (5.1s)
 
-1/1 passed in 7s
-Jev: 5 decisions, 5 from lockfile, 0 asked live in 0.0s (0% of run time), $0.0000
+1/1 passed in 5s
+Jev: 1 decision, 1 from lockfile, 0 asked live in 0.0s (0% of run time), $0.0000
+Results: results/20260928-161344/android/emulator-5554
 ```
 
 ## Why jevtest
 
-- **Tests read like the spec.** One action, then what should be true. `do:` takes a plain-English goal; `tap:`, `type:`, `swipe:`, `scroll_to:` and 20 more give exact control.
+- **Tests read like the spec.** One action, then what should be true. `do:` takes a plain-English goal; `tap:`, `type:`, `swipe:`, `scroll_to:` and 22 more give exact control.
 - **Deterministic.** Every Jev decision is recorded in a lockfile. The same screen always gets the same answer; `--lock frozen` replays a run exactly, with no network and no API key.
 - **Nothing assumed.** No default device, no guessing what a typo meant, and settings with good defaults and strict limits. The whole test file is checked before a device is touched, and every problem is reported at once with what to fix.
 - **Real apps, real phones.** Android emulators and phones, iOS simulators and iPhones. Native, Flutter, React Native and **in-app WebViews**, driven the same way. Animations stay on, and anything a step changes on the device is put back.

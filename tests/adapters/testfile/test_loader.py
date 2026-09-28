@@ -151,7 +151,10 @@ def test_bad_settings_are_rejected(tmp_path, settings, message):
         ("app: [", "not valid YAML"),
         (minimal().replace("app: a.apk\n", ""), "Missing `app:`"),
         (minimal().replace("a.apk", "a.txt"), "Unknown app type"),
-        (minimal().replace("app: a.apk", "app: {android: b.aab, ios: a.apk}"), "app.ios points at a android build"),
+        (
+            minimal().replace("app: a.apk", "app: {android: b.aab, ios: a.apk}"),
+            "app.ios points at a.apk, which is an Android build",
+        ),
         (minimal().replace("app: a.apk", "app: {web: a.apk}"), "must be android and/or ios"),
         (minimal(extra="extra: 1\n"), "Unknown top-level keys: extra"),
         # device: required for every platform
@@ -206,6 +209,33 @@ def test_uses_are_checked_once_the_tests_are_valid(tmp_path):
 def test_unquoted_variable_in_braces_gets_a_hint(tmp_path):
     with pytest.raises(TestFileError, match=r"(?s)not valid YAML.*\nA value starting with \$\{ must be quoted"):
         load(write(tmp_path, "app: a.apk\ndevice: {android: ${PHONE}}\n"), {})
+
+
+def test_a_bare_action_with_checks_gets_a_hint(tmp_path):
+    body = "tests:\n  - name: T\n    fresh: true\n    steps:\n      - launch\n        see: Sign in\n"
+    with pytest.raises(TestFileError, match=r"(?s)not valid YAML.*\nOn line 5, .* needs a colon .*: `- launch:`$"):
+        load(write(tmp_path, body), {})
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "a: b: c\n",  # the same problem on the first line: nothing above it
+        "steps:\n  - tap: A\n    see: y: z\n",  # the line above is not a bare word
+        "app: [\n",  # another problem
+        "a: b, ${X}: c\n",  # a ${ outside { } or [ ]
+    ],
+)
+def test_other_yaml_errors_get_no_bare_word_hint(tmp_path, body):
+    with pytest.raises(TestFileError, match="not valid YAML") as e:
+        load(write(tmp_path, body), {})
+    assert "needs a colon" not in str(e.value) and "must be quoted" not in str(e.value)
+
+
+def test_a_bare_action_with_a_value_under_it_gets_only_the_bare_word_hint(tmp_path):
+    body = "tests:\n  - name: T\n    fresh: true\n    steps:\n      - back\n        see: Hi, ${NAME}\n"
+    with pytest.raises(TestFileError, match="`- back:`$"):
+        load(write(tmp_path, body), {})
 
 
 def test_missing_file(tmp_path):
@@ -306,12 +336,16 @@ def test_variables_come_from_env(tmp_path):
 
 def test_only_the_given_env_counts(tmp_path, monkeypatch):
     monkeypatch.setenv("APP", "a.apk")  # the process environment is not looked at by load()
-    with pytest.raises(TestFileError, match=r"Not set: \$\{APP\}"):
+    with pytest.raises(
+        TestFileError, match=r"t\.yaml uses \$\{APP\}, which is not set\. Add it to .*/\.env \(the \.env next"
+    ):
         load(write(tmp_path, minimal().replace("a.apk", "${APP}")), {})
 
 
 def test_missing_variables_are_named(tmp_path):
-    with pytest.raises(TestFileError, match=r"Not set: \$\{APP\}, \$\{PASSWORD\}, \$\{PHONE\}.*\.env"):
+    with pytest.raises(
+        TestFileError, match=r"uses \$\{APP\}, \$\{PASSWORD\}, \$\{PHONE\}, which are not set\. Add them to "
+    ):
         load(write(tmp_path, VARS), {"USER_NAME": "y"})
 
 
@@ -356,7 +390,7 @@ def test_included_tests_can_be_used_but_do_not_run(tmp_path):
         ({"a.yaml": "tests: [{name: T, fresh: true, steps: [back]}]\n"}, "unique .*: T"),
         ({"a.yaml": "tests: []\n"}, "No tests found under `tests:` in a.yaml"),
         ({"a.yaml": "include: 3\ntests: [{name: A, fresh: true, steps: [back]}]\n"}, "include in a.yaml needs text"),
-        ({}, "Test file not found: .*a.yaml"),
+        ({}, "includes a.yaml, which isn't there"),
     ],
 )
 def test_bad_includes(tmp_path, files, message):
@@ -376,3 +410,10 @@ def test_is_test_file(tmp_path):
     assert is_test_file(write(tmp_path, minimal()))
     assert not is_test_file(write(tmp_path, "tests: []\n", name="lib.yaml"))
     assert is_test_file(write(tmp_path, "app: [", name="broken.yaml"))  # run it so the error is shown
+
+
+def test_a_missing_library_names_the_file_that_includes_it(tmp_path):
+    with pytest.raises(
+        TestFileError, match=r"t\.yaml includes shared/auth\.yaml, which isn't there: .*/shared/auth\.yaml"
+    ):
+        load(write(tmp_path, minimal() + "include: shared/auth.yaml\n"), {})

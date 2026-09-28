@@ -141,7 +141,7 @@ def test_a_device_must_say_how_it_restores_waits_and_closes():
             raise NotImplementedError
 
         @override
-        def drag(self, x1, y1, x2, y2):
+        def drag(self, x1, y1, x2, y2, *, scroll=False):
             raise NotImplementedError
 
     # Python words this message differently between versions; the method names are what matter.

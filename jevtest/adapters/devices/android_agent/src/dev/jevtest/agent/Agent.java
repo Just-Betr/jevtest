@@ -30,9 +30,9 @@ import java.util.List;
  *   GET /rotate?to=R -> locks the screen to rotation R (0-3, as /tree reports it) through UiAutomation, which
  *                       works on every Android version (the user_rotation setting doesn't on some phones)
  *                       and puts the device's own rotation state back when the agent stops
- *   GET /pixels?x1=..&y1=..&x2=..&y2=.. -> a fingerprint of the pixels in that part of the screen: a system
- *                       dialog fading or sliding in reports its final bounds in the tree at once, so only
- *                       its pixels show it is still moving
+ *   GET /pixels?rects=x1,y1,x2,y2;x1,y1,x2,y2;... -> a fingerprint of the pixels in those parts of the
+ *                       screen, from one screenshot: a system dialog fading or sliding in reports bounds in
+ *                       the tree that don't move with it, so only its pixels show it is still moving
  *   GET /quit        -> stops the agent
  * When it is listening it reports status "ready=1" (visible with `am instrument -r`).
  * Reading the tree this way takes milliseconds instead of the ~2 s that a fresh
@@ -76,8 +76,7 @@ public class Agent extends Instrumentation {
                     if (path.equals("/tree")) {
                         body = tree(ui);
                     } else if (path.equals("/pixels")) {
-                        body = pixels(ui, (int) param(target, "x1", 0), (int) param(target, "y1", 0),
-                                (int) param(target, "x2", 0), (int) param(target, "y2", 0));
+                        body = pixels(ui, text(target, "rects"));
                     } else if (path.equals("/rotate")) {
                         body = ui.setRotation((int) param(target, "to", -1)) ? "rotated" : "refused";
                     } else if (path.equals("/quit")) {
@@ -100,6 +99,15 @@ public class Agent extends Instrumentation {
         finish(0, new Bundle());
     }
 
+    private static String text(String target, String name) {
+        for (String pair : target.substring(target.indexOf('?') + 1).split("&")) {
+            if (pair.startsWith(name + "=")) {
+                return pair.substring(name.length() + 1);
+            }
+        }
+        return "";
+    }
+
     private static long param(String target, String name, long fallback) {
         for (String pair : target.substring(target.indexOf('?') + 1).split("&")) {
             if (pair.startsWith(name + "=")) {
@@ -109,23 +117,33 @@ public class Agent extends Instrumentation {
         return fallback;
     }
 
-    /** A fingerprint of the screen's pixels inside the bounds (clipped to the screenshot); "" without one. */
-    private static String pixels(UiAutomation ui, int x1, int y1, int x2, int y2) {
+    /**
+     * A fingerprint of the screen's pixels inside each "x1,y1,x2,y2" rectangle (";"-separated, clipped to the
+     * screenshot), all from one screenshot; "" without one.
+     */
+    private static String pixels(UiAutomation ui, String rects) {
         Bitmap shot = ui.takeScreenshot();
         if (shot == null) {
             return "";
         }
         try {
-            int left = Math.max(0, Math.min(x1, shot.getWidth()));
-            int top = Math.max(0, Math.min(y1, shot.getHeight()));
-            int width = Math.max(0, Math.min(x2, shot.getWidth()) - left);
-            int height = Math.max(0, Math.min(y2, shot.getHeight()) - top);
-            if (width == 0 || height == 0) {
-                return "";
+            int hash = 1;
+            for (String rect : rects.split(";")) {
+                String[] v = rect.split(",");
+                if (v.length != 4) {
+                    continue;
+                }
+                int left = Math.max(0, Math.min(Integer.parseInt(v[0]), shot.getWidth()));
+                int top = Math.max(0, Math.min(Integer.parseInt(v[1]), shot.getHeight()));
+                int width = Math.max(0, Math.min(Integer.parseInt(v[2]), shot.getWidth()) - left);
+                int height = Math.max(0, Math.min(Integer.parseInt(v[3]), shot.getHeight()) - top);
+                int[] px = new int[width * height];
+                if (px.length > 0) {
+                    shot.getPixels(px, 0, width, left, top, width, height);
+                }
+                hash = 31 * hash + Arrays.hashCode(px);
             }
-            int[] px = new int[width * height];
-            shot.getPixels(px, 0, width, left, top, width, height);
-            return Integer.toHexString(Arrays.hashCode(px));
+            return Integer.toHexString(hash);
         } finally {
             shot.recycle();
         }

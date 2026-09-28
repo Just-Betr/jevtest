@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+from jevtest.adapters.devices._typing import override
 from jevtest.adapters.testfile.steps import parse_step
 from jevtest.application.brain import Brain
 from jevtest.application.runner import TestRunner
@@ -201,6 +202,20 @@ def test_screenshot_step(tmp_path, clock, out):
     assert (tmp_path / "001_home_page.png").exists()
 
 
+def test_screenshot_waits_until_the_screen_stopped_moving(tmp_path, clock, out):
+    splash, app = Screen(1000, 2000, ()), login_screen()
+    d = FakeDevice(splash, app, app)  # a fresh launch: the splash, then the app drawn
+    res, d, _ = run1(tmp_path, clock, out, {"screenshot": "home"}, device=d)
+    assert res.status is Status.PASS
+    reads = [n for n in d.names()[4:] if n not in ("looks", "app_state")]
+    assert reads == ["screen", "screen", "screen", "screenshot"]
+
+
+def test_screenshot_names_keep_letters_of_any_script(tmp_path, clock, out):
+    res, _, _ = run1(tmp_path, clock, out, {"screenshot": "Anmeldung ü / ログイン"})
+    assert res.steps[0].detail == "saved 001_Anmeldung_ü_ログイン.png"
+
+
 def test_screenshot_name_falls_back(tmp_path, clock, out):
     res, _, _ = run1(tmp_path, clock, out, {"screenshot": "!!!"})
     assert res.steps[0].detail == "saved 001_screen.png"
@@ -292,8 +307,25 @@ def test_type_into_missing_field(tmp_path, clock, out):
 
 
 def test_type_into_focused_field(tmp_path, clock, out):
-    _, d, _ = run1(tmp_path, clock, out, {"type": "hi"})
-    assert ("type_text", "hi", None) in d.calls
+    typing = dataclasses.replace(login_screen(), keyboard_visible=True)
+    _, d, _ = run1(tmp_path, clock, out, {"type": "hi"}, device=FakeDevice(login_screen(), typing))
+    assert ("type_text", "hi", None) in d.calls  # once the keyboard came up
+
+
+@pytest.mark.parametrize("step", [{"clear": "Sign in"}, {"type": {"text": "hi", "into": "Sign in"}}])
+def test_typing_into_a_button_says_it_is_a_button(tmp_path, clock, out, step):
+    res, _, _ = run1(tmp_path, clock, out, {**step, "timeout": 1})
+    assert failure_of(res).endswith(
+        "says 'Sign in' on screen and stopped moving; what says 'Sign in' doesn't take text (button)"
+    )
+
+
+def test_type_with_no_field_taking_keys_fails_instead_of_typing_into_nothing(tmp_path, clock, out):
+    res, d, _ = run1(tmp_path, clock, out, {"type": "hi", "timeout": 1})
+    assert failure_of(res).endswith(
+        "Waited 1s until the keyboard is up (a field takes typed text); tap the field first, or name it with `into:`"
+    )
+    assert not [c for c in d.calls if c[0] == "type_text"]
 
 
 def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
@@ -417,6 +449,24 @@ def test_expect_never_asks_about_a_screen_caught_moving(tmp_path, clock, out):
     res, _, _ = run1(tmp_path, clock, out, {"expect": "Home", "timeout": 2}, device=FakeDevice(*frames), model=model)
     assert failure_of(res).endswith("Waited 2s until Jev judged it true of a screen that stopped moving")
     assert not model.asked
+
+
+def test_expect_waits_while_the_text_is_still_being_drawn_elsewhere(tmp_path, clock, out):
+    """Android reports a sliding dialog at its first place for about half a second: only its pixels show it moving."""
+    d = FakeDevice(login_screen())
+    d.drawn = ["low", "low2", "centered", "centered"]
+    res, d, model = run1(tmp_path, clock, out, {"expect": "Login form"}, device=d, model=FakeModel(yes(0.9)))
+    assert res.status is Status.PASS and len(model.asked) == 1 and clock.slept == [0.25] * 3
+    assert {c[1] for c in d.calls if c[0] == "looks"} == {("Sign in",)}  # the fields show only hints
+
+
+def test_a_screen_is_still_whatever_its_untexted_or_editable_parts_do(tmp_path, clock, out):
+    """A spinner or a blinking cursor never stops moving: only text that isn't being typed is looked at."""
+    screen = Screen(1000, 2000, (el("text", "Loading"), el("progress"), el("text_field", "Guest", editable=True)))
+    d = FakeDevice(screen)
+    res, d, _ = run1(tmp_path, clock, out, {"expect": "Loading", "timeout": 1}, device=d, model=FakeModel(yes(0.9)))
+    assert res.status is Status.PASS
+    assert {c[1] for c in d.calls if c[0] == "looks"} == {("Loading",)}
 
 
 def test_frozen_expect_looks_again_once_the_screen_changes(tmp_path, clock, out):
@@ -638,8 +688,23 @@ def test_do_impossible(tmp_path, clock, out):
 def test_do_gives_up_after_10_actions(tmp_path, clock, out):
     model = FakeModel(*[act("tap", target="e3") if i % 2 else act("back") for i in range(11)])
     res, _, _ = run1(tmp_path, clock, out, {"do": "Loop"}, model=model)
-    assert failure_of(res).endswith("Goal not reached after 10 actions (max_actions)")
-    assert len(res.steps[0].decisions) == 11
+    assert "Goal not reached after 10 actions (max_actions); Jev's next would be " in failure_of(res)
+    assert len(res.steps[0].decisions) == 10  # the 11th, not made, isn't listed
+
+
+def test_a_do_move_that_leaves_the_app_ends_the_step_at_once(tmp_path, clock, out):
+    """Back on the app's first screen goes to the phone's home screen: the next move would tap an app there."""
+
+    class LeavesOnBack(FakeDevice):
+        @override
+        def back(self):
+            super().back()
+            self.state = AppState.BACKGROUND
+
+    model = FakeModel(act("back"), act("tap", target="e3"))
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Buy a laptop"}, device=LeavesOnBack(), model=model)
+    assert failure_of(res).endswith("The app left the foreground after back")
+    assert "tap" not in d.names() and len(model.asked) == 1
 
 
 def test_do_detects_being_stuck(tmp_path, clock, out):
@@ -856,6 +921,7 @@ def test_variables_are_filled_only_where_the_app_sees_them(tmp_path, clock, out)
             el("text_field", "Email", editable=True, bounds=(0, 100, 1000, 180)),
             el("text", "Ann", bounds=(0, 200, 1000, 280)),
         ),
+        keyboard_visible=True,
     )
     variables = {"PASS": "hunter2", "FIELD": "Email", "NAME": "Ann", "SECRET_ERR": "Denied", "HOST": "h"}
     res, d, model = run1(
@@ -949,7 +1015,7 @@ def test_expect_can_ask_for_more_confidence(tmp_path, clock, out, p, passes):
 def test_do_can_allow_fewer_actions(tmp_path, clock, out):
     model = FakeModel(*[act("tap", target="e3") if i % 2 else act("back") for i in range(3)])
     res, _, _ = run1(tmp_path, clock, out, {"do": "Loop", "max_actions": 2}, model=model)
-    assert failure_of(res).endswith("Goal not reached after 2 actions (max_actions)")
+    assert "Goal not reached after 2 actions (max_actions); Jev's next would be " in failure_of(res)
 
 
 def test_scroll_to_can_allow_fewer_scrolls(tmp_path, clock, out):
@@ -962,7 +1028,7 @@ def test_a_limit_of_one_reads_as_one(tmp_path, clock, out):
     res, _, _ = run1(
         tmp_path, clock, out, {"do": "Loop", "max_actions": 1}, model=FakeModel(act("back"), act("tap", target="e3"))
     )
-    assert failure_of(res).endswith("Goal not reached after 1 action (max_actions)")
+    assert "Goal not reached after 1 action (max_actions); Jev's next would be " in failure_of(res)
     d = FakeDevice(*held(screen_with("Item 0"), *[screen_with(f"Item {i}") for i in range(1, 5)]))
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 4", "direction": "down", "max_scrolls": 1}, device=d)
     assert failure_of(res).endswith("Scrolled down 1 time (max_scrolls) but never found 'Item 4'")

@@ -7,6 +7,7 @@ anything missing, misspelled or of the wrong type is an error.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Generator, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -83,6 +84,19 @@ def platform_of(path: Path) -> Platform:
     raise TestFileError(f"Unknown app type '{path.name}' (use .apk/.aab for Android, .app/.zip/.ipa for iOS)")
 
 
+def _bare_word_hint(path: Path, error: yaml.YAMLError) -> str:
+    """A hint for `- launch` with checks under it: YAML needs `- launch:` there."""
+    if not isinstance(error, yaml.MarkedYAMLError) or error.problem != "mapping values are not allowed here":
+        return ""
+    line: int = error.problem_mark.line if error.problem_mark else 0
+    if line < 1:
+        return ""
+    word = re.fullmatch(r"-\s+([a-z_]+)", path.read_text().splitlines()[line - 1].strip())
+    if word is None:
+        return ""
+    return f"\nOn line {line}, a step with checks under it needs a colon after its action: `- {word[1]}:`"
+
+
 def read_yaml(path: Path) -> Document:
     """A YAML file that must be a mapping.
 
@@ -94,8 +108,8 @@ def read_yaml(path: Path) -> Document:
     except FileNotFoundError:
         raise TestFileError(f"Test file not found: {path}") from None
     except yaml.YAMLError as e:
-        hint = ""
-        if "${" in str(e):
+        hint = _bare_word_hint(path, e)
+        if not hint and re.search(r"[{\[][^\n]*\$\{", str(e)):
             hint = (
                 '\nA value starting with ${ must be quoted inside { } or [ ]: {android: "${PHONE}"}, '
                 "not {android: ${PHONE}}"
@@ -130,7 +144,7 @@ def load(path: str | Path, env: Mapping[str, str]) -> Suite:
     if unknown:
         raise TestFileError(f"Unknown top-level keys: {_names(unknown)} (a test file has {', '.join(TOP_LEVEL)})")
     libraries = _included(data, path, (path,))
-    variables = _variables([data, *libraries.values()], env)
+    variables = _variables(path, [data, *libraries.values()], env)
     problems = Problems()
     apps: dict[Platform, Path] = {}
     devices: dict[Platform, tuple[str, ...]] = {}
@@ -165,7 +179,8 @@ def _apps(raw: object, base: Path) -> dict[Platform, Path]:
         path = (base / text(value, "app")).resolve()
         detected = platform_of(path)
         if named is not None and named != detected:
-            raise TestFileError(f"app.{named} points at a {detected} build: {path.name}")
+            build = "an Android" if detected is Platform.ANDROID else "an iOS"
+            raise TestFileError(f"app.{named} points at {path.name}, which is {build} build")
         apps[detected] = path
     return apps
 
@@ -314,6 +329,8 @@ def _included(data: Document, path: Path, chain: tuple[Path, ...]) -> dict[Path,
         lib = (path.parent / text(entry, f"include in {path.name}")).resolve()
         if lib in chain:
             raise TestFileError("Files include each other in a loop: " + " -> ".join(p.name for p in (*chain, lib)))
+        if not lib.is_file():
+            raise TestFileError(f"{path.name} includes {entry}, which isn't there: {lib}")
         doc = read_yaml(lib)
         unknown = doc.keys() - LIBRARY_TOP_LEVEL
         if unknown:
@@ -338,13 +355,15 @@ def _strings(value: object) -> Iterator[str]:
             yield from _strings(v)
 
 
-def _variables(documents: Sequence[Document], env: Mapping[str, str]) -> dict[str, str]:
+def _variables(path: Path, documents: Sequence[Document], env: Mapping[str, str]) -> dict[str, str]:
     names = sorted({name for doc in documents for s in _strings(doc) for name in VARIABLE.findall(s)})
     missing = [n for n in names if n not in env]
     if missing:
+        one = len(missing) == 1
         raise TestFileError(
-            f"Not set: {', '.join('${' + n + '}' for n in missing)}. "
-            "Add them to .env next to the test file, or to the environment (e.g. CI secrets)"
+            f"{path.name} uses {', '.join('${' + n + '}' for n in missing)}, which {'is' if one else 'are'} not set. "
+            f"Add {'it' if one else 'them'} to {path.parent / '.env'} (the .env next to this test file), "
+            "or to the environment (e.g. CI secrets)"
         )
     return {n: env[n] for n in names}
 

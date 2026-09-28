@@ -264,19 +264,26 @@ class TestRunner:
             self.clock.sleep(settings.interval)
 
     def _still_screen(self, settings: Settings) -> Screen:
-        """`wait_until` the screen reads the same at two checks in a row: it has stopped moving.
+        """`wait_until` the screen stopped moving (`_drawn` the same at two checks in a row).
 
-        For `do:` before Jev looks at it, and `scroll_to:` after each scroll.
+        For `do:` before Jev looks at it, `scroll_to:` after each scroll, and `screenshot:`. How the text is drawn
+        shows what the tree can't: a system dialog still sliding in. Only text counts: a spinner or a field's
+        blinking cursor never stops moving, but the screen they're on has.
         """
-        previous: list[Screen] = []
+        previous: list[tuple[Screen, str]] = []
 
         def still(screen: Screen) -> Screen | None:
-            if previous and previous[0] == screen:
+            now = self._drawn(screen)
+            if previous and previous[0] == now:
                 return screen
-            previous[:] = [screen]
+            previous[:] = [now]
             return None
 
         return self._wait_until(still, settings, "the screen stopped moving", lambda _: "")
+
+    def _drawn(self, screen: Screen) -> tuple[Screen, str]:
+        """The screen and how its text is drawn: equal at two checks in a row, the screen has stopped moving."""
+        return screen, self.device.looks([e for e in screen.elements if e.text and not e.editable])
 
     # --- helpers -----------------------------------------------------------------------------------------------
     def _since(self, started: float) -> float:
@@ -291,7 +298,7 @@ class TestRunner:
 
     def _screenshot(self, name: str) -> str:
         self._shots += 1
-        safe = re.sub(r"[^A-Za-z0-9_-]+", "_", name)[:60].strip("_") or "screen"
+        safe = re.sub(r"[^\w-]+", "_", name)[:60].strip("_") or "screen"
         path = self.screenshots / f"{self._shots:03d}_{safe}.png"
         try:
             self.device.screenshot(path)
@@ -358,6 +365,9 @@ class TestRunner:
         def why(screen: Screen) -> str:
             if covered:
                 return f"; {covered[0].describe()} is under the keyboard: close it first with a `hide_keyboard` step"
+            kinds = dict.fromkeys(e.kind for e in screen.elements if editable and not e.editable and e.says(wanted))
+            if kinds:
+                return f"; what says '{target}' doesn't take text ({', '.join(kinds)})"
             return self._near(wanted, pool(screen))
 
         what = "a text field" if editable else "an element"
@@ -369,7 +379,7 @@ class TestRunner:
         It has stopped moving when two checks in a row find it so. How it looks matters where its bounds can't show
         it moving (a system dialog fading in on Android reports its final bounds at once).
         """
-        now = (element.kind, element.text, element.bounds, self.device.looks(element))
+        now = (element.kind, element.text, element.bounds, self.device.looks((element,)))
         still = bool(last) and last[0] == now
         last[:] = [now]
         return still
@@ -378,24 +388,29 @@ class TestRunner:
         """Fail if the app crashed or left the foreground during the action."""
         if not self._app_should_run or action.app_may_leave:
             return
+        self._in_app("")
+
+    def _in_app(self, after: str) -> None:
+        """Fail unless the app is in the foreground (`after` says what just happened, for the message)."""
         state = self.device.app_state()
         if state is AppState.NOT_RUNNING:
-            raise StepFailed("The app is no longer running (crashed or closed)")
+            raise StepFailed(f"The app is no longer running (crashed or closed){after}")
         if state is AppState.BACKGROUND:
-            raise StepFailed("The app left the foreground")
+            raise StepFailed(f"The app left the foreground{after}")
 
     def _check(self, check: Check, settings: Settings) -> str | None:
         """`wait_until` the check holds: `see:` / `not_see:` compare text, `expect:` asks Jev about each screen."""
         wanted = self._value(check.text)
         if isinstance(check, Expect):
             answers: dict[Screen, float] = {}  # one question per screen, however often it's checked
-            previous: list[Screen] = []
+            previous: list[tuple[Screen, str]] = []
 
             def judged(screen: Screen) -> str | None:
                 # only a screen that stopped moving (the same at two checks in a row) is judged: its answer is
                 # recorded for that exact screen, and a replay sees it again; a frame mid-animation it never would
-                still = bool(previous) and previous[0] == screen
-                previous[:] = [screen]
+                now = self._drawn(screen)
+                still = bool(previous) and previous[0] == now
+                previous[:] = [now]
                 if not still:
                     return None
                 if screen not in answers:
@@ -433,6 +448,7 @@ class TestRunner:
             case Do(goal):
                 return self._do(goal, step.settings, record)
             case Screenshot(name):
+                self._still_screen(step.settings)  # not a frame of the app still drawing or sliding in
                 return f"saved {self._screenshot(name)}"
             case Back() | Home() | HideKeyboard() | Key() | Scroll() | OpenUrl():
                 self._navigate(action)
@@ -487,7 +503,13 @@ class TestRunner:
                 found, _ = self._find(target, settings, editable=True)
                 d.clear_text(found.element)
             case TypeText(text, into):
-                if into is None:
+                if into is None:  # into the field that has focus: keys go nowhere unless the keyboard is up
+                    self._wait_until(
+                        lambda screen: screen if screen.keyboard_visible else None,
+                        settings,
+                        "the keyboard is up (a field takes typed text)",
+                        lambda _: "; tap the field first, or name it with `into:`",
+                    )
                     d.type_text(self._value(text))
                     return None
                 found, screen = self._find(into, settings, editable=True, typing=True)
@@ -638,16 +660,22 @@ class TestRunner:
         while True:
             screen = self._still_screen(settings)
             decision = self.brain.next_action(goal, screen, taken)
-            record.decisions.append(decision)
             move = decision.move
+            if isinstance(move, Finished | Impossible):
+                record.decisions.append(decision)
             if isinstance(move, Finished):
                 return steps
             if isinstance(move, Impossible):
                 raise StepFailed("Jev says the goal is impossible from this screen")
+            # a move not made isn't listed with the ones that were
             if len(taken) == settings.max_actions:
-                raise StepFailed(f"Goal not reached after {_count(len(taken), 'action')} (max_actions)")
+                raise StepFailed(
+                    f"Goal not reached after {_count(len(taken), 'action')} (max_actions); "
+                    f"Jev's next would be {move.describe()}"
+                )
             if taken[-2:] == [move.describe()] * 2:
                 raise StepFailed(f"Stuck repeating: {move.describe()}")
+            record.decisions.append(decision)
             if isinstance(move, WaitForScreen):  # still loading: wait_until it changes; nothing to save
                 self._wait_until(_changed_from(screen), settings, "the screen changed", lambda _: "")
             else:
@@ -701,6 +729,9 @@ class TestRunner:
                 d.clear_text(element)
             case _:
                 self._make_on_page(move, screen)
+        # a do: goal is reached in the app: a move that leaves it (back on the first screen) ends the step
+        # before the next move lands on whatever is showing instead, such as the phone's home screen
+        self._in_app(f" after {move.describe()}")
 
     def _make_on_page(self, move: PageMove, screen: Screen) -> None:
         d = self.device

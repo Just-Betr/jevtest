@@ -175,8 +175,8 @@ class FakeDevice(BaseDevice):
     def resume(self):
         self._rec("resume")
 
-    def looks(self, element):
-        self._rec("looks", element.text)
+    def looks(self, elements):
+        self._rec("looks", tuple(e.text for e in elements))
         return self.drawn.pop(0) if len(self.drawn) > 1 else self.drawn[0]
 
     @override
@@ -198,8 +198,8 @@ class FakeDevice(BaseDevice):
         self._rec("long_press", x, y)
 
     @override
-    def drag(self, x1, y1, x2, y2):
-        self._rec("drag", x1, y1, x2, y2)
+    def drag(self, x1, y1, x2, y2, *, scroll=False):
+        self._rec("drag", x1, y1, x2, y2)  # whether it scrolls is the device's concern (see its tests)
 
     def type_text(self, text, at=None):
         self._rec("type_text", text, at)

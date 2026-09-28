@@ -10,11 +10,12 @@ import os
 import re
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
 from jevtest import __version__
+from jevtest.adapters.jev.client import KEY_HELP
 from jevtest.adapters.jev.lockfile import JevAsker, LockedModel, LockMode
 from jevtest.adapters.reports.json_report import write_report
 from jevtest.adapters.reports.junit import Suite as JunitSuite
@@ -29,13 +30,15 @@ from jevtest.domain.failures import DeviceError, ModelError, TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 from jevtest.domain.results import RunResult
-from jevtest.domain.steps import Suite, Test
+from jevtest.domain.steps import Do, Expect, Network, Step, Suite, Test, Use
 
 from .console import ConsoleListener, Printer, summary
 
 API_KEY = "TYPESAFE_API_KEY"
 
 MakeDevice = Callable[[Platform, str, Path, Callable[[str], None]], Device]
+FindDevice = Callable[[Platform, str], None]
+"""Raises `DeviceError` unless the named device is running."""
 """Makes the device for a platform: (platform, device name, app build, progress) -> device."""
 
 MakeClient = Callable[[str, str | None], JevAsker]
@@ -51,7 +54,7 @@ class RunOptions:
         lock: How the lockfile is used.
         out: The results folder.
         tests: Only these tests (empty: all of them).
-        prune_lock: After a fully passing run, drop recorded decisions it didn't use.
+        prune_lock: After a fully passing run, drop saved steps and recorded answers it didn't use.
         verbose: Print every model question and answer.
     """
 
@@ -231,7 +234,9 @@ def _result(job: Job, outcome: JobResult | Exception) -> JobResult:
     return outcome
 
 
-def run_command(options: RunOptions, make_device: MakeDevice, make_client: MakeClient, clock: Clock) -> int:
+def run_command(
+    options: RunOptions, make_device: MakeDevice, make_client: MakeClient, clock: Clock, find_device: FindDevice
+) -> int:
     """``jevtest run``: 0 if every test passed, 1 if any failed.
 
     Raises:
@@ -242,8 +247,13 @@ def run_command(options: RunOptions, make_device: MakeDevice, make_client: MakeC
     if options.tests:
         loaded = _only(loaded, options.tests)
     _check_runnable(loaded, options)
+    _find_devices(loaded, find_device)
     root = Path(os.path.commonpath([f.parent for f in files]))
     out = options.out / time.strftime("%Y%m%d-%H%M%S")
+    try:  # before any device is touched: a results folder that can't be made would lose the whole run
+        out.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise TestFileError(f"--out {options.out}: can't make the results folder {out} ({e.strerror})") from None
     runs = Runs(make_device, clock, verbose=options.verbose)
     suites: list[JunitSuite] = []
     for suite, env in loaded:  # one file at a time; its devices at the same time
@@ -272,6 +282,49 @@ def _check_runnable(loaded: Loaded, options: RunOptions) -> None:
         raise TestFileError(f"App not found: {missing[0]}")
     if options.prune_lock and (options.tests or options.lock is LockMode.OFF):
         raise TestFileError("--prune-lock needs every test to run (no --test) and a lockfile (not --lock off)")
+    for suite, _ in loaded:
+        network = next((name for name, step in _steps(suite) if isinstance(step.action, Network)), None)
+        if Platform.IOS in suite.apps and network is not None:
+            raise TestFileError(
+                f"{suite.path.name} runs on iOS, where jevtest can't turn the network on or off, and test "
+                f"'{network}' has a network: step. Put Android-only tests in a file whose app: is Android only"
+            )
+    if options.lock in (LockMode.REFRESH, LockMode.OFF):
+        keyless = [suite.path.name for suite, env in loaded if not env.get(API_KEY) and _asks_jev(suite)]
+        if keyless:
+            raise TestFileError(
+                f"--lock {options.lock} asks Jev about every do: and expect:, and {keyless[0]} has them, but "
+                f"{API_KEY} is not set: put it in the .env next to the test file, or in the environment. {KEY_HELP}"
+            )
+
+
+def _find_devices(loaded: Loaded, find_device: FindDevice) -> None:
+    """Every device every file names is running, before any test starts: not found only once others finish."""
+    named = dict.fromkeys((p, d) for suite, _ in loaded for p in suite.apps for d in suite.devices[p])
+    for platform, device in named:
+        try:
+            find_device(platform, device)
+        except DeviceError as e:
+            raise DeviceError(f"{platform} · {device}: {e}") from None
+
+
+def _asks_jev(suite: Suite) -> bool:
+    """Whether a test that runs (or one it uses) has a `do:` or an `expect:`."""
+    return any(
+        isinstance(step.action, Do) or any(isinstance(c, Expect) for c in step.checks) for _, step in _steps(suite)
+    )
+
+
+def _steps(suite: Suite) -> Iterator[tuple[str, Step]]:
+    """Every step the tests that run take, with the test that has it: a used test's steps once."""
+    tests, seen = list(suite.tests), set[str]()
+    while tests:
+        test = tests.pop(0)
+        for step in test.steps:
+            yield test.name, step
+            if isinstance(step.action, Use) and step.action.test not in seen:
+                seen.add(step.action.test)
+                tests.append(suite.library[step.action.test])
 
 
 def _report_all(suites: Sequence[JunitSuite], *, files: int, junit: Path) -> int:
@@ -331,7 +384,7 @@ def _run_file(
     """Run one file on its devices, with its lockfile; prune the lockfile if asked."""
     printer = Printer(parallel=sum(len(suite.devices[p]) for p in suite.apps) > 1)
     if label:
-        print(f"\n=== {suite.path.name} ===", flush=True)
+        print(f"\n=== {label}{suite.path.suffix} ===", flush=True)
     jobs = plan(suite, out, label, printer)
 
     def connect() -> JevAsker:

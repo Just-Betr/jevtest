@@ -191,7 +191,7 @@ def test_agent_commands(drv, env):
         ("/tap", {"x": 1, "y": 2}),
         ("/double_tap", {"x": 1, "y": 2}),
         ("/long_press", {"x": 1, "y": 2, "seconds": 2}),
-        ("/drag", {"x1": 1, "y1": 2, "x2": 3, "y2": 4}),
+        ("/drag", {"x1": 1, "y1": 2, "x2": 3, "y2": 4, "velocity": 1500, "hold": 0.05}),
         ("/type", {"text": "hi"}),
         ("/tap", {"x": 5, "y": 6}),
         ("/tree", {}),  # focused, with the keyboard up
@@ -211,12 +211,41 @@ def test_agent_commands(drv, env):
     assert all(b["bundle_id"] == "dev.demo" for _, b in env[1].calls)
 
 
+def test_a_scroll_drags_slowly_so_nothing_flings_on_and_a_swipe_flicks(drv, env):
+    screen = {"width": 402, "height": 874, "elements": [], "keyboard": False}
+    env[1].replies["/tree"] = screen
+    drv.scroll("down")
+    drv.swipe("left")
+    drags = [b for p, b in env[1].calls if p == "/drag"]
+    assert [(b["y1"], b["y2"], b["velocity"], b["hold"]) for b in drags] == [
+        (699, 175, 300, 0.1),
+        (437, 437, 1500, 0.05),
+    ]
+
+
 def test_simctl_device_commands(drv, env):
+    env[1].replies["/state"] = {"state": 1}  # not running: nothing to start again
     drv.set_location(1.5, -2.5)
     drv.open_url("app://x")
     drv.grant("photos")
     tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
     assert tails == ["location A set 1.5,-2.5", "openurl A app://x", "privacy A grant photos dev.demo"]
+
+
+def test_a_grant_starts_the_app_again_once_the_simulator_ended_it(drv, env, slept):
+    env[1].replies["/state"] = [{"state": 4}, {"state": 4}, {"state": 1}]  # running; still; gone
+    drv.grant("camera")
+    tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
+    assert tails == ["privacy A grant camera dev.demo", "launch A dev.demo"]
+    assert env[1].paths()[-1] == "/wait_foreground" and slept == [0.25]
+
+
+def test_a_grant_fails_if_the_simulator_never_ends_the_app(drv, env, monkeypatch):
+    ticks = iter([0, 1, 4])
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+    with pytest.raises(DeviceError, match="The simulator did not end the app after the permission changed within 3"):
+        drv.grant("camera")
 
 
 def test_rotate_waits_until_the_app_has_turned(drv, env, slept):
@@ -228,11 +257,17 @@ def test_rotate_waits_until_the_app_has_turned(drv, env, slept):
     assert paths[-3:] == ["/rotate", "/tree", "/tree"] and slept == [0.25]
 
 
+def test_ios_has_only_the_keys_every_platform_has(drv, env):
+    with pytest.raises(DeviceError, match="iOS has no key 'menu': it presses only backspace, delete, enter"):
+        drv.key("menu")
+    assert all(p != "/key" for p, _ in env[1].calls)
+
+
 def test_rotate_fails_when_the_app_never_turns(drv, env, monkeypatch):
     env[1].turns = False  # e.g. an app that allows portrait only
     ticks = iter([0, 1, 4])
     monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
-    with pytest.raises(DeviceError, match="The app did not turn to landscape within 3 seconds"):
+    with pytest.raises(DeviceError, match="The app did not turn to landscape within 3 seconds: does the app allow"):
         drv.rotate("landscape")
 
 
@@ -296,5 +331,24 @@ def test_network_is_not_supported(drv):
 
 
 def test_looks_says_nothing_on_ios_where_frames_move_with_their_animation(drv, env):
-    assert drv.looks(Element("button", "OK", bounds=(0, 0, 9, 9))) == ""
+    assert drv.looks([Element("button", "OK", bounds=(0, 0, 9, 9))]) == ""
     assert not any(p == "/pixels" for p, _ in env[1].calls)
+
+
+def test_a_link_no_app_opens_says_so_on_the_simulator(drv, env):
+    env[0].rules["openurl"] = DeviceError("simctl failed (115): (domain=LSApplicationWorkspaceErrorDomain, code=115)")
+    with pytest.raises(DeviceError, match="^No app on the device opens x://y"):
+        drv.open_url("x://y")
+    env[0].rules["openurl"] = DeviceError("simctl failed: device not booted")
+    with pytest.raises(DeviceError, match="not booted$"):
+        drv.open_url("x://y")
+
+
+def test_a_link_no_app_opens_says_so_on_an_iphone(env, tmp_path, monkeypatch):
+    drv = IOSDevice("A", Path("Demo.app"), PROGRESS)
+    drv.physical = True
+    env[1].replies["/open_url"] = DeviceError(
+        "iOS agent /open_url: The operation could not be completed. (LSApplicationWorkspaceErrorDomain error 115.)"
+    )
+    with pytest.raises(DeviceError, match="^No app on the device opens x://y"):
+        drv.open_url("x://y")

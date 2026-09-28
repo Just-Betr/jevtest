@@ -18,6 +18,8 @@ def test_finds_every_yaml_in_a_folder(tmp_path):
     lib = tmp_path / "suite" / "shared.yaml"
     lib.write_text("tests: [{name: S, fresh: true, steps: [back]}]\n")
     (tmp_path / "suite" / "notes.txt").write_text("")
+    (tmp_path / "suite" / ".github").mkdir()
+    (tmp_path / "suite" / ".github" / "ci.yml").write_text("on: push\n")  # not ours: no stray-file error
     files, others = find_test_files([str(tmp_path / "suite")])
     assert files == [c.resolve(), b.resolve(), a.resolve()] and others == [lib.resolve()]
     assert find_test_files([str(a), str(tmp_path / "suite")])[0][0] == a.resolve()  # each once, as given first
@@ -28,3 +30,6 @@ def test_errors(tmp_path):
         find_test_files([str(tmp_path / "nope.yaml")])
     with pytest.raises(TestFileError, match="No test files"):
         find_test_files([str(tmp_path)])
+    (tmp_path / "notes.txt").write_text("")
+    with pytest.raises(TestFileError, match="notes.txt is not a test file: test files are .yaml or .yml"):
+        find_test_files([str(tmp_path / "notes.txt")])

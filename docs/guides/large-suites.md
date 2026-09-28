@@ -30,10 +30,11 @@ tests:
 
 **Where values go.** In `app` and `device`, values are filled in when the file loads. In steps, a value is filled in only when the app needs it: the text typed, the text compared, the element searched for, the URL opened. Logs, reports and the goals sent to Jev keep `${NAME}`.
 
-!!! note "What Jev can see"
-    Jev reads the screen. A password field shows only dots, but text the app displays (a typed email, a greeting with the user's name) is part of the screen Jev reads, and so part of the lockfile. Keep secrets in password fields.
+**What the app shows.** Before a screen goes to Jev, the console, a report or the lockfile, every value on it is replaced by its `${NAME}`: an app that shows the signed-in email sends Jev `Welcome, ${EMAIL}`, and the lockfile has `${EMAIL}`, never the address. Only exact values are replaced: a value the app shows changed (cut short, in capitals, reformatted) is shown as it is.
 
-`.env` format: one `KEY=value` per line; `export KEY=value` and quoted values (`"…"` or `'…'`) are fine; lines starting with `#` are comments. Anything else, or a key set twice, is an error with its line number.
+`.env` format: one `KEY=value` per line; `export KEY=value` and quoted values (`"…"` or `'…'`) are fine; lines starting with `#` are comments. The value is everything after `=`, so `PASSWORD=pw # mine` is an error rather than a guess: put the comment on its own line, or quote the value (`PASSWORD="pw # mine"`). Anything else, or a key set twice, is an error with its line number.
+
+**Folders.** Each test file reads the `.env` in its own folder only. In a folder run, a test file in `sub/` doesn't see the `.env` of the folder above; the error names the `.env` it read. Keep test files next to their `.env`, and libraries in subfolders (libraries use the values of the test file that includes them).
 
 ## `include:` shared tests
 
@@ -73,7 +74,7 @@ tests:
 jevtest run tests/ --lock record --out results
 ```
 
-runs every test file in `tests/` and its subfolders, in name order. Every YAML file in the folder must be either:
+runs every test file in `tests/` and its subfolders, in name order, hidden folders included. Other YAML in hidden folders (`.github/workflows/ci.yml`) is left alone. Every other YAML file in the folder must be either:
 
 - a **test file** (it has `app:`), which runs, or
 - a **library** that one of those test files includes.

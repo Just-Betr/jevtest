@@ -64,8 +64,8 @@ class Device(Protocol):
         """Save a PNG of the screen."""
         ...
 
-    def looks(self, element: Element) -> str:
-        """A fingerprint of how the element is drawn now, where its bounds alone can't show it moving; else ""."""
+    def looks(self, elements: Sequence[Element]) -> str:
+        """A fingerprint of how the elements are drawn now, where their bounds alone can't show them moving; else ""."""
         ...
 
     def tap(self, x: int, y: int) -> None:

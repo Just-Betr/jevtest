@@ -15,22 +15,43 @@ HTML inside a WebView (`WKWebView` on iOS, `android.webkit.WebView` on Android) 
 - scrolling a long page (`scroll_to:`)
 
 ```yaml
+- name: Open the web page
+  fresh: true
+  steps:
+    - type: { text: "${EMAIL}", into: Email }
+    - type: { text: "${PASSWORD}", into: Password }
+    - hide_keyboard
+    - tap: Sign in
+      see: Welcome, ${EMAIL}
+    - scroll_to: Open web page
+      direction: down
+    - tap: Open web page
+      see: Web Greeter
+
 - name: Web form
   fresh: true
   steps:
     - use: Open the web page
-    - type: { text: "Bret", into: Your name }
-    - tap: Say hello
+    - do: Type "Bret" into the Your name field and press Say hello
       see: Hello, Bret!
     - do: Choose Canada in the Country dropdown
       expect: Canada is the selected country
     - scroll_to: Submit form
       direction: down
     - tap: Submit form
-      see: "Submitted: Canada"
+      see: "Submitted: Canada, Free plan, without a password"
 ```
 
-For a WebView to be testable, its content needs to be accessible, which ordinary HTML is: labels, button text, `alt` text and `aria-label`s all come through.
+For a WebView to be testable, its content needs to be accessible, which ordinary HTML is: button text, link text, `alt` text and `aria-label`s all come through.
+
+**Web fields are named differently on each platform** (measured on the demo page, Android WebView 153 and iOS 26):
+
+| `<label for="name">Your name</label><input id="name">` | Android | iOS |
+|---|---|---|
+| `into: Your name` (the label) | ✗ the label is separate text beside the field | ✓ |
+| `into: name` (the HTML `id`) | ✓ | ✗ |
+
+So the example types with `do:`, which sees the label next to the field on both. An `aria-label` names an element on both platforms (measured on the page's checkbox: `tap: I agree to the terms` works on each).
 
 ## Native screens in a cross-platform app
 

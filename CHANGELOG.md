@@ -1,5 +1,76 @@
 # Changelog
 
+## 0.9.1
+
+Found by using 0.9.0 as a new user would: every action, option, error message and guide example, on the Android
+emulator and the iOS simulator.
+
+**Fixed**
+
+- iOS: `scroll:` and `scroll_to:` could jump past their target in a web page. The finger moved at a flick's speed, so
+  the page flung on after it lifted (measured: a 100 pt drag moved a WKWebView 470 pt). Scrolls now drag at
+  300 pt/s, and the content moves as far as the finger. `swipe:` is still a flick.
+- iOS: `grant:` while the app runs left it closed, because the simulator ends an app whose permissions change. The
+  next step failed a minute later with an accessibility error. jevtest now starts the app again.
+- Android: an `expect:` right after a system dialog appears could be judged on the dialog still sliding up (the tree
+  reports it at its first place for about half a second), so the lockfile got a frame that a replay saw only
+  sometimes: the demo's camera-prompt test failed one frozen replay in three. A screen now counts as stopped moving
+  only once its text is also drawn the same twice (one screenshot per check; a spinner or a blinking cursor doesn't
+  count). Record lockfiles with such a check again once.
+- `screenshot:` waits until the screen stopped moving: right after a launch it saved the splash screen.
+- `type:` without `into:` passed with no field taking keys, typing into nothing. It now waits until the keyboard is
+  up (`timeout:` applies), and fails saying to tap the field first or name it with `into:`.
+- A `do:` goal carried on after one of its moves left the app: pressing back on the first screen went to the
+  phone's home screen, and Jev's next move tapped an app there (it opened the Play Store). The step now fails at
+  once: `The app left the foreground after back`.
+- A `do:` that ran out of `max_actions` listed the move it didn't make among those it did; the message now names
+  it instead (`Jev's next would be …`).
+- `--out` naming a file crashed with a traceback and exit code 1, as if a test had failed. It's now an error before
+  anything runs.
+- Screenshot file names dropped letters outside A–Z: `ünïcode` became `n_code`, and a test named in Japanese
+  became `screen`.
+- iOS: `rotate:` to an orientation the app doesn't allow says so (most iPhone apps leave out
+  `portrait_upside_down`).
+
+**Caught before anything runs** (exit code 2), instead of partway through the run:
+
+- a device a file names that isn't running (it failed only after the other devices had finished, and no JUnit file
+  was written);
+- a device another jevtest run is testing: two runs on one device restarted the app under each other, and both still
+  passed. A run now claims its devices, and the claim ends with the run however it ends;
+- a lockfile with git merge conflict markers says so, instead of only "not valid JSON";
+- `--lock refresh` or `--lock off` without `TYPESAFE_API_KEY`, when a test has a `do:` or an `expect:`;
+- a `network:` step in a test that runs on iOS;
+- an unknown `key:` name (it failed after installing and launching the app). Android also takes `return`, like iOS;
+- `wait:` or `background:` over 300 seconds (`wait: 99999` waited 27 hours);
+- in `.env`, `KEY=value # comment`: is the comment part of the value? Put it on its own line, or quote the value.
+
+**Clearer messages**
+
+- A bare action with checks under it (`- back`, then `see:`) is a YAML error; it now says to write `- back:`. The
+  hint about quoting `${NAME}` shows only when a `${` is inside `{ }` or `[ ]`.
+- A `${NAME}` that isn't set names the test file and the exact `.env` it read.
+- A folder run heads each file with its path in the folder (`=== sub/nav.yaml ===`).
+- `app.ios points at a.apk, which is an Android build` (was `points at a android build`).
+- Ctrl-C (or SIGTERM, SIGHUP) prints `stopped (SIGINT): devices put back; this run wrote no report`.
+- `--help` for `--lock` and `--prune-lock` covers saved `do:` steps, not only recorded answers.
+- `clear:` or `type: into:` on something that doesn't take text says what it is (`what says 'Sign in' doesn't take
+  text (button)`).
+- `open_url:` with a link no app handles says so, instead of printing the raw adb, simctl or agent error. On Android 13
+  it passed: `am start` exits 0 there after printing its error (measured on a Pixel 4a), so `launch`, `resume` and
+  `open_url` now read what it prints.
+- `grant:` with a permission Android won't grant says why (`not a changeable permission type`), not the first line
+  of a Java stack trace.
+- An `include:` that isn't there names the file that includes it.
+- `jevtest run notes.txt` says test files are .yaml or .yml; `jevtest` alone says a COMMAND is required.
+- A folder run no longer requires YAML in hidden folders (`.github/workflows/ci.yml`) to be a library; test files
+  there still run.
+
+**Docs**: Python 3.11 or newer (not 3.10); `grant:` takes the full Android permission name; the webviews example
+(Android WebView fields have no name, so it types with `do:`) and the exact text the demo shows; `report.json`'s
+keys and the console samples as they print now; how checks wait; `.env` in subfolders; what the lockfile holds
+of values the app shows (their `${NAME}`, not the value).
+
 ## 0.9.0
 
 **Every wait is a wait until.** A step waits until what it needs is true, checking every `interval` (0.25 s) for at

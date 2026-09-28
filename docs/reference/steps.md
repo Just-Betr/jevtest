@@ -18,7 +18,7 @@ A few actions take no value. Write them as a bare word (`- back`), or as a key w
 | `see: text` | an element says exactly the text ([matching](#matching)), no model |
 | `not_see: text` | no element says exactly the text |
 
-Each takes one value or a list. Checks keep trying for up to 10 seconds, or the step's `timeout:` ([settings](test-file.md#settings-optional)). They look again only when the screen changes, so Jev is never asked the same question about the same screen twice.
+Each takes one value or a list. A check waits until it holds: it reads the screen, and if the check doesn't hold yet, reads it again after `interval` (0.25 s by default), for up to 10 seconds or the step's `timeout:` ([settings](test-file.md#settings-optional)), then fails with `Waited 10s until …`. `expect:` asks Jev only about a screen that stopped moving (it read the same twice in a row), never about a frame of an animation.
 
 ## Actions
 
@@ -37,7 +37,7 @@ Each takes one value or a list. Checks keep trying for up to 10 seconds, or the 
 | `double_tap: target` | Double-taps it. |
 | `long_press: target` | Presses and holds it. |
 | `swipe: up\|down\|left\|right` | Swipes across the screen, or on an element with `target:`. |
-| `scroll: up\|down\|left\|right` | Scrolls the content one page. |
+| `scroll: up\|down\|left\|right` | Scrolls the content: the finger moves across 60% of the screen (above the keyboard, if it's up), and the content moves as far, never flinging on. |
 | `scroll_to: text` | Scrolls in `direction:` (required) until an element says exactly the text, clear of the screen's top and bottom 8% (phones keep those edges for their own gestures, like the home swipe). Fails when the content stops moving (the end) or after `max_scrolls` (50 by default) without the text on screen. |
 
 **Targets** are found by their exact text ([matching](#matching)): the step waits until an element says it, then acts. If several elements match, the one you can act on wins (a switch over its label); if that still leaves several, Jev chooses among those only, and the step says `(chosen by Jev among 2 exact matches)`. A target is never guessed: one no element says fails the step after 10 seconds (or the step's `timeout:`) with `Waited 10s until an element says '…' on screen`. To describe something instead (`the red delete icon`), use `do:`.
@@ -59,7 +59,7 @@ So `tap: Save` never taps *Unsaved changes* or *Save draft*, and `see: "Taps: 2"
 When nothing matches but a longer text contains the target, the step fails and lists what's there, so you can fix the test file. A close text is never used:
 
 ```
-✗ tap: Save — Could not find element 'Save' on screen; close but not exact: 'Unsaved changes', 'Save draft'
+✗ tap: Save (10.0s) — Waited 10s until an element says 'Save' on screen and stopped moving; close but not exact: 'Unsaved changes', 'Save draft'
 ```
 
 `not_see:` is exact too: `not_see: Error` passes while the screen shows *Error: none*. To check that no error of any wording is showing, use `expect:`.
@@ -68,10 +68,10 @@ When nothing matches but a longer text contains the target, the step fails and l
 
 | Action | Does |
 |---|---|
-| `type: text` | Types into the focused field. |
+| `type: text` | Types into the field that has focus: waits until the keyboard is up, and fails if it never comes (keys would go nowhere). |
 | `type: { text: "…", into: target }` | Taps the field, then types. Text is typed exactly as written, spaces included. |
 | `clear: target` | Erases a text field. |
-| `key: name` | Presses a key: `enter`, `delete`, `tab`, `escape`, `space` (and Android key codes). |
+| `key: name` | Presses a key. On both platforms: `enter` (or `return`), `delete` (or `backspace`), `tab`, `escape`, `space`. On Android also `back`, `home`, `menu`, `search`, `app_switch`, `power`, `volume_up`, `volume_down`, `dpad_up`, `dpad_down`, `dpad_left`, `dpad_right`, `move_home`, `move_end`, or a key code number in quotes (`key: "67"`). Names are exact and checked when the file loads. |
 | `hide_keyboard` | Closes the on-screen keyboard. |
 
 ### Navigation and app lifecycle
@@ -85,7 +85,7 @@ When nothing matches but a longer text contains the target, the step fails and l
 | `restart` | Stops and launches the app. |
 | `clear_data` | Stops the app and clears its data (iOS: reinstalls it). |
 | `reinstall` | Uninstalls and installs the build again. |
-| `background: seconds` | Sends the app to the background for that long, then brings it back. |
+| `background: seconds` | Sends the app to the background for that long (at most 300), then brings it back. |
 | `open_url: url` | Opens a deep link or URL. |
 
 ### Device
@@ -94,18 +94,18 @@ These change device state because the test asks for it. Anything jevtest changes
 
 | Action | Does |
 |---|---|
-| `rotate: portrait\|landscape\|landscape_right\|portrait_upside_down` | Rotates the device. |
+| `rotate: portrait\|landscape\|landscape_right\|portrait_upside_down` | Rotates the device, and waits until the app has turned. An app that doesn't allow the orientation fails the step: most iPhone apps leave out `portrait_upside_down` (`UISupportedInterfaceOrientations` in the app's Info.plist). |
 | `dark_mode: on\|off` | Dark or light appearance. |
 | `location: [latitude, longitude]` | Sets the GPS location (emulator, simulator, iPhone). |
-| `grant: permission` | Grants a runtime permission: an Android permission name (`CAMERA`, `android.permission.CAMERA`) or a simulator service (`photos`, `camera`). Not possible on a real iPhone: tap the prompt with a step instead. |
-| `network: on\|off` | Wi-Fi and mobile data (Android only). |
+| `grant: permission` | Grants a runtime permission, so the app never asks. Android: the full permission name, `android.permission.CAMERA`. iOS simulator: a service, such as `camera`, `photos`, `microphone`, `contacts`, `location` (the list: `xcrun simctl privacy`); the simulator ends an app whose permissions change, so jevtest starts it again: put `grant:` first in a test. Not possible on a real iPhone: tap the prompt with a step instead. |
+| `network: on\|off` | Wi-Fi and mobile data. Android only: a file whose `app:` includes iOS and runs a test with `network:` is an error before anything runs. |
 
 ### Other
 
 | Action | Does |
 |---|---|
-| `wait: seconds` | Waits a fixed time. Checks already wait for what they check, so this is rarely needed. |
-| `screenshot: name` | Saves a PNG into the results folder. |
+| `wait: seconds` | Waits a fixed time, at most 300 seconds. Checks already wait for what they check, so this is rarely needed. |
+| `screenshot: name` | Waits until the screen stopped moving (so it isn't a frame of a launch or an animation), then saves a PNG into the results folder. To capture a particular screen, check for it first: `see:` on the step before. |
 
 After every action, the step fails if the app crashed or left the foreground (except after actions that are meant to leave it: `stop`, `clear_data`, `reinstall`, `home`, `open_url`).
 
@@ -115,7 +115,7 @@ Each option belongs to certain actions; anywhere else it's an error.
 
 | Option | On | Meaning |
 |---|---|---|
-| `timeout: seconds` | steps that wait: steps with checks, `tap`, `double_tap`, `long_press`, `clear`, `type` with `into`, `swipe` with `target`, `do`, `scroll_to` | How long this step waits until what it needs is true, instead of the file's `timeout` (10 s by default). |
+| `timeout: seconds` | steps that wait: steps with checks, `tap`, `double_tap`, `long_press`, `clear`, `type`, `swipe` with `target`, `do`, `scroll_to`, `screenshot` | How long this step waits until what it needs is true, instead of the file's `timeout` (10 s by default). |
 | `interval: seconds` | the same steps as `timeout` | How often this step checks again (0.25 s by default). |
 | `max_actions: n` | `do` | Actions this goal may take (10 by default). |
 | `max_scrolls: n` | `scroll_to` | Scrolls this step may make (50 by default). |

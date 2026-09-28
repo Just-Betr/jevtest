@@ -25,6 +25,11 @@ CHECK_INTERVAL = 0.25
 """Seconds between two checks of such a follow-up (the same as a step's default `interval`)."""
 
 
+def no_app_opens(url: str) -> DeviceError:
+    """The error for a link no app on the device handles."""
+    return DeviceError(f"No app on the device opens {url}: check the link, and that the app registers its scheme")
+
+
 def wait_until(condition: Callable[[], bool], what: str) -> None:
     """Check `condition`; if it's false, wait `CHECK_INTERVAL` seconds and check again, for up to `FOLLOW_UP`.
 
@@ -176,8 +181,8 @@ class BaseDevice(ABC):
         """What's on the screen now."""
 
     @abstractmethod
-    def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
-        """Press at (x1, y1), move to (x2, y2), lift."""
+    def drag(self, x1: int, y1: int, x2: int, y2: int, *, scroll: bool = False) -> None:
+        """Press at (x1, y1), move to (x2, y2), lift. A `scroll` drag moves the content as far as the finger."""
 
     @abstractmethod
     def restore(self) -> None:
@@ -201,8 +206,15 @@ class BaseDevice(ABC):
         """
         wait_until(lambda: done(self.screen()), what)
 
-    def swipe(self, direction: Direction, element: Element | None = None, screen: Screen | None = None) -> None:
-        """Finger swipe in `direction`, across an element or across the page.
+    def swipe(
+        self,
+        direction: Direction,
+        element: Element | None = None,
+        screen: Screen | None = None,
+        *,
+        scroll: bool = False,
+    ) -> None:
+        """Finger swipe in `direction`, across an element or across the page (a `scroll` one moves no further).
 
         The page is the part of the screen the keyboard doesn't cover: a drag that starts on the keyboard moves
         nothing.
@@ -220,7 +232,7 @@ class BaseDevice(ABC):
             Direction.LEFT: (cx + dx, cy, cx - dx, cy),
             Direction.RIGHT: (cx - dx, cy, cx + dx, cy),
         }
-        self.drag(*moves[Direction(direction)])
+        self.drag(*moves[Direction(direction)], scroll=scroll)
 
     def scroll(self, direction: Direction, screen: Screen | None = None) -> None:
         """Scroll so more of the content in `direction` comes into view: the finger moves the other way."""
@@ -230,4 +242,4 @@ class BaseDevice(ABC):
             Direction.LEFT: Direction.RIGHT,
             Direction.RIGHT: Direction.LEFT,
         }
-        self.swipe(finger[Direction(direction)], screen=screen)
+        self.swipe(finger[Direction(direction)], screen=screen, scroll=True)

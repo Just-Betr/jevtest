@@ -45,10 +45,16 @@ def _entries(f: Path) -> Iterator[tuple[int, str, str]]:
         if not m:
             raise TestFileError(f"{f}:{n} is not a KEY=value line")
         key, value = m.groups()
+        if " #" in value and not _quoted(value):
+            raise TestFileError(
+                f"{f}:{n}: is ' #…' a comment or part of {key}? Put the comment on its own line, or quote the value"
+            )
         yield n, key, _unquoted(value)
 
 
+def _quoted(value: str) -> bool:
+    return len(value) >= len("''") and value[0] == value[-1] and value[0] in QUOTES
+
+
 def _unquoted(value: str) -> str:
-    if len(value) >= len("''") and value[0] == value[-1] and value[0] in QUOTES:
-        return value[1:-1]
-    return value
+    return value[1:-1] if _quoted(value) else value

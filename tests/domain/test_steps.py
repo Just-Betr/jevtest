@@ -70,9 +70,8 @@ EVERY_ACTION = [
 def test_every_action_says_what_it_is(action):
     """The traits the runner and loader rely on, spelled out for every action."""
     leaves = isinstance(action, Stop | ClearData | Reinstall | Home | OpenUrl)
-    waiting = isinstance(action, Touch | Clear | Do | ScrollTo) or action in (
-        TypeText("a", "Email"),
-        Swipe(Direction.LEFT, "Row"),
+    waiting = isinstance(action, Touch | Clear | TypeText | Do | ScrollTo | Screenshot) or action == Swipe(
+        Direction.LEFT, "Row"
     )
     assert (action.app_may_leave, waits(action)) == (leaves, waiting)
 

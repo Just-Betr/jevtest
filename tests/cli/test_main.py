@@ -2,6 +2,7 @@ import json
 import os
 import signal
 import threading
+import types
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from jevtest.cli import main as cli
 from jevtest.cli.run import slug
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Platform
+from jevtest.domain.screen import Screen
 from tests.conftest import FakeClock, FakeDevice, act, screen_with, yes
 
 TWO_TESTS = """  - name: Sign in
@@ -77,6 +79,13 @@ class Fakes:
         self.answers: list[object] = []  # scripted Jev answers (dicts) or errors
         self.make_device = self.default_device
         self.clock = FakeClock()  # waiting for a screen takes no real time
+        self.missing: set[str] = set()  # device names no running device has
+        self.looked_for: list[tuple[str, str]] = []
+
+    def find(self, platform, device):
+        self.looked_for.append((str(platform), device))
+        if device in self.missing:
+            raise DeviceError(f"No connected device called '{device}'")
 
     def default_device(self, platform, device, app, progress):
         self.devices.append(FakeDevice())
@@ -97,6 +106,7 @@ class Fakes:
         return cli.main(
             ["run", *files, "--out", "res", "--lock", lock, *args],
             devices=self._device,
+            find=self.find,
             client=self.client,
             clock=self.clock,
         )
@@ -295,6 +305,39 @@ def test_missing_api_key_is_an_error(project, fakes, monkeypatch, capsys):
     assert "TYPESAFE_API_KEY is not set: put it in the .env next to the test file" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize("lock", ["refresh", "off"])
+def test_a_run_that_always_asks_jev_needs_the_key_before_it_starts(project, fakes, monkeypatch, capsys, lock):
+    monkeypatch.delenv("TYPESAFE_API_KEY")
+    assert fakes.run(lock=lock) == 2  # nothing installed or run
+    assert (
+        f"--lock {lock} asks Jev about every do: and expect:, and t.yaml has them, but TYPESAFE_API_KEY is not set"
+        in (capsys.readouterr().err)
+    )
+
+
+@pytest.mark.parametrize(
+    "tests",
+    [
+        "  - {name: T, fresh: true, steps: [back, {see: x}]}\n",  # no do: or expect:
+        "  - {name: T, fresh: true, steps: [{use: U}, {use: U}]}\n  - {name: U, fresh: true, steps: [back]}\n",
+    ],
+)
+def test_a_run_that_never_asks_jev_needs_no_key(tmp_path, monkeypatch, fakes, tests):
+    spec_file(tmp_path, tests=tests)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    assert fakes.run(lock="off") != 2  # it runs
+
+
+def test_a_used_tests_do_needs_the_key_too(tmp_path, monkeypatch, fakes):
+    spec_file(
+        tmp_path, tests="  - {name: T, fresh: true, steps: [{use: U}]}\n  - {name: U, fresh: true, steps: [{do: x}]}\n"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    assert fakes.run("--test", "T", lock="refresh") == 2
+
+
 def test_device_closed_and_lock_saved_even_on_crash(project, fakes):
     class Boom(FakeDevice):
         @override
@@ -307,12 +350,14 @@ def test_device_closed_and_lock_saved_even_on_crash(project, fakes):
     assert boom.closed
 
 
-def test_interrupt_exits_130(project, fakes):
+def test_interrupt_exits_130(project, fakes, capsys):
     def interrupted(*_):
         raise KeyboardInterrupt
 
     fakes.make_device = interrupted
     assert fakes.run() == 130
+    assert "stopped (SIGINT): devices put back; this run wrote no report" in capsys.readouterr().err
+    assert not list(project.glob("res/*/**/report.json")) and not list(project.glob("res/*/junit.xml"))
 
 
 @pytest.mark.parametrize(("signum", "code"), [(signal.SIGTERM, 143), (signal.SIGHUP, 129)])
@@ -418,6 +463,23 @@ def test_only_the_env_next_to_the_test_file_is_read(tmp_path, monkeypatch, fakes
 # --- folders -----------------------------------------------------------------------------------------
 
 
+def test_every_device_is_found_before_any_test_runs(tmp_path, monkeypatch, fakes, capsys):
+    spec_file(tmp_path, "a.yaml")
+    spec_file(
+        tmp_path,
+        "b.yaml",
+        device="device: {android: [emulator-5554, Pixel 9], ios: iPhone 17}\n",
+        app="app: {android: a.apk, ios: a.zip}\n",
+    )
+    (tmp_path / "a.zip").write_text("")
+    monkeypatch.chdir(tmp_path)
+    fakes.missing = {"Pixel 9"}
+    assert fakes.run(files=(".",)) == 2
+    assert "error: android · Pixel 9: No connected device called 'Pixel 9'" in capsys.readouterr().err
+    assert fakes.devices == []  # nothing installed, nothing run
+    assert fakes.looked_for == [("android", "emulator-5554"), ("android", "Pixel 9")]  # each once; stops at the first
+
+
 def test_running_a_folder(tmp_path, monkeypatch, fakes, capsys):
     spec_file(
         tmp_path,
@@ -433,7 +495,7 @@ def test_running_a_folder(tmp_path, monkeypatch, fakes, capsys):
     monkeypatch.chdir(tmp_path)
     assert fakes.run(files=("suite",)) == 1
     out = capsys.readouterr().out
-    assert "=== checkout.yaml ===" in out and "=== login.yaml ===" in out
+    assert "=== cart/checkout.yaml ===" in out and "=== login.yaml ===" in out
     assert "All: 1/2 passed (2 file(s), 2 device run(s))" in out
     stamp = stamp_of(tmp_path)
     assert (stamp / "login" / "android" / "emulator-5554" / "report.json").exists()
@@ -467,6 +529,8 @@ def test_each_file_gets_its_own_env(tmp_path, monkeypatch, fakes, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("SECRET", raising=False)
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    typing = Screen(1000, 2000, keyboard_visible=True)  # a field has the keys
+    fakes.make_device = lambda *_: fakes.devices.append(FakeDevice(typing)) or fakes.devices[-1]
     assert fakes.run(files=("one", "two")) == 0
     assert [c[1] for d in fakes.devices for c in d.calls if c[0] == "type_text"] == ["first", "second"]
     assert "first" not in capsys.readouterr().out
@@ -584,3 +648,43 @@ def test_module_entry_point(monkeypatch):
     with pytest.raises(SystemExit) as exit_info:
         runpy.run_module("jevtest", run_name="__main__")
     assert exit_info.value.code == 2
+
+
+def test_the_real_device_finder_asks_each_platform_and_claims_the_device(monkeypatch):
+    claimed: list[str] = []
+    monkeypatch.setattr(cli, "find_android", lambda d: f"serial-of-{d}")
+    monkeypatch.setattr(cli, "find_target", lambda d: types.SimpleNamespace(udid=f"udid-of-{d}"))
+    monkeypatch.setattr(cli.CLAIMS, "claim", claimed.append)
+    cli.find_device(Platform.ANDROID, "Pixel 9")
+    cli.find_device(Platform.IOS, "iPhone 17")
+    assert claimed == ["serial-of-Pixel 9", "udid-of-iPhone 17"]
+
+
+def test_a_network_step_in_a_file_that_runs_on_ios_is_an_error_before_the_run(tmp_path, monkeypatch, fakes, capsys):
+    spec_file(
+        tmp_path,
+        app="app: {android: a.apk, ios: a.zip}\n",
+        device="device: {android: emulator-5554, ios: iPhone 17}\n",
+        tests="  - {name: T, fresh: true, steps: [back, {use: Offline}]}\n"
+        "  - {name: Offline, fresh: true, steps: [{network: false}]}\n",
+    )
+    (tmp_path / "a.zip").write_text("")
+    monkeypatch.chdir(tmp_path)
+    assert fakes.run("--test", "T") == 2
+    assert "t.yaml runs on iOS, where jevtest can't turn the network on or off, and test 'Offline'" in (
+        capsys.readouterr().err
+    )
+    assert fakes.devices == []
+
+
+def test_a_network_step_on_android_only_runs(tmp_path, monkeypatch, fakes):
+    spec_file(tmp_path, tests="  - {name: T, fresh: true, steps: [{network: false}]}\n")
+    monkeypatch.chdir(tmp_path)
+    assert fakes.run() == 0
+
+
+def test_a_results_folder_that_cant_be_made_is_an_error_before_the_run(project, fakes, capsys):
+    (project / "res").write_text("a file, not a folder")
+    assert fakes.run() == 2
+    assert "error: --out res: can't make the results folder res/" in capsys.readouterr().err
+    assert fakes.devices == []

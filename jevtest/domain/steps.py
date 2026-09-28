@@ -87,9 +87,18 @@ class ScrollTo(_Action):
     direction: Direction
 
 
+KEYS = ("backspace", "delete", "enter", "escape", "return", "space", "tab")
+"""The keys `key:` presses on every platform."""
+ANDROID_KEYS = (
+    "app_switch", "back", "dpad_down", "dpad_left", "dpad_right", "dpad_up", "home", "menu", "move_end",
+    "move_home", "power", "search", "volume_down", "volume_up",
+)  # fmt: skip
+"""The keys `key:` presses on Android only (as does a key code number)."""
+
+
 @dataclass(frozen=True)
 class Key(_Action):
-    """Press a named key (enter, delete, ...)."""
+    """Press a named key (enter, delete, ...), or on Android a key code given as a number."""
 
     name: str
 
@@ -241,14 +250,12 @@ Action = (
 def waits(action: Action) -> bool:
     """Whether the action waits until something is true.
 
-    That's its element being on screen (`tap:`, `type: into`, ...), or its own condition (`do:` before each move,
-    `scroll_to:` after each scroll).
+    That's its element being on screen (`tap:`, `type: into`, ...), or its own condition (`type:` the keyboard up,
+    `do:` before each move, `scroll_to:` after each scroll, `screenshot:` the screen stopped moving).
     """
     match action:
-        case Touch() | Clear() | Do() | ScrollTo():
+        case Touch() | Clear() | TypeText() | Do() | ScrollTo() | Screenshot():
             return True
-        case TypeText(_, into):
-            return into is not None
         case Swipe(_, target):
             return target is not None
         case _:

@@ -78,13 +78,16 @@ Every wait in jevtest is the same thing: **wait until a condition is true**, che
 
 | Step | Waits until |
 |---|---|
-| `tap:`, `type: … into:`, `clear:`, `swipe: … target:` | an element says the target and has stopped moving: it's in the same place at two checks in a row (on Android, and drawn the same: a system dialog fading in reports its final place at once, so only its pixels show it moving), so a tap never lands where a sliding page's button was a moment ago (and it isn't under the keyboard) |
+| `tap:`, `type: … into:`, `clear:`, `swipe: … target:` | an element says the target and has stopped moving: it's in the same place at two checks in a row (on Android, and drawn the same), so a tap never lands where a sliding page's button was a moment ago (and it isn't under the keyboard) |
 | `see:` / `not_see:` | the text is on screen / gone |
 | `expect:` | Jev judges it true of a screen that stopped moving (asked once per such screen) |
 | a saved `do:` step | its element is on screen and has stopped moving |
-| working a `do:` out with Jev | the screen stopped moving (it reads the same at two checks in a row) |
+| working a `do:` out with Jev | the screen stopped moving |
 | `scroll_to:`, before its first look and after each scroll | the screen stopped moving |
+| `screenshot:` | the screen stopped moving |
 | `hide_keyboard`, `rotate:` | the keyboard is gone / the screen has turned (3 s) |
+
+**Stopped moving** means the screen reads the same at two checks in a row, and on Android its text is also drawn the same. The tree alone can't show every movement: Android reports a system dialog fading in at its final place at once, and one sliding up at its first place for about half a second before its final one (both measured), so only its pixels show it moving. Only text counts: a spinner or a blinking cursor never stops, but the screen they're on has. On iOS an element's frame moves with its animation, so the tree says it all.
 
 An action doesn't wait afterwards: the next step waits for what it needs. The on-device agents never wait either; they answer each read at once.
 

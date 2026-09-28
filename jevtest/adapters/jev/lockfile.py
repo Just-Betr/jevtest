@@ -151,8 +151,11 @@ class _Store:
         self.used_steps: set[str] = set()
         self.dirty = False
         if mode is not LockMode.OFF and path.exists():
+            text = path.read_text()
+            if any(line.startswith(("<<<<<<< ", ">>>>>>> ")) for line in text.splitlines()):
+                raise ModelError(f"{path.name} has git merge conflict markers: resolve them, or delete it to re-record")
             try:
-                data: object = json.loads(path.read_text())
+                data: object = json.loads(text)
             except json.JSONDecodeError as e:
                 raise ModelError(f"{path.name} is not valid JSON ({e}); delete it to re-record") from None
             self.entries = _entries(data, path.name)

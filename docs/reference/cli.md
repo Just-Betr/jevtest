@@ -22,8 +22,19 @@ jevtest run PATH... --lock MODE --out DIR [--test NAME]... [--prune-lock] [-v]
 |---|---|---|---|---|
 | `record` | repeats them; if one no longer fits, Jev works the rest out again | Jev works it out; the steps are saved | recorded answer, else Jev (recorded) | yes |
 | `frozen` | repeats them; if one no longer fits, **the step fails** | **the step fails** | recorded answer, else **the step fails** | no |
-| `refresh` | Jev works it out again | Jev works it out | Jev is asked again | yes, overwriting |
+| `refresh` | Jev works it out again | Jev works it out | Jev is asked again | yes: new answers replace recorded ones; `--prune-lock` drops the rest |
 | `off` | Jev works it out | Jev works it out | Jev is asked | no |
+
+## Before anything runs
+
+jevtest checks everything it can before it installs or starts anything, and exits with code 2 and a message saying what to fix:
+
+- every test file and library loads (a file's problems are listed together), and every `${NAME}` is set;
+- every app build exists;
+- every device a file names is running (a missing one is listed with the devices that are), and no other jevtest run is testing it: a second run on the same device would restart the app under the first. The claim ends with the run, however it ends;
+- with `--lock refresh` or `--lock off`, `TYPESAFE_API_KEY` is set if a test that runs has a `do:` or an `expect:`, since those always ask Jev then;
+- no test that runs on iOS has a `network:` step;
+- `--prune-lock` has every test and a lockfile to prune (below).
 
 ## `--prune-lock`
 
@@ -41,6 +52,8 @@ Prune with the same devices you record on: decisions recorded on one device's sc
 | 130 | interrupted (Ctrl-C) |
 | 143 | stopped by SIGTERM (a cancelled CI job) |
 | 129 | stopped by SIGHUP (the terminal closed) |
+
+A stopped run puts every device back (orientation, appearance, network, location) and says so: `stopped (SIGINT): devices put back; this run wrote no report`.
 
 ## Environment
 

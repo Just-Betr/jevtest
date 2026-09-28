@@ -169,10 +169,13 @@ final class JevAgentUITests: XCTestCase {
         case "/long_press":
             point(touched(app), body["x"], body["y"]).press(forDuration: (body["seconds"] as? Double) ?? 1.2)
         case "/drag":
+            guard let velocity = body["velocity"] as? Double, let hold = body["hold"] as? Double else {
+                return ["error": "/drag needs velocity and hold"]
+            }
             let target = touched(app)
             point(target, body["x1"], body["y1"]).press(
                 forDuration: 0.05, thenDragTo: point(target, body["x2"], body["y2"]),
-                withVelocity: .fast, thenHoldForDuration: 0.05)
+                withVelocity: XCUIGestureVelocity(CGFloat(velocity)), thenHoldForDuration: hold)
         case "/type":
             app.typeText((body["text"] as? String) ?? "")
         case "/key":

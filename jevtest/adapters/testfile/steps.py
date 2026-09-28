@@ -20,6 +20,8 @@ from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Direction, Gesture, Orientation
 from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
 from jevtest.domain.steps import (
+    ANDROID_KEYS,
+    KEYS,
     SETTING_SCOPES,
     Action,
     Back,
@@ -91,6 +93,27 @@ def _text_of(make: Callable[[str], Action]) -> ActionSpec:
     return ActionSpec(lambda key, value, _: make(text(value, f"'{key}'")))
 
 
+MAX_PAUSE = 300
+"""The longest `wait:` or `background:`, in seconds: as long as the longest `timeout`."""
+
+
+def _key(key: str, value: object, _: Options) -> Action:
+    name = text(value, f"'{key}'")
+    if name not in KEYS and name not in ANDROID_KEYS and not name.isdigit():
+        raise TestFileError(
+            f"Unknown key '{name}'. Keys: {', '.join(KEYS)}; on Android also {', '.join(ANDROID_KEYS)}, "
+            "or a key code number"
+        )
+    return Key(name)
+
+
+def _seconds(key: str, value: object) -> float:
+    seconds = number(value, f"'{key}'")
+    if seconds > MAX_PAUSE:
+        raise TestFileError(f"'{key}' must be from 0 to {MAX_PAUSE:g} seconds, got {seconds:g}")
+    return seconds
+
+
 def _touch(key: str, value: object, _: Options) -> Action:
     return Touch(Gesture(key), text(value, f"'{key}'"))
 
@@ -136,9 +159,9 @@ ACTIONS: Mapping[str, ActionSpec] = {
     "scroll": ActionSpec(lambda key, value, _: Scroll(choice(value, Direction, f"'{key}'"))),
     "swipe": ActionSpec(_swipe, frozenset({"target"})),
     "scroll_to": ActionSpec(_scroll_to, frozenset({"direction"})),
-    "key": _text_of(Key),
-    "wait": ActionSpec(lambda key, value, _: Wait(number(value, f"'{key}'"))),
-    "background": ActionSpec(lambda key, value, _: Background(number(value, f"'{key}'"))),
+    "key": ActionSpec(_key),
+    "wait": ActionSpec(lambda key, value, _: Wait(_seconds(key, value))),
+    "background": ActionSpec(lambda key, value, _: Background(_seconds(key, value))),
     "rotate": ActionSpec(lambda key, value, _: Rotate(choice(value, Orientation, f"'{key}'"))),
     "location": ActionSpec(_location),
     "open_url": _text_of(OpenUrl),

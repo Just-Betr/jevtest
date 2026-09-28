@@ -4,7 +4,7 @@ From nothing to a passing test in about ten minutes.
 
 ## 1. Install
 
-jevtest needs Python 3.10 or newer.
+jevtest needs Python 3.11 or newer.
 
 ```bash
 pip install jevtest
@@ -76,13 +76,13 @@ That's the whole file: the build, the device, and the tests. Each step waits up 
 jevtest run tests.yaml --lock record --out results
 ```
 
-- `--lock record` uses decisions already recorded in `tests.lock.json` and asks Jev for anything new, recording the answer.
+- `--lock record` repeats what `tests.lock.json` already has (the steps each `do:` took, Jev's answer for each `expect:` on each screen) and asks Jev only about anything new, saving it there.
 - `--out results` is where reports, JUnit XML and failure screenshots go (each run gets its own timestamped folder).
 
 Both flags are required, so every run says how it treats the lockfile and where its results go.
 
 ```console
-jevtest 0.9.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: record
+jevtest 0.9.1 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: record
 
 ▶ App opens on the sign-in screen
   ✓ expect: The sign in screen is showing — Jev 0.98
@@ -94,10 +94,10 @@ Jev: 1 decision, 0 from lockfile, 1 asked live in 0.3s (11% of run time), $0.000
 Results: results/20260926-115141/android/emulator-5554
 ```
 
-Commit `tests.yaml` and `tests.lock.json`. Every recorded screen now gets the same decision on every run.
+Commit `tests.yaml` and `tests.lock.json`. Every recorded screen now gets the same answer on every run, and every `do:` repeats the same steps.
 
-- **Everyday, and in CI:** `--lock record`. Recorded screens replay exactly; only screens the app hasn't shown before go to Jev.
-- **Exact replay:** `--lock frozen`. Every decision must come from the lockfile, so no key or network is needed, and a screen that isn't recorded fails the run. Good for release gates and reproducing a failure.
+- **Everyday, and in CI:** `--lock record`. Saved steps and recorded screens replay exactly; only what the app hasn't shown before goes to Jev.
+- **Exact replay:** `--lock frozen`. Everything must come from the lockfile, so no key or network is needed, and a `do:` with no saved steps or a screen that isn't recorded fails the run. Good for release gates and reproducing a failure.
 
 See [Which lock mode in CI?](guides/ci.md#which-lock-mode-in-ci)
 

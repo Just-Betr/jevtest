@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 from pathlib import Path
 
 from jevtest.domain.failures import DeviceError
@@ -26,6 +27,7 @@ from .common import (
     BaseDevice,
     Progress,
     cache_dir,
+    no_app_opens,
     run,
     run_bytes,
     start_process,
@@ -35,6 +37,7 @@ from .common import (
 
 KEYCODES = {
     "enter": 66,
+    "return": 66,
     "delete": 67,
     "backspace": 67,
     "tab": 61,
@@ -73,6 +76,14 @@ AGENT_PORT = 7912  # on the device; adb forwards a free local port to it
 AGENT_CALL_TIMEOUT = 10  # seconds for one agent call to answer (it answers at once: this catches a lost agent)
 
 
+def find_android(device: str) -> str:
+    """The serial of the one connected Android device with exactly this serial, model or AVD name."""
+    found = devices()
+    if not found:
+        raise DeviceError("No Android device connected. Start an emulator or connect a phone (see `adb devices`).")
+    return pick_device(device, found)
+
+
 class AndroidDevice(BaseDevice):
     """An Android phone or emulator, driven through adb and jevtest's on-device agent.
 
@@ -84,10 +95,7 @@ class AndroidDevice(BaseDevice):
     def __init__(self, device: str, progress: Progress) -> None:
         self._progress = progress
         self.adb = adb_path()
-        found = devices()
-        if not found:
-            raise DeviceError("No Android device connected. Start an emulator or connect a phone (see `adb devices`).")
-        self.serial = pick_device(device, found)
+        self.serial = find_android(device)
         self.app_path: Path | None = None
         self.activity = ""
         self._size: tuple[int, int] | None = None
@@ -224,11 +232,22 @@ class AndroidDevice(BaseDevice):
 
     def launch(self) -> None:
         """Start the app's launcher activity and wait until it's shown."""
-        self.sh(f"am start -W -n {self.activity}")
+        self._am_start(f"-n {self.activity}", f"start {self.activity}")
 
     def resume(self) -> None:
         """Bring the app back to the foreground without restarting it."""
-        self.sh(f"am start -W -n {self.activity}")
+        self._am_start(f"-n {self.activity}", f"start {self.activity}")
+
+    def _am_start(self, args: str, what: str) -> str:
+        """`am start -W`, failing when it exits with an error or says it failed.
+
+        On some phones it exits 0 after printing `Error: ...` (measured: Android 13).
+        """
+        out = self.sh(f"am start -W {args}")
+        error = re.search(r"^Error: (.+)$", out, re.MULTILINE)
+        if error:
+            raise DeviceError(f"Could not {what}: {error[1]}")
+        return out
 
     def stop(self) -> None:
         """Force-stop the app."""
@@ -318,8 +337,8 @@ class AndroidDevice(BaseDevice):
         self.sh(f"input swipe {x} {y} {x} {y} {int(seconds * 1000)}")
 
     @override
-    def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
-        """Press, move, hold still, lift."""
+    def drag(self, x1: int, y1: int, x2: int, y2: int, *, scroll: bool = False) -> None:  # noqa: ARG002
+        """Press, move, hold still, lift: every drag moves the content as far as the finger, a scroll too."""
         # Press, move in steps, hold still, lift: the content stops where the finger stops. A plain
         # `input swipe` lifts while moving, so the content flings on and a scroll lands anywhere.
         steps = [(x1 + (x2 - x1) * i // DRAG_STEPS, y1 + (y2 - y1) * i // DRAG_STEPS) for i in range(1, DRAG_STEPS + 1)]
@@ -355,7 +374,7 @@ class AndroidDevice(BaseDevice):
         """Press a named key, or an Android key code given as a number."""
         code = KEYCODES.get(name)
         if code is None and not name.isdigit():
-            raise DeviceError(f"Unknown key '{name}'. Known: {', '.join(sorted(KEYCODES))}, or a keycode number")
+            raise DeviceError(f"Unknown key '{name}'. Known: {', '.join(sorted(KEYCODES))}, or a key code number")
         self.sh(f"input keyevent {code if code is not None else name}")
 
     def back(self) -> None:
@@ -366,10 +385,16 @@ class AndroidDevice(BaseDevice):
         """Press Home."""
         self.key("home")
 
-    def looks(self, element: Element) -> str:
-        """A fingerprint of how the element is drawn now: a dialog fading in reports its final bounds at once."""
-        x1, y1, x2, y2 = element.bounds
-        return self._agent(f"/pixels?x1={x1}&y1={y1}&x2={x2}&y2={y2}")
+    def looks(self, elements: Sequence[Element]) -> str:
+        """A fingerprint of how the elements are drawn now, from one screenshot.
+
+        The tree can't show a system dialog moving: fading in, it reports its final bounds at once; sliding up,
+        its first bounds for about half a second, then its final ones (both measured).
+        """
+        if not elements:
+            return ""
+        rects = ";".join(",".join(str(v) for v in e.bounds) for e in elements)
+        return self._agent(f"/pixels?rects={rects}")
 
     def hide_keyboard(self) -> None:
         """Close the keyboard with Back, if it's up, and wait until it's gone."""
@@ -420,7 +445,12 @@ class AndroidDevice(BaseDevice):
 
     def open_url(self, url: str) -> None:
         """Open a deep link or URL."""
-        self.sh(f"am start -W -a android.intent.action.VIEW -d {shlex.quote(url)}")
+        try:
+            self._am_start(f"-a android.intent.action.VIEW -d {shlex.quote(url)}", f"open {url}")
+        except DeviceError as e:
+            if "unable to resolve Intent" in str(e):
+                raise no_app_opens(url) from None
+            raise
 
     def dark_mode(self, *, on: bool) -> None:
         """Switch dark mode; the previous setting is put back on close."""
@@ -437,7 +467,11 @@ class AndroidDevice(BaseDevice):
             raise DeviceError(
                 f"'{permission}': give the full Android permission name, e.g. android.permission.{permission.upper()}"
             )
-        self.sh(f"pm grant {self.app_id} {permission}")
+        try:
+            self.sh(f"pm grant {self.app_id} {permission}")
+        except DeviceError as e:  # the reason is the exception's own line, under "Exception occurred ..."
+            reason = re.search(r"^[\w.$]+(?:Exception|Error): (.+)$", str(e), re.MULTILINE)
+            raise DeviceError(f"Can't grant {permission}: {reason[1] if reason else e}") from None
 
     def network(self, *, on: bool) -> None:
         """Switch Wi-Fi and mobile data; their previous state is put back on close."""

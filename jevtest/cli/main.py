@@ -22,15 +22,17 @@ from pathlib import Path
 
 from jevtest import __version__
 from jevtest.adapters.clock import SystemClock
-from jevtest.adapters.devices.android import AndroidDevice
+from jevtest.adapters.devices.android import AndroidDevice, find_android
+from jevtest.adapters.devices.claim import Claims
 from jevtest.adapters.devices.ios import IOSDevice
+from jevtest.adapters.devices.ios_tools import find_target
 from jevtest.adapters.jev.client import JevClient
 from jevtest.adapters.jev.lockfile import LockMode
 from jevtest.domain.failures import JevtestError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 
-from .run import MakeClient, MakeDevice, RunOptions, run_command
+from .run import FindDevice, MakeClient, MakeDevice, RunOptions, run_command
 
 
 def make_device(platform: Platform, device: str, app: Path, progress: Callable[[str], None]) -> Device:
@@ -38,6 +40,20 @@ def make_device(platform: Platform, device: str, app: Path, progress: Callable[[
     if platform is Platform.ANDROID:
         return AndroidDevice(device, progress)
     return IOSDevice(device, app, progress)
+
+
+CLAIMS = Claims()
+"""The devices this process is testing: a second jevtest run can't use them at the same time."""
+
+
+def find_device(platform: Platform, device: str) -> None:
+    """Claim the one running device of `platform` called `device`.
+
+    Raises:
+        DeviceError: No running device, or several, are called that; or another jevtest run is using it.
+    """
+    device_id = find_android(device) if platform is Platform.ANDROID else find_target(device).udid
+    CLAIMS.claim(device_id)
 
 
 def make_client(model: str, api_key: str | None) -> JevClient:
@@ -51,7 +67,7 @@ def parser() -> argparse.ArgumentParser:
         prog="jevtest", description="Plain-English end-to-end tests for mobile apps, driven by Jev."
     )
     p.add_argument("--version", action="version", version=__version__)
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd", required=True, metavar="COMMAND")
     r = sub.add_parser("run", help="run test files, or every test file in a folder")
     r.add_argument("paths", nargs="+", metavar="PATH", help="test files and/or folders of them")
     r.add_argument("--test", action="append", default=[], metavar="NAME", help="only run this test (repeatable)")
@@ -59,9 +75,9 @@ def parser() -> argparse.ArgumentParser:
         "--lock",
         required=True,
         choices=[m.value for m in LockMode],
-        help="record: use recorded Jev decisions, ask Jev about new screens and record the answers; "
-        "frozen: only recorded decisions, a new screen fails the run (no key or network needed); "
-        "refresh: ask Jev again about everything and re-record; off: no lockfile",
+        help="record: repeat the saved do: steps and recorded Jev answers, ask Jev about anything new and save it; "
+        "frozen: only saved steps and recorded answers, anything new fails the run (no key or network needed); "
+        "refresh: ask Jev again about everything and save it anew; off: no lockfile, Jev is asked every time",
     )
     r.add_argument(
         "--out", required=True, metavar="DIR", help="results folder (each run adds a timestamped folder in it)"
@@ -69,7 +85,7 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument(
         "--prune-lock",
         action="store_true",
-        help="after a run where every test passed, drop recorded decisions it didn't use",
+        help="after a run of every test where every test passed, drop the saved steps and answers it didn't use",
     )
     r.add_argument("-v", "--verbose", action="store_true", help="print every Jev question and answer")
     return p
@@ -95,6 +111,7 @@ def main(
     argv: Sequence[str] | None = None,
     *,
     devices: MakeDevice = make_device,
+    find: FindDevice = find_device,
     client: MakeClient = make_client,
     clock: Clock | None = None,
 ) -> int:
@@ -113,12 +130,15 @@ def main(
     )
     previous = {s: signal.signal(s, _stop) for s in STOP_SIGNALS if signal.getsignal(s) is signal.SIG_DFL}
     try:
-        return run_command(options, devices, client, clock or SystemClock())
+        return run_command(options, devices, client, clock or SystemClock(), find)
     except JevtestError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
     except KeyboardInterrupt as e:
-        return 128 + (e.signum if isinstance(e, Stopped) else signal.SIGINT)
+        signum = e.signum if isinstance(e, Stopped) else signal.SIGINT
+        print(f"\nstopped ({signal.Signals(signum).name}): devices put back; this run wrote no report", file=sys.stderr)
+        return 128 + signum
     finally:
+        CLAIMS.release()
         for s, handler in previous.items():
             signal.signal(s, handler)

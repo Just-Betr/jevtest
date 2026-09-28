@@ -123,3 +123,7 @@ jevtest does not convert values for you:
 | `dark_mode: on` | ✓ (YAML reads `on`/`off` and `true`/`false` as true/false) |
 | `dark_mode: light` | ✗ `'dark_mode' must be on or off (true or false), got 'light'` |
 | `- bakc` | ✗ `Unknown step 'bakc' … for a plain-English goal write` `- do: bakc` |
+| `wait: 600` | ✗ `'wait' must be from 0 to 300 seconds, got 600` |
+| `key: Enter` | ✗ `Unknown key 'Enter'. Keys: backspace, delete, enter, …` |
+| `key: 67` | ✗ `'key' needs text, got a number (to use 67 as text, put it in quotes)`; `key: "67"` ✓ |
+| `- back` with `see:` under it | ✗ YAML error, then `On line N, a step with checks under it needs a colon after its action:` `- back:` |

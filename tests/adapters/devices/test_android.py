@@ -5,10 +5,11 @@ from pathlib import Path
 import pytest
 
 from jevtest.adapters.devices import android
-from jevtest.adapters.devices.android import AndroidDevice
+from jevtest.adapters.devices.android import KEYCODES, AndroidDevice
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction, Orientation
 from jevtest.domain.screen import Element
+from jevtest.domain.steps import ANDROID_KEYS, KEYS
 from tests.adapters.devices.conftest import FIX, LOGIN
 from tests.conftest import PROGRESS
 
@@ -313,6 +314,10 @@ def test_keys(drv, adb):
         drv.key("Enter")
 
 
+def test_android_presses_every_key_a_test_file_may_name():
+    assert set(KEYCODES) == {*KEYS, *ANDROID_KEYS}
+
+
 @pytest.mark.parametrize(("ime", "pressed"), [("true", True), ("false", False)])
 def test_hide_keyboard_only_presses_back_when_open(drv, adb, agent, ime, pressed):
     agent.replies["/tree"] = [LOGIN.replace('<hierarchy rotation="0"', f'<hierarchy rotation="0" ime="{ime}"'), LOGIN]
@@ -500,5 +505,45 @@ def test_restore_puts_back_once(drv, adb, agent):
 
 def test_looks_is_a_fingerprint_of_the_elements_pixels(drv, agent):
     agent.replies["/pixels"] = "3fa9"
-    assert drv.looks(Element("button", "OK", bounds=(10, 20, 110, 70))) == "3fa9"
-    assert agent.paths()[-1] == "/pixels?x1=10&y1=20&x2=110&y2=70"
+    ok, title = Element("button", "OK", bounds=(10, 20, 110, 70)), Element("text", "Hi", bounds=(0, 0, 5, 6))
+    assert drv.looks([ok, title]) == "3fa9"
+    assert agent.paths()[-1] == "/pixels?rects=10,20,110,70;0,0,5,6"  # one screenshot for all of them
+    calls = len(agent.paths())
+    assert drv.looks([]) == ""  # nothing to look at: no screenshot
+    assert len(agent.paths()) == calls
+
+
+def test_a_link_no_app_opens_says_so(drv, adb):
+    # Android 13 prints this and still exits 0 (measured), so the output is what counts
+    adb.rules["am start -W -a android.intent.action.VIEW"] = (
+        "Starting: Intent { dat=x:// }\nError: Activity not started, unable to resolve Intent { dat=x:// }\n"
+    )
+    with pytest.raises(DeviceError, match="^No app on the device opens x://y: check the link"):
+        drv.open_url("x://y")
+    adb.rules["am start -W -a android.intent.action.VIEW"] = "Starting: Intent\nError: Activity class does not exist\n"
+    with pytest.raises(DeviceError, match="^Could not open x://y: Activity class does not exist$"):
+        drv.open_url("x://y")
+    # Android 14+ exits 1 with the same words (measured on the emulator)
+    adb.rules["am start -W -a android.intent.action.VIEW"] = DeviceError(
+        "am start failed (1): Error: Activity not started, unable to resolve Intent { dat=x:// }"
+    )
+    with pytest.raises(DeviceError, match="^No app on the device opens x://y"):
+        drv.open_url("x://y")
+    adb.rules["am start -W"] = DeviceError("adb: device offline")
+    with pytest.raises(DeviceError, match="device offline"):
+        drv.launch()
+
+
+def test_a_permission_that_cant_be_granted_says_why(drv, adb):
+    adb.rules["pm grant"] = DeviceError(
+        "adb shell pm grant failed (255): Exception occurred while executing 'grant':\n"
+        "java.lang.SecurityException: Permission android.permission.INTERNET requested by package dev.demo is not a "
+        "changeable permission type\n\tat com.android.server..."
+    )
+    with pytest.raises(
+        DeviceError, match="^Can't grant android.permission.INTERNET: Permission .* is not a changeable"
+    ):
+        drv.grant("android.permission.INTERNET")
+    adb.rules["pm grant"] = DeviceError("device offline")
+    with pytest.raises(DeviceError, match="^Can't grant android.permission.CAMERA: device offline$"):
+        drv.grant("android.permission.CAMERA")

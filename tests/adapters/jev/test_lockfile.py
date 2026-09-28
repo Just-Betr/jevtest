@@ -136,6 +136,7 @@ def test_a_recorded_answer_that_no_longer_fits_the_question_is_an_error(tmp_path
     ("content", "message"),
     [
         ("{", "not valid JSON"),
+        ('<<<<<<< HEAD\n{"version": 2}\n=======\n{}\n>>>>>>> main\n', "has git merge conflict markers: resolve them"),
         ("[]", "not a jevtest v2 lockfile"),
         ('{"version": 99}', "not a jevtest v2"),
         ('{"version": 1, "decisions": {}}', "not a jevtest v2"),  # before saved steps: re-record

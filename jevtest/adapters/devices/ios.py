@@ -13,20 +13,32 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
 import secrets
 import shutil
 import subprocess
 import tempfile
 from base64 import b64decode
+from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
+from jevtest.domain.steps import KEYS
 
 from ._typing import override
-from .common import BaseDevice, Progress, cache_dir, digest, start_process, stop_process
+from .common import (
+    BaseDevice,
+    Progress,
+    cache_dir,
+    digest,
+    no_app_opens,
+    start_process,
+    stop_process,
+    wait_until,
+)
 from .ios_screen import AgentTree, parse_tree
 from .ios_tools import (
     AGENT_LOCK,
@@ -52,6 +64,15 @@ APP_WAIT = 10.0
 AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator or phone
 # XCUIApplication.State raw values.
 # XCUIApplication.State: unknown, notRunning, runningBackgroundSuspended, runningBackground, runningForeground
+SWIPE_SPEED = 1500
+"""Points per second a swipe's finger moves: a flick, as swipe-to-dismiss and carousels expect."""
+SWIPE_HOLD = 0.05
+SCROLL_SPEED = 300
+"""Points per second a scroll's finger moves. Faster, a web page flings on after the finger lifts, however long
+it rests first (measured in a WKWebView: at 500 a 100 pt drag moved the page 320 pt, at 1500 470 pt; at 250-350
+a 524 pt drag moved it 514 pt, the 10 pt being touch slop), and `scroll_to` could jump past its target."""
+SCROLL_HOLD = 0.1
+
 APP_STATES = {
     0: AppState.NOT_RUNNING,
     1: AppState.NOT_RUNNING,
@@ -332,9 +353,10 @@ class IOSDevice(BaseDevice):
         self._call("/long_press", x=x, y=y, seconds=seconds)
 
     @override
-    def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
-        """Press, move, lift."""
-        self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2)
+    def drag(self, x1: int, y1: int, x2: int, y2: int, *, scroll: bool = False) -> None:
+        """Press, move, lift: a swipe at a flick's speed, a scroll slowly enough that nothing flings on."""
+        speed, hold = (SCROLL_SPEED, SCROLL_HOLD) if scroll else (SWIPE_SPEED, SWIPE_HOLD)
+        self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2, velocity=speed, hold=hold)
 
     def type_text(self, text: str, at: Point | None = None) -> None:
         """Type into the focused field, or first focus the field at `at`."""
@@ -359,7 +381,9 @@ class IOSDevice(BaseDevice):
         self.wait_until(lambda s: s.keyboard_visible, "The keyboard did not come up for the text field")
 
     def key(self, name: str) -> None:
-        """Press a named key."""
+        """Press a named key: iOS has only the keys every platform has."""
+        if name not in KEYS:
+            raise DeviceError(f"iOS has no key '{name}': it presses only {', '.join(KEYS)}")
         self._call("/key", key=name)
 
     def back(self) -> None:
@@ -370,7 +394,7 @@ class IOSDevice(BaseDevice):
         """Press Home."""
         self._call("/home")
 
-    def looks(self, element: Element) -> str:  # noqa: ARG002 - the Device port; iOS needs no pixels
+    def looks(self, elements: Sequence[Element]) -> str:  # noqa: ARG002 - the Device port; iOS needs no pixels
         """Nothing: on iOS an element's frame moves with its animation (measured), so its bounds say it all."""
         return ""
 
@@ -389,7 +413,13 @@ class IOSDevice(BaseDevice):
         self._remember("/rotate")
         self._call("/rotate", orientation=orientation)
         wide = orientation in (Orientation.LANDSCAPE, Orientation.LANDSCAPE_RIGHT)
-        self.wait_until(lambda s: (s.width > s.height) == wide, f"The app did not turn to {orientation}")
+        try:
+            self.wait_until(lambda s: (s.width > s.height) == wide, f"The app did not turn to {orientation}")
+        except DeviceError as e:
+            raise DeviceError(
+                f"{e}: does the app allow it? (UISupportedInterfaceOrientations in its Info.plist; iPhone apps "
+                "usually leave out portrait_upside_down)"
+            ) from None
 
     def set_location(self, latitude: float, longitude: float) -> None:
         """Simulate a GPS location; on a simulator it's cleared on close."""
@@ -401,10 +431,16 @@ class IOSDevice(BaseDevice):
 
     def open_url(self, url: str) -> None:
         """Open a deep link or URL."""
-        if self.physical:
-            self._call("/open_url", url=url)
-        else:
-            simctl("openurl", self.udid, url)
+        try:
+            if self.physical:
+                self._call("/open_url", url=url)
+            else:
+                simctl("openurl", self.udid, url)
+        except DeviceError as e:
+            # measured: simctl says "LSApplicationWorkspaceErrorDomain, code=115", an iPhone "...error 115."
+            if re.search(r"LSApplicationWorkspaceErrorDomain(, code=| error )115", str(e)):
+                raise no_app_opens(url) from None
+            raise
 
     def dark_mode(self, *, on: bool) -> None:
         """Switch the appearance; the previous one is put back on close."""
@@ -412,11 +448,22 @@ class IOSDevice(BaseDevice):
         self._call("/appearance", dark=on)
 
     def grant(self, permission: str) -> None:
-        """Grant a simulator privacy service (photos, camera, ...). A real iPhone can't."""
+        """Grant a simulator privacy service (photos, camera, ...). A real iPhone can't.
+
+        The simulator ends an app whose permissions change, even to what they were (measured: gone within
+        0.25 s), so a running app is started again once it's gone.
+        """
         if self.physical:
             raise DeviceError("A real iPhone can't pre-grant permissions: let the test tap the permission prompt")
+        running = self.app_state() is not AppState.NOT_RUNNING
         # simctl services: all, calendar, contacts, location, location-always, photos, microphone, ...
         simctl("privacy", self.udid, "grant", permission, self.app_id)
+        if running:
+            wait_until(
+                lambda: self.app_state() is AppState.NOT_RUNNING,
+                "The simulator did not end the app after the permission changed",
+            )
+            self.launch()
 
     def network(self, *, on: bool) -> None:
         """Not possible on iOS: always an error."""
