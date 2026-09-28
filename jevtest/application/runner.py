@@ -71,7 +71,7 @@ from jevtest.domain.steps import (
     Use,
     Wait,
 )
-from jevtest.domain.variables import fill
+from jevtest.domain.variables import fill, hide
 
 from .brain import Brain, Located
 
@@ -265,10 +265,7 @@ class TestRunner:
         return "; close but not exact: " + ", ".join(f"'{self._masked(n)}'" for n in near)
 
     def _masked(self, text: str) -> str:
-        for name, value in self.suite.variables.items():
-            if value:
-                text = text.replace(value, f"${{{name}}}")
-        return text
+        return hide(text, self.suite.variables)
 
     def _locate(self, target: str, timeout: float, *, editable: bool = False) -> Located:
         wanted = self._value(target)

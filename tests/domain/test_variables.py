@@ -1,6 +1,6 @@
 import pytest
 
-from jevtest.domain.variables import fill, names_in
+from jevtest.domain.variables import fill, hide, names_in
 
 
 def test_names_and_filling():
@@ -9,3 +9,10 @@ def test_names_and_filling():
     assert fill("no variables $NAME {NAME}", {}) == "no variables $NAME {NAME}"
     with pytest.raises(KeyError):
         fill("${MISSING}", {})
+
+
+def test_hide_puts_names_back_longest_value_first():
+    variables = {"USER": "ann", "EMAIL": "ann@x.io", "EMPTY": ""}
+    assert hide("Welcome, ann@x.io (ann)", variables) == "Welcome, ${EMAIL} (${USER})"
+    assert hide("nothing secret", variables) == "nothing secret"
+    assert hide(fill("${EMAIL}", variables), variables) == "${EMAIL}"

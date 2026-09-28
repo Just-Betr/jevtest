@@ -163,7 +163,9 @@ class Runs:
                 f"lockfile: {model.mode.value}"
             )
             printer.block(job.tag, [header])
-            result = TestRunner(job.suite, device, Brain(model), job.out, clock=self.clock, listener=listener).run()
+            result = TestRunner(
+                job.suite, device, Brain(model, job.suite.variables), job.out, clock=self.clock, listener=listener
+            ).run()
         finally:
             self._close(device)
         write_report(

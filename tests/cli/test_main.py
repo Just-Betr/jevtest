@@ -49,8 +49,10 @@ class FakeJevClient:
     def __init__(self, api_key, answers):
         self.api_key = api_key
         self.answers = answers
+        self.requests: list[str] = []  # each request as JSON, to check what Jev was sent
 
     def ask(self, state, questions):
+        self.requests.append(json.dumps({"state": state, "questions": questions}))
         if not self.answers:
             raise AssertionError(f"FakeJevClient ran out of answers; asked {list(questions)}")
         scripted = self.answers.pop(0)
@@ -162,6 +164,20 @@ def test_the_files_model_asks_jev_and_is_reported(tmp_path, monkeypatch, fakes, 
     assert fakes.models == ["typesafe/jev-2"] and "· typesafe/jev-2 ·" in capsys.readouterr().out
     report = json.loads((stamp_of(tmp_path) / "android" / "emulator-5554" / "report.json").read_text())
     assert report["model"] == "typesafe/jev-2"
+
+
+def test_a_value_the_app_shows_reaches_jev_only_as_its_name(tmp_path, monkeypatch, fakes):
+    spec_file(tmp_path, tests="  - {name: T, fresh: true, steps: [{expect: 'Welcome ${EMAIL} is showing'}]}\n")
+    (tmp_path / ".env").write_text("EMAIL=ann@x.io\nOPENROUTER_API_KEY=k\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    fakes.make_device = lambda *_: FakeDevice(screen_with("Welcome ann@x.io"))
+    clients = fakes.script(yes(0.95))
+    assert fakes.run() == 0
+    [request] = clients[0].requests
+    assert "ann@x.io" not in request and "Welcome ${EMAIL}" in request
+    lock = (tmp_path / "t.lock.json").read_text()
+    assert "ann@x.io" not in lock
 
 
 def test_frozen_fails_on_unrecorded_screen(project, fakes, capsys):

@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import TypeGuard
 
 from jevtest.domain.decisions import (
     ClearField,
@@ -33,6 +34,7 @@ from jevtest.domain.kinds import Direction, Gesture
 from jevtest.domain.model import Answer, Choice, Picked, Probability, Question, State, YesNo
 from jevtest.domain.ports import DecisionModel
 from jevtest.domain.screen import Element, Screen, near_names
+from jevtest.domain.variables import hide
 
 QUOTED = re.compile(r'"([^"]+)"|“([^”]+)”')
 MAX_OPTIONS = 250  # the model allows 255 options per Choice
@@ -190,6 +192,37 @@ def _goal_questions(goal: str, screen: Screen, values: Sequence[str]) -> dict[st
     return questions
 
 
+def _hidden_state(state: State, variables: Mapping[str, str]) -> State:
+    """The state with `hide` applied to every text in it."""
+    return {key: _hidden(value, variables) for key, value in state.items()}
+
+
+def _hidden(value: object, variables: Mapping[str, str]) -> object:
+    """`value` with `hide` applied to every text in it (texts, lists, mappings, as JSON has them)."""
+    if isinstance(value, str):
+        return hide(value, variables)
+    if _is_mapping(value):
+        return {k: _hidden(v, variables) for k, v in value.items()}
+    if _is_sequence(value):
+        return [_hidden(v, variables) for v in value]
+    return value
+
+
+def _is_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    return isinstance(value, Mapping)
+
+
+def _is_sequence(value: object) -> TypeGuard[list[object] | tuple[object, ...]]:
+    return isinstance(value, list | tuple)
+
+
+def _hidden_question(question: Question, variables: Mapping[str, str]) -> Question:
+    instructions = {k: hide(v, variables) for k, v in question.instructions.items()}
+    if isinstance(question, Choice):
+        return Choice(instructions, {k: hide(v, variables) for k, v in question.options.items()})
+    return YesNo(instructions)
+
+
 @dataclass(frozen=True)
 class Located:
     """The element a target names, and how it was found.
@@ -214,8 +247,9 @@ class Brain:
         model: Where the questions go (Jev behind its lockfile, or a fake).
     """
 
-    def __init__(self, model: DecisionModel) -> None:
+    def __init__(self, model: DecisionModel, variables: Mapping[str, str] | None = None) -> None:
         self.model = model
+        self._variables = dict(variables or {})
 
     def next_action(self, goal: str, screen: Screen, actions_taken: Sequence[str]) -> Decision:
         """One model request: the next move toward `goal` from `screen`.
@@ -225,7 +259,7 @@ class Brain:
         """
         values = quoted_values(goal)[:MAX_OPTIONS]
         questions = _goal_questions(goal, screen, values)
-        answers = self.model.ask(_state(screen, actions_taken=list(actions_taken) or ["(none yet)"]), questions)
+        answers = self._ask(_state(screen, actions_taken=list(actions_taken) or ["(none yet)"]), questions)
         action = _picked(answers["action"])
         return Decision(
             self._move(action.choice, answers, screen, values), action.confidence, dict(action.probabilities)
@@ -276,7 +310,7 @@ class Brain:
         options = _element_options(screen, pool)
         options["not_on_screen"] = "No element on the screen is `target`."
         pick = _picked(
-            self.model.ask(
+            self._ask(
                 _state(screen),
                 {
                     "element": Choice(
@@ -287,7 +321,7 @@ class Brain:
         )
         if pick.choice == "not_on_screen":
             return None
-        confirm = self.model.ask(
+        confirm = self._ask(
             _state(screen),
             {
                 "is_target": YesNo(
@@ -301,9 +335,16 @@ class Brain:
         )
         return screen.by_id(pick.choice) if _yes(confirm["is_target"]) > CONFIRM else None
 
+    def _ask(self, state: State, questions: Mapping[str, Question]) -> Mapping[str, Answer]:
+        """The one way to the model: every ``${NAME}`` value in the request becomes its name first (`hide`)."""
+        return self.model.ask(
+            _hidden_state(state, self._variables),
+            {q: _hidden_question(v, self._variables) for q, v in questions.items()},
+        )
+
     def check(self, statement: str, screen: Screen) -> float:
         """The model's probability that `statement` is true of the screen."""
-        answers = self.model.ask(
+        answers = self._ask(
             _state(screen),
             {"check": YesNo({"statement": statement, "question": "Is `statement` true of the current `screen`?"})},
         )

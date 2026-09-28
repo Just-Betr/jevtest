@@ -1,4 +1,5 @@
 import dataclasses
+import json
 from collections.abc import Sequence
 
 import pytest
@@ -279,3 +280,15 @@ def test_answers_must_be_of_the_kind_asked():
         _picked(Probability(0.5))
     with pytest.raises(ModelError, match="Expected a yes/no probability"):
         _yes(Picked("a", 1.0))
+
+
+def test_jev_is_never_sent_a_variables_value():
+    """What the app shows (a signed-in email) reaches Jev as its ${NAME}: in the screen, options and questions."""
+    screen = screen_of(el("text", "Welcome, ann@x.io"), el("button", "Log out ann@x.io", clickable=True))
+    model = FakeModel(yes(0.9), pick("e2"), confirm())
+    brain = Brain(model, {"EMAIL": "ann@x.io"})
+    assert brain.check("Welcome, ann@x.io is showing", screen) == 0.9
+    located(brain, "the log out button for ann@x.io", screen)
+    sent = json.dumps(model.asked)
+    assert "ann@x.io" not in sent
+    assert "Welcome, ${EMAIL}" in sent and "the log out button for ${EMAIL}" in sent
