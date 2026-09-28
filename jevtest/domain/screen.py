@@ -114,6 +114,10 @@ class Screen:
         covered = self.keyboard_visible and 0 < self.keyboard_top < self.height
         return self.keyboard_top if covered else self.height
 
+    def under_keyboard(self, el: Element) -> bool:
+        """Whether the keyboard is over the point where a tap on the element lands: touching it would hit a key."""
+        return el.center[1] >= self.content_height
+
     @property
     def editable(self) -> tuple[Element, ...]:
         """The elements that take typed text."""

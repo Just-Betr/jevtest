@@ -224,6 +224,22 @@ def test_tap_gives_up_after_timeout(tmp_path, clock, out):
     assert res.failure == "tap: Ghost (timeout: 1) — Could not find element 'Ghost' on screen"
 
 
+def test_an_element_under_the_keyboard_is_never_touched(tmp_path, clock, out):
+    covered = login_screen(keyboard_visible=True, keyboard_top=300)
+    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in", "timeout": 1}, device=FakeDevice(covered))
+    assert failure_of(res).endswith(
+        "button 'Sign in' is under the keyboard: close it first with a `hide_keyboard` step"
+    )
+    assert "tap" not in d.names()  # a tap there would have typed a key
+
+
+def test_an_element_is_touched_once_the_keyboard_is_closed(tmp_path, clock, out):
+    covered = login_screen(keyboard_visible=True, keyboard_top=300)
+    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=FakeDevice(covered, login_screen()))
+    assert res.status is Status.PASS
+    assert d.calls.count(("tap", 500, 450)) == 1
+
+
 def test_swipe_on_element(tmp_path, clock, out):
     res, d, _ = run1(tmp_path, clock, out, {"swipe": "left", "target": "Sign in"})
     assert ("drag", 850, 450, 150, 450) in d.calls
@@ -448,6 +464,45 @@ def test_do_types_and_taps_until_done(tmp_path, clock, out):
     assert "→ done  (confidence 0.90)" in out.getvalue()
 
 
+def test_do_closes_the_keyboard_over_the_element_jev_picked(tmp_path, clock, out):
+    covered = login_screen(keyboard_visible=True, keyboard_top=300)
+    s = login_screen()
+    moved = dataclasses.replace(s.elements[2], bounds=(0, 600, 1000, 700))  # the layout moves once it closes
+    closed = dataclasses.replace(s, elements=(*s.elements[:2], moved))
+    model = FakeModel(act("tap", target="e3"), act("done"))
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=FakeDevice(covered, closed))
+    assert res.status is Status.PASS, res
+    names = d.names()
+    assert names.index("hide_keyboard") < names.index("tap")  # a tap on the keyboard would have typed a key
+    assert ("tap", 500, 650) in d.calls  # where it is now, not where it was
+
+
+def test_do_fails_when_the_keyboard_over_the_element_stays(tmp_path, clock, out):
+    covered = login_screen(keyboard_visible=True, keyboard_top=300)
+    model = FakeModel(act("tap", target="e3"))
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=FakeDevice(covered))
+    assert failure_of(res).endswith("button 'Sign in' is under the keyboard, and the keyboard didn't close")
+    assert "tap" not in d.names()
+
+
+def test_do_fails_when_the_element_is_gone_once_the_keyboard_closes(tmp_path, clock, out):
+    covered = login_screen(keyboard_visible=True, keyboard_top=300)
+    model = FakeModel(act("tap", target="e3"))
+    device = FakeDevice(covered, screen_with("Elsewhere"))
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in"}, model=model, device=device)
+    assert failure_of(res).endswith("button 'Sign in' was under the keyboard, and isn't on screen once it closed")
+    assert "tap" not in d.names()
+
+
+def test_do_types_into_a_focused_field_under_the_keyboard(tmp_path, clock, out):
+    s = _login(focused=True, keyboard=True)
+    covered = dataclasses.replace(s, keyboard_top=100)  # e.g. a phone on its side: the keyboard covers it all
+    model = FakeModel(act("type", field="e1", value="v0"), act("done"))
+    res, d, _ = run1(tmp_path, clock, out, {"do": 'Type "a" into email'}, model=model, device=FakeDevice(covered))
+    assert res.status is Status.PASS, res
+    assert ("type_text", "a", None) in d.calls  # no tap: typing goes to the focused field
+
+
 @pytest.mark.parametrize(
     ("action", "call"),
     [
@@ -605,6 +660,19 @@ def test_the_model_sees_the_placeholder_and_the_app_gets_the_value(tmp_path, clo
     )
     assert res.status is Status.PASS and ("type_text", "hunter2", (500, 150)) in d.calls
     assert "hunter2" not in json.dumps(model.asked) and "hunter2" not in out.getvalue()
+
+
+def test_values_the_screen_shows_are_written_as_their_names_in_all_output(tmp_path, clock, out):
+    s = login_screen()
+    email = dataclasses.replace(s.elements[0], text="ann@x.io", value="ann@x.io")  # a field shows what was typed
+    s = dataclasses.replace(s, elements=(email, *s.elements[1:]))
+    model = FakeModel(act("tap", target="e1"), act("done"))
+    steps = ({"do": "Tap the email"}, {"tap": "${EMAIL}", "see": "Nope", "timeout": 1})
+    res, _, _ = run1(tmp_path, clock, out, *steps, model=model, device=FakeDevice(s), variables={"EMAIL": "ann@x.io"})
+    decision = res.steps[0].decisions[0]
+    assert decision.move.describe() == "tap text_field '${EMAIL}'"
+    assert res.steps[1].detail == "on text_field '${EMAIL}'"
+    assert "ann@x.io" not in out.getvalue()
 
 
 def test_missing_target_is_reported_by_its_placeholder(tmp_path, clock, out):

@@ -127,12 +127,13 @@ class TestRunner:
         try:
             self._start_app(fresh=test.fresh)
         except DeviceError as e:
-            self.listener.start_failed(str(e))
+            failure = self._masked(str(e))
+            self.listener.start_failed(failure)
             result = TestResult(
                 test.name,
                 Status.FAIL,
                 self._since(started),
-                start_failure=str(e),
+                start_failure=failure,
                 screenshot=self._screenshot(f"FAIL_{test.name}"),
             )
             self.listener.test_done(result)
@@ -191,16 +192,24 @@ class TestRunner:
             self._check_app(action)
         except (StepFailed, DeviceError, ModelError) as e:
             status, detail = Status.FAIL, str(e)
-        return StepResult(step, status, self._since(started), detail, tuple(decisions), self._calls_since(mark))
+        return StepResult(
+            step,
+            status,
+            self._since(started),
+            detail and self._masked(detail),
+            tuple(self._masked_decision(d) for d in decisions),
+            self._calls_since(mark),
+        )
 
     def _run_checks(self, step: Step, depth: int) -> tuple[CheckResult, ...]:
         results: list[CheckResult] = []
         for check in step.checks:
             mark = len(self.brain.model.calls)
             try:
-                result = CheckResult(check, Status.PASS, self._check(check, step.settings))
+                detail = self._check(check, step.settings)
+                result = CheckResult(check, Status.PASS, detail and self._masked(detail))
             except (StepFailed, DeviceError, ModelError) as e:
-                result = CheckResult(check, Status.FAIL, str(e))
+                result = CheckResult(check, Status.FAIL, self._masked(str(e)))
             result = replace(result, model_calls=self._calls_since(mark))
             self.listener.check_done(result, depth)
             results.append(result)
@@ -262,10 +271,27 @@ class TestRunner:
         near = near_names(text, elements)
         if not near:
             return ""
-        return "; close but not exact: " + ", ".join(f"'{self._masked(n)}'" for n in near)
+        return "; close but not exact: " + ", ".join(f"'{n}'" for n in near)
 
     def _masked(self, text: str) -> str:
+        """`text` as output shows it: a ``${NAME}`` value the screen shows is written as its name."""
         return hide(text, self.suite.variables)
+
+    def _masked_decision(self, decision: Decision) -> Decision:
+        """The decision as output shows it: its element's texts masked like everything else."""
+        move = decision.move
+        if not isinstance(move, ElementMove):
+            return decision
+        el = move.element
+        masked = replace(
+            el,
+            text=self._masked(el.text),
+            parts=tuple(self._masked(part) for part in el.parts),
+            hint=self._masked(el.hint),
+            value=self._masked(el.value),
+            resource_id=self._masked(el.resource_id),
+        )
+        return replace(decision, move=replace(move, element=masked))
 
     def _locate(self, target: str, timeout: float, *, editable: bool = False) -> Located:
         wanted = self._value(target)
@@ -273,15 +299,20 @@ class TestRunner:
         def pool(screen: Screen) -> Sequence[Element]:
             return screen.editable if editable else screen.elements
 
-        def attempt(screen: Screen) -> Located | None:
-            return self.brain.locate(wanted, screen, pool(screen))
+        covered: list[Located] = []  # found, but under the keyboard: touching it would hit a key
 
-        what = "text field" if editable else "element"
-        return self._poll(
-            attempt,
-            timeout,
-            lambda screen: f"Could not find {what} '{target}' on screen{self._near(wanted, pool(screen))}",
-        )
+        def attempt(screen: Screen) -> Located | None:
+            found = self.brain.locate(wanted, screen, pool(screen))
+            covered[:] = [found] if found is not None and screen.under_keyboard(found.element) else []
+            return None if covered else found
+
+        def failure(screen: Screen) -> str:
+            if covered:
+                return f"{covered[0].describe()} is under the keyboard: close it first with a `hide_keyboard` step"
+            what = "text field" if editable else "element"
+            return f"Could not find {what} '{target}' on screen{self._near(wanted, pool(screen))}"
+
+        return self._poll(attempt, timeout, failure)
 
     def _check_app(self, action: Action) -> None:
         """Fail if the app crashed or left the foreground during the action."""
@@ -496,21 +527,46 @@ class TestRunner:
             self._settle(settings)
 
     def _make(self, move: ElementMove | PageMove, screen: Screen, settings: Settings) -> None:
-        """Make one of the model's moves on the device."""
+        """Make one of the model's moves on the device.
+
+        A move on an element under the keyboard closes the keyboard first: a touch there would hit a key.
+        """
         d = self.device
+        # a focused field with the keyboard up is ready; tapping it would move the caret
+        ready = isinstance(move, TypeInto) and move.element.focused and screen.keyboard_visible
+        if isinstance(move, ElementMove) and not ready and screen.under_keyboard(move.element):
+            move = replace(move, element=self._uncovered(move.element, settings))
         match move:
             case TouchElement(gesture, element):
                 self._touch(gesture, element)
             case SwipeElement(direction, element):
                 d.swipe(direction, element=element)
             case TypeInto(element, text):
-                # a focused field with the keyboard up is ready; tapping it would move the caret
-                ready = element.focused and screen.keyboard_visible
                 d.type_text(self._value(text), at=None if ready else element.center)
             case ClearField(element):
                 d.clear_text(element)
             case _:
                 self._make_on_page(move, screen, settings)
+
+    def _uncovered(self, element: Element, settings: Settings) -> Element:
+        """Close the keyboard over `element`, then find it again: the screen may move once the keyboard is gone.
+
+        Raises:
+            StepFailed: The keyboard stays up, or the element isn't on screen exactly once without it.
+        """
+        self.device.hide_keyboard()
+        same = (element.kind, element.text, element.hint, element.resource_id)
+
+        def found(screen: Screen) -> Element | None:
+            matches = [el for el in screen.elements if (el.kind, el.text, el.hint, el.resource_id) == same]
+            return matches[0] if not screen.keyboard_visible and len(matches) == 1 else None
+
+        def failure(screen: Screen) -> str:
+            if screen.keyboard_visible:
+                return f"{element.label()} is under the keyboard, and the keyboard didn't close"
+            return f"{element.label()} was under the keyboard, and isn't on screen once it closed"
+
+        return self._poll(found, settings.timeout, failure)
 
     def _make_on_page(self, move: PageMove, screen: Screen, settings: Settings) -> None:
         d = self.device

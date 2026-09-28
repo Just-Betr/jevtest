@@ -75,6 +75,13 @@ def test_content_height_excludes_the_keyboard():
     assert Screen(10, 2000, keyboard_visible=False, keyboard_top=1200).content_height == 2000
 
 
+def test_under_keyboard_is_where_a_tap_would_hit_a_key():
+    s = Screen(10, 2000, keyboard_visible=True, keyboard_top=1200)
+    assert s.under_keyboard(el(bounds=(0, 1150, 10, 1260)))  # its middle is on the keyboard
+    assert not s.under_keyboard(el(bounds=(0, 1100, 10, 1290)))  # partly covered, but its middle is above
+    assert not Screen(10, 2000).under_keyboard(el(bounds=(0, 1900, 10, 2000)))
+
+
 def test_element_label_and_points():
     assert Element("button", "OK", bounds=(0, 0, 10, 20)).center == (5, 10)
     assert Element("text_field", bounds=(0, 0, 100, 20)).end == (92, 10)  # just inside the right edge
