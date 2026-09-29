@@ -54,6 +54,18 @@ def aapt2_path() -> str:
     return _tool("aapt2", "build-tools/*/aapt2", "Install Android SDK build-tools (needed to read the APK).")
 
 
+def bundletool_path() -> str:
+    """bundletool, which installs an Android App Bundle (.aab).
+
+    Raises:
+        DeviceError: It isn't on the PATH.
+    """
+    found = shutil.which("bundletool")
+    if not found:
+        raise DeviceError("bundletool is required to install .aab files (brew install bundletool)")
+    return found
+
+
 def devices() -> list[str]:
     """The serials of the connected devices that are ready (not offline or unauthorized)."""
     out = run([adb_path(), "devices"], timeout=20)

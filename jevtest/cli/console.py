@@ -16,6 +16,7 @@ from jevtest.domain.kinds import Status
 from jevtest.domain.model import ModelCall, Picked
 from jevtest.domain.results import CheckResult, RunResult, StepResult, TestResult
 from jevtest.domain.steps import Test
+from jevtest.domain.words import plural
 
 
 class Printer:
@@ -75,8 +76,7 @@ class ConsoleListener:
                     got = f"yes={answer.yes:.2f}"
                 self._emit(f"{pad}    jev {qid}: {got}")
             source = "from lockfile" if call.recorded else f"{call.ms} ms"
-            n = len(call.questions)
-            self._emit(f"{pad}    jev call {source}, {n} question{'' if n == 1 else 's'}")
+            self._emit(f"{pad}    jev call {source}, {plural(len(call.questions), 'question')}")
 
     def test_started(self, test: Test) -> None:
         """Begin a test's block."""
@@ -129,7 +129,7 @@ def summary(result: RunResult, calls: Sequence[ModelCall], out: Path) -> list[st
     lines = [f"\n{result.passed}/{len(result.tests)} passed in {result.seconds:.0f}s"]
     lines += [f"  FAILED {t.name}: {t.failure}" for t in result.tests if t.status is Status.FAIL]
     lines.append(
-        f"Jev: {len(calls)} decision{'' if len(calls) == 1 else 's'}, {len(calls) - len(live)} from "
+        f"Jev: {plural(len(calls), 'decision')}, {len(calls) - len(live)} from "
         f"lockfile, {len(live)} asked live in {jev_s:.1f}s{share}, {cost}"
     )
     lines.append(f"Results: {out}")

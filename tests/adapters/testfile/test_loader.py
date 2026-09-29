@@ -225,6 +225,7 @@ def test_a_bare_action_with_checks_gets_a_hint(tmp_path):
         "app: [\n",  # another problem
         "a: b, ${X}: c\n",  # a ${ outside { } or [ ]
         "? [a, b]\n: c\n",  # a key that isn't a plain scalar: not a key a test file has
+        "a: \x07\n",  # a control character: PyYAML's reader refuses it, with no line to point at
     ],
 )
 def test_other_yaml_errors_get_no_bare_word_hint(tmp_path, body):

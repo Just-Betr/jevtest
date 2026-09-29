@@ -40,19 +40,20 @@ def _looks_numeric(text: str) -> bool:
     return True
 
 
-def number(value: object, what: str, minimum: float = 0) -> float:
-    """A finite number of at least `minimum`. ``"2"`` is text, not a number.
+def number(value: object, what: str, minimum: float = 0, maximum: float = math.inf, unit: str = "") -> float:
+    """A finite number from `minimum` to `maximum` (in `unit`, for the message). ``"2"`` is text, not a number.
 
     Raises:
-        TestFileError: It isn't a number, isn't finite, or is below `minimum`.
+        TestFileError: It isn't a number, isn't finite, or is outside those limits.
     """
     if isinstance(value, bool) or not isinstance(value, int | float):
         hint = " (remove the quotes)" if isinstance(value, str) and _looks_numeric(value) else ""
         raise TestFileError(f"{what} must be a number, got {value!r}{hint}")
     if not math.isfinite(value):
         raise TestFileError(f"{what} must be a finite number, got {value}")
-    if value < minimum:
-        raise TestFileError(f"{what} must be at least {minimum:g}, got {value:g}")
+    if not minimum <= value <= maximum:
+        limits = f"at least {minimum:g}" if maximum == math.inf else f"from {minimum:g} to {maximum:g}"
+        raise TestFileError(f"{what} must be {limits}{f' {unit}' if unit else ''}, got {value:g}")
     return float(value)
 
 
@@ -109,12 +110,10 @@ def setting(name: str, value: object) -> float:
     if name in WHOLE:
         if isinstance(value, bool) or not isinstance(value, int):
             raise TestFileError(f"`{name}` must be a whole number from {low:g} to {high:g}, got {value!r}")
-        result: float = value
-    else:
-        result = number(value, f"`{name}`", minimum=-math.inf)
-    if not low <= result <= high:
-        raise TestFileError(f"`{name}` must be from {low:g} to {high:g}, got {result:g}")
-    return result
+        if not low <= value <= high:
+            raise TestFileError(f"`{name}` must be from {low:g} to {high:g}, got {value}")
+        return value
+    return number(value, f"`{name}`", minimum=low, maximum=high)
 
 
 def coherent(settings: Settings) -> Settings:

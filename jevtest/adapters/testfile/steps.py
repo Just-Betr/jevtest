@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from jevtest.adapters.shapes import is_list, is_mapping
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Direction, Gesture, Orientation, Platform
-from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
+from jevtest.domain.settings import DEFAULTS, LIMITS, REMOVED, STEP_SETTINGS, Settings
 from jevtest.domain.steps import (
     ANDROID_KEYS,
     KEYS,
@@ -93,7 +93,7 @@ def _text_of(make: Callable[[str], Action]) -> ActionSpec:
     return ActionSpec(lambda key, value, _: make(text(value, f"'{key}'")))
 
 
-MAX_PAUSE = 300
+MAX_PAUSE = LIMITS["timeout"][1]
 """The longest `wait:` or `background:`, in seconds: as long as the longest `timeout`."""
 
 
@@ -108,10 +108,7 @@ def _key(key: str, value: object, _: Options) -> Action:
 
 
 def _seconds(key: str, value: object) -> float:
-    seconds = number(value, f"'{key}'")
-    if seconds > MAX_PAUSE:
-        raise TestFileError(f"'{key}' must be from 0 to {MAX_PAUSE:g} seconds, got {seconds:g}")
-    return seconds
+    return number(value, f"'{key}'", maximum=MAX_PAUSE, unit="seconds")
 
 
 def _touch(key: str, value: object, _: Options) -> Action:
@@ -186,11 +183,10 @@ def _names(value: object, what: str) -> tuple[str, ...]:
 def _location(_: str, value: object, __: Options) -> Action:
     if not is_list(value) or len(value) != len(("latitude", "longitude")):
         raise TestFileError(f"location must be [latitude, longitude], e.g. [37.77, -122.41]; got {value!r}")
-    lat = number(value[0], "latitude", minimum=-MAX_LATITUDE)
-    lon = number(value[1], "longitude", minimum=-MAX_LONGITUDE)
-    if lat > MAX_LATITUDE or lon > MAX_LONGITUDE:
-        raise TestFileError(f"location {lat:g},{lon:g} is out of range")
-    return Location(lat, lon)
+    return Location(
+        number(value[0], "latitude", minimum=-MAX_LATITUDE, maximum=MAX_LATITUDE),
+        number(value[1], "longitude", minimum=-MAX_LONGITUDE, maximum=MAX_LONGITUDE),
+    )
 
 
 ACTIONS: Mapping[str, ActionSpec] = {

@@ -74,6 +74,7 @@ from jevtest.domain.steps import (
     Wait,
 )
 from jevtest.domain.variables import fill, hide
+from jevtest.domain.words import plural
 
 from .brain import Brain, Located, quoted_values
 
@@ -82,10 +83,6 @@ END_OF_CONTENT = 2
 phone's web view sometimes ignores a single scroll."""
 
 T = TypeVar("T")
-
-
-def _count(n: int, noun: str) -> str:
-    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
 
 
 class TestRunner:
@@ -603,10 +600,10 @@ class TestRunner:
             found = [el for el in screen.elements if el.says(wanted)]
             last = scrolls == settings.max_scrolls or unmoved == END_OF_CONTENT
             if found and (last or any(screen.clear_of_edges(el) for el in found)):
-                return _count(scrolls, "scroll") if scrolls else None
+                return plural(scrolls, "scroll") if scrolls else None
             if scrolls == settings.max_scrolls:
                 raise StepFailed(
-                    f"Scrolled {direction} {_count(scrolls, 'time')} (max_scrolls) but never found '{text}'"
+                    f"Scrolled {direction} {plural(scrolls, 'time')} (max_scrolls) but never found '{text}'"
                     f"{self._near(wanted, screen.elements)}"
                 )
             self.device.scroll(direction, screen=screen)
@@ -632,7 +629,7 @@ class TestRunner:
                 for step in saved:
                     self._repeat(step, settings)
                     record.ran.append(step.describe())
-                return f"{_count(len(saved), 'saved step')}"
+                return f"{plural(len(saved), 'saved step')}"
             except StepFailed as e:
                 if model.replays_only:
                     n = len(record.ran) + 1
@@ -643,7 +640,7 @@ class TestRunner:
         done = saved[: len(record.ran)] if saved else ()
         steps = self._work_out(goal, settings, record)
         model.save_steps(key, [*done, *steps])
-        return f"{_count(len(done) + len(steps), 'step')}, worked out by Jev"
+        return f"{plural(len(done) + len(steps), 'step')}, worked out by Jev"
 
     def _repeat(self, step: SavedStep, settings: Settings) -> None:
         """One saved step: `wait_until` its element is on screen (the same one of the same count), then act."""
@@ -691,7 +688,7 @@ class TestRunner:
             # a move not made isn't listed with the ones that were
             if len(taken) == settings.max_actions:
                 raise StepFailed(
-                    f"Goal not reached after {_count(len(taken), 'action')} (max_actions); "
+                    f"Goal not reached after {plural(len(taken), 'action')} (max_actions); "
                     f"Jev's next would be {move.describe()}{cant_type}"
                 )
             if taken[-2:] == [move.describe()] * 2:

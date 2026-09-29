@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 from .kinds import Direction, Gesture
 from .screen import Element
+from .words import ordinal
 
 
 @dataclass(frozen=True)
@@ -152,13 +153,6 @@ class Decision:
 
 
 # --- what a `do:` goal saves, so later runs repeat it without Jev ----------------------------------------------
-
-
-def ordinal(n: int) -> str:
-    """``1st``, ``2nd``, ``3rd``, ``4th``, ... ``11th``, ``21st``."""
-    teens = range(10, 21)  # 11th, 12th, 13th: never 11st
-    suffix = "th" if n % 100 in teens else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-    return f"{n}{suffix}"
 
 
 @dataclass(frozen=True)

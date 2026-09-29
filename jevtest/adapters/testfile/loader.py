@@ -14,14 +14,14 @@ from pathlib import Path
 
 import yaml
 
-from jevtest.adapters.shapes import USER_TEXT, is_list, is_mapping
+from jevtest.adapters.shapes import is_list, is_mapping, read_user_text
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
 from jevtest.domain.steps import KEYS, Action, Grant, Key, Network, Step, Suite, Test, Use
 from jevtest.domain.variables import VARIABLE, fill
 
-from .steps import GRANT_PER_PLATFORM, full_android_permission, parse_step
+from .steps import CHECKS, GRANT_PER_PLATFORM, full_android_permission, parse_step
 from .values import coherent, model, on_off, setting, text
 
 Document = Mapping[object, object]
@@ -84,17 +84,33 @@ def platform_of(path: Path) -> Platform:
     raise TestFileError(f"Unknown app type '{path.name}' (use .apk/.aab for Android, .app/.zip/.ipa for iOS)")
 
 
-def _bare_word_hint(path: Path, error: yaml.YAMLError) -> str:
-    """A hint for `- launch` with checks under it: YAML needs `- launch:` there."""
-    if not isinstance(error, yaml.MarkedYAMLError) or error.problem != "mapping values are not allowed here":
+COLON_NOT_ALLOWED = "mapping values are not allowed here"
+"""PyYAML's problem for a `key:` where no mapping can start: under `- launch`, a check needs `- launch:`."""
+
+TAB = "found character '\\t' that cannot start any token"
+"""PyYAML's problem for a tab in indentation."""
+
+FLOW_GOT_BRACE = re.compile(r"expected ',' or '[}\]]', but got '\{'")
+"""PyYAML's problem for a `{` inside `{ }` or `[ ]`: an unquoted ``${NAME}`` there (all measured, PyYAML 6)."""
+
+
+def _hint(error: yaml.YAMLError, lines: Sequence[str]) -> str:
+    """How to fix a YAML error people make in test files, from what PyYAML says and the line it points at."""
+    if not isinstance(error, yaml.MarkedYAMLError) or error.problem is None or error.problem_mark is None:
         return ""
-    line: int = error.problem_mark.line if error.problem_mark else 0
-    if line < 1:
-        return ""
-    word = re.fullmatch(r"-\s+([a-z_]+)", path.read_text(encoding=USER_TEXT).splitlines()[line - 1].strip())
-    if word is None:
-        return ""
-    return f"\nOn line {line}, a step with checks under it needs a colon after its action: `- {word[1]}:`"
+    at = error.problem_mark.line  # counted from 0
+    if error.problem == COLON_NOT_ALLOWED and at >= 1:
+        word = re.fullmatch(r"-\s+([a-z_]+)", lines[at - 1].strip())
+        if word is not None:
+            return f"\nOn line {at}, a step with checks under it needs a colon after its action: `- {word[1]}:`"
+    if error.problem == TAB:
+        return "\nIndent with spaces: YAML doesn't allow tabs"
+    if FLOW_GOT_BRACE.fullmatch(error.problem) and at < len(lines) and "${" in lines[at]:
+        return (
+            '\nA value starting with ${ must be quoted inside { } or [ ]: {android: "${PHONE}"}, '
+            "not {android: ${PHONE}}"
+        )
+    return ""
 
 
 class _GivenTwice(Exception):
@@ -134,31 +150,23 @@ def read_yaml(path: Path) -> Document:
         TestFileError: It's missing, isn't valid YAML, or isn't a mapping.
     """
     try:
-        data: object = yaml.load(path.read_text(encoding=USER_TEXT), Loader=_UniqueKeys)  # noqa: S506 - a safe loader
+        text = read_user_text(path, TestFileError, path.name, "save it as UTF-8")
+    except FileNotFoundError:
+        raise TestFileError(f"Test file not found: {path}") from None
+    try:
+        data: object = yaml.load(text, Loader=_UniqueKeys)  # noqa: S506 - a safe loader
     except _GivenTwice as twice:
         fix = (
             f"for several checks of one kind, give a list: {twice.key}: [A, B]"
-            if twice.key in ("see", "not_see", "expect")
+            if twice.key in CHECKS
             else "remove one of them"
         )
         raise TestFileError(
             f"{path.name}, line {twice.again}: `{twice.key}` is given twice (first on line {twice.first}), and YAML "
             f"would keep only the last: {fix}"
         ) from None
-    except FileNotFoundError:
-        raise TestFileError(f"Test file not found: {path}") from None
-    except UnicodeDecodeError:
-        raise TestFileError(f"{path.name} isn't UTF-8 text: save it as UTF-8") from None
     except yaml.YAMLError as e:
-        hint = _bare_word_hint(path, e)
-        if not hint and "found character '\\t'" in str(e):
-            hint = "\nIndent with spaces: YAML doesn't allow tabs"
-        if not hint and re.search(r"[{\[][^\n]*\$\{", str(e)):
-            hint = (
-                '\nA value starting with ${ must be quoted inside { } or [ ]: {android: "${PHONE}"}, '
-                "not {android: ${PHONE}}"
-            )
-        raise TestFileError(f"{path.name} is not valid YAML: {e}{hint}") from None
+        raise TestFileError(f"{path.name} is not valid YAML: {e}{_hint(e, text.splitlines())}") from None
     if not is_mapping(data):
         raise TestFileError(f"{path.name} must be a YAML mapping")
     return data

@@ -9,7 +9,6 @@ import contextlib
 import itertools
 import os
 import re
-import shutil
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -17,6 +16,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from jevtest import __version__
+from jevtest.adapters.devices.android_tools import bundletool_path
 from jevtest.adapters.jev.client import KEY_HELP
 from jevtest.adapters.jev.lockfile import JevAsker, LockedModel, LockMode
 from jevtest.adapters.reports.json_report import write_report
@@ -33,6 +33,7 @@ from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 from jevtest.domain.results import RunResult
 from jevtest.domain.steps import Do, Expect, Grant, Suite, Test, Use
+from jevtest.domain.words import plural
 
 from .console import ConsoleListener, Printer, summary
 
@@ -277,15 +278,21 @@ Loaded = list[tuple[Suite, dict[str, str]]]
 
 
 def _check_builds(loaded: Loaded) -> None:
-    """Every app build exists, and an Android App Bundle has bundletool to install it."""
+    """Every app build exists, and an Android App Bundle has bundletool to install it.
+
+    Raises:
+        TestFileError: A build isn't there.
+        DeviceError: bundletool isn't.
+    """
     missing = [app for suite, _ in loaded for app in suite.apps.values() if not app.exists()]
     if missing:
         raise TestFileError(f"App not found: {missing[0]}")
     bundles = [app for suite, _ in loaded for app in suite.apps.values() if app.suffix.lower() == ".aab"]
-    if bundles and not shutil.which("bundletool"):
-        raise TestFileError(
-            f"{bundles[0].name}: bundletool is required to install .aab files (brew install bundletool)"
-        )
+    if bundles:
+        try:
+            bundletool_path()
+        except DeviceError as e:
+            raise DeviceError(f"{bundles[0].name}: {e}") from None
 
 
 def _check_options(loaded: Loaded, options: RunOptions) -> None:
@@ -366,8 +373,8 @@ def _report_all(suites: Sequence[JunitSuite], *, files: int, junit: Path) -> int
     passed = sum(s.result.passed for s in suites)
     failed = sum(s.result.failed for s in suites)
     if len(suites) > 1:
-        in_files = f"{files} file{'' if files == 1 else 's'}"
-        print(f"\nAll: {passed}/{passed + failed} passed ({in_files}, {len(suites)} device runs). JUnit: {junit}")
+        runs = f"{plural(files, 'file')}, {len(suites)} device runs"
+        print(f"\nAll: {passed}/{passed + failed} passed ({runs}). JUnit: {junit}")
     return 0 if failed == 0 else 1
 
 
@@ -442,7 +449,7 @@ def _run_file(
                 print(f"{model.path.name}: not pruned, because a test failed", flush=True)
             else:
                 pruned = model.prune()
-                print(f"{model.path.name}: pruned {pruned} unused {'entry' if pruned == 1 else 'entries'}", flush=True)
+                print(f"{model.path.name}: pruned {plural(pruned, 'unused entry', 'unused entries')}", flush=True)
     finally:
         model.save()
     return done

@@ -7,7 +7,7 @@ import re
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 
-from jevtest.adapters.shapes import USER_TEXT
+from jevtest.adapters.shapes import read_user_text
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.variables import VARIABLE
 
@@ -46,10 +46,7 @@ def read_env(folder: Path, environ: Mapping[str, str] = os.environ) -> dict[str,
 
 def _entries(f: Path) -> Iterator[tuple[int, str, str]]:
     """Each ``KEY=value`` line's number, key and value (quotes around the value removed)."""
-    try:
-        text = f.read_text(encoding=USER_TEXT)
-    except UnicodeDecodeError:
-        raise TestFileError(f"{f} isn't UTF-8 text: save it as UTF-8") from None
+    text = read_user_text(f, TestFileError, str(f), "save it as UTF-8")
     for n, line in enumerate(text.splitlines(), 1):
         if not line.strip() or line.lstrip().startswith("#"):
             continue

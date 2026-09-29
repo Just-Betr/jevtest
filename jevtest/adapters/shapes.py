@@ -1,4 +1,4 @@
-"""The shapes parsed YAML and JSON come in, as type guards.
+"""What people write: their files read as text, and the shapes parsed YAML and JSON come in, as type guards.
 
 ``isinstance(value, dict)`` says nothing about what's inside; these say what a parser can actually produce, so
 the checker follows every value from the parser to where it becomes a domain type.
@@ -6,7 +6,27 @@ the checker follows every value from the parser to where it becomes a domain typ
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TypeGuard
+
+from jevtest.domain.failures import JevtestError
+
+USER_TEXT = "utf-8-sig"
+"""How files people write are read (test files, `.env`, lockfiles): UTF-8 whatever the machine's locale, and a
+byte-order mark (which Windows Notepad adds) is not part of the first line."""
+
+
+def read_user_text(path: Path, error: type[JevtestError], shown: str, fix: str) -> str:
+    """A file a person wrote, as text (see `USER_TEXT`).
+
+    Raises:
+        error: It isn't UTF-8: the message names it as `shown` and says to `fix`.
+        OSError: It can't be read.
+    """
+    try:
+        return path.read_text(encoding=USER_TEXT)
+    except UnicodeDecodeError:
+        raise error(f"{shown} isn't UTF-8 text: {fix}") from None
 
 
 def is_mapping(value: object) -> TypeGuard[dict[object, object]]:
@@ -34,8 +54,3 @@ def objects_by_key(value: object) -> dict[str, dict[str, object]] | None:
             return None
         found[key] = item
     return found
-
-
-USER_TEXT = "utf-8-sig"
-"""How files people write are read (test files, `.env`, lockfiles): UTF-8 whatever the machine's locale, and a
-byte-order mark (which Windows Notepad adds) is not part of the first line."""

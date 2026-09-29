@@ -9,7 +9,6 @@ from __future__ import annotations
 import contextlib
 import re
 import shlex
-import shutil
 import subprocess
 import tempfile
 import urllib.parse
@@ -24,7 +23,7 @@ from jevtest.domain.screen import Element, Point, Screen
 from . import tool_says as says
 from ._typing import override
 from .android_screen import EDITABLE, has_empty_webview, keyboard_up, parse_screen, typing_ready
-from .android_tools import aapt2_path, adb_path, build_agent, devices, http_get, pick_device
+from .android_tools import aapt2_path, adb_path, build_agent, bundletool_path, devices, http_get, pick_device
 from .common import (
     AgentRefused,
     BaseDevice,
@@ -247,9 +246,7 @@ class AndroidDevice(BaseDevice):
 
     def _install_bundle(self, app_path: Path) -> None:
         """Install an .aab through bundletool, which builds the APKs for this device."""
-        bundletool = shutil.which("bundletool")
-        if not bundletool:
-            raise DeviceError("bundletool is required to install .aab files (brew install bundletool)")
+        bundletool = bundletool_path()
         self.app_id = run(
             [bundletool, "dump", "manifest", "--bundle", str(app_path), "--xpath", "/manifest/@package"]
         ).strip()

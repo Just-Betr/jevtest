@@ -12,6 +12,8 @@
 - What a killed run left changed is put back by the same code as at the end of a run, and named in words. An entry
   written by another jevtest version that this one can't read is named (`can't put back rotation (…): set it by
   hand`) instead of skipped without a word; that includes one left by a killed 0.9.7 run on iOS.
+- A location out of range names the value and its limits (`latitude must be from -90 to 90, got 91`), as every
+  other number does.
 - An iOS `.zip` / `.ipa` build is unpacked once per device, not three times (to check it before the run, for its
   team, and to install it): the check reads its Info.plist from inside the archive.
 
