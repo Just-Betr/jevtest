@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.9.12
 
+- Tested: every step action, check and option on the emulator, the Pixel, the simulator and the iPhone, with each
+  device's settings put back afterwards; every lock mode; every setting's limits; `${NAME}` values in none of 116
+  report, log and lockfile files; 21 new `do:` goals recorded on Android and iOS and replayed three times, the same
+  each time; iOS `.zip` and `.ipa` builds.
 - On an iPhone, `launch` after `home` started the app anew (signed out), while simulators and Android bring it back
   as it was. It now comes back as it was there too; `restart`, and a fresh test, still start it anew.
 - iOS on a Mac with only the Command Line Tools says to install Xcode and select it, instead of `xcrun simctl … failed
