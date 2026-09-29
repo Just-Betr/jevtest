@@ -604,6 +604,11 @@ def test_prune_lock_after_a_passing_run(project, fakes, capsys):
     assert fakes.run("--prune-lock") == 0
     # the stale one, and Jev's answer while working out the do: (its saved steps repeat without asking again)
     assert "t.lock.json: pruned 2 unused entries" in capsys.readouterr().out
+    data = json.loads(lock.read_text())
+    data["decisions"]["stale again"] = {"answers": {}}
+    lock.write_text(json.dumps(data))
+    assert fakes.run("--prune-lock") == 0
+    assert "t.lock.json: pruned 1 unused entry\n" in capsys.readouterr().out
     assert "stale" not in json.loads(lock.read_text())["decisions"]
 
 

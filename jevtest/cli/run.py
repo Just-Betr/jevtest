@@ -470,7 +470,8 @@ def _run_file(
             if any(r.result.failed for r in done):
                 print(f"{model.path.name}: not pruned, because a test failed", flush=True)
             else:
-                print(f"{model.path.name}: pruned {model.prune()} unused entries", flush=True)
+                pruned = model.prune()
+                print(f"{model.path.name}: pruned {pruned} unused {'entry' if pruned == 1 else 'entries'}", flush=True)
     finally:
         model.save()
     return done
