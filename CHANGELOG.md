@@ -2,6 +2,12 @@
 
 ## 0.9.1
 
+**Upgrading from 0.9.0: run once with `--lock record`, then commit the lockfile.** 0.9.0 could record an
+`expect:` or a `do:` on a screen that was still settling (right after a launch, or a dialog sliding in), which 0.9.1
+never takes for a still screen, so a `--lock frozen` replay of such a lockfile fails with `This screen and question
+are not in …`. Measured on the getting-started test: 0.9.0 recorded the sign-in button 4 px lower than where it
+settles. Add `--prune-lock` to drop the old entries.
+
 Found by using 0.9.0 as a new user would: every action, option, error message and guide example, on the Android
 emulator and the iOS simulator.
 
@@ -16,7 +22,7 @@ emulator and the iOS simulator.
   reports it at its first place for about half a second), so the lockfile got a frame that a replay saw only
   sometimes: the demo's camera-prompt test failed one frozen replay in three. A screen now counts as stopped moving
   only once its text is also drawn the same twice (one screenshot per check; a spinner or a blinking cursor doesn't
-  count). Record lockfiles with such a check again once.
+  count).
 - `screenshot:` waits until the screen stopped moving: right after a launch it saved the splash screen.
 - `type:` without `into:` passed with no field taking keys, typing into nothing. It now waits until the keyboard is
   up (`timeout:` applies), and fails saying to tap the field first or name it with `into:`.
