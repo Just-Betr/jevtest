@@ -54,7 +54,6 @@ error: t.yaml has 2 problems:
 | `… is asleep or locked: unlock it` / `BH is locked: unlock it and keep it unlocked during the run` | Unlock the phone; consider a longer screen timeout while testing. |
 | `The app is signed by team ABCDE12345, which is not signed into Xcode (signed in: …)` | jevtest signs its agent with your app's team: add that team's Apple Account in Xcode > Settings > Accounts. |
 | `Runner.app is not signed for a real iPhone (it has no provisioning profile)` | Build the app for the device, signed with your team. |
-| `Testing on a real iPhone needs signing: in Xcode, Settings > Accounts > + > Apple Account` | Sign into Xcode ([Real phones](guides/real-devices.md#iphone)). |
 | `Runner.app is built for iPhoneSimulator, not a real iPhone (BH)…` | Build for the device, signed with your team. |
 | `Setting location is only supported on the Android emulator` | Android phones can't take a simulated location. |
 | `t.yaml runs on the iPhone BH, where jevtest can't pre-grant permissions` | Run that test on a simulator, or tap the prompt in the test: `do: Allow camera access`. |
@@ -84,7 +83,7 @@ error: t.yaml has 2 problems:
 - **`…; close but not exact: 'Save draft', 'Unsaved changes'`**: the screen has longer texts containing the target. Matching is exact (ignoring case), so write the whole text as the screen shows it: `tap: Save draft`. Close texts are only listed, never used.
 - **`Jev says the goal is impossible from this screen`**: the goal can't be done from where the app is. Often a previous step didn't land; add a `see:` after it.
 - **`Goal not reached after 10 actions (max_actions); Jev's next would be …`**: split the `do:` into smaller goals, one per step, or give a long form a higher `max_actions:`.
-- **`…. The goal has no "quoted" values, so Jev can't type anything`**: put what to type in quotes: `do: Type "hello" into Email`.
+- **`… (Jev types only a goal's "quoted" values, and this goal has none: if it needs to type, quote them)`**: added to a failed goal with nothing in quotes. If it needed typing, put what to type in quotes: `do: Type "hello" into Email`.
 - **`The app left the foreground after back`**: a `do:` move left the app (back on the first screen), so the goal stopped there.
 - **`Scrolled down to the end but never found 'X'`**: the text isn't in the list, or it's the other way (`direction: up`).
 - **`Stuck repeating: tap button 'Next', which changes nothing on the screen`**: Jev chose the same action again after it left the screen as it was, twice. The element may be disabled or covered. (Repeating an action that does change the screen, like scrolling down a long list, is fine.)
