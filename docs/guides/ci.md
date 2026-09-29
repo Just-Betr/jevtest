@@ -37,7 +37,7 @@ With `frozen`, nothing new is asked: a `do:` without saved steps fails with `No 
               api-level: 34
               arch: x86_64
               avd-name: ci
-              script: jevtest run tests/ --lock record --out results
+              script: jevtest run tests/ --platform android --lock record --out results
             env:
               TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
               EMAIL: ${{ secrets.QA_EMAIL }}
@@ -62,7 +62,7 @@ With `frozen`, nothing new is asked: a `do:` without saved steps fails with `No 
             with: { python-version: "3.12" }
           - run: pip install jevtest
           - run: xcrun simctl boot "iPhone 16"
-          - run: jevtest run tests/ --lock record --out results
+          - run: jevtest run tests/ --platform ios --lock record --out results
             env:
               TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
               IOS_DEVICE: iPhone 16
@@ -74,7 +74,7 @@ With `frozen`, nothing new is asked: a `do:` without saved steps fails with `No 
 !!! note "Starting points"
     These workflows show the shape: a running device, the key and secrets from CI, results uploaded. Add your app's build step before the run, and pick the API level or simulator your app targets.
 
-Test files take the device name from the environment (`device: { android: "${ANDROID_DEVICE}" }`), so the same file runs locally and in CI.
+Each job runs its own platform's part of the files (`--platform`), so a file that runs on both needs no iOS build on the Linux job, and no Android one on the Mac job. Test files take the device name from the environment (`device: { android: "${ANDROID_DEVICE}" }`), so the same file runs locally and in CI.
 
 ## Test reports
 

@@ -798,3 +798,25 @@ def test_a_rejected_key_stops_the_run_instead_of_failing_each_test(project, fake
     assert "error: Jev HTTP 401: Cannot authenticate (check the key;" in capsys.readouterr().err
     assert sum(len(c.requests) for c in clients) == 1  # no later test asked Jev again
     assert all(d.closed for d in fakes.devices)  # the device was still put back and closed
+
+
+def test_a_platform_runs_only_that_part_of_each_file(tmp_path, monkeypatch, fakes, capsys):
+    """A Linux CI job runs a file's Android part: its iOS build needn't exist, and its iOS device isn't looked for."""
+    spec_file(tmp_path, "both.yaml", **BOTH)  # a.zip, the iOS build, isn't there
+    spec_file(tmp_path, "ios_only.yaml", app="app: a.zip\n", device="device: {ios: iPhone 17}\n")
+    monkeypatch.chdir(tmp_path)
+    assert fakes.run("--platform", "android", files=(".",)) == 0
+    assert fakes.looked_for == [("android", "emulator-5554")]
+    assert "ios_only.yaml: no android build, so it doesn't run (--platform)" in capsys.readouterr().out
+
+
+def test_a_platform_no_file_has_is_an_error(tmp_path, monkeypatch, fakes, capsys):
+    spec_file(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    assert fakes.run("--platform", "ios") == 2
+    assert "No test file has an ios build: --platform ios leaves nothing to run" in capsys.readouterr().err
+
+
+def test_pruning_needs_every_platform_to_run(project, fakes, capsys):
+    assert fakes.run("--platform", "android", "--prune-lock") == 2
+    assert "--prune-lock needs every test to run on every platform (no --test or --platform)" in capsys.readouterr().err

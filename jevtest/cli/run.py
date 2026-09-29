@@ -59,6 +59,7 @@ class RunOptions:
         lock: How the lockfile is used.
         out: The results folder.
         tests: Only these tests (empty: all of them).
+        platforms: Only each file's part on these platforms (empty: every platform it has).
         prune_lock: After a fully passing run, drop saved steps and recorded answers it didn't use.
         verbose: Print every model question and answer.
     """
@@ -67,6 +68,7 @@ class RunOptions:
     lock: LockMode
     out: Path
     tests: tuple[str, ...] = ()
+    platforms: tuple[Platform, ...] = ()
     prune_lock: bool = False
     verbose: bool = False
 
@@ -264,6 +266,8 @@ def run_command(
     loaded = _load(files, others)
     if options.tests:
         loaded = _only(loaded, options.tests)
+    if options.platforms:
+        loaded = _on_platforms(loaded, options.platforms)
     _check_builds(loaded)
     _check_options(loaded, options)
     _check_iphone_grants(loaded, _find_devices(loaded, find_device))
@@ -311,8 +315,11 @@ def _check_builds(loaded: Loaded) -> None:
 
 def _check_options(loaded: Loaded, options: RunOptions) -> None:
     """--prune-lock has a whole run and a lockfile to prune; a --lock that asks Jev has the API key to."""
-    if options.prune_lock and (options.tests or options.lock is LockMode.OFF):
-        raise TestFileError("--prune-lock needs every test to run (no --test) and a lockfile (not --lock off)")
+    if options.prune_lock and (options.tests or options.platforms or options.lock is LockMode.OFF):
+        raise TestFileError(
+            "--prune-lock needs every test to run on every platform (no --test or --platform) and a lockfile "
+            "(not --lock off): what a run skipped isn't unused"
+        )
     if options.lock in (LockMode.REFRESH, LockMode.OFF):
         keyless = [suite.path.name for suite, env in loaded if not env.get(API_KEY) and _asks_jev(suite)]
         if keyless:
@@ -430,6 +437,27 @@ def _only(loaded: Loaded, names: Sequence[str]) -> Loaded:
         raise TestFileError(f"No test named: {', '.join(missing)}")
     kept = [(replace(s, tests=_named(s.tests, names)), env) for s, env in loaded]
     return [(s, env) for s, env in kept if s.tests]
+
+
+def _on_platforms(loaded: Loaded, platforms: Sequence[Platform]) -> Loaded:
+    """Each file's part on `platforms`: its builds and devices for them.
+
+    A file with none of them doesn't run, and says so.
+
+    Raises:
+        TestFileError: No file has a build for any of them.
+    """
+    wanted = " or ".join(platforms)
+    kept: Loaded = []
+    for suite, env in loaded:
+        apps = {p: app for p, app in suite.apps.items() if p in platforms}
+        if not apps:
+            print(f"{suite.path.name}: no {wanted} build, so it doesn't run (--platform)", flush=True)
+            continue
+        kept.append((replace(suite, apps=apps, devices={p: suite.devices[p] for p in apps}), env))
+    if not kept:
+        raise TestFileError(f"No test file has an {wanted} build: --platform {wanted} leaves nothing to run")
+    return kept
 
 
 def _named(tests: Sequence[Test], names: Sequence[str]) -> tuple[Test, ...]:

@@ -109,10 +109,10 @@ The repository has a Flutter demo app with 18 tests covering every kind of step:
 git clone https://github.com/Just-Betr/jevtest && cd jevtest
 cd demo_app && flutter build apk --debug && cd ..
 cp examples/.env.example examples/.env                  # then set your key and device names
-jevtest run examples/demo.yaml --lock frozen --out results
+jevtest run examples/demo.yaml --platform android --lock frozen --out results
 ```
 
-Building the iOS demo is in [Contributing](contributing.md#demo-app).
+The demo runs on both platforms; `--platform android` runs its Android part, which needs only the APK built above. To run it on iOS too, build the iOS demo ([Contributing](contributing.md#demo-app)) and leave `--platform` out.
 
 ## Next
 

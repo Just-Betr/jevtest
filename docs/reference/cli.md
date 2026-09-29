@@ -3,7 +3,7 @@
 jevtest has one command.
 
 ```bash
-jevtest run PATH... --lock MODE --out DIR [--test NAME]... [--prune-lock] [-v]
+jevtest run PATH... --lock MODE --out DIR [--test NAME]... [--platform android|ios]... [--prune-lock] [-v]
 ```
 
 | Argument | Required | Meaning |
@@ -12,6 +12,7 @@ jevtest run PATH... --lock MODE --out DIR [--test NAME]... [--prune-lock] [-v]
 | `--lock MODE` | yes | How the [lockfile](../how-it-works.md#the-lockfile) is used. |
 | `--out DIR` | yes | Where results go. Each run adds a timestamped folder inside it. |
 | `--test NAME` | no | Only run this test. Repeatable; names can come from any of the files. |
+| `--platform android\|ios` | no | Only run each file's tests on this platform: its other builds needn't exist and its other devices aren't looked for, so a Linux CI job can run the Android part of files that also run on iOS. A file without the platform doesn't run, and says so. Repeatable. |
 | `--prune-lock` | no | After a run where every test passed, remove saved steps and recorded answers the run didn't use. |
 | `-v`, `--verbose` | no | Also print every Jev question with its top answers and probabilities. |
 | `--version` | no | Print the version. |
@@ -34,11 +35,11 @@ jevtest checks everything it can before it installs or starts anything, and exit
 - every app build exists;
 - every device a file names is running (a missing one is listed with the devices that are), and no other jevtest run is testing it: a second run on the same device would restart the app under the first. The claim ends with the run, however it ends;
 - with `--lock refresh` or `--lock off`, `TYPESAFE_API_KEY` is set if a test that runs has a `do:` or an `expect:`, since those always ask Jev then;
-- `--prune-lock` has every test and a lockfile to prune (below).
+- `--prune-lock` has every test on every platform and a lockfile to prune (below).
 
 ## `--prune-lock`
 
-The lockfile only grows: a `do:` or a screen that no longer exists keeps its saved steps or recorded answers. `--prune-lock` removes them, and the answers Jev gave while working out a `do:` whose steps are now saved (later runs repeat the steps without asking). It only acts after a run of **every** test in which **every** test passed, because a failing test stops early and skips screens that are still real. So it refuses to combine with `--test` or `--lock off`, and after a failure it says `not pruned, because a test failed`.
+The lockfile only grows: a `do:` or a screen that no longer exists keeps its saved steps or recorded answers. `--prune-lock` removes them, and the answers Jev gave while working out a `do:` whose steps are now saved (later runs repeat the steps without asking). It only acts after a run of **every** test in which **every** test passed, because a failing test stops early and skips screens that are still real. So it refuses to combine with `--test`, `--platform` or `--lock off`, and after a failure it says `not pruned, because a test failed`.
 
 Prune with the same devices you record on: decisions recorded on one device's screens are unused on another's.
 

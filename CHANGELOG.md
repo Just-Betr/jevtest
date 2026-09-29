@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `--platform android|ios` runs only that platform's part of each file, so a Linux CI job can run a file that also
+  runs on iOS (its iOS build and device aren't needed), and the getting-started demo runs with only the APK built:
+  followed as written, it stopped at `App not found: …Runner.app`. `--prune-lock` refuses `--platform`, as what a
+  run skipped isn't unused.
+
 ## 0.9.8
 
 - Jev unreachable says how often it tried and what to do: check the network, or `--lock frozen`, which needs none.

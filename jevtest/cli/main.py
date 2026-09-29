@@ -66,6 +66,13 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("paths", nargs="+", metavar="PATH", help="test files and/or folders of them")
     r.add_argument("--test", action="append", default=[], metavar="NAME", help="only run this test (repeatable)")
     r.add_argument(
+        "--platform",
+        action="append",
+        default=[],
+        choices=[p.value for p in Platform],
+        help="only run each file's tests on this platform (repeatable); a file without it doesn't run",
+    )
+    r.add_argument(
         "--lock",
         required=True,
         choices=[m.value for m in LockMode],
@@ -119,6 +126,7 @@ def main(
         LockMode(args.lock),
         Path(args.out),
         tuple(args.test),
+        platforms=tuple(Platform(p) for p in dict.fromkeys(args.platform)),
         prune_lock=args.prune_lock,
         verbose=args.verbose,
     )
