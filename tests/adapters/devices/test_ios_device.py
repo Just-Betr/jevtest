@@ -189,7 +189,6 @@ def test_device_commands_go_through_the_agent(dev, phone, tmp_path):
     phone[0].cmds.clear()
     phone[1].replies["/screenshot"] = {"png": b64encode(b"PNG").decode()}
     dev.screenshot(tmp_path / "s.png")
-    dev.set_location(1.5, -2.5)
     dev.open_url("app://x")
     dev.dark_mode(on=True)
     dev.close()
@@ -197,7 +196,6 @@ def test_device_commands_go_through_the_agent(dev, phone, tmp_path):
     sent = [(p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in phone[1].calls]
     assert sent == [
         ("/screenshot", {}),
-        ("/location", {"lat": 1.5, "lon": -2.5}),
         ("/open_url", {"url": "app://x"}),
         ("/appearance", {}),
         ("/appearance", {"dark": True}),
@@ -242,3 +240,26 @@ def test_an_ipa_is_unpacked_once_for_its_team_and_its_install(phone, tmp_path, i
     unpacked = list(Path(d._tmp.name).rglob("*.app"))
     assert [p.relative_to(d._tmp.name).as_posix() for p in unpacked] == ["build-0/Payload/Demo.app"]
     assert d.app_path == unpacked[0]
+
+
+def test_a_location_on_a_phone_is_set_with_devicectl_and_cleared_on_close(dev, phone):
+    """devicectl's simulation lasts until it's cleared; `--latitude -33.8` is refused, `--latitude=-33.8` isn't."""
+    dev.set_location(-33.8688, 151.2093)
+    dev.set_location(1.0, 2.0)
+    dev.close()
+    location = [c for c in phone.ctl.calls if c[:3] == ("device", "simulate", "location")]
+    udid = "00008150-X"
+    assert location == [
+        (
+            "device",
+            "simulate",
+            "location",
+            "coordinate",
+            "--device",
+            udid,
+            "--latitude=-33.8688",
+            "--longitude=151.2093",
+        ),
+        ("device", "simulate", "location", "coordinate", "--device", udid, "--latitude=1.0", "--longitude=2.0"),
+        ("device", "simulate", "location", "clear", "--device", udid),  # once: the device's actual location again
+    ]

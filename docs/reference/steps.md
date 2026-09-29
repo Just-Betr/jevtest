@@ -96,7 +96,7 @@ These change device state because the test asks for it. Anything jevtest changes
 |---|---|
 | `rotate: portrait\|landscape\|landscape_right\|portrait_upside_down` | Rotates the device, and waits until the app has turned. An app that doesn't allow the orientation fails the step: most iPhone apps leave out `portrait_upside_down` (`UISupportedInterfaceOrientations` in the app's Info.plist). |
 | `dark_mode: on\|off` | Dark or light appearance. |
-| `location: [latitude, longitude]` | Sets the GPS location (emulator, simulator, iPhone). |
+| `location: [latitude, longitude]` | Sets the GPS location (Android emulator, iOS simulator, iPhone; not an Android phone). An iOS device goes back to its actual location at the end of the run; the Android emulator keeps it. |
 | `grant: permissions` | Grants runtime permissions, so the app never asks. One name, a list, or names per platform ([below](#grant-permission-names)). |
 | `network: on\|off` | Wi-Fi and mobile data. Android only: a file whose `app:` includes iOS and runs a test with `network:` is an error when it loads. |
 
@@ -126,7 +126,7 @@ Each platform names a permission its own way, so a file that runs on both gives 
 | Reminders | none | `reminders` |
 
 - **Android:** the full name, with its package (`android.permission.CAMERA`, or an app's own `com.example.app.SCAN`), and only a permission the app declares in its manifest and Android grants at run time. Anything else fails, saying why (`not a changeable permission type`).
-- **iOS simulator:** a service `xcrun simctl privacy` accepts. The simulator ends an app whose permissions change, so jevtest starts it again, once for the whole list: put `grant:` first in a test.
+- **iOS simulator:** a service `xcrun simctl privacy` accepts. It accepts `camera` too, which its help doesn't list (measured with Xcode 27.0). The simulator ends an app whose permissions change, so jevtest starts it again, once for the whole list: put `grant:` first in a test.
 - **A real iPhone** can't be granted permissions (Apple doesn't allow it). A file that runs on one and has a `grant:` is an error before the run: run that test on a simulator, or tap the permission prompt with a step instead.
 - A file that runs on both platforms with a `grant:` that doesn't name both is an error before the run.
 

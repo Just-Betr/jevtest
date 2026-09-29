@@ -56,6 +56,7 @@ from jevtest.domain.steps import (
     Use,
     Wait,
 )
+from jevtest.domain.words import number_text
 
 from .values import choice, coherent, kind, number, on_off, setting, text
 
@@ -350,7 +351,7 @@ def _shown(value: object) -> str:
     if isinstance(value, bool):
         return "on" if value else "off"
     if isinstance(value, float):
-        return f"{value:g}"
+        return number_text(value)
     if is_list(value):
         return ", ".join(_shown(v) for v in value)
     if is_mapping(value):

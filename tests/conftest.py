@@ -255,7 +255,7 @@ class FakeDevice(BaseDevice):
         self._rec("restore")
 
     @override
-    def _put_back(self, entries):  # never called: restore() is recorded instead
+    def _put_back(self, entry):  # never called: restore() is recorded instead
         raise NotImplementedError
 
     @override

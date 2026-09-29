@@ -74,7 +74,7 @@ from jevtest.domain.steps import (
     Wait,
 )
 from jevtest.domain.variables import fill, hide
-from jevtest.domain.words import plural
+from jevtest.domain.words import number_text, plural
 
 from .brain import Brain, Located, quoted_values
 
@@ -274,7 +274,9 @@ class TestRunner:
             if self.clock.now() + settings.interval > deadline:
                 if missed:
                     raise missed[0]
-                raise StepFailed(f"Waited {settings.timeout:g}s until {until}{why(screen)}{self._app_gone()}")
+                raise StepFailed(
+                    f"Waited {number_text(settings.timeout)}s until {until}{why(screen)}{self._app_gone()}"
+                )
             self.clock.sleep(settings.interval)
 
     def _still_screen(self, settings: Settings) -> Screen:

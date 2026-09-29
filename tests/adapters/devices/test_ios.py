@@ -298,11 +298,15 @@ def test_nothing_changed_nothing_put_back(drv, env):
     assert env[1].calls == [] and not any("location" in c for c in env[0].cmds)
 
 
-def test_a_lost_agent_does_not_stop_close(drv, env):
-    drv.dark_mode(on=True)
-    env[1].replies["/appearance"] = OSError("gone")
-    env[0].rules["list devices"] = json.dumps({"devices": {}})  # the simulator went away too
-    drv.close()
+def test_a_put_back_that_fails_is_said_and_the_rest_still_go_back(env, ios_device):
+    told: list[str] = []
+    d = ios_device("A", Path("Demo.app"), told.append)
+    env[1].replies["/appearance"] = [{"raw": 1}, {}, OSError("gone")]  # read, set, then lost when putting back
+    d.dark_mode(on=True)
+    d.set_location(1.0, 2.0)
+    d.close()
+    assert any(c.endswith("simctl location A clear") for c in env[0].cmds)  # still put back
+    assert told[-1] == "couldn't put back dark mode (Lost the iOS agent during /appearance (gone).): set it by hand"
 
 
 def test_clear_empty_field_only_focuses(drv, env):

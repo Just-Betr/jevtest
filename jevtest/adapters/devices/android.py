@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import urllib.parse
 import xml.etree.ElementTree as ET
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
 from jevtest.domain.failures import DeviceError
@@ -197,16 +197,16 @@ class AndroidDevice(BaseDevice):
         self.restore()
 
     @override
-    def _put_back(self, entries: Mapping[str, object]) -> list[str]:
-        """Run each entry's shell command (rotation, dark mode, network)."""
-        unreadable: list[str] = []
-        for what, command in entries.items():
-            if not isinstance(command, str):
-                unreadable.append(what)
-                continue
-            with contextlib.suppress(DeviceError):
-                self.sh(command, check=False)
-        return unreadable
+    def _put_back(self, entry: object) -> bool:
+        """Run the entry's shell command (rotation, dark mode, network).
+
+        Its exit code isn't checked: the rotation's ends with `wm user-rotation`, which older Android lacks (measured),
+        and the settings before it still go back. Not reaching the device at all raises.
+        """
+        if not isinstance(entry, str):
+            return False
+        self.sh(entry, check=False)
+        return True
 
     # --- plumbing ------------------------------------------------------------
     def sh(self, cmd: str, timeout: float = 60, *, check: bool = True) -> str:

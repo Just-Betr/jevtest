@@ -47,4 +47,4 @@ jevtest never changes a device's settings to make testing easier: animations sta
 | `rotate:` | Android: auto-rotate and orientation. iOS: orientation. |
 | `dark_mode:` | Android and iOS: the appearance it had. |
 | `network:` | Android: Wi-Fi and mobile data as they were. |
-| `location:` | iOS simulator: the simulated location is cleared. |
+| `location:` | iOS simulator and iPhone: the simulated location is cleared, so the device uses its actual location again. The Android emulator keeps the last one set: it can't report where it was, so there's nothing to put back. |

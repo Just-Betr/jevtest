@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Numbers you wrote are printed as written, never rounded: a step showed `location: -33.8688, 151.209` for
+  151.2093, and `latitude 90.0000001` was refused as "got 90".
+- A `location:` on an iPhone is cleared at the end of the run, so the phone uses its actual location again; jevtest
+  didn't clear it before. It's set with `devicectl` now, whose simulation lasts until cleared, and a killed run's is
+  cleared by the next run.
+- Putting something back that fails (the device went away) is said, with what to set by hand; it was silent. The docs said a location goes back on every device: the Android emulator keeps
+  the last one set, as it can't report where it was, and the docs now say so.
 - A JUnit suite for a file in a folder is named with dots all the way (`jevtest.cart.checkout.android.Pixel 8`), not
   with the folder's slash (`jevtest.cart/checkout…`), which CI report viewers show as part of a class name.
 - Docs: three troubleshooting messages now read exactly as jevtest prints them.

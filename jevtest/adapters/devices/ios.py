@@ -11,14 +11,13 @@ The agent is the same on both. What differs is how jevtest gets to it:
 
 from __future__ import annotations
 
-import contextlib
 import os
 import secrets
 import shutil
 import subprocess
 import tempfile
 from base64 import b64decode
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import cast
 
@@ -62,7 +61,7 @@ from .ios_tools import (
     simctl,
     xcode_team,
 )
-from .tool_output import Object, as_text, dig, text_at
+from .tool_output import Object, as_text, text_at
 
 AGENT_CALL_TIMEOUT = 150
 """Seconds one agent call may take. Before touching while a system alert is up, XCUITest waits up to 60 s for
@@ -228,7 +227,7 @@ class IOSDevice(BaseDevice):
         except OSError as e:
             if not self.physical:
                 raise DeviceError(
-                    f"Lost the iOS agent during {path} ({e}). Agent log tail:\n{self._log_tail()}"
+                    f"Lost the iOS agent during {path} ({e}).\nAgent log tail:\n{self._log_tail()}"
                 ) from None
             try:  # the phone's tunnel address changes when it relocks: look it up again, once
                 self.host = self._tunnel_host()
@@ -236,7 +235,7 @@ class IOSDevice(BaseDevice):
             except (OSError, DeviceError) as again:
                 raise DeviceError(
                     f"Lost the agent on {self.name} during {path} ({again}). "
-                    f"Is it unlocked and plugged in? Agent log tail:\n{self._log_tail()}"
+                    f"Is it unlocked and plugged in?\nAgent log tail:\n{self._log_tail()}"
                 ) from None
         if "error" in data:
             raise AgentRefused("iOS agent", path, str(data["error"]))
@@ -256,19 +255,24 @@ class IOSDevice(BaseDevice):
         self._tmp.cleanup()
 
     @override
-    def _put_back(self, entries: Mapping[str, object]) -> list[str]:
-        """Make each entry's agent call or simctl command (appearance, orientation, a simulator's location)."""
-        unreadable: list[str] = []
-        for what, entry in entries.items():
-            call, body, args = dig(entry, "call"), dig(entry, "body"), dig(entry, "simctl")
-            with contextlib.suppress(DeviceError):
-                if isinstance(call, str) and is_json_object(body):
-                    self._call(call, **body)
-                elif is_list(args) and all(isinstance(a, str) for a in args):
-                    simctl(*map(str, args))
-                else:
-                    unreadable.append(what)
-        return unreadable
+    def _put_back(self, entry: object) -> bool:
+        """Make the entry's agent call or tool command (appearance, orientation, location).
+
+        An entry is ``{"call": path, "body": {...}}``, ``{"simctl": [args]}`` or ``{"devicectl": [args]}``.
+        """
+        if not is_json_object(entry):
+            return False
+        call, body = entry.get("call"), entry.get("body")
+        if isinstance(call, str) and is_json_object(body):
+            self._call(call, **body)
+            return True
+        tools: tuple[tuple[str, Callable[..., object]], ...] = (("simctl", simctl), ("devicectl", devicectl))
+        for name, tool in tools:
+            args = entry.get(name)
+            if is_list(args) and all(isinstance(a, str) for a in args):
+                tool(*map(str, args))
+                return True
+        return False
 
     def _remember_agent_setting(self, what: str, path: str) -> None:
         """Before the first change to `what`, read its current value through the agent's `path`, to put it back."""
@@ -454,9 +458,25 @@ class IOSDevice(BaseDevice):
             ) from None
 
     def set_location(self, latitude: float, longitude: float) -> None:
-        """Simulate a GPS location; on a simulator it's cleared on close."""
+        """Simulate a GPS location; it's cleared on close, so the device uses its actual location again.
+
+        An iPhone's is set with devicectl, whose simulation lasts until it's cleared (its help says so), and
+        `--latitude=` takes a negative number where `--latitude -33.8` is refused (measured).
+        """
         if self.physical:
-            self._call("/location", lat=latitude, lon=longitude)
+            self._undo.remember(
+                "location", lambda: {"devicectl": ["device", "simulate", "location", "clear", "--device", self.udid]}
+            )
+            devicectl(
+                "device",
+                "simulate",
+                "location",
+                "coordinate",
+                "--device",
+                self.udid,
+                f"--latitude={latitude}",
+                f"--longitude={longitude}",
+            )
             return
         self._undo.remember("location", lambda: {"simctl": ["location", self.udid, "clear"]})
         simctl("location", self.udid, "set", f"{latitude},{longitude}")

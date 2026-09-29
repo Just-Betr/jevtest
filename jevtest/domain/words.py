@@ -1,4 +1,4 @@
-"""Words as jevtest writes and compares them: numbers in words, and text in one Unicode encoding."""
+"""Words as jevtest writes and compares them: numbers, and text in one Unicode encoding."""
 
 from __future__ import annotations
 
@@ -11,6 +11,11 @@ def nfc(text: str) -> str:
     Apps and keyboards write both; compared this way, they are the same text.
     """
     return unicodedata.normalize("NFC", text)
+
+
+def number_text(value: float) -> str:
+    """A number as a person wrote it, never rounded: ``2`` for 2.0, ``151.2093`` for 151.2093."""
+    return str(int(value)) if float(value).is_integer() else repr(float(value))
 
 
 def plural(n: int, noun: str, many: str | None = None) -> str:

@@ -260,10 +260,13 @@ class BaseDevice(ABC):
     _progress: Progress
 
     @abstractmethod
-    def _put_back(self, entries: Mapping[str, object]) -> list[str]:
-        """Put back each entry an `Undo` holds (this run's, or one a stopped run left); name any it can't read.
+    def _put_back(self, entry: object) -> bool:
+        """Put back one thing an `Undo` holds (this run's, or one a stopped run left).
 
-        Another jevtest version may write an entry differently. Never raises: the rest still go back.
+        Returns False if `entry` isn't one this version reads: another jevtest version may write it differently.
+
+        Raises:
+            DeviceError: Putting it back failed.
         """
 
     def restore(self) -> None:
@@ -278,12 +281,15 @@ class BaseDevice(ABC):
             self._put_back_all(left)
 
     def _put_back_all(self, entries: Mapping[str, object]) -> None:
-        unreadable = self._put_back(entries)
+        """Put back every entry, saying which couldn't be: one that fails doesn't stop the rest."""
+        for what, entry in entries.items():
+            try:
+                if not self._put_back(entry):
+                    self._progress(f"can't put back {what} (another jevtest version changed it): set it by hand")
+            except DeviceError as e:
+                why = str(e).splitlines()[0]  # not an agent log tail an error may end with
+                self._progress(f"couldn't put back {what} ({why}): set it by hand")
         self._undo.forget_all()
-        if unreadable:
-            self._progress(
-                f"can't put back {', '.join(unreadable)} (another jevtest version changed it): set it by hand"
-            )
 
     @abstractmethod
     def prepare_for_test(self) -> None:

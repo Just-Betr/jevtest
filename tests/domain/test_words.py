@@ -1,6 +1,6 @@
 import pytest
 
-from jevtest.domain.words import ordinal, plural
+from jevtest.domain.words import number_text, ordinal, plural
 
 
 @pytest.mark.parametrize(
@@ -16,3 +16,12 @@ def test_plural(n, noun, many, said):
                                          (13, "13th"), (21, "21st"), (22, "22nd"), (111, "111th"), (101, "101st")])  # fmt: skip
 def test_ordinal(n, said):
     assert ordinal(n) == said
+
+
+@pytest.mark.parametrize(
+    ("value", "said"),
+    [(2.0, "2"), (2, "2"), (0.25, "0.25"), (151.2093, "151.2093"), (-33.8688, "-33.8688"), (90.0000001, "90.0000001"),
+     (1e-7, "1e-07"), (300.0, "300")],
+)  # fmt: skip
+def test_a_number_is_shown_as_written_never_rounded(value, said):
+    assert number_text(value) == said

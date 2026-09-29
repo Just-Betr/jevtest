@@ -12,6 +12,7 @@ from typing import TypeVar
 
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.settings import JEV_VERSION, LIMITS, WHOLE, Settings
+from jevtest.domain.words import number_text
 
 E = TypeVar("E", bound=StrEnum)
 
@@ -52,8 +53,9 @@ def number(value: object, what: str, minimum: float = 0, maximum: float = math.i
     if not math.isfinite(value):
         raise TestFileError(f"{what} must be a finite number, got {value}")
     if not minimum <= value <= maximum:
-        limits = f"at least {minimum:g}" if maximum == math.inf else f"from {minimum:g} to {maximum:g}"
-        raise TestFileError(f"{what} must be {limits}{f' {unit}' if unit else ''}, got {value:g}")
+        low, high = number_text(minimum), number_text(maximum) if maximum != math.inf else ""
+        limits = f"from {low} to {high}" if high else f"at least {low}"
+        raise TestFileError(f"{what} must be {limits}{f' {unit}' if unit else ''}, got {number_text(value)}")
     return float(value)
 
 
@@ -109,9 +111,11 @@ def setting(name: str, value: object) -> float:
     low, high = LIMITS[name]
     if name in WHOLE:
         if isinstance(value, bool) or not isinstance(value, int):
-            raise TestFileError(f"`{name}` must be a whole number from {low:g} to {high:g}, got {value!r}")
+            raise TestFileError(
+                f"`{name}` must be a whole number from {number_text(low)} to {number_text(high)}, got {value!r}"
+            )
         if not low <= value <= high:
-            raise TestFileError(f"`{name}` must be from {low:g} to {high:g}, got {value}")
+            raise TestFileError(f"`{name}` must be from {number_text(low)} to {number_text(high)}, got {value}")
         return value
     return number(value, f"`{name}`", minimum=low, maximum=high)
 
@@ -124,7 +128,8 @@ def coherent(settings: Settings) -> Settings:
     """
     if settings.interval > settings.timeout:
         raise TestFileError(
-            f"`interval` ({settings.interval:g}s) is longer than `timeout` ({settings.timeout:g}s): a step would check "
+            f"`interval` ({number_text(settings.interval)}s) is longer than `timeout` "
+            f"({number_text(settings.timeout)}s): a step would check "
             "only once"
         )
     return settings

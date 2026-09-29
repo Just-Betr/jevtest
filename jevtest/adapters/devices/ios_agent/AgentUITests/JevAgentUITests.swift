@@ -1,4 +1,3 @@
-import CoreLocation
 import Foundation
 import Network
 import XCTest
@@ -192,11 +191,6 @@ final class JevAgentUITests: XCTestCase {
             app.terminate()
         case "/screenshot":
             return ["png": XCUIScreen.main.screenshot().pngRepresentation.base64EncodedString()]
-        case "/location":
-            guard let lat = body["lat"] as? Double, let lon = body["lon"] as? Double else {
-                return ["error": "/location needs lat and lon"]
-            }
-            XCUIDevice.shared.location = XCUILocation(location: CLLocation(latitude: lat, longitude: lon))
         case "/open_url":
             guard let url = URL(string: (body["url"] as? String) ?? "") else { return ["error": "Not a URL"] }
             XCUIDevice.shared.system.open(url)
