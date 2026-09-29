@@ -78,6 +78,22 @@ AGENT_PORT = 7912  # on the device; adb forwards a free local port to it
 AGENT_CALL_TIMEOUT = 10  # seconds for one agent call to answer (it answers at once: this catches a lost agent)
 
 
+def check_awake(serial: str) -> None:
+    """Raise `DeviceError` if the device is asleep or locked: it shows no app to test. Never wakes or unlocks it."""
+    out = run(
+        [
+            adb_path(),
+            "-s",
+            serial,
+            "shell",
+            "dumpsys power | grep -m1 mWakefulness=; dumpsys window | grep -m1 -E 'isKeyguardShowing='",
+        ],
+        check=False,
+    )
+    if "mWakefulness=Awake" not in out or "isKeyguardShowing=true" in out:
+        raise DeviceError(f"Android device {serial} is asleep or locked: unlock it and keep it awake during the run")
+
+
 def find_android(device: str) -> str:
     """The serial of the one connected Android device with exactly this serial, model or AVD name."""
     found = devices()
@@ -282,13 +298,7 @@ class AndroidDevice(BaseDevice):
     @override
     def check_ready(self) -> None:
         """A phone that is asleep or locked shows no app to test. Say so; never wake or unlock it."""
-        out = self.sh(
-            "dumpsys power | grep -m1 mWakefulness=; dumpsys window | grep -m1 -E 'isKeyguardShowing='", check=False
-        )
-        if "mWakefulness=Awake" not in out or "isKeyguardShowing=true" in out:
-            raise DeviceError(
-                f"Android device {self.serial} is asleep or locked: unlock it and keep it awake during the run"
-            )
+        check_awake(self.serial)
         if self.agent is not None and self.agent.poll() is not None:
             # something stopped it mid-run (the test it was in has failed): one test's loss isn't every test's
             self._progress("the Android agent had stopped: starting it again")

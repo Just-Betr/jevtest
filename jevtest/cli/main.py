@@ -22,7 +22,7 @@ from pathlib import Path
 
 from jevtest import __version__
 from jevtest.adapters.clock import SystemClock
-from jevtest.adapters.devices.android import AndroidDevice, find_android
+from jevtest.adapters.devices.android import AndroidDevice, check_awake, find_android
 from jevtest.adapters.devices.claim import Claims
 from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.adapters.devices.ios_tools import find_target
@@ -53,7 +53,9 @@ def find_device(platform: Platform, device: str) -> bool:
         DeviceError: No running device, or several, are called that; or another jevtest run is using it.
     """
     if platform is Platform.ANDROID:
-        CLAIMS.claim(find_android(device))
+        serial = find_android(device)
+        check_awake(serial)  # asleep before the run: one clear error, not one failure per test
+        CLAIMS.claim(serial)
         return False
     target = find_target(device)
     CLAIMS.claim(target.udid)

@@ -33,7 +33,7 @@ def test_find_by_exact_name_or_udid_and_it_must_be_booted(env):
     assert ios_tools.find_target("A").udid == "A"
     with pytest.raises(DeviceError, match=r"called 'iphone 16' \(names are exact\). Running: iPhone 16 \(A\)"):
         ios_tools.find_target("iphone 16")
-    with pytest.raises(DeviceError, match="No booted simulator or connected iPhone called 'iPad Air'"):
+    with pytest.raises(DeviceError, match=r"The simulator 'iPad Air' isn't booted: boot it \(xcrun simctl boot"):
         ios_tools.find_target("iPad Air")  # exists, but is not booted
 
 
@@ -115,6 +115,12 @@ def test_phones_lists_connected_real_iphones(env):
         dict(PHONE, hardwareProperties={"reality": "physical", "platform": "watchOS", "udid": "W"}),
     ]
     assert ios_tools.phones() == [{"udid": "00008150-X", "name": "BH"}]
+
+
+def test_a_paired_iphone_that_isnt_connected_says_so(env):
+    env.ctl.phones = [dict(PHONE, connectionProperties={"tunnelState": "disconnected"})]  # asleep, locked, unplugged
+    with pytest.raises(DeviceError, match="^The iPhone 'BH' is paired but not connected: plug it in with USB, unlock"):
+        ios_tools.find_target("BH")
 
 
 def test_find_target_by_phone_name(phone):

@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.9.3
+
+- A device that's there but not ready is one clear error before the run, instead of a failure per test or "no
+  device called …": an Android phone asleep or locked, an iPhone paired but not connected (`plug it in with USB,
+  unlock it and keep it awake`), a simulator that isn't booted (`boot it (xcrun simctl boot "iPhone 16e")`).
 
 - Android types any text: `José`, `日本`, emoji. adb's `input text` types only a US keyboard's keys, so a line with
   other letters now goes in at the cursor through jevtest's agent, all at once rather than key by key (ASCII is still

@@ -656,6 +656,7 @@ def test_module_entry_point(monkeypatch):
 def test_the_real_device_finder_asks_each_platform_and_claims_the_device(monkeypatch):
     claimed: list[str] = []
     monkeypatch.setattr(cli, "find_android", lambda d: f"serial-of-{d}")
+    monkeypatch.setattr(cli, "check_awake", lambda serial: None)
     monkeypatch.setattr(cli, "find_target", lambda d: types.SimpleNamespace(udid=f"udid-of-{d}", physical=d == "BH"))
     monkeypatch.setattr(cli.CLAIMS, "claim", claimed.append)
     assert cli.find_device(Platform.ANDROID, "Pixel 9") is False

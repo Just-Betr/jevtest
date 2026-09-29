@@ -84,22 +84,21 @@ def _simulator(raw: object, runtime: str) -> Simulator:
     }
 
 
-def phones() -> list[Phone]:
-    """Real iPhones connected to this Mac (paired, with a live connection)."""
+def phones(*, connected: bool = True) -> list[Phone]:
+    """Real iPhones paired with this Mac: those with a live connection, or (`connected` False) those without."""
     listed = as_list(devicectl("list", "devices").get("devices", []), "devicectl's device list")
     return [
         {"udid": text_at(d, "hardwareProperties", "udid"), "name": text_at(d, "deviceProperties", "name")}
         for d in listed
-        if _connected_iphone(d)
+        if _iphone(d) and (text_at(d, "connectionProperties", "tunnelState") == "connected") == connected
     ]
 
 
-def _connected_iphone(d: object) -> bool:
-    return (
-        text_at(d, "hardwareProperties", "reality"),
-        text_at(d, "hardwareProperties", "platform"),
-        text_at(d, "connectionProperties", "tunnelState"),
-    ) == ("physical", "iOS", "connected")
+def _iphone(d: object) -> bool:
+    return (text_at(d, "hardwareProperties", "reality"), text_at(d, "hardwareProperties", "platform")) == (
+        "physical",
+        "iOS",
+    )
 
 
 @dataclass(frozen=True)
@@ -119,6 +118,16 @@ def find_target(wanted: str) -> Target:
     running = _running_targets()
     matches = [t for t in running if wanted in (t.udid, t.name)]
     if not matches:
+        # the name is right, but the device isn't ready: say what's wrong, rather than that there's no such device
+        if any(wanted in (p["udid"], p["name"]) for p in phones(connected=False)):
+            raise DeviceError(
+                f"The iPhone '{wanted}' is paired but not connected: plug it in with USB, unlock it and keep it awake"
+            )
+        if any(wanted in (s["udid"], s["name"]) for s in simulators()):
+            raise DeviceError(
+                f"The simulator '{wanted}' isn't booted: boot it (xcrun simctl boot \"{wanted}\"); jevtest never "
+                "boots devices"
+            )
         listed = ", ".join(f"{t.name} ({t.udid})" for t in running) or "none"
         raise DeviceError(
             f"No booted simulator or connected iPhone called '{wanted}' (names are exact). Running: {listed}"
