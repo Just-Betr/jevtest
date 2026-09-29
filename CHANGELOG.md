@@ -7,6 +7,9 @@
   for the whole list. A file that runs on a real iPhone and has a `grant:` is an error before the run (Apple doesn't
   allow pre-granting), as is one that runs on both platforms with a `grant:` naming only one. The steps reference
   lists the names on each platform.
+- Android 17 answers `grant:` of a permission the app doesn't declare with no error, and grants nothing, so the step
+  passed (measured; Android 13 refuses it). jevtest now reads back what Android recorded, and fails with the reason:
+  `Can't grant android.permission.RECORD_AUDIO: the app doesn't declare it in its manifest`.
 - A run killed outright (`kill -9`, or a CI job past its grace period) left the device as its steps had set it: dark
   mode on, Wi-Fi off. jevtest now keeps what puts each change back on disk, and the next run on the device puts it
   back first: `putting back what a run that was stopped left changed: dark mode, network`. On Android, rotation is

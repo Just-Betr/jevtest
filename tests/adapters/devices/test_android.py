@@ -378,6 +378,7 @@ def test_device_commands(drv, adb, agent):
         "cmd uimode night yes",
         "cmd uimode night no",
         "pm grant dev.demo android.permission.CAMERA",
+        "dumpsys package dev.demo",  # Android recorded it as granted
         "settings get global wifi_on",
         "settings get global mobile_data",
         "svc wifi disable; svc data disable",
@@ -589,3 +590,26 @@ def test_several_permissions_are_granted_in_turn(drv, adb):
         "pm grant dev.demo android.permission.CAMERA",
         "pm grant dev.demo android.permission.RECORD_AUDIO",
     ]
+
+
+@pytest.mark.parametrize(
+    ("record", "why"),
+    [
+        (
+            "    requested permissions:\n      android.permission.INTERNET\n",
+            "the app doesn't declare it in its manifest",
+        ),
+        (
+            (
+                "    requested permissions:\n      android.permission.CAMERA\n    runtime permissions:\n"
+                "      android.permission.CAMERA: granted=false, flags=[ USER_FIXED ]\n"
+            ),
+            "Android didn't record it as granted",
+        ),
+    ],
+)
+def test_a_grant_android_didnt_record_fails(drv, adb, record, why):
+    """Android 17 answers `pm grant` of an undeclared permission with no error, and grants nothing (measured)."""
+    adb.rules["dumpsys package dev.demo"] = record
+    with pytest.raises(DeviceError, match=f"^Can't grant android.permission.CAMERA: {why}$"):
+        drv.grant(["android.permission.CAMERA"])

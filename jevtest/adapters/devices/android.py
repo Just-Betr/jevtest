@@ -496,6 +496,14 @@ class AndroidDevice(BaseDevice):
             except DeviceError as e:  # the reason is the exception's own line, under "Exception occurred ..."
                 reason = re.search(r"^[\w.$]+(?:Exception|Error): (.+)$", str(e), re.MULTILINE)
                 raise DeviceError(f"Can't grant {permission}: {reason[1] if reason else e}") from None
+            # Android 17 grants a permission the app doesn't declare with no error, and nothing changes
+            # (measured; Android 13 refuses it): what Android recorded is what counts.
+            record = self.sh(f"dumpsys package {self.app_id}", check=False)
+            if not re.search(rf"^\s*{re.escape(permission)}: granted=true", record, re.MULTILINE):
+                declared = re.search(rf"^\s*{re.escape(permission)}\s*$", record, re.MULTILINE)
+                if not declared:
+                    raise DeviceError(f"Can't grant {permission}: the app doesn't declare it in its manifest")
+                raise DeviceError(f"Can't grant {permission}: Android didn't record it as granted")
 
     def network(self, *, on: bool) -> None:
         """Switch Wi-Fi and mobile data; their previous state is put back on close."""

@@ -146,6 +146,11 @@ def adb(monkeypatch, agent):
             "resolve-activity": "priority=0\ndev.demo/.MainActivity\n",
             "forward tcp:0": "7000\n",
             "dumpsys package dev.jevtest.agent": "    versionName=abc123\n",
+            "dumpsys package dev.demo": (
+                "    requested permissions:\n      android.permission.CAMERA\n      android.permission.RECORD_AUDIO\n"
+                "    runtime permissions:\n      android.permission.CAMERA: granted=true, flags=[ USER_SET ]\n"
+                "      android.permission.RECORD_AUDIO: granted=true, flags=[ USER_SET ]\n"
+            ),
         }
     )
     swap(monkeypatch, "run", fake)
