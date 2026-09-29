@@ -3,6 +3,7 @@ import sys
 
 import pytest
 
+from jevtest.adapters.devices import common
 from jevtest.adapters.devices._typing import override
 from jevtest.adapters.devices.common import cache_dir, digest, log_errors, run, run_bytes, start_process, stop_process
 from jevtest.domain.failures import DeviceError
@@ -147,3 +148,25 @@ def test_a_device_must_say_how_it_restores_waits_and_closes():
     # Python words this message differently between versions; the method names are what matter.
     with pytest.raises(TypeError, match="check_ready'?, '?close'?, '?restore"):
         Partial()  # type: ignore[abstract]  # instantiating it is what this test checks
+
+
+def test_drop_older_keeps_only_the_current_build_of_that_kind(tmp_path, monkeypatch):
+    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
+    for name in (
+        "ios-agent-aaa",
+        "ios-agent-bbb",
+        "ios-agent-aaa-TEAM1",
+        "ios-agent-A1B2.log",
+        "android-agent-aaa.apk",
+    ):
+        (tmp_path / name).mkdir() if "." not in name else (tmp_path / name).write_text("")
+    (tmp_path / "ios-agent-bbb" / "Build").mkdir()  # a build folder, with what's in it
+    common.drop_older(r"ios-agent-([0-9a-f]+)", "aaa")
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "android-agent-aaa.apk",  # another kind
+        "ios-agent-A1B2.log",  # a device's log
+        "ios-agent-aaa",  # the current one
+        "ios-agent-aaa-TEAM1",  # an iPhone build: another kind
+    ]
+    common.drop_older(r"android-agent-([0-9a-f]+)\.apk", "bbb")
+    assert not (tmp_path / "android-agent-aaa.apk").exists()

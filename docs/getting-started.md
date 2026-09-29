@@ -18,7 +18,7 @@ Then the platform tools for the apps you test:
     - `bundletool` on your `PATH` if you test `.aab` bundles.
     - A running emulator or a phone with USB debugging on. Check with `adb devices`.
 
-    The first run builds jevtest's 12 KB on-device agent with the SDK's own tools (a few seconds, then cached in `~/.cache/jevtest`).
+    The first run builds jevtest's 20 KB on-device agent with the SDK's own tools (a few seconds, then cached in `~/.cache/jevtest`).
 
 === "iOS"
 

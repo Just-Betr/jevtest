@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.2
+
+- The agent cache (`~/.cache/jevtest`) only grew: every jevtest whose agent changed built another, about 150 MB for
+  iOS, and every iOS run left a log named by its port. Measured: 6.5 GB. Older agent builds are now removed when an
+  agent starts, and the iOS log is one per device, like Android's (the same cache measured 235 MB afterwards).
+
 ## 0.9.1
 
 **Upgrading from 0.9.0: run once with `--lock record`, then commit the lockfile.** 0.9.0 could record an

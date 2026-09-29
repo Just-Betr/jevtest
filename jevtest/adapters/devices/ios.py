@@ -34,6 +34,7 @@ from .common import (
     Progress,
     cache_dir,
     digest,
+    drop_older,
     no_app_opens,
     start_process,
     stop_process,
@@ -103,7 +104,7 @@ class IOSDevice(BaseDevice):
         self.host = "127.0.0.1"
         self.agent: subprocess.Popen[str] | None = None
         self.app_id = ""
-        self.agent_log = cache_dir() / f"ios-agent-{self.port}.log"
+        self.agent_log = cache_dir() / f"ios-agent-{target.udid}.log"
         self.app_path: Path | None = None
         self._restore: dict[str, dict[str, object]] = {}  # agent call -> body that puts back what a step changed
         self._location_set = False
@@ -160,6 +161,10 @@ class IOSDevice(BaseDevice):
         )
         with AGENT_LOCK:
             xctestrun = self._build_agent()
+            # older agent builds, of this kind, go (about 150 MB each); so do 0.9.1's per-run logs, named by port
+            suffix = f"-{re.escape(self.team)}" if self.physical else ""
+            drop_older(rf"ios-agent-([0-9a-f]+){suffix}", digest(AGENT_SRC))
+            drop_older(r"ios-agent-(\d+)\.log", "")
             try:
                 self.agent = start_process(
                     [

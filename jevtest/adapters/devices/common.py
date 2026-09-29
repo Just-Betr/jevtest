@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -73,6 +74,22 @@ def run(cmd: list[str], *, timeout: float = 120, check: bool = True) -> str:
 def cache_dir() -> Path:
     """Where built agents and their logs are kept: ``$JEVTEST_CACHE``, or ``~/.cache/jevtest``."""
     return Path(os.environ.get("JEVTEST_CACHE", Path.home() / ".cache" / "jevtest"))
+
+
+def drop_older(kind: str, keep: str) -> None:
+    """Remove the cached builds that `kind` (a regex whose first group is a version) matches, but for `keep`.
+
+    Every jevtest version whose agent differs builds its own; without this the cache only grows (measured: 6.5 GB of
+    iOS agent builds at about 150 MB each).
+    """
+    pattern = re.compile(kind)
+    for entry in cache_dir().iterdir():
+        found = pattern.fullmatch(entry.name)
+        if found and found[1] != keep:
+            if entry.is_dir():
+                shutil.rmtree(entry, ignore_errors=True)
+            else:
+                entry.unlink(missing_ok=True)
 
 
 def digest(src: Path) -> str:

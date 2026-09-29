@@ -41,7 +41,7 @@ def test_starts_agent_on_simulator(env):
     assert run_env["TEST_RUNNER_JEVTEST_PORT"] == "8123"
     assert run_env["TEST_RUNNER_JEVTEST_TOKEN"] == d.token and len(d.token) >= 40  # random, per run
     assert run_env["TEST_RUNNER_JEVTEST_LOCAL_ONLY"] == "1"  # a simulator's agent listens on 127.0.0.1 only
-    assert d.agent_log.name == "ios-agent-8123.log"
+    assert d.agent_log.name == "ios-agent-A.log"  # one per device, replaced each run: the cache never grows
 
 
 def test_each_device_gets_its_own_token(env):

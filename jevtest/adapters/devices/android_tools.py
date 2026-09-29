@@ -15,7 +15,7 @@ from pathlib import Path
 
 from jevtest.domain.failures import DeviceError
 
-from .common import Progress, cache_dir, digest, run
+from .common import Progress, cache_dir, digest, drop_older, run
 
 AGENT_SRC = Path(__file__).resolve().parent / "android_agent"
 """The on-device agent's source, built into an APK the first time a version is needed."""
@@ -94,9 +94,11 @@ AGENT_LOCK = threading.Lock()
 
 
 def build_agent(progress: Progress) -> Path:
-    """The agent APK, built once per source version and cached; one device builds it at a time."""
+    """The agent APK, built once per source version and cached (older versions removed); one device at a time."""
     with AGENT_LOCK:
-        return _build_agent(progress)
+        apk = _build_agent(progress)
+        drop_older(r"android-agent-([0-9a-f]+)\.apk(?:\.idsig)?", digest(AGENT_SRC))
+        return apk
 
 
 def _build_agent(progress: Progress) -> Path:
