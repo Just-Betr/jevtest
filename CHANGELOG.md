@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- iOS on a Mac with only the Command Line Tools says to install Xcode and select it, instead of `xcrun simctl … failed
+  (72): unable to find utility "simctl"`; without xcrun at all, that iOS needs a Mac with Xcode.
 - A first Android run without a JDK says to install one (11 or newer) and put it on the PATH, instead of
   `Command not found: javac`; missing SDK build-tools say to install them in Android Studio's SDK Manager.
 - Jev is told when its last move left the screen as it was (`scroll down (it changed nothing on the screen)`), so a

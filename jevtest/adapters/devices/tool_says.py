@@ -81,3 +81,7 @@ PRIVACY_REFUSED = "Operation not permitted"
 
 AUTOMATION_NOT_ALLOWED = "enabling automation mode"
 """In the agent's log when an iPhone didn't allow UI automation ("Timed out while enabling automation mode")."""
+
+XCODE_TOOL_MISSING = "unable to find utility"
+"""What xcrun says for a tool only Xcode has (simctl, devicectl) when the selected developer folder is the Command Line
+Tools (measured: `xcrun: error: unable to find utility "simctl", not a developer tool or in PATH`, exit 72)."""

@@ -2,6 +2,7 @@
 
 import json
 import plistlib
+import shutil
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from jevtest.adapters.devices import ios_tools
+from jevtest.adapters.devices.common import ToolFailed
 from jevtest.adapters.devices.ios_tools import app_bundle, info_plist
 from jevtest.domain.failures import DeviceError
 from tests.adapters.devices.conftest import PHONE, SIMS, make_app, swap
@@ -186,8 +188,9 @@ def test_provisioned_devices(env, tmp_path):
 
 def test_devicectl_returns_the_json_result(monkeypatch):
     seen = []
+    monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")  # a Mac: CI runs on Linux
 
-    def fake_run(cmd, timeout):
+    def fake_run(cmd, timeout, check=True):
         seen.append(cmd)
         Path(cmd[cmd.index("--json-output") + 1]).write_text(json.dumps({"result": {"devices": [1]}}))
 
@@ -214,3 +217,27 @@ def test_only_the_per_run_logs_of_0_9_1_are_removed(tmp_path, monkeypatch):
         (tmp_path / name).write_text("")
     ios_tools.remove_port_logs()
     assert sorted(p.name for p in tmp_path.iterdir()) == sorted(names[1:])  # each device's own log stays
+
+
+def test_ios_on_a_machine_without_xcrun_says_it_needs_a_mac_with_xcode(monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    with pytest.raises(DeviceError, match="^iOS needs a Mac with Xcode: xcrun isn't on the PATH$"):
+        ios_tools.simulators()
+
+
+def test_ios_with_only_the_command_line_tools_says_to_install_and_select_xcode(monkeypatch):
+    """Measured with DEVELOPER_DIR=/Library/Developer/CommandLineTools: xcrun exits 72 with this."""
+    monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
+    said = 'xcrun: error: unable to find utility "simctl", not a developer tool or in PATH'
+
+    def no_simctl(cmd, timeout, check=True):
+        raise ToolFailed(cmd, 72, said)
+
+    swap(monkeypatch, "run", no_simctl)
+    with pytest.raises(
+        DeviceError, match=r"^iOS needs Xcode, not only its Command Line Tools: xcrun can't find simctl\."
+    ):
+        ios_tools.simulators()
+    swap(monkeypatch, "run", lambda cmd, timeout, check=True: (_ for _ in ()).throw(ToolFailed(cmd, 1, "other")))
+    with pytest.raises(ToolFailed):  # any other failure is passed on as it was
+        ios_tools.simulators()

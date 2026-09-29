@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import socket
 import tempfile
 import threading
@@ -18,17 +19,38 @@ from pathlib import Path, PurePosixPath
 
 from jevtest.domain.failures import DeviceError
 
+from . import tool_says as says
 from .cache import AgentBuilds, cache_dir
-from .common import run, run_bytes
+from .common import ToolFailed, run, run_bytes
 from .tool_output import Object, as_list, as_object, as_text, dig, parse_json, parse_plist, text_at, texts
 
 AGENT_SRC = Path(__file__).resolve().parent / "ios_agent"
 """The XCUITest agent's Xcode project, built the first time a version is needed."""
 
 
+def _xcrun(args: list[str], *, timeout: float, check: bool = True) -> str:
+    """Run one of Xcode's tools through xcrun: every iOS command goes through here first.
+
+    Raises:
+        DeviceError: This isn't a Mac with Xcode, or Xcode isn't the selected developer folder.
+        ToolFailed: With `check`, the tool failed for another reason.
+    """
+    if shutil.which("xcrun") is None:
+        raise DeviceError("iOS needs a Mac with Xcode: xcrun isn't on the PATH")
+    try:
+        return run(["xcrun", *args], timeout=timeout, check=check)
+    except ToolFailed as e:
+        if says.XCODE_TOOL_MISSING not in e.output:
+            raise
+        raise DeviceError(
+            f"iOS needs Xcode, not only its Command Line Tools: xcrun can't find {args[0]}. Install Xcode and its iOS "
+            "platform, then select it: sudo xcode-select -s /Applications/Xcode.app"
+        ) from None
+
+
 def simctl(*args: str, timeout: float = 120, check: bool = True) -> str:
     """Run ``xcrun simctl ...``."""
-    return run(["xcrun", "simctl", *args], timeout=timeout, check=check)
+    return _xcrun(["simctl", *args], timeout=timeout, check=check)
 
 
 def devicectl(*args: str, timeout: float = 300) -> Object:
@@ -36,7 +58,7 @@ def devicectl(*args: str, timeout: float = 300) -> Object:
     what = f"devicectl {' '.join(args[:3])}"
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "out.json"
-        run(["xcrun", "devicectl", *args, "--json-output", str(out)], timeout=timeout)
+        _xcrun(["devicectl", *args, "--json-output", str(out)], timeout=timeout)
         return as_object(dig(parse_json(out.read_text(), what), "result") or {}, what)
 
 

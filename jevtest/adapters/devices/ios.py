@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import os
 import secrets
-import shutil
 import subprocess
 import tempfile
 from base64 import b64decode
@@ -103,8 +102,6 @@ class IOSDevice(BaseDevice):
 
     def __init__(self, device: str, app: Path, progress: Progress) -> None:
         self._progress = progress
-        if shutil.which("xcrun") is None:
-            raise DeviceError("Xcode command line tools are required for iOS")
         target = find_target(device)
         self.udid, self.name, self.physical = target.udid, target.name, target.physical
         self._tmp = tempfile.TemporaryDirectory()
