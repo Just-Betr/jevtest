@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.9.11
 
+- Tested: the CI guide's Android workflow, run on GitHub with jevtest from PyPI and `--platform android`, passes.
 - A `do:` that needs the same action several times, each changing the screen (scrolling down a long list to Item
   40, tapping a counter three times), no longer fails as `Stuck repeating`: that's only when the same action leaves
   the screen as it was, twice. The hint about quoted values no longer reads as the cause.
