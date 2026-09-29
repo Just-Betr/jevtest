@@ -28,8 +28,12 @@ class Device(Protocol):
         """Install the build and return its package or bundle id."""
         ...
 
-    def check_ready(self) -> None:
-        """Raise `DeviceError` if the device can't be tested right now (e.g. it's locked)."""
+    def prepare_for_test(self) -> None:
+        """Before each test: check the device can be tested, and start again what a failed test lost.
+
+        Raises `DeviceError` if it can't be tested now (e.g. it's locked). A device starts again what it needs
+        that a failed test lost (such as Android's agent).
+        """
         ...
 
     def launch(self) -> None:

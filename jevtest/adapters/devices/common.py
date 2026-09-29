@@ -13,14 +13,12 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Protocol, TypeVar
+from typing import Protocol
 
 from jevtest.adapters.shapes import is_json_object
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction
 from jevtest.domain.screen import Element, Screen
-
-from ._typing import override
 
 FOLLOW_UP = 3.0
 """Seconds a device waits for its own follow-ups to an action: a tapped field taking keyboard focus, a web
@@ -102,25 +100,37 @@ def cache_dir() -> Path:
     return Path(os.environ.get("JEVTEST_CACHE", Path.home() / ".cache" / "jevtest"))
 
 
-V = TypeVar("V")
-
-
-class Undo(dict[str, V]):
-    """What puts back each thing steps changed on a device, by name, kept on disk as it changes.
+class Undo:
+    """What puts back each thing steps changed on a device, by what it is in words, kept on disk as it changes.
 
     A run that ends normally puts it all back and forgets it. One that is killed outright (``kill -9``, a CI job
-    past its grace period) can't: the next run on the device finds what it left, and puts that back first.
+    past its grace period) can't: the next run on the device finds what it left, and puts that back first. So
+    each entry is JSON, and says how to put it back in terms the device reads the same way either time.
     """
 
     def __init__(self, device_id: str) -> None:
-        super().__init__()
+        self._entries: dict[str, object] = {}
         self.path = cache_dir() / "in-use" / f"{device_id}.undo.json"
 
-    @staticmethod
-    def described(left: Mapping[str, object]) -> str:
-        """What a stopped run left changed, in words: ``dark mode, network``."""
-        words = {"/appearance": "dark mode", "dark_mode": "dark mode", "/rotate": "rotation"}
-        return ", ".join(words.get(what, what) for what in left)
+    def __contains__(self, what: str) -> bool:
+        return what in self._entries
+
+    def remember(self, what: str, how: Callable[[], object]) -> None:
+        """Before the first change to `what` ("dark mode"), note how to put it back: `how` is called only then."""
+        if what in self._entries:
+            return
+        self._entries[what] = how()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(self._entries))
+
+    def entries(self) -> dict[str, object]:
+        """What steps changed, and how to put each back, in the order they first changed it."""
+        return dict(self._entries)
+
+    def forget_all(self) -> None:
+        """Everything is put back: forget it, on disk too."""
+        self._entries.clear()
+        self.path.unlink(missing_ok=True)
 
     def left_by_a_stopped_run(self) -> dict[str, object]:
         """What a run that couldn't finish left to put back on this device; {} if nothing."""
@@ -129,19 +139,6 @@ class Undo(dict[str, V]):
         except (OSError, json.JSONDecodeError):
             return {}
         return dict(data) if is_json_object(data) else {}
-
-    @override
-    def __setitem__(self, key: str, value: V) -> None:
-        """Remember how to put `key` back, on disk at once."""
-        super().__setitem__(key, value)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self))
-
-    @override
-    def clear(self) -> None:
-        """Everything is put back: forget it, on disk too."""
-        super().clear()
-        self.path.unlink(missing_ok=True)
 
 
 def drop_older(kind: str, keep: str) -> None:
@@ -251,7 +248,8 @@ def stop_process(proc: Process | None) -> None:
 
 
 Progress = Callable[[str], None]
-"""Told about slow one-time work (building an agent), so the user knows why a run is waiting."""
+"""Told what a device is doing that the user should know: slow one-time work (building an agent), so they know why
+a run is waiting, and putting back what a stopped run left changed."""
 
 
 class BaseDevice(ABC):
@@ -269,13 +267,41 @@ class BaseDevice(ABC):
     def drag(self, x1: int, y1: int, x2: int, y2: int, *, scroll: bool = False) -> None:
         """Press at (x1, y1), move to (x2, y2), lift. A `scroll` drag moves the content as far as the finger."""
 
-    @abstractmethod
-    def restore(self) -> None:
-        """Put back what steps changed on the device."""
+    _undo: Undo
+    _progress: Progress
 
     @abstractmethod
-    def check_ready(self) -> None:
-        """Raise `DeviceError` if the device can't be tested right now (asleep, locked)."""
+    def _put_back(self, entries: Mapping[str, object]) -> list[str]:
+        """Put back each entry an `Undo` holds (this run's, or one a stopped run left); name any it can't read.
+
+        Another jevtest version may write an entry differently. Never raises: the rest still go back.
+        """
+
+    def restore(self) -> None:
+        """Put back what steps changed on the device, as it was before them."""
+        self._put_back_all(self._undo.entries())
+
+    def _put_back_left_by_a_stopped_run(self) -> None:
+        """Put back what a run on this device that was killed left changed, before this run changes anything."""
+        left = self._undo.left_by_a_stopped_run()
+        if left:
+            self._progress(f"putting back what a run that was stopped left changed: {', '.join(left)}")
+            self._put_back_all(left)
+
+    def _put_back_all(self, entries: Mapping[str, object]) -> None:
+        unreadable = self._put_back(entries)
+        self._undo.forget_all()
+        if unreadable:
+            self._progress(
+                f"can't put back {', '.join(unreadable)} (another jevtest version changed it): set it by hand"
+            )
+
+    @abstractmethod
+    def prepare_for_test(self) -> None:
+        """Before each test: check the device can be tested, and start again what a failed test lost.
+
+        Raises `DeviceError` if it's asleep or locked. Android starts its agent again if something stopped it.
+        """
 
     @abstractmethod
     def close(self) -> None:

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from jevtest.adapters.devices import android
-from jevtest.adapters.devices.android import KEYCODES, AndroidDevice
+from jevtest.adapters.devices.android import AGENT_ID, KEYCODES, AndroidDevice
 from jevtest.adapters.devices.common import AgentRefused, ToolFailed, Undo
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction, Orientation
@@ -134,13 +134,13 @@ def test_reinstall(drv, adb):
         ("  mWakefulness=Asleep\n    isKeyguardShowing=false\n", False),
     ],
 )
-def test_check_ready_reports_a_locked_or_sleeping_phone(drv, adb, reply, ready):
+def test_prepare_for_test_reports_a_locked_or_sleeping_phone(drv, adb, reply, ready):
     adb.rules["dumpsys power"] = reply
     if ready:
-        drv.check_ready()
+        drv.prepare_for_test()
     else:
         with pytest.raises(DeviceError, match="asleep or locked: unlock it"):
-            drv.check_ready()
+            drv.prepare_for_test()
     assert not any("keyevent" in c for c in adb.shell())  # never wakes or unlocks it
 
 
@@ -584,20 +584,33 @@ def test_a_permission_that_cant_be_granted_says_why(drv, adb):
 def test_an_agent_that_stopped_is_started_again_before_the_next_test(drv, adb):
     adb.rules["dumpsys power"] = "  mWakefulness=Awake\n    isKeyguardShowing=false\n"
     first = drv.agent
-    drv.check_ready()  # running: nothing to do
+    drv.prepare_for_test()  # running: nothing to do
     assert drv.agent is first
     first.running = False  # something stopped it, such as another UI Automation tool
-    drv.check_ready()
+    drv.prepare_for_test()
     assert drv.agent is not first and drv.agent.poll() is None
     assert any("forward --remove tcp:" in c for c in adb.cmds)  # the old port forward goes
 
 
 def test_what_a_killed_run_left_changed_is_put_back_first(adb, agent):
-    left: Undo[str] = Undo("emulator-5554")
-    left["dark_mode"] = "cmd uimode night no"  # a run set dark mode, then was killed (kill -9)
-    d = AndroidDevice("emulator-5554", PROGRESS)
+    Undo("emulator-5554").remember("dark mode", lambda: "cmd uimode night no")  # then the run was killed (kill -9)
+    told: list[str] = []
+    d = AndroidDevice("emulator-5554", told.append)
+    shell = adb.shell()
+    # after the old agent stops (which resets the rotation state), before the new one starts
+    assert shell.index(f"am force-stop {AGENT_ID}") < shell.index("cmd uimode night no")
+    assert told[-1] == "putting back what a run that was stopped left changed: dark mode"
+    assert d._undo.left_by_a_stopped_run() == {}  # put back, and forgotten
+
+
+def test_an_entry_another_version_wrote_is_named_not_run(adb, agent):
+    undo = Undo("emulator-5554")
+    undo.remember("network", lambda: {"wifi": True})  # not a shell command
+    undo.remember("dark mode", lambda: "cmd uimode night no")
+    told: list[str] = []
+    AndroidDevice("emulator-5554", told.append)
     assert "cmd uimode night no" in adb.shell()
-    assert d._restore.left_by_a_stopped_run() == {}  # put back, and forgotten
+    assert told[-1] == "can't put back network (another jevtest version changed it): set it by hand"
 
 
 def test_several_permissions_are_granted_in_turn(drv, adb):

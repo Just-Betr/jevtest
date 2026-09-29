@@ -107,7 +107,7 @@ def test_not_fresh_launches_closed_app(tmp_path, clock, out):
 
 def test_locked_device_fails_the_test_clearly(tmp_path, clock, out):
     d = FakeDevice()
-    d.fail["check_ready"] = DeviceError("Android device X is asleep or locked: unlock it")
+    d.fail["prepare_for_test"] = DeviceError("Android device X is asleep or locked: unlock it")
     res, _, _ = run1(tmp_path, clock, out, "back", device=d)
     assert res.failure == "(start app) — Android device X is asleep or locked: unlock it"
     assert "launch" not in d.names()

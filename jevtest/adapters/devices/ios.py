@@ -23,7 +23,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
-from jevtest.adapters.shapes import is_json_object
+from jevtest.adapters.shapes import is_json_object, is_list
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
@@ -63,7 +63,7 @@ from .ios_tools import (
     simctl,
     xcode_team,
 )
-from .tool_output import Object, as_text, text_at
+from .tool_output import Object, as_text, dig, text_at
 
 AGENT_CALL_TIMEOUT = 150
 """Seconds one agent call may take. Before touching while a system alert is up, XCUITest waits up to 60 s for
@@ -115,16 +115,11 @@ class IOSDevice(BaseDevice):
         self.agent_log = cache_dir() / f"ios-agent-{target.udid}.log"
         self.app_path: Path | None = None
         self._unpacked: dict[Path, Path] = {}  # build -> its .app, unpacked once
-        # agent call -> body that puts back what a step changed; "location" for a simulator's
-        self._restore: Undo[dict[str, object]] = Undo(target.udid)
+        self._undo = Undo(target.udid)  # each entry: an agent call ({"call", "body"}) or {"simctl": args}
         try:
             self.team = xcode_team(app_team(self._bundle(app))) if self.physical else ""
             self._start_agent()
-            left = self._restore.left_by_a_stopped_run()
-            if left:
-                self._progress(f"putting back what a run that was stopped left changed: {Undo.described(left)}")
-                self._put_back(left)
-                self._restore.clear()
+            self._put_back_left_by_a_stopped_run()
         except BaseException:
             self._tmp.cleanup()  # the caller never gets a device to close
             raise
@@ -256,26 +251,26 @@ class IOSDevice(BaseDevice):
         self._tmp.cleanup()
 
     @override
-    def restore(self) -> None:
-        """Put back what steps changed (appearance, orientation, a simulator's location)."""
-        self._put_back(self._restore)
-        self._restore.clear()
-
-    def _put_back(self, changed: Mapping[str, object]) -> None:
-        for path, body in changed.items():
+    def _put_back(self, entries: Mapping[str, object]) -> list[str]:
+        """Make each entry's agent call or simctl command (appearance, orientation, a simulator's location)."""
+        unreadable: list[str] = []
+        for what, entry in entries.items():
+            call, body, args = dig(entry, "call"), dig(entry, "body"), dig(entry, "simctl")
             with contextlib.suppress(DeviceError):
-                if path == "location":
-                    simctl("location", self.udid, "clear")
-                elif is_json_object(body):
-                    self._call(path, **body)
+                if isinstance(call, str) and is_json_object(body):
+                    self._call(call, **body)
+                elif is_list(args) and all(isinstance(a, str) for a in args):
+                    simctl(*map(str, args))
+                else:
+                    unreadable.append(what)
+        return unreadable
 
-    def _remember(self, path: str) -> None:
-        """Before the first change through `path`, note the current value so close() can put it back."""
-        if path not in self._restore:
-            self._restore[path] = {"raw": self._call(path)["raw"]}
+    def _remember_agent_setting(self, what: str, path: str) -> None:
+        """Before the first change to `what`, read its current value through the agent's `path`, to put it back."""
+        self._undo.remember(what, lambda: {"call": path, "body": {"raw": self._call(path)["raw"]}})
 
     @override
-    def check_ready(self) -> None:
+    def prepare_for_test(self) -> None:
         """An iPhone that is locked can't be tested: say so; never unlock it."""
         if self.physical and devicectl("device", "info", "lockState", "--device", self.udid).get("passcodeRequired"):
             raise DeviceError(f"{self.name} is locked: unlock it and keep it unlocked during the run")
@@ -440,7 +435,7 @@ class IOSDevice(BaseDevice):
     # --- device -----------------------------------------------------------------------
     def rotate(self, orientation: Orientation) -> None:
         """Rotate the device; the orientation is put back on close."""
-        self._remember("/rotate")
+        self._remember_agent_setting("rotation", "/rotate")
         self._call("/rotate", orientation=orientation)
         wide = orientation in (Orientation.LANDSCAPE, Orientation.LANDSCAPE_RIGHT)
         try:
@@ -453,12 +448,11 @@ class IOSDevice(BaseDevice):
 
     def set_location(self, latitude: float, longitude: float) -> None:
         """Simulate a GPS location; on a simulator it's cleared on close."""
-        if not self.physical:
-            self._restore["location"] = {}
         if self.physical:
             self._call("/location", lat=latitude, lon=longitude)
-        else:
-            simctl("location", self.udid, "set", f"{latitude},{longitude}")
+            return
+        self._undo.remember("location", lambda: {"simctl": ["location", self.udid, "clear"]})
+        simctl("location", self.udid, "set", f"{latitude},{longitude}")
 
     def open_url(self, url: str) -> None:
         """Open a deep link or URL, through the agent on a simulator too.
@@ -475,7 +469,7 @@ class IOSDevice(BaseDevice):
 
     def dark_mode(self, *, on: bool) -> None:
         """Switch the appearance; the previous one is put back on close."""
-        self._remember("/appearance")
+        self._remember_agent_setting("dark mode", "/appearance")
         self._call("/appearance", dark=on)
 
     def grant(self, permissions: Sequence[str]) -> None:

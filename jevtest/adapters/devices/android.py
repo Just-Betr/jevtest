@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import urllib.parse
 import xml.etree.ElementTree as ET
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from jevtest.domain.failures import DeviceError
@@ -121,28 +121,28 @@ class AndroidDevice(BaseDevice):
         self._size: tuple[int, int] | None = None
         self.port = 0
         self.agent: subprocess.Popen[str] | None = None
-        self._restore: Undo[str] = Undo(self.serial)  # what -> shell command that puts back what a step changed
-        self._start_agent(first=True)
+        self._undo = Undo(self.serial)  # each entry: the shell command that puts it back
+        self._install_agent()
+        self._stop_old_agent()
+        # after the old agent stops, as stopping one resets the rotation state and would undo a rotation put back
+        self._put_back_left_by_a_stopped_run()
+        self._launch_agent()
 
     # --- agent -------------------------------------------------------------------
-    def _start_agent(self, *, first: bool = False) -> None:
-        """Install the agent if it changed, then start it and forward a free local port to it.
-
-        The `first` time, what a killed run left changed is put back once its agent is stopped, before this one
-        starts: stopping an agent resets the rotation state, and would undo a rotation put back before it.
-        """
+    def _install_agent(self) -> None:
+        """Install the agent, unless this version of it is installed."""
         apk = build_agent(self._progress)
         version = apk.stem.rsplit("-", 1)[1]
         if f"versionName={version}" not in self.sh(f"dumpsys package {AGENT_ID} | grep versionName", check=False):
             self.sh(f"pm uninstall {AGENT_ID}", check=False)  # any older copy, whatever key signed it
             run([self.adb, "-s", self.serial, "install", str(apk)], timeout=120)
-        self.sh(f"am force-stop {AGENT_ID}")  # a previous run's agent would hold the port
-        left = self._restore.left_by_a_stopped_run() if first else {}
-        if left:
-            self._progress(f"putting back what a run that was stopped left changed: {Undo.described(left)}")
-            for command in left.values():
-                self.sh(str(command), check=False)
-            self._restore.clear()
+
+    def _stop_old_agent(self) -> None:
+        """Stop an agent a previous run left running: it would hold the port."""
+        self.sh(f"am force-stop {AGENT_ID}")
+
+    def _launch_agent(self) -> None:
+        """Start the agent, and forward a free local port to it."""
         self.port = int(run([self.adb, "-s", self.serial, "forward", "tcp:0", f"tcp:{AGENT_PORT}"]).strip())
         self.agent = start_process(
             [
@@ -198,11 +198,16 @@ class AndroidDevice(BaseDevice):
         self.restore()
 
     @override
-    def restore(self) -> None:
-        """Put back what steps changed (rotation, dark mode, network), as the device was before them."""
-        for command in self._restore.values():
-            self.sh(command, check=False)
-        self._restore.clear()
+    def _put_back(self, entries: Mapping[str, object]) -> list[str]:
+        """Run each entry's shell command (rotation, dark mode, network)."""
+        unreadable: list[str] = []
+        for what, command in entries.items():
+            if not isinstance(command, str):
+                unreadable.append(what)
+                continue
+            with contextlib.suppress(DeviceError):
+                self.sh(command, check=False)
+        return unreadable
 
     # --- plumbing ------------------------------------------------------------
     def sh(self, cmd: str, timeout: float = 60, *, check: bool = True) -> str:
@@ -311,14 +316,17 @@ class AndroidDevice(BaseDevice):
         self.install(self.app_path)
 
     @override
-    def check_ready(self) -> None:
-        """A phone that is asleep or locked shows no app to test. Say so; never wake or unlock it."""
+    def prepare_for_test(self) -> None:
+        """Fail if the phone is asleep or locked (never wake or unlock it); start the agent again if it stopped.
+
+        Something may have stopped the agent (the test it was in has failed): one test's loss isn't every test's.
+        """
         check_awake(self.serial)
         if self.agent is not None and self.agent.poll() is not None:
-            # something stopped it mid-run (the test it was in has failed): one test's loss isn't every test's
             self._progress("the Android agent had stopped: starting it again")
             run([self.adb, "-s", self.serial, "forward", "--remove", f"tcp:{self.port}"], check=False)
-            self._start_agent()
+            self._stop_old_agent()
+            self._launch_agent()
 
     def app_state(self) -> AppState:
         """Where the app is: running at all, and whether it or its own permission prompt is on top."""
@@ -469,18 +477,23 @@ class AndroidDevice(BaseDevice):
         """Rotate the screen; auto-rotate and the orientation are put back on close."""
         # Locking the rotation turns auto-rotate off. The agent puts the device's rotation state back when it stops;
         # close() also puts back both settings, as they were before the first rotate.
-        if "rotation" not in self._restore:
-            # The settings, and the window manager's own lock, which a stopped agent's rotation lock leaves set and
-            # which turns auto-rotate off again over the setting (measured); older Android lacks the command.
-            user = self.sh("settings get system user_rotation", check=False).strip()
-            auto = self.sh("settings get system accelerometer_rotation", check=False).strip()
-            lock = "wm user-rotation free" if auto == "1" else f"wm user-rotation lock {user if user.isdigit() else 0}"
-            self._restore["rotation"] = "; ".join(
-                (_put_back("user_rotation", user), _put_back("accelerometer_rotation", auto), lock)
-            )
+        self._undo.remember("rotation", self._rotation_put_back)
         if self._agent(f"/rotate?to={ROTATIONS[orientation]}") != "rotated":
             raise DeviceError(f"The device refused to turn the screen to {orientation}")
         self._wait_for_rotation(orientation)
+
+    def _rotation_put_back(self) -> str:
+        """The shell command that puts back the rotation settings as they are now.
+
+        That's the settings, and the window manager's own lock, which a stopped agent's rotation lock leaves set and
+        which turns auto-rotate off again over the setting (measured); older Android lacks the command.
+        """
+        user = self.sh("settings get system user_rotation", check=False).strip()
+        auto = self.sh("settings get system accelerometer_rotation", check=False).strip()
+        lock = "wm user-rotation free" if auto == "1" else f"wm user-rotation lock {user if user.isdigit() else 0}"
+        return "; ".join(
+            (_setting_command("user_rotation", user), _setting_command("accelerometer_rotation", auto), lock)
+        )
 
     def _wait_for_rotation(self, orientation: Orientation) -> None:
         """Wait until the screen has turned.
@@ -513,12 +526,19 @@ class AndroidDevice(BaseDevice):
 
     def dark_mode(self, *, on: bool) -> None:
         """Switch dark mode; the previous setting is put back on close."""
-        if "dark_mode" not in self._restore:
-            now = self.sh("cmd uimode night", check=False).strip().removeprefix("Night mode: ")
-            if now not in ("yes", "no", "auto"):
-                raise DeviceError(f"Can't read the device's dark mode setting to restore it later (got {now!r})")
-            self._restore["dark_mode"] = f"cmd uimode night {now}"
+        self._undo.remember("dark mode", self._dark_mode_put_back)
         self.sh(f"cmd uimode night {'yes' if on else 'no'}")
+
+    def _dark_mode_put_back(self) -> str:
+        """The shell command that puts back the dark mode setting as it is now.
+
+        Raises:
+            DeviceError: The setting isn't one Android lists (yes, no, auto), so it couldn't be put back.
+        """
+        now = self.sh("cmd uimode night", check=False).strip().removeprefix("Night mode: ")
+        if now not in ("yes", "no", "auto"):
+            raise DeviceError(f"Can't read the device's dark mode setting to restore it later (got {now!r})")
+        return f"cmd uimode night {now}"
 
     def grant(self, permissions: Sequence[str]) -> None:
         """Grant the app runtime permissions, by their full names (the test file loader checks they're full)."""
@@ -537,17 +557,18 @@ class AndroidDevice(BaseDevice):
 
     def network(self, *, on: bool) -> None:
         """Switch Wi-Fi and mobile data; their previous state is put back on close."""
-        if "network" not in self._restore:
-            wifi = self.sh("settings get global wifi_on", check=False).strip() not in ("0", "")
-            data = self.sh("settings get global mobile_data", check=False).strip() == "1"
-            self._restore["network"] = (
-                f"svc wifi {'enable' if wifi else 'disable'}; svc data {'enable' if data else 'disable'}"
-            )
+        self._undo.remember("network", self._network_put_back)
         state = "enable" if on else "disable"
         self.sh(f"svc wifi {state}; svc data {state}")
 
+    def _network_put_back(self) -> str:
+        """The shell command that puts Wi-Fi and mobile data back as they are now."""
+        wifi = self.sh("settings get global wifi_on", check=False).strip() not in ("0", "")
+        data = self.sh("settings get global mobile_data", check=False).strip() == "1"
+        return f"svc wifi {'enable' if wifi else 'disable'}; svc data {'enable' if data else 'disable'}"
 
-def _put_back(key: str, value: str) -> str:
+
+def _setting_command(key: str, value: str) -> str:
     """The shell command that sets the system setting `key` back to `value`, as read (``null``: it wasn't set)."""
     if value in ("", "null"):
         return f"settings delete system {key}"

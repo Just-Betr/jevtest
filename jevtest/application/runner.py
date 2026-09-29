@@ -159,7 +159,7 @@ class TestRunner:
         return result
 
     def _start_app(self, *, fresh: bool) -> None:
-        self.device.check_ready()
+        self.device.prepare_for_test()
         if fresh:
             self.device.restore()  # an earlier test's rotate: or dark_mode: must not leak into this one
             self.device.stop()

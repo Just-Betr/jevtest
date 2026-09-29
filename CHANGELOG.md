@@ -9,6 +9,9 @@
   for each platform. An Android-only key used to fail on iOS only when the step ran.
 - When the Android agent can't do a request, it says why (`Android agent /pixels: …`), instead of the run reporting
   the agent as lost. The agent now takes which fields are editable from jevtest, so the two can't disagree.
+- What a killed run left changed is put back by the same code as at the end of a run, and named in words. An entry
+  written by another jevtest version that this one can't read is named (`can't put back rotation (…): set it by
+  hand`) instead of skipped without a word; that includes one left by a killed 0.9.7 run on iOS.
 - An iOS `.zip` / `.ipa` build is unpacked once per device, not three times (to check it before the run, for its
   team, and to install it): the check reads its Info.plist from inside the archive.
 

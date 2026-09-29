@@ -146,7 +146,7 @@ def test_a_device_must_say_how_it_restores_waits_and_closes():
             raise NotImplementedError
 
     # Python words this message differently between versions; the method names are what matter.
-    with pytest.raises(TypeError, match="check_ready'?, '?close'?, '?restore"):
+    with pytest.raises(TypeError, match="_put_back'?, '?close'?, '?prepare_for_test"):
         Partial()  # type: ignore[abstract]  # instantiating it is what this test checks
 
 
@@ -173,27 +173,32 @@ def test_drop_older_keeps_only_the_current_build_of_that_kind(tmp_path, monkeypa
 
 
 def test_undo_is_kept_on_disk_until_everything_is_put_back():
-    undo: common.Undo[str] = common.Undo("dev-1")
+    undo = common.Undo("dev-1")
     assert undo.left_by_a_stopped_run() == {}
-    undo["dark_mode"] = "cmd uimode night no"
-    undo["network"] = "svc wifi enable"
+    undo.remember("dark mode", lambda: "cmd uimode night no")
+    undo.remember("network", lambda: "svc wifi enable")
+    undo.remember("dark mode", lambda: pytest.fail("read again after the first change"))
+    assert "dark mode" in undo and "rotation" not in undo
+    assert undo.entries() == {"dark mode": "cmd uimode night no", "network": "svc wifi enable"}
     # a run killed now leaves both for the next run on the device
-    assert common.Undo("dev-1").left_by_a_stopped_run() == {
-        "dark_mode": "cmd uimode night no",
-        "network": "svc wifi enable",
-    }
-    undo.clear()
-    assert common.Undo("dev-1").left_by_a_stopped_run() == {}
+    assert common.Undo("dev-1").left_by_a_stopped_run() == undo.entries()
+    undo.forget_all()
+    assert undo.entries() == {} and common.Undo("dev-1").left_by_a_stopped_run() == {}
     undo.path.write_text("not json")
     assert undo.left_by_a_stopped_run() == {}
     undo.path.write_text("[1]")
     assert undo.left_by_a_stopped_run() == {}
 
 
-def test_what_was_left_is_said_in_words():
-    assert common.Undo.described({"/appearance": {}, "/rotate": {}, "location": {}, "network": ""}) == (
-        "dark mode, rotation, location, network"
-    )
+def test_nothing_is_remembered_when_reading_the_setting_fails():
+    undo = common.Undo("dev-1")
+
+    def unreadable() -> str:
+        raise DeviceError("can't read it")
+
+    with pytest.raises(DeviceError):
+        undo.remember("dark mode", unreadable)
+    assert "dark mode" not in undo and not undo.path.exists()
 
 
 def test_a_failed_tool_carries_its_exit_code_and_everything_it_printed():

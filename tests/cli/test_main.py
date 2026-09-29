@@ -412,7 +412,7 @@ def test_ctrl_c_during_a_multi_device_run_closes_every_device_once(tmp_path, mon
     tests = "  - {name: A, fresh: true, steps: [back]}\n  - {name: B, fresh: true, steps: [back]}\n"
     f = spec_file(tmp_path, tests=tests, device="device: {android: [One, Two]}\n")
     monkeypatch.chdir(tmp_path)
-    started = threading.Barrier(3)  # both devices are installing, and the main thread knows it
+    started = threading.Barrier(3, timeout=10)  # both devices are installing, and the main thread knows it
     release = threading.Event()
 
     class Busy(FakeDevice):

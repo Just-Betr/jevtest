@@ -48,6 +48,7 @@ error: t.yaml has 2 problems:
 | `The iPhone 'BH' is paired but not connected: plug it in with USB, unlock it and keep it awake` | The phone is asleep, locked or unplugged. |
 | `emulator-5554: another jevtest run (pid 1234) is testing it: wait for it to finish, or use another device` | Two runs can't share a device: the second would restart the app under the first. |
 | `putting back what a run that was stopped left changed: dark mode, network` | Not an error: a run killed outright left those changed, and this one puts them back first. |
+| `can't put back rotation (another jevtest version changed it): set it by hand` | A run of another jevtest version was killed with that changed, and wrote down how to put it back in a way this version doesn't read. Set it back on the device yourself. |
 | `Several devices are called 'iPhone 17 Pro' (X, Y): name one by its UDID` | Use the UDID. |
 | `… is asleep or locked: unlock it` / `BH is locked: unlock it and keep it unlocked during the run` | Unlock the phone; consider a longer screen timeout while testing. |
 | `The app is signed by team ABCDE12345, which is not signed into Xcode (signed in: …)` | jevtest signs its agent with your app's team: add that team's Apple Account in Xcode > Settings > Accounts. |

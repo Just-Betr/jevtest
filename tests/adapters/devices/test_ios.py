@@ -376,22 +376,34 @@ def test_a_key_with_no_keyboard_up_says_ios_needs_a_field(drv, env, monkeypatch)
 
 
 def test_what_a_killed_run_left_changed_is_put_back_first_on_ios(env):
-    left: Undo[dict[str, object]] = Undo("A")
-    left["/appearance"] = {"raw": 1}
-    left["location"] = {}
-    d = IOSDevice("A", Path("Demo.app"), PROGRESS)
+    left = Undo("A")
+    left.remember("dark mode", lambda: {"call": "/appearance", "body": {"raw": 1}})
+    left.remember("location", lambda: {"simctl": ["location", "A", "clear"]})
+    told: list[str] = []
+    d = IOSDevice("A", Path("Demo.app"), told.append)
     assert ("/appearance", {"raw": 1}) in [
         (p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in env[1].calls
     ]
-    assert any(c.endswith("location A clear") for c in env[0].cmds)
-    assert d._restore.left_by_a_stopped_run() == {}
+    assert any(c.endswith("simctl location A clear") for c in env[0].cmds)
+    assert told[-1] == "putting back what a run that was stopped left changed: dark mode, location"
+    assert d._undo.left_by_a_stopped_run() == {}
 
 
-def test_a_damaged_undo_entry_is_skipped(env):
-    Undo("A").path.parent.mkdir(parents=True, exist_ok=True)
-    Undo("A").path.write_text('{"/rotate": 5}')  # not a request body
-    IOSDevice("A", Path("Demo.app"), PROGRESS)
-    assert "/rotate" not in env[1].paths()
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"raw": 1},  # 0.9.7 and older: the body alone, under the agent path
+        {"call": "/rotate", "body": 5},
+        {"simctl": ["location", 1]},
+        5,
+    ],
+)
+def test_an_entry_another_version_wrote_is_named_not_sent(env, entry):
+    Undo("A").remember("rotation", lambda: entry)
+    told: list[str] = []
+    IOSDevice("A", Path("Demo.app"), told.append)
+    assert "/rotate" not in env[1].paths() and not any("simctl location" in c for c in env[0].cmds)
+    assert told[-1] == "can't put back rotation (another jevtest version changed it): set it by hand"
 
 
 def test_several_grants_start_the_app_again_once(drv, env, slept):

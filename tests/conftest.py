@@ -244,13 +244,17 @@ class FakeDevice(BaseDevice):
         self._rec("network", on)
 
     @override
-    def check_ready(self):  # not logged: only matters when a test makes it fail
-        if "check_ready" in self.fail:
-            raise self.fail["check_ready"]
+    def prepare_for_test(self):  # not logged: only matters when a test makes it fail
+        if "prepare_for_test" in self.fail:
+            raise self.fail["prepare_for_test"]
 
     @override
     def restore(self):
         self._rec("restore")
+
+    @override
+    def _put_back(self, entries):  # never called: restore() is recorded instead
+        raise NotImplementedError
 
     @override
     def close(self):

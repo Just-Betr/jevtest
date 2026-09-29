@@ -145,14 +145,14 @@ def test_lost_phone_is_a_clear_error(dev, phone):
 
 
 def test_locked_phone(dev, phone):
-    dev.check_ready()
+    dev.prepare_for_test()
     phone.ctl.replies["info lockState"] = {"passcodeRequired": True}
     with pytest.raises(DeviceError, match="BH is locked: unlock it"):
-        dev.check_ready()
+        dev.prepare_for_test()
 
 
 def test_simulator_is_always_ready(drv):
-    drv.check_ready()
+    drv.prepare_for_test()
 
 
 # --- the app on a phone ------------------------------------------------------------------------------
