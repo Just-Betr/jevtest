@@ -29,7 +29,7 @@ sequenceDiagram
     J->>T: ✓ or ✗ with the reason
 ```
 
-1. **Read the screen.** A small agent on the device (an instrumentation APK on Android, an XCUITest runner on iOS) stays running for the whole run and returns the accessibility tree in milliseconds (measured medians: 7 ms on an Android emulator, 55 ms on a Pixel 4a, 39 ms on an iOS simulator).
+1. **Read the screen.** A small agent on the device (an instrumentation APK on Android, an XCUITest runner on iOS) stays running for the whole run and returns the accessibility tree in milliseconds (measured medians: 7 ms on an Android emulator, 55 ms on a Pixel 4a, 39 ms on an iOS simulator, 170 ms on an iPhone over USB).
 2. **Describe it as text.** Each element becomes a short line: `{"id": "e4", "type": "button", "text": "Sign in", "position": "top-center"}`.
 3. **Ask Jev to choose.** One request, several questions: *what's the next action* (tap, type, scroll, back, done, impossible, …), *on which element*, and *which quoted value to type*. Jev answers each by choosing one of the options, with probabilities.
 4. **Act** through the agent or `adb`, and **save the step**: its action and its element, by kind and name (and which one, if several have that name).
