@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.4
 
 - `--lock frozen`: a `do:` whose saved steps no longer fit the app says which saved step and what to do
   (`(saved step 4 of 4: if the app changed since this do: was worked out, run --lock record …)`).
