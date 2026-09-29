@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import signal
 import sys
+import tempfile
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -25,7 +26,7 @@ from jevtest.adapters.clock import SystemClock
 from jevtest.adapters.devices.android import AndroidDevice, check_awake, find_android
 from jevtest.adapters.devices.claim import Claims
 from jevtest.adapters.devices.ios import IOSDevice
-from jevtest.adapters.devices.ios_tools import find_target
+from jevtest.adapters.devices.ios_tools import build_info, check_build, find_target
 from jevtest.adapters.jev.client import JevClient
 from jevtest.adapters.jev.lockfile import LockMode
 from jevtest.domain.failures import JevtestError
@@ -46,11 +47,12 @@ CLAIMS = Claims()
 """The devices this process is testing: a second jevtest run can't use them at the same time."""
 
 
-def find_device(platform: Platform, device: str) -> bool:
+def find_device(platform: Platform, device: str, app: Path) -> bool:
     """Claim the one running device of `platform` called `device`; whether it's a real iPhone.
 
     Raises:
-        DeviceError: No running device, or several, are called that; or another jevtest run is using it.
+        DeviceError: No running device, or several, are called that; another jevtest run is using it; or `app` is
+            the wrong kind of build for it (a simulator build for an iPhone).
     """
     if platform is Platform.ANDROID:
         serial = find_android(device)
@@ -58,6 +60,8 @@ def find_device(platform: Platform, device: str) -> bool:
         CLAIMS.claim(serial)
         return False
     target = find_target(device)
+    with tempfile.TemporaryDirectory() as tmp:
+        check_build(app, build_info(app, Path(tmp))[1], physical=target.physical, device=target.name)
     CLAIMS.claim(target.udid)
     return target.physical
 

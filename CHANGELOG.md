@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- A file listing a simulator and a real iPhone together ran the simulator's tests, then stopped with a setup error
+  when the iPhone got the simulator build, so the tests dealt to the iPhone never ran. Each iOS device's build is now
+  checked before the run. The test file reference says a file has one iOS build: use two files for both kinds.
+
 ## 0.9.4
 
 - `--lock frozen`: a `do:` whose saved steps no longer fit the app says which saved step and what to do

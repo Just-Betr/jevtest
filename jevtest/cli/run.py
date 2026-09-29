@@ -38,8 +38,9 @@ from .console import ConsoleListener, Printer, summary
 API_KEY = "TYPESAFE_API_KEY"
 
 MakeDevice = Callable[[Platform, str, Path, Callable[[str], None]], Device]
-FindDevice = Callable[[Platform, str], bool]
-"""Claims the named device, and says whether it's a real iPhone. Raises `DeviceError` unless it's running."""
+FindDevice = Callable[[Platform, str, Path], bool]
+"""Claims the named device, and says whether it's a real iPhone. Raises `DeviceError` unless it's running and the
+build (the path) suits it."""
 """Makes the device for a platform: (platform, device name, app build, progress) -> device."""
 
 MakeClient = Callable[[str, str | None], JevAsker]
@@ -323,11 +324,11 @@ def _find_devices(loaded: Loaded, find_device: FindDevice) -> None:
 
     A real iPhone can't be granted permissions, so a file that runs on one has no `grant:` in its tests.
     """
-    named = dict.fromkeys((p, d) for suite, _ in loaded for p in suite.apps for d in suite.devices[p])
+    named = dict.fromkeys((p, d, suite.apps[p]) for suite, _ in loaded for p in suite.apps for d in suite.devices[p])
     iphones: set[str] = set()
-    for platform, device in named:
+    for platform, device, app in named:
         try:
-            if find_device(platform, device):
+            if find_device(platform, device, app):
                 iphones.add(device)
         except DeviceError as e:
             raise DeviceError(f"{platform} · {device}: {e}") from None

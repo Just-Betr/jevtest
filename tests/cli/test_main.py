@@ -84,7 +84,7 @@ class Fakes:
         self.iphones: set[str] = set()  # device names that are real iPhones
         self.looked_for: list[tuple[str, str]] = []
 
-    def find(self, platform, device):
+    def find(self, platform, device, app):
         self.looked_for.append((str(platform), device))
         if device in self.missing:
             raise DeviceError(f"No connected device called '{device}'")
@@ -657,11 +657,15 @@ def test_the_real_device_finder_asks_each_platform_and_claims_the_device(monkeyp
     claimed: list[str] = []
     monkeypatch.setattr(cli, "find_android", lambda d: f"serial-of-{d}")
     monkeypatch.setattr(cli, "check_awake", lambda serial: None)
-    monkeypatch.setattr(cli, "find_target", lambda d: types.SimpleNamespace(udid=f"udid-of-{d}", physical=d == "BH"))
+    monkeypatch.setattr(
+        cli, "find_target", lambda d: types.SimpleNamespace(udid=f"udid-of-{d}", name=d, physical=d == "BH")
+    )
     monkeypatch.setattr(cli.CLAIMS, "claim", claimed.append)
-    assert cli.find_device(Platform.ANDROID, "Pixel 9") is False
-    assert cli.find_device(Platform.IOS, "iPhone 17") is False
-    assert cli.find_device(Platform.IOS, "BH") is True
+    monkeypatch.setattr(cli, "build_info", lambda app, tmp: (app, {}))
+    monkeypatch.setattr(cli, "check_build", lambda app, info, physical, device: None)
+    assert cli.find_device(Platform.ANDROID, "Pixel 9", Path("a.apk")) is False
+    assert cli.find_device(Platform.IOS, "iPhone 17", Path("a.app")) is False
+    assert cli.find_device(Platform.IOS, "BH", Path("a.app")) is True
     assert claimed == ["serial-of-Pixel 9", "udid-of-iPhone 17", "udid-of-BH"]
 
 

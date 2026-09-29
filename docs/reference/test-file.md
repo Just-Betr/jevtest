@@ -31,6 +31,8 @@ app:
 
 With both, the tests run on both platforms **at the same time**. jevtest installs the build at the start of each run.
 
+A file has one iOS build, and a simulator build runs only on simulators, a device build only on real iPhones. To test on both, use two files (they can `include:` the same tests). A device the build doesn't suit is an error before the run.
+
 ## `device` (required)
 
 The device each platform in `app` runs on, by **exact** name. There is no "whichever is running": a name that matches no device, or more than one, is an error that lists what is connected.

@@ -205,6 +205,26 @@ def free_port() -> int:
     return port
 
 
+def check_build(app: Path, info: Object, *, physical: bool, device: str) -> None:
+    """Raise `DeviceError` unless the build (its Info.plist `info`) runs on this kind of device."""
+    platforms = texts(info.get("CFBundleSupportedPlatforms", []), f"{app.name}'s supported platforms")
+    needed = "iPhoneOS" if physical else "iPhoneSimulator"
+    if platforms and needed not in platforms:
+        where = f"a real iPhone ({device})" if physical else "the iOS Simulator"
+        how = "a device build signed with your team" if physical else "a build with `-sdk iphonesimulator`"
+        raise DeviceError(f"{app.name} is built for {', '.join(platforms)}, not {where}. Use {how}.")
+
+
+def build_info(app: Path, workdir: Path) -> tuple[Path, Object]:
+    """The build's .app, and its Info.plist."""
+    bundle = app_bundle(app, workdir)
+    try:
+        raw = (bundle / "Info.plist").read_bytes()
+    except OSError as e:
+        raise DeviceError(f"{app.name} has no readable Info.plist ({e})") from None
+    return bundle, parse_plist(raw, f"{app.name}'s Info.plist")
+
+
 def app_bundle(app_path: Path, workdir: Path) -> Path:
     """An .app directory from a .app, or a .zip / .ipa containing one."""
     if app_path.suffix.lower() == ".app" and app_path.is_dir():

@@ -49,6 +49,8 @@ from .ios_tools import (
     app_bundle,
     app_team,
     build_agent_with_xcodebuild,
+    build_info,
+    check_build,
     devicectl,
     find_target,
     free_port,
@@ -57,7 +59,7 @@ from .ios_tools import (
     simctl,
     xcode_team,
 )
-from .tool_output import Object, as_text, parse_plist, text_at, texts
+from .tool_output import Object, as_text, text_at
 
 AGENT_CALL_TIMEOUT = 150
 """Seconds one agent call may take. Before touching while a system alert is up, XCUITest waits up to 60 s for
@@ -276,18 +278,8 @@ class IOSDevice(BaseDevice):
     # --- lifecycle ----------------------------------------------------------------
     def install(self, app: Path) -> str:
         """Install a simulator or device build (an .app, or a .zip/.ipa containing one); return its bundle id."""
-        bundle = app_bundle(app, Path(self._tmp.name) / "app")
-        try:
-            raw = (bundle / "Info.plist").read_bytes()
-        except OSError as e:
-            raise DeviceError(f"{app.name} has no readable Info.plist ({e})") from None
-        info = parse_plist(raw, f"{app.name}'s Info.plist")
-        platforms = texts(info.get("CFBundleSupportedPlatforms", []), f"{app.name}'s supported platforms")
-        needed = "iPhoneOS" if self.physical else "iPhoneSimulator"
-        if platforms and needed not in platforms:
-            where = f"a real iPhone ({self.name})" if self.physical else "the iOS Simulator"
-            how = "a device build signed with your team" if self.physical else "a build with `-sdk iphonesimulator`"
-            raise DeviceError(f"{app.name} is built for {', '.join(platforms)}, not {where}. Use {how}.")
+        bundle, info = build_info(app, Path(self._tmp.name) / "app")
+        check_build(app, info, physical=self.physical, device=self.name)
         if "CFBundleIdentifier" not in info:
             raise DeviceError(f"{app.name} Info.plist has no CFBundleIdentifier")
         self.app_path = bundle
