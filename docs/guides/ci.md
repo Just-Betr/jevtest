@@ -11,7 +11,7 @@ jevtest is built to run unattended: one exit code, JUnit XML for your CI's test 
 
 With `record`, each `do:` repeats its saved steps; only a new goal, or one whose saved steps no longer fit the app (an element was renamed), goes to Jev, and only from where the saved steps stopped fitting. Each new decision costs a fraction of a cent. What's recorded in CI stays in that run's workspace unless you commit it back, so re-record locally and commit the lockfile when the app changes.
 
-With `frozen`, nothing new is asked: a `do:` without saved steps fails with `No steps are saved for this do: in tests.lock.json, and --lock frozen only repeats saved steps`, and a saved step whose element never shows up fails with what the screen shows instead. That's exact but strict: a renamed button means re-recording locally and committing the lockfile.
+With `frozen`, nothing new is asked: a `do:` without saved steps fails with `No steps are saved for this do: in tests.lock.json, and --lock frozen only repeats saved steps`, and a saved step whose element never shows up fails saying which saved step it was and to run `--lock record` (`Waited 10s until button 'Open lists' is on screen and stopped moving (saved step 1 of 2: if the app changed since this do: was worked out, run --lock record to work it out again from there)`). That's exact but strict: a renamed button means re-recording locally and committing the lockfile.
 
 ## GitHub Actions
 

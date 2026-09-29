@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Jev is told when its last move left the screen as it was (`scroll down (it changed nothing on the screen)`), so a
+  goal at the end of a page stops scrolling and tries something else, or says it's impossible.
+- Docs: on iOS a web radio button reads `Pro plan: 1` when chosen and `Pro plan: 0` when not (measured).
+- `model:` on a step says it's for the whole file, under `settings:`, instead of calling it an unknown key.
+- Docs: a saved step that no longer fits fails naming the step and saying to run `--lock record`, as it does.
+
 ## 0.9.11
 
 - Tested: the CI guide's Android workflow, run on GitHub with jevtest from PyPI and `--platform android`, passes.

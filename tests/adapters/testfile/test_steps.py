@@ -139,6 +139,7 @@ def test_options_where_they_apply(raw):
         ({"wait": True}, "must be a number, got True$"),
         ({"wait": 301}, "'wait' must be from 0 to 300 seconds, got 301"),
         ({"background": 99999}, "'background' must be from 0 to 300 seconds, got 99999"),
+        ({"tap": "X", "model": "jev-1.13.0"}, r"^`model` is for the whole file, not a step: set it in `settings:`$"),
         ({"grant": []}, "'grant' needs at least one permission"),
         ({"grant": {}}, "grant takes permission names, or names per platform"),
         ({"grant": {"windows": "x"}}, "or names per platform: .*; got windows"),

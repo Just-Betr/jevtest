@@ -695,6 +695,8 @@ class TestRunner:
 
         while True:
             screen = self._still_screen(settings)
+            if last is not None and last[1] == screen:  # tell Jev, so it tries something else
+                taken[-1] = f"{taken[-1]} (it changed nothing on the screen)"
             decision = self.brain.next_action(goal, screen, taken)
             move = decision.move
             if isinstance(move, Finished | Impossible):

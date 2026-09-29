@@ -1199,3 +1199,16 @@ def test_the_same_move_that_changes_nothing_is_stuck(tmp_path, clock, out):
     res, d, _ = run1(tmp_path, clock, out, {"do": "Scroll to Item 99"}, device=FakeDevice(rows("Item 1")), model=model)
     assert "Stuck repeating: scroll down, which changes nothing on the screen" in failure_of(res)
     assert d.names().count("drag") == 2  # the third, which would change nothing either, isn't made
+
+
+def test_jev_is_told_when_its_last_move_changed_nothing(tmp_path, clock, out):
+    """So it tries something else, rather than scroll again at the end of a page."""
+    model = FakeModel(act("scroll_down"), act("scroll_down"), act("done"))
+    screens = [rows("Item 1"), rows("Item 1"), rows("Item 9"), rows("Item 9"), rows("Item 9"), rows("Item 9")]
+    run1(tmp_path, clock, out, {"do": "Scroll to the end"}, device=FakeDevice(*screens), model=model)
+    histories = [state["actions_taken"] for state, _ in model.asked]
+    assert histories == [
+        ["(none yet)"],
+        ["scroll down"],  # it moved the list
+        ["scroll down", "scroll down (it changed nothing on the screen)"],
+    ]

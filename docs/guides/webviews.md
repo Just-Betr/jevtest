@@ -54,7 +54,7 @@ For a WebView to be testable, its content needs to be accessible, which ordinary
 | Android 17, WebView 153 | ✗ | ✓ |
 | iOS 26 and 27 | ✓ | ✗ |
 
-So no exact name works on every device, and a WebView update can change it. The example types with `do:`, which sees the label next to the field whatever the WebView reports. An `aria-label` names a checkbox or radio on both platforms (measured on the page's checkbox: `tap: I agree to the terms` works on each), but not a text field on WebView 153 ([Troubleshooting](../troubleshooting.md)).
+So no exact name works on every device, and a WebView update can change it. On iOS a web radio button, and a `<select>`, have no element type of their own (measured: XCUITest reports them as `other`): a radio shows its state as its value, so it reads `Pro plan: 1` when chosen and `Pro plan: 0` when not, and `see: "Pro plan: 1"` checks it. The example types with `do:`, which sees the label next to the field whatever the WebView reports. An `aria-label` names a checkbox or radio on both platforms (measured on the page's checkbox: `tap: I agree to the terms` works on each), but not a text field on WebView 153 ([Troubleshooting](../troubleshooting.md)).
 
 ## Native screens in a cross-platform app
 
