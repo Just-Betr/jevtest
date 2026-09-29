@@ -231,10 +231,9 @@ def test_a_scroll_drags_slowly_so_nothing_flings_on_and_a_swipe_flicks(drv, env)
 def test_simctl_device_commands(drv, env):
     env[1].replies["/state"] = {"state": 1}  # not running: nothing to start again
     drv.set_location(1.5, -2.5)
-    drv.open_url("app://x")
     drv.grant(["photos"])
     tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
-    assert tails == ["location A set 1.5,-2.5", "openurl A app://x", "privacy A grant photos dev.demo"]
+    assert tails == ["location A set 1.5,-2.5", "privacy A grant photos dev.demo"]
 
 
 def test_a_grant_starts_the_app_again_once_the_simulator_ended_it(drv, env, slept):
@@ -341,12 +340,23 @@ def test_looks_says_nothing_on_ios_where_frames_move_with_their_animation(drv, e
 
 
 def test_a_link_no_app_opens_says_so_on_the_simulator(drv, env):
-    env[0].rules["openurl"] = DeviceError("simctl failed (115): (domain=LSApplicationWorkspaceErrorDomain, code=115)")
+    env[1].replies["/open_url"] = DeviceError(
+        "iOS agent /open_url: The operation could not be completed. (LSApplicationWorkspaceErrorDomain error 115.)"
+    )
     with pytest.raises(DeviceError, match="^No app on the device opens x://y"):
         drv.open_url("x://y")
-    env[0].rules["openurl"] = DeviceError("simctl failed: device not booted")
-    with pytest.raises(DeviceError, match="not booted$"):
+    env[1].replies["/open_url"] = DeviceError("iOS agent /open_url: Not a URL")
+    with pytest.raises(DeviceError, match="Not a URL$"):
         drv.open_url("x://y")
+
+
+def test_a_simulator_opens_links_through_the_agent_so_ios_doesnt_ask(drv, env):
+    """`simctl openurl` makes iOS ask "Open in “App”?" first (measured); the agent's open doesn't."""
+    drv.open_url("jevtestdemo://open")
+    assert ("/open_url", {"url": "jevtestdemo://open"}) in [
+        (p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in env[1].calls
+    ]
+    assert not any("openurl" in c for c in env[0].cmds)
 
 
 def test_a_link_no_app_opens_says_so_on_an_iphone(env, tmp_path, monkeypatch):

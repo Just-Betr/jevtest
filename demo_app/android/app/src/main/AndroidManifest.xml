@@ -25,6 +25,13 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- jevtestdemo:// links open the app, for tests of `open_url:` -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="jevtestdemo"/>
+            </intent-filter>
         </activity>
         <activity android:name=".NativeActivity" android:exported="false"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />

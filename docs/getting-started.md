@@ -103,7 +103,7 @@ See [Which lock mode in CI?](guides/ci.md#which-lock-mode-in-ci)
 
 ## 5. Try the demo app
 
-The repository has a Flutter demo app with 17 tests covering every kind of step: sign-in, lists, swipes, dialogs, a native screen, a camera permission prompt and an in-app web app.
+The repository has a Flutter demo app with 18 tests covering every kind of step: sign-in, lists, swipes, dialogs, a native screen, a camera permission prompt, an in-app web app and a deep link.
 
 ```bash
 git clone https://github.com/Just-Betr/jevtest && cd jevtest

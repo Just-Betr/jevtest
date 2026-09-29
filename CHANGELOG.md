@@ -5,6 +5,9 @@
 - A file listing a simulator and a real iPhone together ran the simulator's tests, then stopped with a setup error
   when the iPhone got the simulator build, so the tests dealt to the iPhone never ran. Each iOS device's build is now
   checked before the run. The test file reference says a file has one iOS build: use two files for both kinds.
+- iOS simulator: `open_url:` with the app's own scheme stopped at iOS's "Open in “App”?" prompt and the app stayed in
+  the background (a real iPhone didn't ask). Links now open through jevtest's agent on simulators too, as on iPhones.
+  The demo app has a `jevtestdemo://` scheme and a deep-link test; it passes on all four test devices.
 - An `.aab` without `bundletool` installed is an error before the run, not when each Android device starts.
 
 ## 0.9.4

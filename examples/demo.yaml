@@ -219,3 +219,10 @@ tests:
         see: End of the page
       - tap: Back to top
         see: Web Greeter
+
+  - name: Deep link brings the app back
+    fresh: true
+    steps:
+      - home
+      - open_url: jevtestdemo://open
+        see: Sign in

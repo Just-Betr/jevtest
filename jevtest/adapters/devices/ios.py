@@ -449,15 +449,15 @@ class IOSDevice(BaseDevice):
             simctl("location", self.udid, "set", f"{latitude},{longitude}")
 
     def open_url(self, url: str) -> None:
-        """Open a deep link or URL."""
+        """Open a deep link or URL, through the agent on a simulator too.
+
+        `simctl openurl` opens a link as if from outside the app, and iOS then asks "Open in “App”?" before a
+        custom scheme opens (measured); the agent's open doesn't ask, on a simulator or an iPhone.
+        """
         try:
-            if self.physical:
-                self._call("/open_url", url=url)
-            else:
-                simctl("openurl", self.udid, url)
+            self._call("/open_url", url=url)
         except DeviceError as e:
-            # measured: simctl says "LSApplicationWorkspaceErrorDomain, code=115", an iPhone "...error 115."
-            if re.search(r"LSApplicationWorkspaceErrorDomain(, code=| error )115", str(e)):
+            if re.search(r"LSApplicationWorkspaceErrorDomain(, code=| error )115", str(e)):  # measured: no app for it
                 raise no_app_opens(url) from None
             raise
 

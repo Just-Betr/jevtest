@@ -107,7 +107,7 @@ device:
 
 Each device writes its own report under `results/<run>/<platform>/<device>/`.
 
-**Measured.** The 17-test demo suite: Android emulator and iOS simulator one after the other took 104 s + 212 s. The emulator, a Pixel 4a and the simulator at once took 218 s for all 34 test runs.
+**Measured.** The demo suite, when it had 17 tests: Android emulator and iOS simulator one after the other took 104 s + 212 s. The emulator, a Pixel 4a and the simulator at once took 218 s for all 34 test runs.
 
 ## A typical project
 
