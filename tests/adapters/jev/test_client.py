@@ -139,7 +139,10 @@ def test_gives_up_after_retries():
 
 def test_unreachable_after_retries():
     j, _ = client(urllib.error.URLError("dns"), urllib.error.URLError("dns"), retries=1)
-    with pytest.raises(ModelError, match="unreachable"):
+    with pytest.raises(
+        ModelError,
+        match=r"^Jev unreachable after 1 retry \(<urlopen error dns>\): check the network; --lock frozen needs none",
+    ):
         j.ask("s", Q)
 
 

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Jev unreachable says how often it tried and what to do: check the network, or `--lock frozen`, which needs none.
 - A rejected API key (Jev HTTP 401) stops the run with exit 2 and says to check the key; it failed each test in
   turn with the same error, exit 1.
 - iOS starts its agent again before the next test when something stopped it, as Android does: every later test

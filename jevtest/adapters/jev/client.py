@@ -17,6 +17,7 @@ from typing import Protocol, Self
 
 from jevtest.adapters.shapes import is_json_object, objects_by_key
 from jevtest.domain.failures import KeyRejected, ModelError
+from jevtest.domain.words import plural
 
 from .wire import RawAnswers
 
@@ -168,7 +169,10 @@ class JevClient:
                     self._retry(f"unreachable ({e})", attempt)
                     attempt += 1
                     continue
-                raise ModelError(f"Jev unreachable: {e}") from None
+                raise ModelError(
+                    f"Jev unreachable after {plural(self.retries, 'retry', 'retries')} ({e}): check the network; "
+                    "--lock frozen needs none, if every decision is recorded"
+                ) from None
             try:
                 data: object = json.loads(raw)
             except json.JSONDecodeError:
