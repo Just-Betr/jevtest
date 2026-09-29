@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.9.13
 
+- Docs checked claim by claim against real runs: screen-read times are measured ones (the Android figure was a third
+  of the real one), a troubleshooting row for a message jevtest never prints is gone, and the CI guide's iOS job, run
+  as written on GitHub, passes.
 - iOS on a fresh CI Mac: simctl may take 300 s, not 120. Measured on GitHub's macos-15, the first `simctl list` took
   132 s, so jevtest stopped with `Timed out after 120s`. The CI guide's iOS job boots with `simctl bootstatus -b`,
   which waits until the simulator is ready; run as written on GitHub, it passes.
