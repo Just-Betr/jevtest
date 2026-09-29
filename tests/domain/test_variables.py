@@ -21,3 +21,12 @@ def test_hide_puts_names_back_longest_value_first():
 def test_a_value_shown_in_another_encoding_is_still_hidden():
     assert hide("Welcome, Rene\u0301e", {"NAME": "Ren\u00e9e"}) == "Welcome, ${NAME}"
     assert hide("Welcome, Ren\u00e9e", {"NAME": "Rene\u0301e"}) == "Welcome, ${NAME}"
+
+
+def test_a_value_is_hidden_as_jevtest_reads_it_from_the_screen_too():
+    """A field that holds 'hello world  two' reads back as 'hello world two': that's the value too (measured leak)."""
+    variables = {"SECRET": "hello world  two", "NOTE": "line one\nline two", "BLANK": "   "}
+    assert hide("typed hello world two here", variables) == "typed ${SECRET} here"
+    assert hide("hello world  two", variables) == "${SECRET}"
+    assert hide("shown: line one line two", variables) == "shown: ${NOTE}"
+    assert hide("a b", variables) == "a b"  # a value of spaces only is hidden where it's shown as written, never as ""

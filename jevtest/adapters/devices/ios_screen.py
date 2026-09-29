@@ -11,6 +11,7 @@ import re
 from typing import NotRequired, TypedDict
 
 from jevtest.domain.screen import Element, Screen
+from jevtest.domain.words import one_line
 
 CONTAINERS = frozenset({"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"})
 """Container types that only matter when they carry a label or identifier."""
@@ -126,11 +127,7 @@ def _text(kind: str, label: str, value: str) -> tuple[str, tuple[str, ...]]:
     """
     shown = value.strip() and kind not in HIDDEN_VALUE and value.strip() != label.strip()
     if not shown:
-        return _collapsed(label), ()
+        return one_line(label), ()
     if not label:
-        return _collapsed(value), ()
-    return _collapsed(f"{label}: {value}"), (_collapsed(label), _collapsed(value))
-
-
-def _collapsed(text: str) -> str:
-    return " ".join(text.split())
+        return one_line(value), ()
+    return one_line(f"{label}: {value}"), (one_line(label), one_line(value))

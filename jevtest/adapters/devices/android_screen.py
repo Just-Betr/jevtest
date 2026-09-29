@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable, Mapping
 
 from jevtest.domain.screen import Element, Screen
+from jevtest.domain.words import one_line
 
 KINDS: Mapping[str, str] = {
     "EditText": "text_field",
@@ -110,7 +111,7 @@ def _element(a: Attributes, width: int, height: int) -> Element | None:
         return None  # nothing a test could find it by or do with it
     return Element(
         kind=_kind(cls, clickable=clickable, password=editable and _true(a, "password")),
-        text=_collapsed(label),
+        text=one_line(label),
         parts=_parts(a),
         hint=a.get("hint", ""),
         resource_id=rid,
@@ -151,11 +152,7 @@ def _label(a: Attributes) -> str:
 def _parts(a: Attributes) -> tuple[str, ...]:
     """The text and the description on their own, when the element shows both (``Go (Go now)``)."""
     text, desc = a.get("text", ""), a.get("content-desc", "")
-    return (_collapsed(text), _collapsed(desc)) if text and desc and text != desc else ()
-
-
-def _collapsed(text: str) -> str:
-    return " ".join(text.split())
+    return (one_line(text), one_line(desc)) if text and desc and text != desc else ()
 
 
 def _resource_id(a: Attributes) -> str:

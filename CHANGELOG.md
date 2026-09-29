@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A `${NAME}` value with two spaces or a line break in it leaked into logs, reports, lockfiles and Jev's requests
+  once the app showed it: jevtest reads screen text with each run of spaces as one, and hid only the exact value. It
+  hides that form too (measured: `hello world  two` typed into a field showed as `hello world two`; now `${SPACED}`).
 - A `model` TypeSafe doesn't serve (`jev-1.12.0`) stops the run with exit 2, saying which version jevtest is tested
   with; it failed each test in turn with `Jev HTTP 400: Unknown model`, exit 1.
 

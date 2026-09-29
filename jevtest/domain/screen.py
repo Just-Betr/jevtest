@@ -3,20 +3,16 @@
 from __future__ import annotations
 
 import dataclasses
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from .words import nfc
+from .words import nfc, one_line
 
 Bounds = tuple[int, int, int, int]
 """An element's rectangle: left, top, right, bottom, in the device's own units."""
 
 Point = tuple[int, int]
 """A point on the screen, in the device's own units."""
-
-
-BETWEEN_WORDS = re.compile(r"(?<=\S)\s+(?=\S)")
 
 
 STRAIGHT_QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'})
@@ -30,11 +26,6 @@ def folded(text: str) -> str:
     So an é typed as an e and an accent matches an é stored as one character, and Don't matches Don\u2019t.
     """
     return nfc(text).casefold().translate(STRAIGHT_QUOTES)
-
-
-def one_space(text: str) -> str:
-    """`text` with the spaces and line breaks between its words made one space; its ends as they are."""
-    return BETWEEN_WORDS.sub(" ", text)
 
 
 @dataclass(frozen=True)
@@ -98,8 +89,8 @@ class Element:
         target, never a part of a longer text. Spaces and line breaks between the target's
         words count as one space, as they do in the screen's text when it's read.
         """
-        wanted = folded(one_space(target))
-        return any(folded(name) == wanted for name in self.names())
+        wanted = folded(one_line(target))
+        return bool(wanted) and any(folded(name) == wanted for name in self.names())
 
     def names(self) -> tuple[str, ...]:
         """Every text a test can name the element by, in order: text, parts, hint, id."""

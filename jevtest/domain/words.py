@@ -18,6 +18,14 @@ def number_text(value: float) -> str:
     return str(int(value)) if float(value).is_integer() else repr(float(value))
 
 
+def one_line(text: str) -> str:
+    """`text` as jevtest reads it from a screen.
+
+    Each run of spaces, tabs and line breaks becomes one space, with none at the ends.
+    """
+    return " ".join(text.split())
+
+
 def plural(n: int, noun: str, many: str | None = None) -> str:
     """``1 file``, ``2 files``; `many` for a noun that doesn't just add an s (``entry``, ``entries``)."""
     return f"{n} {noun if n == 1 else many or noun + 's'}"
