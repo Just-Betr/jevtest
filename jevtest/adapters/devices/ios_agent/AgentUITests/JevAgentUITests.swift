@@ -239,14 +239,16 @@ final class JevAgentUITests: XCTestCase {
             }
         case "/hide_keyboard":
             // What a person would tap: the Done on the bar just above the keyboard (web views and many apps
-            // show one), else the keyboard's own Hide keyboard or Done key, else Return. The client checks
-            // that the keyboard really went away.
+            // show one), else the keyboard's own Hide keyboard key, else its return key (labelled Done or
+            // Return). The return key is pressed as a key, not tapped where it's drawn: the keys are still
+            // sliding in for a while after the keyboard is up (measured: about a second on an iPhone on
+            // iOS 27), and a tap there lands on another key. The client checks the keyboard went away.
             if app.keyboards.count > 0 {
                 let top = app.keyboards.firstMatch.frame.minY
                 let barDone = app.buttons.matching(NSPredicate(format: "label == 'Done'")).allElementsBoundByIndex
                     .first { $0.isHittable && $0.frame.maxY <= top + 1 && $0.frame.maxY > top - Self.barHeight }
-                let key = app.keyboards.buttons.matching(NSPredicate(format: "label IN {'Hide keyboard','Done','done'}")).firstMatch
-                if let done = barDone { done.tap() } else if key.exists { key.tap() } else { app.typeText("\n") }
+                let hide = app.keyboards.buttons.matching(NSPredicate(format: "label == 'Hide keyboard'")).firstMatch
+                if let done = barDone { done.tap() } else if hide.exists { hide.tap() } else { app.typeText("\n") }
             }
         default:
             return ["error": "Unknown command \(path)"]

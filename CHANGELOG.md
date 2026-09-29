@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.9.7
 
+- iOS: `hide_keyboard` right after typing could type a `.` instead of closing the keyboard (seen in landscape on an
+  iPhone on iOS 27): the keys are still sliding in for about a second after the keyboard is up (measured), and the
+  agent tapped Done where it was drawn at that moment. It now presses the return key as a key, which Done is.
 - Several devices with one name (`iPhone 17 Pro` on iOS 26.3 and 26.5) are listed with what each runs, so you can
   tell which UDID to use: `D9656DC8-… (iOS 26.5), 657BA69D-… (iOS 26.3)`.
 - Tested: every suite on the iOS 26.3, 26.4 and 26.5 simulators (a 17e's smaller screen included); the demo suite
