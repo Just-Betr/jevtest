@@ -332,7 +332,7 @@ def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
     # after each scroll: wait_until two reads agree (the scroll has stopped gliding)
     d = FakeDevice(*held(listed("Item 1"), listed("Item 300"), listed("Item 30")))
     res, d, model = run1(tmp_path, clock, out, {"scroll_to": "Item 30", "direction": "down"}, device=d)
-    assert res.status is Status.PASS and res.steps[0].detail == "2 scroll(s)"
+    assert res.status is Status.PASS and res.steps[0].detail == "2 scrolls"
     assert d.names().count("drag") == 2
     assert not model.asked  # matched in code, never by the model
 
@@ -366,7 +366,7 @@ def test_scroll_to_gives_up_after_50_scrolls(tmp_path, clock, out):
 def test_scroll_to_found_after_the_last_allowed_scroll(tmp_path, clock, out):
     d = FakeDevice(*held(screen_with("Item 0"), *[screen_with(f"Item {i}") for i in range(1, 51)]))
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Item 50", "direction": "down"}, device=d)
-    assert res.status is Status.PASS and res.steps[0].detail == "50 scroll(s)"
+    assert res.status is Status.PASS and res.steps[0].detail == "50 scrolls"
 
 
 def test_steps_wait_10_seconds_unless_they_say_otherwise(tmp_path, clock, out):
@@ -763,7 +763,7 @@ def test_verbose_prints_every_model_answer(tmp_path, clock, out):
     text = out.getvalue()
     assert "jev action: done  [done 0.90, other 0.10]" in text
     assert "jev check: yes=0.90" in text
-    assert "jev call 7 ms, 3 question(s)" in text and "jev call 7 ms, 1 question(s)" in text
+    assert "jev call 7 ms, 3 questions" in text and "jev call 7 ms, 1 question" in text
 
 
 def test_verbose_marks_lockfile_answers(tmp_path, clock, out):
@@ -1155,7 +1155,7 @@ def test_scroll_to_brings_an_element_clear_of_the_edges(tmp_path, clock, out):
     """Just peeking in at the bottom it sits on the home-gesture strip, where a tap goes home."""
     d = FakeDevice(*held(listed("Show more", y=1960), listed("Show more", y=1200)))
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Show more", "direction": "down"}, device=d)
-    assert res.status is Status.PASS and res.steps[0].detail == "1 scroll(s)"
+    assert res.status is Status.PASS and res.steps[0].detail == "1 scroll"
 
 
 def test_scroll_to_takes_an_element_at_an_edge_at_the_end_of_the_content(tmp_path, clock, out):
@@ -1167,4 +1167,4 @@ def test_scroll_to_takes_an_element_at_an_edge_at_the_end_of_the_content(tmp_pat
 def test_scroll_to_takes_an_element_at_an_edge_after_its_last_scroll(tmp_path, clock, out):
     d = FakeDevice(*held(listed("Item 0"), listed("Item 1"), listed("Show more", y=1960)))
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Show more", "direction": "down", "max_scrolls": 2}, device=d)
-    assert res.status is Status.PASS and res.steps[0].detail == "2 scroll(s)"
+    assert res.status is Status.PASS and res.steps[0].detail == "2 scrolls"

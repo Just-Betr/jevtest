@@ -75,7 +75,8 @@ class ConsoleListener:
                     got = f"yes={answer.yes:.2f}"
                 self._emit(f"{pad}    jev {qid}: {got}")
             source = "from lockfile" if call.recorded else f"{call.ms} ms"
-            self._emit(f"{pad}    jev call {source}, {len(call.questions)} question(s)")
+            n = len(call.questions)
+            self._emit(f"{pad}    jev call {source}, {n} question{'' if n == 1 else 's'}")
 
     def test_started(self, test: Test) -> None:
         """Begin a test's block."""

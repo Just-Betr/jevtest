@@ -263,7 +263,7 @@ def test_the_file_chooses_platforms_and_devices(tmp_path, monkeypatch, fakes, ca
     assert sorted(p.name for p in stamp_of(tmp_path).iterdir()) == ["android", "ios", "junit.xml"]
     out = capsys.readouterr().out
     assert "[android · emulator-5554] 1/1 passed" in out and "[ios · iPhone 17 Pro] 1/1 passed" in out
-    assert "All: 2/2 passed (1 file(s), 2 device run(s))" in out
+    assert "All: 2/2 passed (1 file, 2 device runs)" in out
 
 
 def test_progress_messages_are_shown(project, fakes, capsys):
@@ -500,7 +500,7 @@ def test_running_a_folder(tmp_path, monkeypatch, fakes, capsys):
     assert fakes.run(files=("suite",)) == 1
     out = capsys.readouterr().out
     assert "=== cart/checkout.yaml ===" in out and "=== login.yaml ===" in out
-    assert "All: 1/2 passed (2 file(s), 2 device run(s))" in out
+    assert "All: 1/2 passed (2 files, 2 device runs)" in out
     stamp = stamp_of(tmp_path)
     assert (stamp / "login" / "android" / "emulator-5554" / "report.json").exists()
     assert (stamp / "cart" / "checkout" / "android" / "emulator-5554" / "report.json").exists()

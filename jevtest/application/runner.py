@@ -603,7 +603,7 @@ class TestRunner:
             found = [el for el in screen.elements if el.says(wanted)]
             last = scrolls == settings.max_scrolls or unmoved == END_OF_CONTENT
             if found and (last or any(screen.clear_of_edges(el) for el in found)):
-                return f"{scrolls} scroll(s)" if scrolls else None
+                return _count(scrolls, "scroll") if scrolls else None
             if scrolls == settings.max_scrolls:
                 raise StepFailed(
                     f"Scrolled {direction} {_count(scrolls, 'time')} (max_scrolls) but never found '{text}'"
