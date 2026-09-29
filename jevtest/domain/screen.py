@@ -19,12 +19,17 @@ Point = tuple[int, int]
 BETWEEN_WORDS = re.compile(r"(?<=\S)\s+(?=\S)")
 
 
-def folded(text: str) -> str:
-    """`text` as matching compares it: case ignored, and each letter in one encoding (NFC).
+STRAIGHT_QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'})
+"""Curly quotes as the straight ones a keyboard types. The permission prompts write them curly (measured: Android's
+\u201cDon\u2019t allow\u201d, iOS's \u201cDon\u2019t Allow\u201d); a test file says `tap: Don't allow`."""
 
-    So an é typed as an e and an accent matches an é stored as one character.
+
+def folded(text: str) -> str:
+    """`text` as matching compares it: case ignored, each letter in one encoding (NFC), and quotes straight.
+
+    So an é typed as an e and an accent matches an é stored as one character, and Don't matches Don\u2019t.
     """
-    return nfc(text).casefold()
+    return nfc(text).casefold().translate(STRAIGHT_QUOTES)
 
 
 def one_space(text: str) -> str:
@@ -85,11 +90,12 @@ class Element:
         return x2 - max(1, min(8, (x2 - x1) // 4)), (y1 + y2) // 2
 
     def says(self, target: str) -> bool:
-        """Whether the element's text, one of its parts, its hint or its id is exactly `target`, ignoring case.
+        """Whether the element's text, one of its parts, its hint or its id is exactly `target` (`folded`).
 
         Case is ignored because platforms render the same text in different case (Android shows many buttons in
-        capitals; the permission prompt says "Don't allow" on Android and "Don't Allow" on iOS). Nothing else is:
-        the whole text must be the target, never a part of a longer text. Spaces and line breaks between the target's
+        capitals; the permission prompt says "Don't allow" on Android and "Don't Allow" on iOS), and curly quotes
+        match straight ones, which is all a keyboard types. Nothing else is ignored: the whole text must be the
+        target, never a part of a longer text. Spaces and line breaks between the target's
         words count as one space, as they do in the screen's text when it's read.
         """
         wanted = folded(one_space(target))

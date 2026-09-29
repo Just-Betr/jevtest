@@ -342,13 +342,20 @@ class IOSDevice(BaseDevice):
         self.reinstall()
 
     def reinstall(self) -> None:
-        """Uninstall and install the build again."""
+        """Uninstall and install the build again, with no permission decided, as a new install has.
+
+        On an iPhone the uninstall doesn't always clear the app's permissions: a camera denial outlived one
+        reinstall in three (measured on iOS 27), and the next test got no prompt. So they're reset after it.
+        """
         self.stop()
         if self.physical:
             devicectl("device", "uninstall", "app", "--device", self.udid, self.app_id)
+            self._install_bundle()
+            self._call("/reset_permissions")
         else:
             simctl("uninstall", self.udid, self.app_id, check=False)
-        self._install_bundle()
+            self._install_bundle()
+            simctl("privacy", self.udid, "reset", "all", self.app_id)
 
     # --- observe --------------------------------------------------------------------
     @override

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `tap: Don't allow` never matched a permission prompt: Android and iOS write *Don’t* with a curly apostrophe
+  (measured), and matching compared quotes exactly. Curly quotes now match the straight ones a keyboard types.
+- On an iPhone, a `fresh: true` test could start with a permission the previous test decided: an uninstall
+  doesn't always clear them (measured: a camera denial outlived one reinstall in three, so no prompt came). A
+  reinstall now resets the app's permissions, on the simulator too, so every fresh test starts as a new install.
+- Docs: WebView 146 names a web field by its label as well as its id (measured on Android 13); iOS 27 as iOS 26.
+  The release steps named a version in `pyproject.toml`, which reads it from `jevtest/__init__.py`.
 - Numbers you wrote are printed as written, never rounded: a step showed `location: -33.8688, 151.209` for
   151.2093, and `latitude 90.0000001` was refused as "got 90".
 - A `location:` on an iPhone is cleared at the end of the run, so the phone uses its actual location again; jevtest

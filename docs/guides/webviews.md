@@ -50,9 +50,9 @@ For a WebView to be testable, its content needs to be accessible, which ordinary
 |---|---|---|
 | Android 12, WebView 91 | ✗ | ✓ |
 | Android 15, WebView 124 | ✓ | ✗ |
-| Android 13, WebView 146 | ✗ | ✓ |
+| Android 13, WebView 146 | ✓ | ✓ |
 | Android 17, WebView 153 | ✗ | ✓ |
-| iOS 26 | ✓ | ✗ |
+| iOS 26 and 27 | ✓ | ✗ |
 
 So no exact name works on every device, and a WebView update can change it. The example types with `do:`, which sees the label next to the field whatever the WebView reports. An `aria-label` names a checkbox or radio on both platforms (measured on the page's checkbox: `tap: I agree to the terms` works on each), but not a text field on WebView 153 ([Troubleshooting](../troubleshooting.md)).
 

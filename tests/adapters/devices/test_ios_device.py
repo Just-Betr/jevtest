@@ -24,8 +24,8 @@ def signed_app(tmp_path) -> Path:
 
 
 @pytest.fixture
-def dev(phone, tmp_path, ios_device):
-    d = ios_device("BH", signed_app(tmp_path), PROGRESS)
+def dev(phone, tmp_path):
+    d = IOSDevice("BH", signed_app(tmp_path), PROGRESS)
     d.install(signed_app(tmp_path / "again"))
     phone.ctl.calls.clear()
     phone[1].calls.clear()
@@ -39,8 +39,8 @@ def teams(*entries):
     return plistlib.dumps({"IDEProvisioningTeamByIdentifier": {"a": list(entries)}}).decode()
 
 
-def test_the_agent_is_signed_by_the_apps_team(phone, tmp_path, ios_device):
-    assert ios_device("BH", signed_app(tmp_path), PROGRESS).team == "TEAM1"
+def test_the_agent_is_signed_by_the_apps_team(phone, tmp_path):
+    assert IOSDevice("BH", signed_app(tmp_path), PROGRESS).team == "TEAM1"
 
 
 @pytest.mark.parametrize(
@@ -50,15 +50,15 @@ def test_the_agent_is_signed_by_the_apps_team(phone, tmp_path, ios_device):
         (teams({"teamID": "T2"}), r"signed by team TEAM1, which is not signed into Xcode \(signed in: T2\)"),
     ],
 )
-def test_the_apps_team_must_be_signed_into_xcode(phone, tmp_path, prefs, message, ios_device):
+def test_the_apps_team_must_be_signed_into_xcode(phone, tmp_path, prefs, message):
     phone[0].rules["defaults export"] = prefs
     with pytest.raises(DeviceError, match=message):
-        ios_device("BH", signed_app(tmp_path), PROGRESS)
+        IOSDevice("BH", signed_app(tmp_path), PROGRESS)
 
 
-def test_a_simulator_build_on_a_phone_is_an_error(phone, tmp_path, ios_device):
+def test_a_simulator_build_on_a_phone_is_an_error(phone, tmp_path):
     with pytest.raises(DeviceError, match=r"Demo.app is not signed for a real iPhone \(it has no provisioning"):
-        ios_device("BH", make_app(tmp_path), PROGRESS)
+        IOSDevice("BH", make_app(tmp_path), PROGRESS)
 
 
 @pytest.mark.parametrize(
@@ -68,17 +68,17 @@ def test_a_simulator_build_on_a_phone_is_an_error(phone, tmp_path, ios_device):
         ({"TeamIdentifier": ["A", "B"]}, r"names 2 teams \(A, B\); expected one"),
     ],
 )
-def test_the_profile_must_name_one_team(phone, tmp_path, profile, message, ios_device):
+def test_the_profile_must_name_one_team(phone, tmp_path, profile, message):
     phone[0].rules["security cms"] = plistlib.dumps(profile).decode()
     with pytest.raises(DeviceError, match=message):
-        ios_device("BH", signed_app(tmp_path), PROGRESS)
+        IOSDevice("BH", signed_app(tmp_path), PROGRESS)
 
 
 # --- the signed agent ----------------------------------------------------------------------------
 
 
-def test_agent_on_a_phone_is_reached_through_the_tunnel(tmp_path, phone, ios_device):
-    d = ios_device("BH", signed_app(tmp_path), PROGRESS)
+def test_agent_on_a_phone_is_reached_through_the_tunnel(tmp_path, phone):
+    d = IOSDevice("BH", signed_app(tmp_path), PROGRESS)
     assert (d.physical, d.team, d.host) == (True, "TEAM1", "[fd00::1]")
     assert d._url("/tree") == "http://[fd00::1]:8123/tree"
     cmd, _, run_env = phone.procs[0]
@@ -86,15 +86,15 @@ def test_agent_on_a_phone_is_reached_through_the_tunnel(tmp_path, phone, ios_dev
     assert run_env["TEST_RUNNER_JEVTEST_LOCAL_ONLY"] == "0"  # reached over the USB tunnel: the token guards it
 
 
-def test_ipv4_tunnel_address_has_no_brackets(tmp_path, phone, ios_device):
+def test_ipv4_tunnel_address_has_no_brackets(tmp_path, phone):
     phone.ctl.replies["info details"] = {"connectionProperties": {"tunnelIPAddress": "10.0.0.2"}}
-    assert ios_device("BH", signed_app(tmp_path), PROGRESS).host == "10.0.0.2"
+    assert IOSDevice("BH", signed_app(tmp_path), PROGRESS).host == "10.0.0.2"
 
 
-def test_no_tunnel_is_a_clear_error(tmp_path, phone, ios_device):
+def test_no_tunnel_is_a_clear_error(tmp_path, phone):
     phone.ctl.replies["info details"] = {"connectionProperties": {}}
     with pytest.raises(DeviceError, match="No connection to BH: unlock it and keep it plugged in"):
-        ios_device("BH", signed_app(tmp_path), PROGRESS)
+        IOSDevice("BH", signed_app(tmp_path), PROGRESS)
 
 
 def test_a_device_that_fails_to_start_stops_its_agent_and_lets_go_of_its_build(tmp_path, phone):
@@ -107,7 +107,7 @@ def test_a_device_that_fails_to_start_stops_its_agent_and_lets_go_of_its_build(t
     mark.close()
 
 
-def test_agent_is_signed_for_the_phone_when_not_provisioned(phone, monkeypatch, tmp_path, ios_device):
+def test_agent_is_signed_for_the_phone_when_not_provisioned(phone, monkeypatch, tmp_path):
     swap(monkeypatch, "provisioned_devices", lambda app: set())  # a new phone for this build
     builds = []
 
@@ -115,14 +115,14 @@ def test_agent_is_signed_for_the_phone_when_not_provisioned(phone, monkeypatch, 
         builds.append((destination, signing))
 
     swap(monkeypatch, "build_agent_with_xcodebuild", fake_build)
-    ios_device("BH", signed_app(tmp_path), PROGRESS)
+    IOSDevice("BH", signed_app(tmp_path), PROGRESS)
     [(destination, signing)] = builds
     assert destination == "id=00008150-X"
     wanted = {"DEVELOPMENT_TEAM=TEAM1", "JEVTEST_TEAM_SUFFIX=.TEAM1", "-allowProvisioningDeviceRegistration"}
     assert wanted <= set(signing)
 
 
-def test_agent_build_retries_once_when_xcode_swaps_the_profile(tmp_path, phone, monkeypatch, ios_device):
+def test_agent_build_retries_once_when_xcode_swaps_the_profile(tmp_path, phone, monkeypatch):
     swap(monkeypatch, "provisioned_devices", lambda app: set())
     attempts = []
 
@@ -132,7 +132,7 @@ def test_agent_build_retries_once_when_xcode_swaps_the_profile(tmp_path, phone, 
             raise DeviceError("Build input file cannot be found: ...mobileprovision")
 
     swap(monkeypatch, "build_agent_with_xcodebuild", flaky)
-    ios_device("BH", signed_app(tmp_path), PROGRESS)
+    IOSDevice("BH", signed_app(tmp_path), PROGRESS)
     assert len(attempts) == 2
 
 
@@ -170,9 +170,9 @@ def test_simulator_is_always_ready(drv):
 # --- the app on a phone ------------------------------------------------------------------------------
 
 
-def test_install_needs_a_device_build(phone, tmp_path, ios_device):
+def test_install_needs_a_device_build(phone, tmp_path):
     with pytest.raises(DeviceError, match="built for iPhoneSimulator, not a real iPhone .BH.*signed with your team"):
-        ios_device("BH", signed_app(tmp_path), PROGRESS).install(make_app(tmp_path))
+        IOSDevice("BH", signed_app(tmp_path), PROGRESS).install(make_app(tmp_path))
 
 
 def test_app_lifecycle_uses_devicectl_and_the_agent(dev, phone):
@@ -182,7 +182,8 @@ def test_app_lifecycle_uses_devicectl_and_the_agent(dev, phone):
     calls = [c[:3] for c in phone.ctl.calls]
     assert calls == [("device", "process", "launch"), ("device", "uninstall", "app"), ("device", "install", "app")]
     assert "--terminate-existing" in phone.ctl.calls[0]
-    assert [p for p, _ in phone[1].calls] == ["/wait_foreground", "/terminate", "/terminate"]
+    # after the reinstall, no permission decided, as a new install has: an uninstall doesn't always clear them
+    assert [p for p, _ in phone[1].calls] == ["/wait_foreground", "/terminate", "/terminate", "/reset_permissions"]
 
 
 def test_device_commands_go_through_the_agent(dev, phone, tmp_path):
@@ -209,33 +210,33 @@ def test_permissions_cannot_be_pregranted_on_a_phone(dev):
         dev.grant("camera")
 
 
-def test_a_phone_that_refuses_ui_automation_says_what_to_do(tmp_path, phone, monkeypatch, ios_device):
+def test_a_phone_that_refuses_ui_automation_says_what_to_do(tmp_path, phone, monkeypatch):
     def refuse(cmd, ready, log, timeout, env):
         log.write_text("Failed to initialize for UI testing: Timed out while enabling automation mode.\n")
         raise DeviceError("xcodebuild exited before it was ready.")
 
     swap(monkeypatch, "start_process", refuse)
     with pytest.raises(DeviceError, match=r"BH did not allow UI automation .*Enable UI Automation is on"):
-        ios_device("BH", signed_app(tmp_path), PROGRESS)
+        IOSDevice("BH", signed_app(tmp_path), PROGRESS)
 
 
-def test_other_agent_start_errors_pass_through(tmp_path, phone, monkeypatch, ios_device):
+def test_other_agent_start_errors_pass_through(tmp_path, phone, monkeypatch):
     def fail(cmd, ready, log, timeout, env):
         log.write_text("error: something else\n")
         raise DeviceError("xcodebuild exited before it was ready.")
 
     swap(monkeypatch, "start_process", fail)
     with pytest.raises(DeviceError, match="^xcodebuild exited before it was ready.$"):
-        ios_device("BH", signed_app(tmp_path), PROGRESS)
+        IOSDevice("BH", signed_app(tmp_path), PROGRESS)
 
 
-def test_an_ipa_is_unpacked_once_for_its_team_and_its_install(phone, tmp_path, ios_device):
+def test_an_ipa_is_unpacked_once_for_its_team_and_its_install(phone, tmp_path):
     app = signed_app(tmp_path)
     ipa = tmp_path / "Demo.ipa"
     with zipfile.ZipFile(ipa, "w") as z:
         for f in app.iterdir():
             z.write(f, f"Payload/Demo.app/{f.name}")
-    d = ios_device("BH", ipa, PROGRESS)
+    d = IOSDevice("BH", ipa, PROGRESS)
     assert d.install(ipa) == "dev.demo"
     unpacked = list(Path(d._tmp.name).rglob("*.app"))
     assert [p.relative_to(d._tmp.name).as_posix() for p in unpacked] == ["build-0/Payload/Demo.app"]

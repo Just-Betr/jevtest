@@ -189,6 +189,14 @@ final class JevAgentUITests: XCTestCase {
         // Device-level operations that also work on a real iPhone (the simulator can use simctl).
         case "/terminate":
             app.terminate()
+        case "/reset_permissions":
+            // As a new install has them: no decision on any protected resource. On an iPhone an uninstall doesn't
+            // always clear them first (measured: a camera denial outlived one reinstall in three).
+            let resources: [XCUIProtectedResource] = [
+                .contacts, .calendar, .reminders, .photos, .microphone, .camera, .mediaLibrary, .homeKit, .focus,
+                .localNetwork, .bluetooth, .keyboardNetwork, .location, .health, .userTracking,
+            ]
+            resources.forEach { app.resetAuthorizationStatus(for: $0) }
         case "/screenshot":
             return ["png": XCUIScreen.main.screenshot().pngRepresentation.base64EncodedString()]
         case "/open_url":

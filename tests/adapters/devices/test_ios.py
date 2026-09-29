@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from jevtest.adapters.devices.common import AgentRefused, ToolFailed, Undo
+from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.adapters.devices.ios_tools import AGENT_SRC
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.screen import Element
@@ -18,8 +19,8 @@ FIX = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture
-def drv(env, tmp_path, ios_device):
-    d = ios_device("A", Path("Demo.app"), PROGRESS)
+def drv(env, tmp_path):
+    d = IOSDevice("A", Path("Demo.app"), PROGRESS)
     d.install(make_app(tmp_path))
     env[0].cmds.clear()
     env[1].calls.clear()
@@ -35,9 +36,9 @@ def drv(env, tmp_path, ios_device):
 # --- agent lifecycle --------------------------------------------------------------------------------
 
 
-def test_starts_agent_on_simulator(env, ios_device):
+def test_starts_agent_on_simulator(env):
     procs = env.procs
-    d = ios_device("A", Path("Demo.app"), PROGRESS)
+    d = IOSDevice("A", Path("Demo.app"), PROGRESS)
     cmd, ready, run_env = procs[0]
     assert cmd[:2] == ["xcodebuild", "test-without-building"] and cmd[-1] == "id=A"
     assert ready == "JEVTEST_AGENT_READY"  # returns the moment the agent says so, no polling
@@ -47,11 +48,11 @@ def test_starts_agent_on_simulator(env, ios_device):
     assert d.agent_log.name == "ios-agent-A.log"  # one per device, replaced each run: the cache never grows
 
 
-def test_each_device_gets_its_own_token(env, ios_device):
-    assert ios_device("A", Path("Demo.app"), PROGRESS).token != ios_device("A", Path("Demo.app"), PROGRESS).token
+def test_each_device_gets_its_own_token(env):
+    assert IOSDevice("A", Path("Demo.app"), PROGRESS).token != IOSDevice("A", Path("Demo.app"), PROGRESS).token
 
 
-def test_agent_is_built_when_missing(env, monkeypatch, tmp_path, ios_device):
+def test_agent_is_built_when_missing(env, monkeypatch, tmp_path):
     sim = env[0]
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "fresh"))
 
@@ -63,24 +64,24 @@ def test_agent_is_built_when_missing(env, monkeypatch, tmp_path, ios_device):
         return sim(cmd, **kw)
 
     swap(monkeypatch, "run", build)
-    ios_device("A", Path("Demo.app"), PROGRESS)
+    IOSDevice("A", Path("Demo.app"), PROGRESS)
     assert any("build-for-testing" in c for c in sim.cmds)
 
 
-def test_agent_build_without_output_fails(env, monkeypatch, tmp_path, ios_device):
+def test_agent_build_without_output_fails(env, monkeypatch, tmp_path):
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "fresh"))
     with pytest.raises(DeviceError, match="no .xctestrun"):
-        ios_device("A", Path("Demo.app"), PROGRESS)
+        IOSDevice("A", Path("Demo.app"), PROGRESS)
 
 
-def test_requires_xcode(env, monkeypatch, ios_device):
+def test_requires_xcode(env, monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda n: None)
     with pytest.raises(DeviceError, match="Xcode"):
-        ios_device("A", Path("Demo.app"), PROGRESS)
+        IOSDevice("A", Path("Demo.app"), PROGRESS)
 
 
-def test_close_stops_agent(env, ios_device):
-    ios_device("A", Path("Demo.app"), PROGRESS).close()
+def test_close_stops_agent(env):
+    IOSDevice("A", Path("Demo.app"), PROGRESS).close()
     assert env[2][-1] == ("stopped", "proc")
 
 
@@ -104,9 +105,9 @@ def test_log_tail_without_log(drv):
 # --- app lifecycle ----------------------------------------------------------------------------------
 
 
-def test_install(env, tmp_path, ios_device):
+def test_install(env, tmp_path):
     sim = env[0]
-    d = ios_device("A", Path("Demo.app"), PROGRESS)
+    d = IOSDevice("A", Path("Demo.app"), PROGRESS)
     assert d.install(make_app(tmp_path)) == "dev.demo"
     assert any("simctl install A" in c for c in sim.cmds)
 
@@ -118,16 +119,16 @@ def test_install(env, tmp_path, ios_device):
         ({"bundle_id": None}, "no CFBundleIdentifier"),
     ],
 )
-def test_install_rejects_bad_bundles(env, tmp_path, kwargs, message, ios_device):
+def test_install_rejects_bad_bundles(env, tmp_path, kwargs, message):
     with pytest.raises(DeviceError, match=message):
-        ios_device("A", Path("Demo.app"), PROGRESS).install(make_app(tmp_path, **kwargs))
+        IOSDevice("A", Path("Demo.app"), PROGRESS).install(make_app(tmp_path, **kwargs))
 
 
-def test_install_without_plist(env, tmp_path, ios_device):
+def test_install_without_plist(env, tmp_path):
     app = tmp_path / "Bad.app"
     app.mkdir()
     with pytest.raises(DeviceError, match="no readable Info.plist"):
-        ios_device("A", Path("Demo.app"), PROGRESS).install(app)
+        IOSDevice("A", Path("Demo.app"), PROGRESS).install(app)
 
 
 def test_launch_waits_for_the_app_in_front(drv, env):
@@ -161,7 +162,14 @@ def test_stop_clear_reinstall_resume(drv, env):
     drv.stop()
     drv.clear_data()
     drv.resume()
-    assert [c.split("simctl ")[1].split()[0] for c in sim.cmds] == ["terminate", "terminate", "uninstall", "install"]
+    assert [c.split("simctl ")[1].split()[0] for c in sim.cmds] == [
+        "terminate",
+        "terminate",
+        "uninstall",
+        "install",
+        "privacy",  # no permission decided, as a new install has
+    ]
+    assert sim.cmds[-1].endswith("simctl privacy A reset all dev.demo")
     assert env[1].paths() == ["/activate"]
 
 
@@ -298,9 +306,9 @@ def test_nothing_changed_nothing_put_back(drv, env):
     assert env[1].calls == [] and not any("location" in c for c in env[0].cmds)
 
 
-def test_a_put_back_that_fails_is_said_and_the_rest_still_go_back(env, ios_device):
+def test_a_put_back_that_fails_is_said_and_the_rest_still_go_back(env):
     told: list[str] = []
-    d = ios_device("A", Path("Demo.app"), told.append)
+    d = IOSDevice("A", Path("Demo.app"), told.append)
     env[1].replies["/appearance"] = [{"raw": 1}, {}, OSError("gone")]  # read, set, then lost when putting back
     d.dark_mode(on=True)
     d.set_location(1.0, 2.0)
@@ -381,12 +389,12 @@ def test_a_key_with_no_keyboard_up_says_ios_needs_a_field(drv, env, monkeypatch)
     assert "/key" not in env[1].paths()
 
 
-def test_what_a_killed_run_left_changed_is_put_back_first_on_ios(env, ios_device):
+def test_what_a_killed_run_left_changed_is_put_back_first_on_ios(env):
     left = Undo("A")
     left.remember("dark mode", lambda: {"call": "/appearance", "body": {"raw": 1}})
     left.remember("location", lambda: {"simctl": ["location", "A", "clear"]})
     told: list[str] = []
-    d = ios_device("A", Path("Demo.app"), told.append)
+    d = IOSDevice("A", Path("Demo.app"), told.append)
     assert ("/appearance", {"raw": 1}) in [
         (p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in env[1].calls
     ]
@@ -404,10 +412,10 @@ def test_what_a_killed_run_left_changed_is_put_back_first_on_ios(env, ios_device
         5,
     ],
 )
-def test_an_entry_another_version_wrote_is_named_not_sent(env, entry, ios_device):
+def test_an_entry_another_version_wrote_is_named_not_sent(env, entry):
     Undo("A").remember("rotation", lambda: entry)
     told: list[str] = []
-    ios_device("A", Path("Demo.app"), told.append)
+    IOSDevice("A", Path("Demo.app"), told.append)
     assert "/rotate" not in env[1].paths() and not any("simctl location" in c for c in env[0].cmds)
     assert told[-1] == "can't put back rotation (another jevtest version changed it): set it by hand"
 

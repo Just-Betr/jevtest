@@ -44,7 +44,7 @@ Each takes one value or a list. A check waits until it holds: it reads the scree
 
 ### Matching
 
-Text is matched **exactly**: the whole text, never part of a longer text. Case doesn't matter, because platforms show the same text in different case (Android draws many buttons in capitals; the permission prompt says *Don't allow* on Android and *Don't Allow* on iOS). An element matches a target when one of these is the target:
+Text is matched **exactly**: the whole text, never part of a longer text. Case doesn't matter, because platforms show the same text in different case (Android draws many buttons in capitals; the permission prompt says *Don't allow* on Android and *Don't Allow* on iOS). Nor do curly quotes: both prompts write *Don’t* with a curly apostrophe, and `tap: Don't allow`, typed with a keyboard's straight one, matches it. An element matches a target when one of these is the target:
 
 | | Example: the element | matches |
 |---|---|---|

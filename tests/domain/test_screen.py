@@ -120,3 +120,19 @@ def test_element_label_and_points():
     assert Element("text_field", hint="Email").label() == "text_field 'Email'"
     assert Element("image", resource_id="logo").label() == "image 'logo'"
     assert Element("image").label() == "image '(no label)'"
+
+
+@pytest.mark.parametrize(
+    ("shown", "written"),
+    [
+        ("Don\u2019t allow", "Don't allow"),  # Android's permission prompt (measured)
+        ("Don\u2019t Allow", "don't allow"),  # iOS's
+        ("\u201cQuoted\u201d", '"quoted"'),
+        ("It\u2018s", "It's"),
+        ("Don't allow", "Don\u2019t allow"),  # either way round
+    ],
+)
+def test_curly_quotes_match_the_straight_ones_a_keyboard_types(shown, written):
+    assert Element("button", shown).says(written)
+    unquoted = "".join(c for c in written if c not in "'\"\u2018\u2019\u201c\u201d")
+    assert not Element("button", shown).says(unquoted)  # a quote still has to be there

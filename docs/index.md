@@ -61,7 +61,7 @@ Results: results/20260928-161344/android/emulator-5554
 
 -   :material-cellphone-link: **Real apps, real phones**
 
-    Android emulators and phones, iOS simulators and iPhones. Native, Flutter, React Native, and **in-app WebViews**, all driven the same way. jevtest never turns off animations or changes the device.
+    Android emulators and phones, iOS simulators and iPhones. Native, Flutter, React Native, and **in-app WebViews**, all driven the same way. jevtest never turns off animations, and puts back what a step changes on the device (all but an Android emulator's location).
 
 -   :material-timer-sand-complete: **Wait until, or fail**
 

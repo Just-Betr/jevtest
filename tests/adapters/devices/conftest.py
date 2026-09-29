@@ -1,4 +1,3 @@
-import contextlib
 import io
 import json
 import plistlib
@@ -13,7 +12,6 @@ import pytest
 from jevtest.adapters.devices import android, android_tools, ios, ios_tools
 from jevtest.adapters.devices.cache import BuildInUse, digest
 from jevtest.adapters.devices.ios import IOSDevice
-from jevtest.domain.failures import DeviceError
 
 FIX = Path(__file__).parent / "fixtures"
 LOGIN = (FIX / "android_login.xml").read_text()
@@ -34,7 +32,8 @@ def swap(monkeypatch, name, value):
 
 @pytest.fixture(autouse=True)
 def _ios_devices_leave_nothing_behind(monkeypatch):
-    """Most tests make an IOSDevice and drop it: remove each one's temporary folder afterwards."""
+    """Most tests make an IOSDevice and drop it: release each one afterwards, as closing it would (its agent
+    process, the lock on its agent build and its temporary folder), without putting anything back."""
     made: list[IOSDevice] = []
     real_init = IOSDevice.__init__
 
@@ -45,8 +44,8 @@ def _ios_devices_leave_nothing_behind(monkeypatch):
     monkeypatch.setattr(IOSDevice, "__init__", tracked)
     yield
     for device in made:
-        if hasattr(device, "_tmp"):
-            device._tmp.cleanup()
+        if hasattr(device, "_agent_build"):  # its constructor got as far as setting up what _release lets go of
+            device._release()
 
 
 class Adb:
@@ -314,18 +313,3 @@ def phone(env, monkeypatch, tmp_path):
     swap(monkeypatch, "provisioned_devices", lambda app: {"00008150-X"})
     sim.rules["security cms"] = plistlib.dumps({"TeamIdentifier": ["TEAM1"]}).decode()
     return env
-
-
-@pytest.fixture
-def ios_device():
-    """Makes iOS devices like `IOSDevice`, and closes each when the test ends, as a run does."""
-    made: list[IOSDevice] = []
-
-    def make(device, app, progress):
-        made.append(IOSDevice(device, app, progress))
-        return made[-1]
-
-    yield make
-    for d in made:
-        with contextlib.suppress(DeviceError):  # a test may have left its fake agent unreachable
-            d.close()
