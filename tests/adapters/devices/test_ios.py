@@ -232,14 +232,14 @@ def test_simctl_device_commands(drv, env):
     env[1].replies["/state"] = {"state": 1}  # not running: nothing to start again
     drv.set_location(1.5, -2.5)
     drv.open_url("app://x")
-    drv.grant("photos")
+    drv.grant(["photos"])
     tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
     assert tails == ["location A set 1.5,-2.5", "openurl A app://x", "privacy A grant photos dev.demo"]
 
 
 def test_a_grant_starts_the_app_again_once_the_simulator_ended_it(drv, env, slept):
     env[1].replies["/state"] = [{"state": 4}, {"state": 4}, {"state": 1}]  # running; still; gone
-    drv.grant("camera")
+    drv.grant(["camera"])
     tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
     assert tails == ["privacy A grant camera dev.demo", "launch A dev.demo"]
     assert env[1].paths()[-1] == "/wait_foreground" and slept == [0.25]
@@ -250,7 +250,7 @@ def test_a_grant_fails_if_the_simulator_never_ends_the_app(drv, env, monkeypatch
     monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
     monkeypatch.setattr(time, "sleep", lambda _: None)
     with pytest.raises(DeviceError, match="The simulator did not end the app after the permission changed within 3"):
-        drv.grant("camera")
+        drv.grant(["camera"])
 
 
 def test_rotate_waits_until_the_app_has_turned(drv, env, slept):
@@ -389,3 +389,17 @@ def test_a_damaged_undo_entry_is_skipped(env):
     Undo("A").path.write_text('{"/rotate": 5}')  # not a request body
     IOSDevice("A", Path("Demo.app"), PROGRESS)
     assert "/rotate" not in env[1].paths()
+
+
+def test_several_grants_start_the_app_again_once(drv, env, slept):
+    env[1].replies["/state"] = [{"state": 4}, {"state": 1}]  # running; gone after the grants
+    drv.grant(["camera", "photos"])
+    tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
+    assert tails == ["privacy A grant camera dev.demo", "privacy A grant photos dev.demo", "launch A dev.demo"]
+
+
+def test_a_service_the_simulator_wont_grant_says_what_names_it_takes(drv, env):
+    env[1].replies["/state"] = {"state": 1}
+    env[0].rules["privacy"] = DeviceError("simctl failed (1): Operation not permitted")
+    with pytest.raises(DeviceError, match="^The simulator didn't grant 'bogus': use a service name such as camera"):
+        drv.grant(["bogus"])

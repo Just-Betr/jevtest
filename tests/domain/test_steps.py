@@ -52,7 +52,7 @@ EVERY_ACTION = [
     Location(1, 2),
     OpenUrl("u"),
     DarkMode(on=True),
-    Grant("p"),
+    Grant(("p",)),
     Network(on=False),
     Screenshot("s"),
     Launch(),

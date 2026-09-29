@@ -566,8 +566,11 @@ class TestRunner:
                 d.set_location(latitude, longitude)
             case DarkMode(on):
                 d.dark_mode(on=on)
-            case Grant(permission):
-                d.grant(permission)
+            case Grant() as grant:
+                names = grant.names_on(self.platform)
+                if names is None:  # pragma: no cover - checked before the run starts
+                    raise StepFailed(f"grant has no {self.platform} permission")
+                d.grant(names)
             case Network(on):
                 d.network(on=on)
             case _:  # pragma: no cover - every device setting is handled above

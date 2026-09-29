@@ -149,9 +149,20 @@ class DarkMode(_Action):
 
 @dataclass(frozen=True)
 class Grant(_Action):
-    """Grant the app a runtime permission."""
+    """Grant the app runtime permissions: the same names on every platform, or names per platform.
 
-    permission: str
+    Each platform names permissions its own way (``android.permission.CAMERA``, ``camera``), so a file that runs
+    on both gives both: `per_platform` pairs each platform with its names.
+    """
+
+    permissions: tuple[str, ...] = ()
+    per_platform: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    def names_on(self, platform: str) -> tuple[str, ...] | None:
+        """The permissions' names on `platform`; None when it has none there."""
+        if not self.per_platform:
+            return self.permissions
+        return dict(self.per_platform).get(platform)
 
 
 @dataclass(frozen=True)

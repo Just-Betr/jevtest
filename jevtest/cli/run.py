@@ -31,7 +31,7 @@ from jevtest.domain.failures import DeviceError, ModelError, TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 from jevtest.domain.results import RunResult
-from jevtest.domain.steps import Do, Expect, Network, Step, Suite, Test, TypeText, Use
+from jevtest.domain.steps import Do, Expect, Grant, Network, Step, Suite, Test, TypeText, Use
 from jevtest.domain.variables import fill, hide
 
 from .console import ConsoleListener, Printer, summary
@@ -39,8 +39,8 @@ from .console import ConsoleListener, Printer, summary
 API_KEY = "TYPESAFE_API_KEY"
 
 MakeDevice = Callable[[Platform, str, Path, Callable[[str], None]], Device]
-FindDevice = Callable[[Platform, str], None]
-"""Raises `DeviceError` unless the named device is running."""
+FindDevice = Callable[[Platform, str], bool]
+"""Claims the named device, and says whether it's a real iPhone. Raises `DeviceError` unless it's running."""
 """Makes the device for a platform: (platform, device name, app build, progress) -> device."""
 
 MakeClient = Callable[[str, str | None], JevAsker]
@@ -290,6 +290,7 @@ def _check_runnable(loaded: Loaded, options: RunOptions) -> None:
     for suite, _ in loaded:
         if Platform.ANDROID in suite.apps:
             _check_android_typing(suite)
+        _check_grants(suite)
     if options.lock in (LockMode.REFRESH, LockMode.OFF):
         keyless = [suite.path.name for suite, env in loaded if not env.get(API_KEY) and _asks_jev(suite)]
         if keyless:
@@ -321,13 +322,48 @@ def _results_folder(parent: Path, stamp: str) -> Path:
 
 
 def _find_devices(loaded: Loaded, find_device: FindDevice) -> None:
-    """Every device every file names is running, before any test starts: not found only once others finish."""
+    """Every device every file names is running, before any test starts: not found only once others finish.
+
+    A real iPhone can't be granted permissions, so a file that runs on one has no `grant:` in its tests.
+    """
     named = dict.fromkeys((p, d) for suite, _ in loaded for p in suite.apps for d in suite.devices[p])
+    iphones: set[str] = set()
     for platform, device in named:
         try:
-            find_device(platform, device)
+            if find_device(platform, device):
+                iphones.add(device)
         except DeviceError as e:
             raise DeviceError(f"{platform} · {device}: {e}") from None
+    for suite, _ in loaded:
+        iphone = next((d for d in suite.devices.get(Platform.IOS, ()) if d in iphones), None)
+        granting = next((name for name, step in _steps(suite) if isinstance(step.action, Grant)), None)
+        if iphone is not None and granting is not None:
+            raise TestFileError(
+                f"{suite.path.name} runs on the iPhone {iphone}, where jevtest can't pre-grant permissions (Apple "
+                f"doesn't allow it), and test '{granting}' has a grant: step. Run it on a simulator, or tap the "
+                "permission prompt instead"
+            )
+
+
+def _check_grants(suite: Suite) -> None:
+    """Each `grant:` names its permission for every platform the file runs on, as that platform names it."""
+    for name, step in _steps(suite):
+        if not isinstance(step.action, Grant):
+            continue
+        for platform in suite.apps:
+            permissions = step.action.names_on(platform)
+            if permissions is None:
+                raise TestFileError(
+                    f"{suite.path.name} runs on {platform}, and test '{name}' has a grant: with no {platform} "
+                    f"permission. Add it: grant: {{android: android.permission.CAMERA, ios: camera}}"
+                )
+            for permission in permissions:
+                if platform is Platform.ANDROID and not permission.startswith("android.permission."):
+                    raise TestFileError(
+                        f"{suite.path.name} runs on Android, where test '{name}' grants '{permission}': Android "
+                        f"needs the full name, e.g. android.permission.{permission.upper()}. For both platforms: "
+                        f"grant: {{android: android.permission.{permission.upper()}, ios: {permission}}}"
+                    )
 
 
 def _check_android_typing(suite: Suite) -> None:

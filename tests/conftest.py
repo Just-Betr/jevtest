@@ -237,8 +237,8 @@ class FakeDevice(BaseDevice):
     def dark_mode(self, *, on):
         self._rec("dark_mode", on)
 
-    def grant(self, permission):
-        self._rec("grant", permission)
+    def grant(self, permissions):
+        self._rec("grant", *permissions)
 
     def network(self, *, on):
         self._rec("network", on)

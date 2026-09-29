@@ -97,8 +97,38 @@ These change device state because the test asks for it. Anything jevtest changes
 | `rotate: portrait\|landscape\|landscape_right\|portrait_upside_down` | Rotates the device, and waits until the app has turned. An app that doesn't allow the orientation fails the step: most iPhone apps leave out `portrait_upside_down` (`UISupportedInterfaceOrientations` in the app's Info.plist). |
 | `dark_mode: on\|off` | Dark or light appearance. |
 | `location: [latitude, longitude]` | Sets the GPS location (emulator, simulator, iPhone). |
-| `grant: permission` | Grants a runtime permission, so the app never asks. Android: the full permission name, `android.permission.CAMERA`. iOS simulator: a service, such as `camera`, `photos`, `microphone`, `contacts`, `location` (the list: `xcrun simctl privacy`); the simulator ends an app whose permissions change, so jevtest starts it again: put `grant:` first in a test. Not possible on a real iPhone: tap the prompt with a step instead. |
+| `grant: permissions` | Grants runtime permissions, so the app never asks. One name, a list, or names per platform ([below](#grant-permission-names)). |
 | `network: on\|off` | Wi-Fi and mobile data. Android only: a file whose `app:` includes iOS and runs a test with `network:` is an error before anything runs. |
+
+### `grant:` permission names
+
+Each platform names a permission its own way, so a file that runs on both gives each its names:
+
+```yaml
+- grant: android.permission.CAMERA                          # a file that runs on Android only
+- grant: [camera, microphone]                               # iOS simulator only: a list grants several
+- grant:                                                    # a file that runs on both
+    android: [android.permission.CAMERA, android.permission.RECORD_AUDIO]
+    ios: [camera, microphone]
+```
+
+| Permission | Android | iOS simulator |
+|---|---|---|
+| Camera | `android.permission.CAMERA` | `camera` |
+| Microphone | `android.permission.RECORD_AUDIO` | `microphone` |
+| Location, while in use | `android.permission.ACCESS_FINE_LOCATION` | `location` |
+| Location, always | `android.permission.ACCESS_BACKGROUND_LOCATION` | `location-always` |
+| Photos | `android.permission.READ_MEDIA_IMAGES` (Android 13+) | `photos` (`photos-add`: add only) |
+| Contacts | `android.permission.READ_CONTACTS` | `contacts` |
+| Calendar | `android.permission.READ_CALENDAR` | `calendar` |
+| Motion and fitness | `android.permission.ACTIVITY_RECOGNITION` | `motion` |
+| Notifications | `android.permission.POST_NOTIFICATIONS` (Android 13+) | none: the simulator can't pre-grant them |
+| Reminders | none | `reminders` |
+
+- **Android:** the full name, and only a permission the app declares in its manifest and Android grants at run time. Anything else fails, saying why (`not a changeable permission type`).
+- **iOS simulator:** a service `xcrun simctl privacy` accepts. The simulator ends an app whose permissions change, so jevtest starts it again, once for the whole list: put `grant:` first in a test.
+- **A real iPhone** can't be granted permissions (Apple doesn't allow it). A file that runs on one and has a `grant:` is an error before the run: run that test on a simulator, or tap the permission prompt with a step instead.
+- A file that runs on both platforms with a `grant:` that doesn't name both is an error before the run.
 
 ### Other
 

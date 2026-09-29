@@ -483,17 +483,19 @@ class AndroidDevice(BaseDevice):
             self._restore["dark_mode"] = f"cmd uimode night {now}"
         self.sh(f"cmd uimode night {'yes' if on else 'no'}")
 
-    def grant(self, permission: str) -> None:
-        """Grant the app a runtime permission, by its full name."""
-        if not permission.startswith("android.permission."):
-            raise DeviceError(
-                f"'{permission}': give the full Android permission name, e.g. android.permission.{permission.upper()}"
-            )
-        try:
-            self.sh(f"pm grant {self.app_id} {permission}")
-        except DeviceError as e:  # the reason is the exception's own line, under "Exception occurred ..."
-            reason = re.search(r"^[\w.$]+(?:Exception|Error): (.+)$", str(e), re.MULTILINE)
-            raise DeviceError(f"Can't grant {permission}: {reason[1] if reason else e}") from None
+    def grant(self, permissions: Sequence[str]) -> None:
+        """Grant the app runtime permissions, by their full names."""
+        for permission in permissions:
+            if not permission.startswith("android.permission."):
+                raise DeviceError(
+                    f"'{permission}': give the full Android permission name, e.g. "
+                    f"android.permission.{permission.upper()}"
+                )
+            try:
+                self.sh(f"pm grant {self.app_id} {permission}")
+            except DeviceError as e:  # the reason is the exception's own line, under "Exception occurred ..."
+                reason = re.search(r"^[\w.$]+(?:Exception|Error): (.+)$", str(e), re.MULTILINE)
+                raise DeviceError(f"Can't grant {permission}: {reason[1] if reason else e}") from None
 
     def network(self, *, on: bool) -> None:
         """Switch Wi-Fi and mobile data; their previous state is put back on close."""

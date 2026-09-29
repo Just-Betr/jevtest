@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from jevtest.adapters.shapes import is_list, is_mapping
 from jevtest.domain.failures import TestFileError
-from jevtest.domain.kinds import Direction, Gesture, Orientation
+from jevtest.domain.kinds import Direction, Gesture, Orientation, Platform
 from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
 from jevtest.domain.steps import (
     ANDROID_KEYS,
@@ -138,6 +138,31 @@ def _swipe(key: str, value: object, options: Options) -> Action:
     return Swipe(choice(value, Direction, f"'{key}'"), None if target is None else text(target, "target"))
 
 
+def _grant(key: str, value: object, _: Options) -> Action:
+    if not is_mapping(value):
+        return Grant(_names(value, f"'{key}'"))
+    unknown = set(value) - {p.value for p in Platform}
+    if unknown or not value:
+        raise TestFileError(
+            "grant takes permission names, or names per platform: {android: android.permission.CAMERA, ios: camera}"
+            + (f"; got {', '.join(sorted(map(str, unknown)))}" if unknown else "")
+        )
+    names = {str(p): _names(v, f"grant's {p}") for p, v in value.items()}
+    for name in names.get(Platform.ANDROID, ()):
+        if not name.startswith("android.permission."):
+            raise TestFileError(f"grant's android names are full, e.g. android.permission.{name.upper()}; got {name}")
+    return Grant(per_platform=tuple(sorted(names.items())))
+
+
+def _names(value: object, what: str) -> tuple[str, ...]:
+    """One name, or a non-empty list of them."""
+    if is_list(value):
+        if not value:
+            raise TestFileError(f"{what} needs at least one permission")
+        return tuple(text(v, what) for v in value)
+    return (text(value, what),)
+
+
 def _location(_: str, value: object, __: Options) -> Action:
     if not is_list(value) or len(value) != len(("latitude", "longitude")):
         raise TestFileError(f"location must be [latitude, longitude], e.g. [37.77, -122.41]; got {value!r}")
@@ -166,7 +191,7 @@ ACTIONS: Mapping[str, ActionSpec] = {
     "location": ActionSpec(_location),
     "open_url": _text_of(OpenUrl),
     "dark_mode": ActionSpec(lambda key, value, _: DarkMode(on_off(value, f"'{key}'"))),
-    "grant": _text_of(Grant),
+    "grant": ActionSpec(_grant),
     "network": ActionSpec(lambda key, value, _: Network(on_off(value, f"'{key}'"))),
     "screenshot": _text_of(Screenshot),
     "launch": _bare(Launch()),
@@ -312,4 +337,6 @@ def _shown(value: object) -> str:
         return f"{value:g}"
     if is_list(value):
         return ", ".join(_shown(v) for v in value)
+    if is_mapping(value):
+        return ", ".join(f"{k}: {_shown(v)}" for k, v in value.items())
     return str(value)

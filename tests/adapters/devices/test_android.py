@@ -367,7 +367,7 @@ def test_device_commands(drv, adb, agent):
     drv.open_url("https://x.dev/a b")
     drv.dark_mode(on=True)
     drv.dark_mode(on=False)
-    drv.grant("android.permission.CAMERA")
+    drv.grant(["android.permission.CAMERA"])
     drv.network(on=False)
     drv.network(on=True)
     assert adb.shell() == [
@@ -396,7 +396,7 @@ def test_grant_needs_the_full_permission_name(drv):
     with pytest.raises(
         DeviceError, match="'camera': give the full Android permission name, e.g. android.permission.CAMERA"
     ):
-        drv.grant("camera")
+        drv.grant(["camera"])
 
 
 def test_unreadable_dark_mode_is_an_error_not_a_guess(drv, adb):
@@ -558,10 +558,10 @@ def test_a_permission_that_cant_be_granted_says_why(drv, adb):
     with pytest.raises(
         DeviceError, match="^Can't grant android.permission.INTERNET: Permission .* is not a changeable"
     ):
-        drv.grant("android.permission.INTERNET")
+        drv.grant(["android.permission.INTERNET"])
     adb.rules["pm grant"] = DeviceError("device offline")
     with pytest.raises(DeviceError, match="^Can't grant android.permission.CAMERA: device offline$"):
-        drv.grant("android.permission.CAMERA")
+        drv.grant(["android.permission.CAMERA"])
 
 
 def test_an_agent_that_stopped_is_started_again_before_the_next_test(drv, adb):
@@ -581,3 +581,11 @@ def test_what_a_killed_run_left_changed_is_put_back_first(adb, agent):
     d = AndroidDevice("emulator-5554", PROGRESS)
     assert "cmd uimode night no" in adb.shell()
     assert d._restore.left_by_a_stopped_run() == {}  # put back, and forgotten
+
+
+def test_several_permissions_are_granted_in_turn(drv, adb):
+    drv.grant(["android.permission.CAMERA", "android.permission.RECORD_AUDIO"])
+    assert [c for c in adb.shell() if c.startswith("pm grant")] == [
+        "pm grant dev.demo android.permission.CAMERA",
+        "pm grant dev.demo android.permission.RECORD_AUDIO",
+    ]

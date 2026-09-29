@@ -2,6 +2,11 @@
 
 ## 0.9.2
 
+- `grant:` takes several permissions (`grant: [camera, microphone]`), and names per platform, so a file that runs
+  on both can grant: `grant: {android: android.permission.CAMERA, ios: camera}`. The simulator restarts the app once
+  for the whole list. A file that runs on a real iPhone and has a `grant:` is an error before the run (Apple doesn't
+  allow pre-granting), as is one that runs on both platforms with a `grant:` naming only one. The steps reference
+  lists the names on each platform.
 - A run killed outright (`kill -9`, or a CI job past its grace period) left the device as its steps had set it: dark
   mode on, Wi-Fi off. jevtest now keeps what puts each change back on disk, and the next run on the device puts it
   back first: `putting back what a run that was stopped left changed: dark mode, network`. On Android, rotation is

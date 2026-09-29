@@ -11,6 +11,7 @@ from jevtest.domain.steps import (
     DarkMode,
     Do,
     Expect,
+    Grant,
     Key,
     Location,
     Network,
@@ -41,6 +42,17 @@ from jevtest.domain.steps import (
         ({"long_press": "Hold"}, Touch(Gesture.LONG_PRESS, "Hold")),
         ({"wait": 2}, Wait(2.0)),
         ({"wait": 300}, Wait(300.0)),
+        ({"grant": "camera"}, Grant(("camera",))),
+        ({"grant": ["photos", "camera"]}, Grant(("photos", "camera"))),
+        (
+            {"grant": {"ios": "camera", "android": ["android.permission.CAMERA", "android.permission.RECORD_AUDIO"]}},
+            Grant(
+                per_platform=(
+                    ("android", ("android.permission.CAMERA", "android.permission.RECORD_AUDIO")),
+                    ("ios", ("camera",)),
+                )
+            ),
+        ),
         ({"key": "enter"}, Key("enter")),
         ({"key": "menu"}, Key("menu")),
         ({"key": "66"}, Key("66")),
@@ -123,6 +135,14 @@ def test_options_where_they_apply(raw):
         ({"wait": True}, "must be a number, got True$"),
         ({"wait": 301}, "'wait' must be from 0 to 300 seconds, got 301"),
         ({"background": 99999}, "'background' must be from 0 to 300 seconds, got 99999"),
+        ({"grant": []}, "'grant' needs at least one permission"),
+        ({"grant": {}}, "grant takes permission names, or names per platform"),
+        ({"grant": {"windows": "x"}}, "or names per platform: .*; got windows"),
+        (
+            {"grant": {"android": "CAMERA"}},
+            "grant's android names are full, e.g. android.permission.CAMERA; got CAMERA",
+        ),
+        ({"grant": {"ios": 5}}, "grant's ios needs text"),
         ({"key": "bogus"}, r"Unknown key 'bogus'. Keys: backspace, .*; on Android also app_switch, .*, or a key code"),
         ({"key": "Enter"}, "Unknown key 'Enter'"),
         ({"key": 66}, "'key' needs text, got a number"),
@@ -200,6 +220,10 @@ def test_bad_steps_are_rejected(raw, message):
         (
             {"scroll_to": "End", "direction": "down", "max_scrolls": 5},
             "scroll_to: End (direction: down, max_scrolls: 5)",
+        ),
+        (
+            {"grant": {"android": "android.permission.CAMERA", "ios": ["camera", "photos"]}},
+            "grant: android: android.permission.CAMERA, ios: camera, photos",
         ),
         ({"key": "enter"}, "key: enter"),
         ({"wait": 2}, "wait: 2"),

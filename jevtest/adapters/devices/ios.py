@@ -474,17 +474,24 @@ class IOSDevice(BaseDevice):
         self._remember("/appearance")
         self._call("/appearance", dark=on)
 
-    def grant(self, permission: str) -> None:
-        """Grant a simulator privacy service (photos, camera, ...). A real iPhone can't.
+    def grant(self, permissions: Sequence[str]) -> None:
+        """Grant simulator privacy services (photos, camera, ...). A real iPhone can't.
 
         The simulator ends an app whose permissions change, even to what they were (measured: gone within
-        0.25 s), so a running app is started again once it's gone.
+        0.25 s), so a running app is started again once it's gone: once, after every grant.
         """
         if self.physical:
             raise DeviceError("A real iPhone can't pre-grant permissions: let the test tap the permission prompt")
         running = self.app_state() is not AppState.NOT_RUNNING
         # simctl services: all, calendar, contacts, location, location-always, photos, microphone, ...
-        simctl("privacy", self.udid, "grant", permission, self.app_id)
+        for permission in permissions:
+            try:
+                simctl("privacy", self.udid, "grant", permission, self.app_id)
+            except DeviceError:  # measured: an unknown service fails with "Operation not permitted"
+                raise DeviceError(
+                    f"The simulator didn't grant '{permission}': use a service name such as camera, photos, "
+                    "microphone, location or contacts (`xcrun simctl privacy` lists them)"
+                ) from None
         if running:
             wait_until(
                 lambda: self.app_state() is AppState.NOT_RUNNING,

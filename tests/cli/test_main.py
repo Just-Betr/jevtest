@@ -81,12 +81,14 @@ class Fakes:
         self.make_device = self.default_device
         self.clock = FakeClock()  # waiting for a screen takes no real time
         self.missing: set[str] = set()  # device names no running device has
+        self.iphones: set[str] = set()  # device names that are real iPhones
         self.looked_for: list[tuple[str, str]] = []
 
     def find(self, platform, device):
         self.looked_for.append((str(platform), device))
         if device in self.missing:
             raise DeviceError(f"No connected device called '{device}'")
+        return device in self.iphones
 
     def default_device(self, platform, device, app, progress):
         self.devices.append(FakeDevice())
@@ -654,11 +656,12 @@ def test_module_entry_point(monkeypatch):
 def test_the_real_device_finder_asks_each_platform_and_claims_the_device(monkeypatch):
     claimed: list[str] = []
     monkeypatch.setattr(cli, "find_android", lambda d: f"serial-of-{d}")
-    monkeypatch.setattr(cli, "find_target", lambda d: types.SimpleNamespace(udid=f"udid-of-{d}"))
+    monkeypatch.setattr(cli, "find_target", lambda d: types.SimpleNamespace(udid=f"udid-of-{d}", physical=d == "BH"))
     monkeypatch.setattr(cli.CLAIMS, "claim", claimed.append)
-    cli.find_device(Platform.ANDROID, "Pixel 9")
-    cli.find_device(Platform.IOS, "iPhone 17")
-    assert claimed == ["serial-of-Pixel 9", "udid-of-iPhone 17"]
+    assert cli.find_device(Platform.ANDROID, "Pixel 9") is False
+    assert cli.find_device(Platform.IOS, "iPhone 17") is False
+    assert cli.find_device(Platform.IOS, "BH") is True
+    assert claimed == ["serial-of-Pixel 9", "udid-of-iPhone 17", "udid-of-BH"]
 
 
 def test_a_network_step_in_a_file_that_runs_on_ios_is_an_error_before_the_run(tmp_path, monkeypatch, fakes, capsys):
@@ -753,3 +756,50 @@ def test_ios_types_any_text(tmp_path, monkeypatch, fakes):
     (tmp_path / "a.zip").write_text("")
     monkeypatch.chdir(tmp_path)
     assert fakes.run() != 2
+
+
+BOTH = {"app": "app: {android: a.apk, ios: a.zip}\n", "device": "device: {android: emulator-5554, ios: iPhone 17}\n"}
+
+
+@pytest.mark.parametrize(
+    ("grant", "message"),
+    [
+        ("camera", "runs on Android, where test 'T' grants 'camera': Android needs the full name"),
+        ("{android: android.permission.CAMERA}", "runs on ios, and test 'T' has a grant: with no ios permission"),
+    ],
+)
+def test_a_grant_must_name_its_permission_for_every_platform_before_the_run(
+    tmp_path, monkeypatch, fakes, capsys, grant, message
+):
+    spec_file(tmp_path, tests=f"  - {{name: T, fresh: true, steps: [{{grant: {grant}}}]}}\n", **BOTH)
+    (tmp_path / "a.zip").write_text("")
+    monkeypatch.chdir(tmp_path)
+    assert fakes.run() == 2
+    assert message in capsys.readouterr().err
+
+
+def test_each_platform_gets_its_own_names(tmp_path, monkeypatch, fakes):
+    grant = "{android: [android.permission.CAMERA, android.permission.RECORD_AUDIO], ios: [camera, microphone]}"
+    spec_file(tmp_path, tests=f"  - {{name: T, fresh: true, steps: [{{grant: {grant}}}]}}\n", **BOTH)
+    (tmp_path / "a.zip").write_text("")
+    monkeypatch.chdir(tmp_path)
+    fakes.run()
+    granted = sorted(c[1:] for d in fakes.devices for c in d.calls if c[0] == "grant")
+    assert granted == [("android.permission.CAMERA", "android.permission.RECORD_AUDIO"), ("camera", "microphone")]
+
+
+def test_a_grant_on_a_real_iphone_is_an_error_before_the_run(tmp_path, monkeypatch, fakes, capsys):
+    spec_file(
+        tmp_path,
+        app="app: a.zip\n",
+        device="device: {ios: [iPhone 17, BH]}\n",
+        tests="  - {name: Photo, fresh: true, steps: [{grant: camera}]}\n",
+    )
+    (tmp_path / "a.zip").write_text("")
+    monkeypatch.chdir(tmp_path)
+    fakes.iphones = {"BH"}
+    assert fakes.run() == 2
+    assert "t.yaml runs on the iPhone BH, where jevtest can't pre-grant permissions" in capsys.readouterr().err
+    assert fakes.devices == []
+    fakes.iphones = set()
+    assert fakes.run() != 2  # on simulators only, it runs

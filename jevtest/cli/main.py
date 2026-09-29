@@ -46,14 +46,18 @@ CLAIMS = Claims()
 """The devices this process is testing: a second jevtest run can't use them at the same time."""
 
 
-def find_device(platform: Platform, device: str) -> None:
-    """Claim the one running device of `platform` called `device`.
+def find_device(platform: Platform, device: str) -> bool:
+    """Claim the one running device of `platform` called `device`; whether it's a real iPhone.
 
     Raises:
         DeviceError: No running device, or several, are called that; or another jevtest run is using it.
     """
-    device_id = find_android(device) if platform is Platform.ANDROID else find_target(device).udid
-    CLAIMS.claim(device_id)
+    if platform is Platform.ANDROID:
+        CLAIMS.claim(find_android(device))
+        return False
+    target = find_target(device)
+    CLAIMS.claim(target.udid)
+    return target.physical
 
 
 def make_client(model: str, api_key: str | None) -> JevClient:

@@ -128,8 +128,8 @@ class Device(Protocol):
         """Switch dark appearance on or off. Put back when the device is closed."""
         ...
 
-    def grant(self, permission: str) -> None:
-        """Grant the app a runtime permission."""
+    def grant(self, permissions: Sequence[str]) -> None:
+        """Grant the app runtime permissions, by this platform's names for them."""
         ...
 
     def network(self, *, on: bool) -> None:
