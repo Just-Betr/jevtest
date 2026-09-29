@@ -8,6 +8,8 @@
 - Docs: which name finds a web page's text field depends on the WebView version (id on WebView 91, 146 and 153, label
   on 124 and iOS, measured): the webviews guide has the table, and says to use `do:` across devices. Verified: the CI
   guide's Android workflow runs as written on GitHub's Linux runners (Android 14 emulator).
+- Docs: on WebView 124 (Android 15) a web dropdown doesn't report the option chosen, so no check can see it
+  (measured); troubleshooting says to check what the choice leads to.
 
 ## 0.9.5
 

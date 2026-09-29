@@ -100,6 +100,7 @@ Android System **WebView 153** (a Play Store update in September 2026) stopped p
 What to do:
 
 - **Radios and checkboxes:** give the input an `aria-label` with its visible text. It's also what screen readers need.
+- **Dropdowns:** WebView 124 (Android 15's) reports a `<select>` by its label only, not the option chosen (measured: not in its text, description or state). No check can see the choice there, so `expect: Canada is the selected country` fails although Canada shows. Check what the choice leads to instead (`see: "Submitted: Canada, …"`). WebView 153 does report it.
 - **Text fields:** which name finds a web `<input>` depends on the WebView: its HTML `id` on WebView 91, 146 and 153, its `<label>` on WebView 124 and on iOS ([measured](guides/webviews.md)). For tests that run on more than one device, use a goal: `do: Type "Bret" into the name field`. Jev picks the field from the screen, the step's output says so, and the lockfile replays the choice.
 
 Run with `-v` to see every Jev question with its top answers and probabilities.
