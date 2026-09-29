@@ -299,7 +299,8 @@ def _check_builds(loaded: Loaded) -> None:
     """
     missing = [app for suite, _ in loaded for app in suite.apps.values() if not app.exists()]
     if missing:
-        raise TestFileError(f"App not found: {missing[0]}")
+        tilde = " (a test file doesn't expand ~: write the path relative to the test file, or in full)"
+        raise TestFileError(f"App not found: {missing[0]}{tilde if '~' in missing[0].parts else ''}")
     bundles = [app for suite, _ in loaded for app in suite.apps.values() if app.suffix.lower() == ".aab"]
     if bundles:
         try:

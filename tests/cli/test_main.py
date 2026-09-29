@@ -758,3 +758,18 @@ def test_an_aab_without_bundletool_is_an_error_before_the_run(tmp_path, monkeypa
     assert fakes.devices == []
     monkeypatch.setattr(shutil, "which", lambda name: f"/bin/{name}")
     assert fakes.run() != 2
+
+
+@pytest.mark.parametrize(
+    ("app", "hint"),
+    [("~/builds/a.apk", True), ("builds/a.apk", False)],
+)
+def test_a_missing_app_written_with_a_tilde_says_a_test_file_doesnt_expand_it(
+    tmp_path, monkeypatch, fakes, capsys, app, hint
+):
+    spec_file(tmp_path, app=f"app: {app}\n")
+    monkeypatch.chdir(tmp_path)
+    assert fakes.run() == 2
+    err = capsys.readouterr().err
+    assert "App not found: " in err
+    assert ("a test file doesn't expand ~: write the path relative to the test file, or in full" in err) is hint
