@@ -48,7 +48,12 @@ def _xcrun(args: list[str], *, timeout: float, check: bool = True) -> str:
         ) from None
 
 
-def simctl(*args: str, timeout: float = 120, check: bool = True) -> str:
+SIMCTL_TIMEOUT = 300
+"""Seconds a simctl command may take. On a fresh CI Mac the first one is slow while the simulator service starts
+(measured on GitHub's macos-15: `simctl list` took 132 s after the simulator had booted)."""
+
+
+def simctl(*args: str, timeout: float = SIMCTL_TIMEOUT, check: bool = True) -> str:
     """Run ``xcrun simctl ...``."""
     return _xcrun(["simctl", *args], timeout=timeout, check=check)
 

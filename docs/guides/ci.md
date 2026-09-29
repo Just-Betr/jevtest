@@ -61,7 +61,7 @@ With `frozen`, nothing new is asked: a `do:` without saved steps fails with `No 
           - uses: actions/setup-python@v5
             with: { python-version: "3.12" }
           - run: pip install jevtest
-          - run: xcrun simctl boot "iPhone 16"
+          - run: xcrun simctl bootstatus "iPhone 16" -b  # boots it, and waits until it's ready
           - run: jevtest run tests/ --platform ios --lock record --out results
             env:
               TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}

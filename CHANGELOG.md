@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- iOS on a fresh CI Mac: simctl may take 300 s, not 120. Measured on GitHub's macos-15, the first `simctl list` took
+  132 s, so jevtest stopped with `Timed out after 120s`. The CI guide's iOS job boots with `simctl bootstatus -b`,
+  which waits until the simulator is ready; run as written on GitHub, it passes.
 - A `${NAME}` value with two spaces or a line break in it leaked into logs, reports, lockfiles and Jev's requests
   once the app showed it: jevtest reads screen text with each run of spaces as one, and hid only the exact value. It
   hides that form too (measured: `hello world  two` typed into a field showed as `hello world two`; now `${SPACED}`).
