@@ -12,7 +12,7 @@ from jevtest.adapters.devices.cache import digest, in_use_dir, try_lock
 from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.adapters.devices.ios_tools import AGENT_SRC
 from jevtest.domain.failures import DeviceError
-from tests.adapters.devices.conftest import make_app, swap
+from tests.adapters.devices.conftest import AgentProcess, make_app, swap
 from tests.conftest import PROGRESS
 
 
@@ -101,7 +101,8 @@ def test_a_device_that_fails_to_start_stops_its_agent_and_lets_go_of_its_build(t
     phone.ctl.replies["info details"] = {"connectionProperties": {}}  # found after the agent started
     with pytest.raises(DeviceError, match="No connection to BH"):
         IOSDevice("BH", signed_app(tmp_path), PROGRESS)
-    assert phone.procs[-1] == ("stopped", "proc")
+    stopped, process = phone.procs[-1]
+    assert stopped == "stopped" and isinstance(process, AgentProcess)  # the agent it had started
     mark = try_lock(in_use_dir() / f"ios-agent-{digest(AGENT_SRC)}-TEAM1.lock")
     assert mark is not None  # another run may remove the build now
     mark.close()

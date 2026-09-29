@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- iOS starts its agent again before the next test when something stopped it, as Android does: every later test
+  used to fail with `Lost the iOS agent`. Measured by killing the agent mid-test on the simulator and the iPhone:
+  that test fails, the next ones pass.
 - On Windows, `jevtest` says it runs on macOS and Linux, instead of failing to import `fcntl`; the getting-started
   guide says so too.
 - An app path written with `~` says a test file doesn't expand it, instead of only naming a path with `~` inside.

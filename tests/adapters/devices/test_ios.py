@@ -81,8 +81,9 @@ def test_requires_xcode(env, monkeypatch):
 
 
 def test_close_stops_agent(env):
-    IOSDevice("A", Path("Demo.app"), PROGRESS).close()
-    assert env[2][-1] == ("stopped", "proc")
+    d = IOSDevice("A", Path("Demo.app"), PROGRESS)
+    d.close()
+    assert env[2][-1] == ("stopped", d.agent)
 
 
 def test_lost_agent_is_a_driver_error(drv, env):
@@ -314,7 +315,10 @@ def test_a_put_back_that_fails_is_said_and_the_rest_still_go_back(env):
     d.set_location(1.0, 2.0)
     d.close()
     assert any(c.endswith("simctl location A clear") for c in env[0].cmds)  # still put back
-    assert told[-1] == "couldn't put back dark mode (Lost the iOS agent during /appearance (gone).): set it by hand"
+    assert (
+        told[-1]
+        == "couldn't put back dark mode (Lost the iOS agent during /appearance (gone); the next test starts it again.): set it by hand"
+    )
 
 
 def test_clear_empty_field_only_focuses(drv, env):
@@ -450,3 +454,18 @@ def test_the_agent_presses_exactly_the_keys_a_test_file_can_name_on_ios():
     table = re.search(r"let keys: \[String: String\] = \[(.*?)\]\n", swift, re.DOTALL)
     assert table is not None
     assert sorted(re.findall(r'"(\w+)":', table[1])) == sorted(KEYS)
+
+
+def test_an_agent_that_stopped_is_started_again_before_the_next_test(drv, env, monkeypatch):
+    """One test's lost agent isn't every test's: on a new port, as the old one may still be held."""
+    told: list[str] = []
+    drv._progress = told.append
+    drv.prepare_for_test()
+    assert len([p for p in env[2] if p[0] != "stopped"]) == 1  # running: nothing to do
+    drv.agent.returncode = 1  # something stopped it
+    swap(monkeypatch, "free_port", lambda: 8124)
+    drv.prepare_for_test()
+    started = [p for p in env[2] if p[0] != "stopped"]
+    assert len(started) == 2 and started[-1][2]["TEST_RUNNER_JEVTEST_PORT"] == "8124"
+    assert told == ["the iOS agent had stopped: starting it again"]
+    assert drv.port == 8124

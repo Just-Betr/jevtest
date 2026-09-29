@@ -272,13 +272,23 @@ def env(monkeypatch, tmp_path):
     def start_process(cmd, ready, log, timeout, env):
         procs.append((cmd, ready, env))
         agent.token = env["TEST_RUNNER_JEVTEST_TOKEN"]
-        return "proc"
+        return AgentProcess()
 
     swap(monkeypatch, "start_process", start_process)
     swap(monkeypatch, "stop_process", lambda proc: procs.append(("stopped", proc)))
     ctl = DeviceCtl()
     swap(monkeypatch, "devicectl", ctl)
     return IOSEnv(sim, agent, procs, ctl)
+
+
+class AgentProcess:
+    """The agent's xcodebuild process: running until a test says it ended."""
+
+    def __init__(self) -> None:
+        self.returncode: int | None = None
+
+    def poll(self) -> int | None:
+        return self.returncode
 
 
 def make_app(tmp_path, bundle_id="dev.demo", platforms=("iPhoneSimulator",), name="Demo.app") -> Path:

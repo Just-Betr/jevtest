@@ -168,7 +168,8 @@ class IOSDevice(BaseDevice):
         )
         with AGENT_LOCK:
             builds, version = agent_builds(self.team), digest(AGENT_SRC)
-            self._agent_build = builds.use(version)  # until close(): xcodebuild runs the agent from it
+            if self._agent_build is None:  # marked once, until close(): xcodebuild runs the agent from it
+                self._agent_build = builds.use(version)
             xctestrun = self._build_agent(self._agent_build.path)
             builds.drop_older(keep=version)  # about 150 MB each
             remove_port_logs()
@@ -227,7 +228,8 @@ class IOSDevice(BaseDevice):
         except OSError as e:
             if not self.physical:
                 raise DeviceError(
-                    f"Lost the iOS agent during {path} ({e}).\nAgent log tail:\n{self._log_tail()}"
+                    f"Lost the iOS agent during {path} ({e}); the next test starts it again.\nAgent log tail:\n"
+                    f"{self._log_tail()}"
                 ) from None
             try:  # the phone's tunnel address changes when it relocks: look it up again, once
                 self.host = self._tunnel_host()
@@ -235,7 +237,8 @@ class IOSDevice(BaseDevice):
             except (OSError, DeviceError) as again:
                 raise DeviceError(
                     f"Lost the agent on {self.name} during {path} ({again}). "
-                    f"Is it unlocked and plugged in?\nAgent log tail:\n{self._log_tail()}"
+                    "Is it unlocked and plugged in? The next test starts the agent again.\nAgent log tail:\n"
+                    f"{self._log_tail()}"
                 ) from None
         if "error" in data:
             raise AgentRefused("iOS agent", path, str(data["error"]))
@@ -280,9 +283,16 @@ class IOSDevice(BaseDevice):
 
     @override
     def prepare_for_test(self) -> None:
-        """An iPhone that is locked can't be tested: say so; never unlock it."""
+        """Fail if an iPhone is locked (never unlock it); start the agent again if it stopped.
+
+        Something may have stopped the agent (the test it was in has failed): one test's loss isn't every test's.
+        """
         if self.physical and devicectl("device", "info", "lockState", "--device", self.udid).get("passcodeRequired"):
             raise DeviceError(f"{self.name} is locked: unlock it and keep it unlocked during the run")
+        if self.agent is not None and self.agent.poll() is not None:
+            self._progress("the iOS agent had stopped: starting it again")
+            self.port = free_port()  # the one before may still be held by what's left of the agent
+            self._start_agent()
 
     # --- lifecycle ----------------------------------------------------------------
     def install(self, app: Path) -> str:

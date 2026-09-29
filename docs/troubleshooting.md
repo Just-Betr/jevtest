@@ -50,6 +50,7 @@ error: t.yaml has 2 problems:
 | `putting back what a run that was stopped left changed: dark mode, network` | Not an error: a run killed outright left those changed, and this one puts them back first. |
 | `can't put back rotation (another jevtest version changed it): set it by hand` | A run of another jevtest version was killed with that changed, and wrote down how to put it back in a way this version doesn't read. Set it back on the device yourself. |
 | `Several devices are called 'iPhone 17 Pro' (X, Y): name one by its UDID` | Use the UDID. |
+| `Lost the Android agent during /tree …` / `Lost the iOS agent during /state …; the next test starts it again`, then `the iOS agent had stopped: starting it again` | Something stopped jevtest's agent (another UI automation tool, Xcode, a simulator hiccup): that test fails and the next one starts the agent again. On an iPhone, check it's unlocked and plugged in. |
 | `… is asleep or locked: unlock it` / `BH is locked: unlock it and keep it unlocked during the run` | Unlock the phone; consider a longer screen timeout while testing. |
 | `The app is signed by team ABCDE12345, which is not signed into Xcode (signed in: …)` | jevtest signs its agent with your app's team: add that team's Apple Account in Xcode > Settings > Accounts. |
 | `Runner.app is not signed for a real iPhone (it has no provisioning profile)` | Build the app for the device, signed with your team. |
