@@ -7,6 +7,8 @@
 - A key given twice in one place (two `see:` in a step, two `app:`) was silently dropped by YAML, which keeps the
   last: a failing check written first vanished and the test passed. It's now an error with both line numbers
   (`see: [A, B]` checks several texts). Tabs used for indenting get a hint: YAML allows only spaces.
+- A `.env` value using another one (`URL=https://${HOST}/x`) reached the app as written, `${HOST}` and all, with no
+  warning: many dotenv tools fill it in. It's now an error: write the whole value.
 - A `.env` or test file saved by Windows Notepad (UTF-8 with a byte-order mark) failed: `.env:1 is not a KEY=value
   line`, on a line that looked right. Test files, `.env` and lockfiles are now read as UTF-8 whatever the machine's
   locale, a byte-order mark and Windows line endings are fine, and a file in another encoding says to save it as UTF-8

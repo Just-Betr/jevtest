@@ -9,6 +9,7 @@ from pathlib import Path
 
 from jevtest.adapters.shapes import USER_TEXT
 from jevtest.domain.failures import TestFileError
+from jevtest.domain.variables import VARIABLE
 
 ENV_LINE = re.compile(r"(?:export )?([A-Za-z_][A-Za-z0-9_]*)=(.*)")
 QUOTES = "'\""
@@ -30,6 +31,12 @@ def read_env(folder: Path, environ: Mapping[str, str] = os.environ) -> dict[str,
     for n, key, value in _entries(f):
         if key in seen:
             raise TestFileError(f"{f}:{n} sets {key} a second time")
+        inner = VARIABLE.search(value)
+        if inner:
+            raise TestFileError(
+                f"{f}:{n}: {key} uses {inner[0]}, but .env values aren't filled in from other values: write the "
+                "whole value"
+            )
         if key in environ and environ[key] != value:
             raise TestFileError(f"{key} is set in the environment and in {f} to different values: remove one of them")
         seen.add(key)

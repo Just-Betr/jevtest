@@ -29,6 +29,10 @@ def test_the_process_environment_by_default(tmp_path):
         ("A=1\nnot a pair\n", r"\.env:2 is not a KEY=value line"),
         ("A 1\n", r"\.env:1 is not a KEY=value line"),
         ("A=1\nA=2\n", r"\.env:2 sets A a second time"),
+        (
+            "HOST=a.test\nURL=https://${HOST}/x\n",
+            r"\.env:2: URL uses \$\{HOST\}, but \.env values aren't filled in from other values: write the whole value",
+        ),
         ("A=1\nB=pw # the password\n", r"\.env:2: is ' #…' a comment or part of B\? .*quote the value"),
         ("T_KEY=file\n", "T_KEY is set in the environment and in .*/.env to different values"),
     ],

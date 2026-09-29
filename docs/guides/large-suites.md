@@ -32,7 +32,7 @@ tests:
 
 **What the app shows.** Before a screen goes to Jev, the console, a report or the lockfile, every value on it is replaced by its `${NAME}` (screenshots are pictures, so they show it as the app does): an app that shows the signed-in email sends Jev `Welcome, ${EMAIL}`, and the lockfile has `${EMAIL}`, never the address. Only exact values are replaced: a value the app shows changed (cut short, in capitals, reformatted) is shown as it is.
 
-`.env` format: one `KEY=value` per line; `export KEY=value` and quoted values (`"…"` or `'…'`) are fine; lines starting with `#` are comments. The value is everything after `=`, so `PASSWORD=pw # mine` is an error rather than a guess: put the comment on its own line, or quote the value (`PASSWORD="pw # mine"`). Anything else, or a key set twice, is an error with its line number.
+`.env` format: one `KEY=value` per line; a value is used as written, so `URL=https://${HOST}/x` is an error (write the whole value); `export KEY=value` and quoted values (`"…"` or `'…'`) are fine; lines starting with `#` are comments. The value is everything after `=`, so `PASSWORD=pw # mine` is an error rather than a guess: put the comment on its own line, or quote the value (`PASSWORD="pw # mine"`). Anything else, or a key set twice, is an error with its line number.
 
 **Folders.** Each test file reads the `.env` in its own folder only. In a folder run, a test file in `sub/` doesn't see the `.env` of the folder above; the error names the `.env` it read. Keep test files next to their `.env`, and libraries in subfolders (libraries use the values of the test file that includes them).
 
