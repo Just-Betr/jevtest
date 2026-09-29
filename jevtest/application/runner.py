@@ -260,7 +260,7 @@ class TestRunner:
             if self.clock.now() + settings.interval > deadline:
                 if missed:
                     raise missed[0]
-                raise StepFailed(f"Waited {settings.timeout:g}s until {until}{why(screen)}")
+                raise StepFailed(f"Waited {settings.timeout:g}s until {until}{why(screen)}{self._app_gone()}")
             self.clock.sleep(settings.interval)
 
     def _still_screen(self, settings: Settings) -> Screen:
@@ -389,6 +389,17 @@ class TestRunner:
         if not self._app_should_run or action.app_may_leave:
             return
         self._in_app("")
+
+    def _app_gone(self) -> str:
+        """Why nothing of the app was on screen, when it isn't in the foreground; "" when it is."""
+        try:
+            state = self.device.app_state()
+        except DeviceError:
+            return ""
+        return {
+            AppState.BACKGROUND: "; the app is in the background",
+            AppState.NOT_RUNNING: "; the app isn't running",
+        }.get(state, "")
 
     def _in_app(self, after: str) -> None:
         """Fail unless the app is in the foreground (`after` says what just happened, for the message)."""

@@ -183,6 +183,7 @@ def test_agent_commands(drv, env):
     drv.clear_text(field)
     drv.key("enter")
     drv.back()
+    env[1].replies["/state"] = [{"state": 4}, {"state": 3}]  # Home returns before the app has left
     drv.home()
     drv.hide_keyboard()
     drv.rotate("landscape")
@@ -203,6 +204,8 @@ def test_agent_commands(drv, env):
         ("/key", {"key": "enter"}),
         ("/back", {}),
         ("/home", {}),
+        ("/state", {}),
+        ("/state", {}),  # background now
         ("/hide_keyboard", {}),
         ("/tree", {}),  # closed: the keyboard is gone
         ("/rotate", {}),

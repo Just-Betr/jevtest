@@ -392,8 +392,11 @@ class AndroidDevice(BaseDevice):
         self.key("back")
 
     def home(self) -> None:
-        """Press Home."""
+        """Press Home, and wait until the app has left the foreground (the key returns before it has)."""
         self.key("home")
+        wait_until(
+            lambda: self.app_state() is not AppState.FOREGROUND, "The app was still in the foreground after Home"
+        )
 
     def looks(self, elements: Sequence[Element]) -> str:
         """A fingerprint of how the elements are drawn now, from one screenshot.

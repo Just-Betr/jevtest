@@ -29,6 +29,9 @@ emulator and the iOS simulator.
   Every character now arrives as written (measured on the emulator and a Pixel 4a).
 - Android: when something stopped jevtest's agent mid-run (another tool using UI Automation), every later test on
   that device failed too. The next test now starts it again, and the lost test says what likely happened.
+- `home` returned before the app had left the foreground, so the next step could still read the app's screen: `home`
+  then `see: Sign in` passed. It now waits until the app has left (3 s at most).
+- A wait that times out while the app isn't showing says so: `…; the app is in the background`.
 - A target with two spaces, or a line break, between words never matched: the screen's text is read with them
   collapsed, and now the test's text is too.
 - `--out` naming a file crashed with a traceback and exit code 1, as if a test had failed. It's now an error before

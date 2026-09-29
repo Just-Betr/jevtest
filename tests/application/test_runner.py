@@ -692,6 +692,26 @@ def test_do_gives_up_after_10_actions(tmp_path, clock, out):
     assert len(res.steps[0].decisions) == 10  # the 11th, not made, isn't listed
 
 
+@pytest.mark.parametrize(
+    ("state", "said"),
+    [
+        (AppState.BACKGROUND, "; the app is in the background"),
+        (AppState.NOT_RUNNING, "; the app isn't running"),
+        (AppState.FOREGROUND, ""),
+    ],
+)
+def test_a_wait_that_times_out_says_when_the_app_isnt_showing(tmp_path, clock, out, state, said):
+    res, _, _ = run1(tmp_path, clock, out, {"see": "Welcome", "timeout": 1}, device=FakeDevice(state=state))
+    assert failure_of(res) == f"see: Welcome — Waited 1s until 'Welcome' is on screen{said}"
+
+
+def test_a_device_that_cant_say_where_the_app_is_adds_nothing(tmp_path, clock, out):
+    d = FakeDevice()
+    d.fail["app_state"] = DeviceError("adb gone")
+    res, _, _ = run1(tmp_path, clock, out, {"see": "Welcome", "timeout": 1}, device=d)
+    assert failure_of(res).endswith("Waited 1s until 'Welcome' is on screen")
+
+
 def test_a_do_move_that_leaves_the_app_ends_the_step_at_once(tmp_path, clock, out):
     """Back on the app's first screen goes to the phone's home screen: the next move would tap an app there."""
 

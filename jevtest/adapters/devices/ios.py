@@ -399,8 +399,11 @@ class IOSDevice(BaseDevice):
         self._call("/back")
 
     def home(self) -> None:
-        """Press Home."""
+        """Press Home, and wait until the app has left the foreground (the press returns before it has)."""
         self._call("/home")
+        wait_until(
+            lambda: self.app_state() is not AppState.FOREGROUND, "The app was still in the foreground after Home"
+        )
 
     def looks(self, elements: Sequence[Element]) -> str:  # noqa: ARG002 - the Device port; iOS needs no pixels
         """Nothing: on iOS an element's frame moves with its animation (measured), so its bounds say it all."""

@@ -312,7 +312,13 @@ def test_keys(drv, adb):
     drv.key("82")
     drv.back()
     drv.home()
-    assert adb.shell() == ["input keyevent 66", "input keyevent 82", "input keyevent 4", "input keyevent 3"]
+    assert adb.shell() == [
+        "input keyevent 66",
+        "input keyevent 82",
+        "input keyevent 4",
+        "input keyevent 3",
+        "pidof dev.demo; dumpsys activity activities | grep -m1 topResumedActivity",  # it has left the foreground
+    ]
     with pytest.raises(DeviceError, match="Unknown key 'hyper'"):
         drv.key("hyper")
     with pytest.raises(DeviceError, match="Unknown key 'Enter'"):  # names are exact
