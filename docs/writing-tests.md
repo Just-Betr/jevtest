@@ -101,7 +101,7 @@ tests:
         see: Saved
 ```
 
-Uses nest. A test that uses itself, directly or through others, is an error before anything runs. To share tests between files, put them in a library file and [`include:` it](guides/large-suites.md#include-shared-tests).
+Only the steps run: the used test's `fresh:` doesn't apply, so the app carries on as this test left it. Uses nest. A test that uses itself, directly or through others, is an error before anything runs. To share tests between files, put them in a library file and [`include:` it](guides/large-suites.md#include-shared-tests).
 
 ## Writing good tests
 
@@ -110,4 +110,4 @@ Uses nest. A test that uses itself, directly or through others, is an error befo
 - **Check after every action that matters.** `see:` after a tap proves the tap landed; without it, the next step fails somewhere less obvious.
 - **Name elements by their visible text.** It's what a user sees, it survives refactors, and it's matched in code without asking Jev.
 - **Keep `do:` goals small and concrete.** "Sign in", "Add the first result to the cart". A long goal needs more actions and more judgement.
-- **Commit the lockfile** and run CI with `--lock frozen`.
+- **Commit the lockfile.** Everyday CI runs `--lock record` (only what's new goes to Jev); a release gate runs `--lock frozen` (nothing new allowed). See [Which lock mode in CI?](guides/ci.md#which-lock-mode-in-ci)
