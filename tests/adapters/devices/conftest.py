@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import plistlib
 import shutil
@@ -9,8 +11,9 @@ from typing import NamedTuple
 import pytest
 
 from jevtest.adapters.devices import android, android_tools, ios, ios_tools
-from jevtest.adapters.devices.common import digest
+from jevtest.adapters.devices.cache import BuildInUse, digest
 from jevtest.adapters.devices.ios import IOSDevice
+from jevtest.domain.failures import DeviceError
 
 FIX = Path(__file__).parent / "fixtures"
 LOGIN = (FIX / "android_login.xml").read_text()
@@ -125,7 +128,11 @@ class Proc:
 def agent(monkeypatch):
     fake = AgentHttp()
     swap(monkeypatch, "http_get", fake)
-    swap(monkeypatch, "build_agent", lambda progress: Path("/cache/android-agent-abc123.apk"))
+    swap(
+        monkeypatch,
+        "build_agent",
+        lambda progress: BuildInUse(Path("/cache/android-agent-abc123.apk"), "abc123", io.StringIO()),
+    )
 
     def start_process(cmd, ready, log, timeout):
         fake.started.append((cmd, ready))
@@ -307,3 +314,18 @@ def phone(env, monkeypatch, tmp_path):
     swap(monkeypatch, "provisioned_devices", lambda app: {"00008150-X"})
     sim.rules["security cms"] = plistlib.dumps({"TeamIdentifier": ["TEAM1"]}).decode()
     return env
+
+
+@pytest.fixture
+def ios_device():
+    """Makes iOS devices like `IOSDevice`, and closes each when the test ends, as a run does."""
+    made: list[IOSDevice] = []
+
+    def make(device, app, progress):
+        made.append(IOSDevice(device, app, progress))
+        return made[-1]
+
+    yield make
+    for d in made:
+        with contextlib.suppress(DeviceError):  # a test may have left its fake agent unreachable
+            d.close()

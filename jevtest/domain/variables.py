@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections.abc import Mapping
+
+from .words import nfc
 
 VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 """A ``${NAME}`` reference."""
@@ -35,8 +36,8 @@ def hide(text: str, variables: Mapping[str, str]) -> str:
     lockfile keys. Longer values are replaced first, so a value inside another is never left half hidden. Both are
     compared in one Unicode encoding (NFC): an é shown as an e and an accent is still the value's é.
     """
-    text = unicodedata.normalize("NFC", text)
+    text = nfc(text)
     for name, value in sorted(variables.items(), key=lambda item: -len(item[1])):
         if value:
-            text = text.replace(unicodedata.normalize("NFC", value), f"${{{name}}}")
+            text = text.replace(nfc(value), f"${{{name}}}")
     return text

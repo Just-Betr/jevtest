@@ -205,3 +205,12 @@ def test_agent_build_command(monkeypatch, tmp_path):
 
 def test_sims_constant_still_has_a_booted_simulator():
     assert any(d["state"] == "Booted" for v in SIMS["devices"].values() for d in v)
+
+
+def test_only_the_per_run_logs_of_0_9_1_are_removed(tmp_path, monkeypatch):
+    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
+    names = ("ios-agent-8123.log", "ios-agent-D9656DC8-8F3B-4E0A-9C1D-1234567890AB.log", "ios-agent-00008150-X.log")
+    for name in names:
+        (tmp_path / name).write_text("")
+    ios_tools.remove_port_logs()
+    assert sorted(p.name for p in tmp_path.iterdir()) == sorted(names[1:])  # each device's own log stays

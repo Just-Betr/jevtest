@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import contextlib
 import os
-import re
 import secrets
 import shutil
 import subprocess
@@ -31,6 +30,7 @@ from jevtest.domain.steps import KEYS
 
 from . import tool_says as says
 from ._typing import override
+from .cache import BuildInUse, cache_dir, digest
 from .common import (
     AgentRefused,
     BaseDevice,
@@ -38,9 +38,6 @@ from .common import (
     TimedOut,
     ToolFailed,
     Undo,
-    cache_dir,
-    digest,
-    drop_older,
     no_app_opens,
     start_process,
     stop_process,
@@ -50,6 +47,7 @@ from .ios_screen import AgentTree, parse_tree
 from .ios_tools import (
     AGENT_LOCK,
     AGENT_SRC,
+    agent_builds,
     app_bundle,
     app_team,
     build_agent_with_xcodebuild,
@@ -60,6 +58,7 @@ from .ios_tools import (
     http_post,
     info_plist,
     provisioned_devices,
+    remove_port_logs,
     simctl,
     xcode_team,
 )
@@ -70,17 +69,18 @@ AGENT_CALL_TIMEOUT = 150
 SpringBoard to settle (normally well under a second; an iPhone that needs a restart can take the full 60 s)."""
 APP_WAIT = 10.0
 """Seconds to wait for the app to come to the foreground after a launch or a resume."""
-AGENT_START_TIMEOUT = 300  # includes xcodebuild installing the agent on a fresh simulator or phone
-# XCUIApplication.State raw values.
-# XCUIApplication.State: unknown, notRunning, runningBackgroundSuspended, runningBackground, runningForeground
+AGENT_START_TIMEOUT = 300
+"""Seconds the agent may take to start, including xcodebuild installing it on a fresh simulator or phone."""
 SWIPE_SPEED = 1500
 """Points per second a swipe's finger moves: a flick, as swipe-to-dismiss and carousels expect."""
 SWIPE_HOLD = 0.05
+"""Seconds a swipe's finger rests at its end before it lifts."""
 SCROLL_SPEED = 300
 """Points per second a scroll's finger moves. Faster, a web page flings on after the finger lifts, however long
 it rests first (measured in a WKWebView: at 500 a 100 pt drag moved the page 320 pt, at 1500 470 pt; at 250-350
 a 524 pt drag moved it 514 pt, the 10 pt being touch slop), and `scroll_to` could jump past its target."""
 SCROLL_HOLD = 0.1
+"""Seconds a scroll's finger rests at its end before it lifts."""
 
 APP_STATES = {
     0: AppState.NOT_RUNNING,
@@ -89,6 +89,8 @@ APP_STATES = {
     3: AppState.BACKGROUND,
     4: AppState.FOREGROUND,
 }
+"""XCUIApplication.State's raw values (unknown, notRunning, runningBackgroundSuspended, runningBackground,
+runningForeground), as jevtest's app states."""
 
 
 class IOSDevice(BaseDevice):
@@ -115,22 +117,19 @@ class IOSDevice(BaseDevice):
         self.agent_log = cache_dir() / f"ios-agent-{target.udid}.log"
         self.app_path: Path | None = None
         self._unpacked: dict[Path, Path] = {}  # build -> its .app, unpacked once
+        self._agent_build: BuildInUse | None = None
         self._undo = Undo(target.udid)  # each entry: an agent call ({"call", "body"}) or {"simctl": args}
         try:
             self.team = xcode_team(app_team(self._bundle(app))) if self.physical else ""
             self._start_agent()
             self._put_back_left_by_a_stopped_run()
         except BaseException:
-            self._tmp.cleanup()  # the caller never gets a device to close
+            self._release()  # the caller never gets a device to close
             raise
 
     # --- agent ------------------------------------------------------------------
-    def _build_agent(self) -> Path:
-        """The agent's .xctestrun: built once per source version (and team, and phone, for iPhones)."""
-        if not self.physical:
-            out = cache_dir() / f"ios-agent-{digest(AGENT_SRC)}"
-        else:
-            out = cache_dir() / f"ios-agent-{digest(AGENT_SRC)}-{self.team}"
+    def _build_agent(self, out: Path) -> Path:
+        """The agent's .xctestrun, built into `out` once per source version (and team, and phone, for iPhones)."""
         runner = out / "Build/Products/Debug-iphoneos/JevAgentUITests-Runner.app"
         runs = sorted((out / "Build/Products").glob("*.xctestrun"))
         if runs and (not self.physical or self.udid in provisioned_devices(runner)):
@@ -169,11 +168,11 @@ class IOSDevice(BaseDevice):
             TEST_RUNNER_JEVTEST_LOCAL_ONLY="0" if self.physical else "1",  # an iPhone is reached over USB
         )
         with AGENT_LOCK:
-            xctestrun = self._build_agent()
-            # older agent builds, of this kind, go (about 150 MB each); so do 0.9.1's per-run logs, named by port
-            suffix = f"-{re.escape(self.team)}" if self.physical else ""
-            drop_older(rf"ios-agent-([0-9a-f]+){suffix}", digest(AGENT_SRC))
-            drop_older(r"ios-agent-(\d+)\.log", "")
+            builds, version = agent_builds(self.team), digest(AGENT_SRC)
+            self._agent_build = builds.use(version)  # until close(): xcodebuild runs the agent from it
+            xctestrun = self._build_agent(self._agent_build.path)
+            builds.drop_older(keep=version)  # about 150 MB each
+            remove_port_logs()
             try:
                 self.agent = start_process(
                     [
@@ -247,7 +246,13 @@ class IOSDevice(BaseDevice):
     def close(self) -> None:
         """Put back anything a step changed, then stop the agent."""
         self.restore()
+        self._release()
+
+    def _release(self) -> None:
+        """Stop the agent, let go of its build, and remove the unpacked app."""
         stop_process(self.agent)
+        if self._agent_build is not None:
+            self._agent_build.close()
         self._tmp.cleanup()
 
     @override

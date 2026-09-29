@@ -14,6 +14,15 @@
   hand`) instead of skipped without a word; that includes one left by a killed 0.9.7 run on iOS.
 - A location out of range names the value and its limits (`latitude must be from -90 to 90, got 91`), as every
   other number does.
+- Two jevtest versions running at once no longer delete each other's agent build: tidying the cache removed every
+  older build, including one another run's `xcodebuild` was running its agent from. A run now marks the build it
+  uses (a lock the operating system lets go of when the run ends, however it ends), and tidying skips it.
+- An Android agent build that stopped partway (Ctrl-C while signing) left a partial APK that later runs took for
+  built and installed. The APK, its `.idsig` and the signing key now appear whole or not at all; an `.idsig` from an
+  earlier build is removed when the new one has none.
+- An iPhone that failed to start after its agent started (no USB tunnel) left the agent's `xcodebuild` running.
+- A cache folder that can't hold a device's claim (full, read-only) is a clear error saying what to do, not a
+  traceback, and the claim's file is closed.
 - An iOS `.zip` / `.ipa` build is unpacked once per device, not three times (to check it before the run, for its
   team, and to install it): the check reads its Info.plist from inside the archive.
 

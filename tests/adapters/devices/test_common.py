@@ -5,7 +5,8 @@ import pytest
 
 from jevtest.adapters.devices import common
 from jevtest.adapters.devices._typing import override
-from jevtest.adapters.devices.common import cache_dir, digest, log_errors, run, run_bytes, start_process, stop_process
+from jevtest.adapters.devices.cache import cache_dir, digest
+from jevtest.adapters.devices.common import log_errors, run, run_bytes, start_process, stop_process
 from jevtest.domain.failures import DeviceError
 
 
@@ -148,28 +149,6 @@ def test_a_device_must_say_how_it_puts_back_goes_home_and_closes():
     # Python words this message differently between versions; the method names are what matter.
     with pytest.raises(TypeError, match="_press_home'?, '?_put_back'?, '?app_state'?, '?close'?, '?prepare_for_test"):
         Partial()  # type: ignore[abstract]  # instantiating it is what this test checks
-
-
-def test_drop_older_keeps_only_the_current_build_of_that_kind(tmp_path, monkeypatch):
-    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
-    for name in (
-        "ios-agent-aaa",
-        "ios-agent-bbb",
-        "ios-agent-aaa-TEAM1",
-        "ios-agent-A1B2.log",
-        "android-agent-aaa.apk",
-    ):
-        (tmp_path / name).mkdir() if "." not in name else (tmp_path / name).write_text("")
-    (tmp_path / "ios-agent-bbb" / "Build").mkdir()  # a build folder, with what's in it
-    common.drop_older(r"ios-agent-([0-9a-f]+)", "aaa")
-    assert sorted(p.name for p in tmp_path.iterdir()) == [
-        "android-agent-aaa.apk",  # another kind
-        "ios-agent-A1B2.log",  # a device's log
-        "ios-agent-aaa",  # the current one
-        "ios-agent-aaa-TEAM1",  # an iPhone build: another kind
-    ]
-    common.drop_older(r"android-agent-([0-9a-f]+)\.apk", "bbb")
-    assert not (tmp_path / "android-agent-aaa.apk").exists()
 
 
 def test_undo_is_kept_on_disk_until_everything_is_put_back():

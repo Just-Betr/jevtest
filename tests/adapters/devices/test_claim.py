@@ -52,3 +52,30 @@ def test_a_run_claims_a_device_once_however_often_it_is_named(cache):
     later = Claims()
     later.claim("A")  # released: free for the next run
     later.release()
+
+
+def test_a_cache_folder_that_cant_hold_a_claim_says_what_to_do(cache, monkeypatch):
+    def full(self, *args, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(type(cache), "open", full)
+    with pytest.raises(
+        DeviceError, match=r"^can't mark it as in use in .* \(No space left on device\): make that folder writable"
+    ):
+        Claims().claim("A")
+
+
+def test_a_claim_that_cant_be_written_lets_go_of_its_file(cache, monkeypatch):
+    opened = []
+    real_open = type(cache).open
+
+    def open_and_note(self, *args, **kwargs):
+        f = real_open(self, *args, **kwargs)
+        opened.append(f)
+        monkeypatch.setattr(f, "write", lambda text: (_ for _ in ()).throw(OSError(28, "No space left on device")))
+        return f
+
+    monkeypatch.setattr(type(cache), "open", open_and_note)
+    with pytest.raises(DeviceError, match="No space left on device"):
+        Claims().claim("A")
+    assert opened and all(f.closed for f in opened)

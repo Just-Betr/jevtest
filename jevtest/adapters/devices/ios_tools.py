@@ -18,6 +18,7 @@ from pathlib import Path, PurePosixPath
 
 from jevtest.domain.failures import DeviceError
 
+from .cache import AgentBuilds, cache_dir
 from .common import run, run_bytes
 from .tool_output import Object, as_list, as_object, as_text, dig, parse_json, parse_plist, text_at, texts
 
@@ -212,6 +213,21 @@ def app_team(app: Path) -> str:
 
 # Devices tested at the same time share the agent build: one builds and starts it at a time.
 AGENT_LOCK = threading.Lock()
+
+
+def agent_builds(team: str) -> AgentBuilds:
+    """The agent's cached builds: for simulators (`team` empty), or signed by `team` for its iPhones."""
+    return AgentBuilds("ios-agent-", f"-{team}" if team else "")
+
+
+def remove_port_logs() -> None:
+    """Remove the agent logs jevtest 0.9.1 left, one per run, named by port (``ios-agent-8123.log``).
+
+    Since 0.9.2 there is one log per device. Remove this in 1.0, when no 0.9.1 cache is left.
+    """
+    for log in cache_dir().glob("ios-agent-*.log"):
+        if re.fullmatch(r"ios-agent-\d+\.log", log.name):
+            log.unlink(missing_ok=True)
 
 
 def free_port() -> int:

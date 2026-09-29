@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from jevtest.adapters.devices import android_tools
-from jevtest.adapters.devices.common import digest
+from jevtest.adapters.devices.cache import digest
 from jevtest.domain.failures import DeviceError
 from tests.adapters.devices.conftest import swap
 from tests.conftest import PROGRESS, PROGRESS_MESSAGES
@@ -52,7 +52,8 @@ def test_build_agent_is_cached(monkeypatch, tmp_path):
     monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path))
     apk = tmp_path / f"android-agent-{digest(android_tools.AGENT_SRC)}.apk"
     apk.write_text("")
-    assert android_tools.build_agent(PROGRESS) == apk
+    with android_tools.build_agent(PROGRESS) as built:
+        assert built.path == apk
 
 
 def test_build_agent_with_sdk_tools(monkeypatch, tmp_path):
@@ -81,17 +82,35 @@ def test_build_agent_with_sdk_tools(monkeypatch, tmp_path):
         elif cmd[0] == "keytool":
             Path(cmd[cmd.index("-keystore") + 1]).write_text("ks")
         elif cmd[0].endswith("apksigner"):
-            Path(cmd[cmd.index("--out") + 1]).write_bytes(Path(cmd[-1]).read_bytes())
+            if signer_fails:
+                raise DeviceError("apksigner stopped")  # e.g. Ctrl-C partway
+            out = Path(cmd[cmd.index("--out") + 1])
+            out.write_bytes(Path(cmd[-1]).read_bytes())
+            if signs_v4:
+                out.with_name(out.name + ".idsig").write_text("v4")
         return ""
 
     swap(monkeypatch, "run", fake_run)
-    apk = android_tools.build_agent(PROGRESS)
+    signer_fails, signs_v4 = False, True
+    with android_tools.build_agent(PROGRESS) as built:
+        apk = built.path
     assert seen == ["javac", "d8", "aapt2", "zipalign", "keytool", "apksigner"]
     assert "classes.dex" in zipfile.ZipFile(apk).namelist()
+    assert apk.with_name(apk.name + ".idsig").read_text() == "v4"
+    assert (tmp_path / "cache" / "jevtest-debug.keystore").read_text() == "ks"
+    assert sorted(p.name for p in (tmp_path / "cache").iterdir() if p.name.endswith(".part")) == []
     seen.clear()
     apk.unlink()
-    android_tools.build_agent(PROGRESS)
-    assert "keytool" not in seen  # the keystore is reused
+    signer_fails = True
+    with pytest.raises(DeviceError, match="apksigner stopped"):
+        android_tools.build_agent(PROGRESS)
+    assert not apk.exists()  # nothing a later run would take for a built agent
+    signer_fails, signs_v4 = False, False  # older build-tools sign without v4
+    seen.clear()
+    with android_tools.build_agent(PROGRESS) as built:
+        assert "classes.dex" in zipfile.ZipFile(built.path).namelist()
+    assert "keytool" not in seen and "apksigner" in seen  # built again, with the same key
+    assert not apk.with_name(apk.name + ".idsig").exists()  # the first build's would not match
     assert "building the Android agent (one time, a few seconds)" in PROGRESS_MESSAGES
 
 

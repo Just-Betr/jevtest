@@ -104,6 +104,11 @@ class JobResult:
     logs: dict[str, list[str]]
 
 
+def tag(*parts: str) -> str:
+    """How output names a device: ``checkout · android · Pixel 8``, leaving out empty parts (a single file's name)."""
+    return " · ".join(filter(None, parts))
+
+
 def slug(text: str) -> str:
     """`text` as a safe folder name."""
     return re.sub(r"[^A-Za-z0-9._-]+", "_", text).strip("_") or "device"
@@ -115,11 +120,11 @@ def plan(suite: Suite, out: Path, label: str, printer: Printer) -> list[Job]:
     for platform in suite.apps:
         devices = suite.devices[platform]
         for device, tests in zip(devices, shard(suite.tests, len(devices)), strict=True):
-            tag = " · ".join(filter(None, (label, platform.value, device)))
+            named = tag(label, platform.value, device)
             if not tests:
-                printer.block(tag, [f"no tests left for this device ({len(devices)} devices, fewer groups of tests)"])
+                printer.block(named, [f"no tests left for this device ({len(devices)} devices, fewer groups of tests)"])
                 continue
-            jobs.append(Job(replace(suite, tests=tests), platform, device, out / platform.value / slug(device), tag))
+            jobs.append(Job(replace(suite, tests=tests), platform, device, out / platform.value / slug(device), named))
     return jobs
 
 
@@ -344,7 +349,7 @@ def _find_devices(loaded: Loaded, find_device: FindDevice) -> set[str]:
             if find_device(platform, device, app):
                 iphones.add(device)
         except DeviceError as e:
-            raise DeviceError(f"{platform} · {device}: {e}") from None
+            raise DeviceError(f"{tag(platform.value, device)}: {e}") from None
     return iphones
 
 

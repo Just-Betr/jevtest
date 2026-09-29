@@ -1,6 +1,16 @@
-"""Numbers in words, as jevtest's messages write them."""
+"""Words as jevtest writes and compares them: numbers in words, and text in one Unicode encoding."""
 
 from __future__ import annotations
+
+import unicodedata
+
+
+def nfc(text: str) -> str:
+    """`text` with each letter in one encoding (NFC): an é written as an e and an accent becomes the one-character é.
+
+    Apps and keyboards write both; compared this way, they are the same text.
+    """
+    return unicodedata.normalize("NFC", text)
 
 
 def plural(n: int, noun: str, many: str | None = None) -> str:

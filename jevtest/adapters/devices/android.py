@@ -24,13 +24,13 @@ from . import tool_says as says
 from ._typing import override
 from .android_screen import EDITABLE, has_empty_webview, keyboard_up, parse_screen, typing_ready
 from .android_tools import aapt2_path, adb_path, build_agent, bundletool_path, devices, http_get, pick_device
+from .cache import cache_dir
 from .common import (
     AgentRefused,
     BaseDevice,
     Progress,
     ToolFailed,
     Undo,
-    cache_dir,
     no_app_opens,
     run,
     run_bytes,
@@ -130,11 +130,11 @@ class AndroidDevice(BaseDevice):
     # --- agent -------------------------------------------------------------------
     def _install_agent(self) -> None:
         """Install the agent, unless this version of it is installed."""
-        apk = build_agent(self._progress)
-        version = apk.stem.rsplit("-", 1)[1]
-        if f"versionName={version}" not in self.sh(f"dumpsys package {AGENT_ID} | grep versionName", check=False):
-            self.sh(f"pm uninstall {AGENT_ID}", check=False)  # any older copy, whatever key signed it
-            run([self.adb, "-s", self.serial, "install", str(apk)], timeout=120)
+        with build_agent(self._progress) as apk:
+            installed = self.sh(f"dumpsys package {AGENT_ID} | grep versionName", check=False)
+            if f"versionName={apk.version}" not in installed:
+                self.sh(f"pm uninstall {AGENT_ID}", check=False)  # any older copy, whatever key signed it
+                run([self.adb, "-s", self.serial, "install", str(apk.path)], timeout=120)
 
     def _stop_old_agent(self) -> None:
         """Stop an agent a previous run left running: it would hold the port."""

@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
 import re
-import shutil
 import subprocess
 import threading
 import time
@@ -19,6 +16,8 @@ from jevtest.adapters.shapes import is_json_object
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Direction
 from jevtest.domain.screen import Element, Screen
+
+from .cache import in_use_dir
 
 FOLLOW_UP = 3.0
 """Seconds a device waits for its own follow-ups to an action: a tapped field taking keyboard focus, a web
@@ -95,11 +94,6 @@ def run(cmd: list[str], *, timeout: float = 120, check: bool = True) -> str:
     return run_bytes(cmd, timeout=timeout, check=check).decode(errors="replace")
 
 
-def cache_dir() -> Path:
-    """Where built agents and their logs are kept: ``$JEVTEST_CACHE``, or ``~/.cache/jevtest``."""
-    return Path(os.environ.get("JEVTEST_CACHE", Path.home() / ".cache" / "jevtest"))
-
-
 class Undo:
     """What puts back each thing steps changed on a device, by what it is in words, kept on disk as it changes.
 
@@ -110,7 +104,7 @@ class Undo:
 
     def __init__(self, device_id: str) -> None:
         self._entries: dict[str, object] = {}
-        self.path = cache_dir() / "in-use" / f"{device_id}.undo.json"
+        self.path = in_use_dir() / f"{device_id}.undo.json"
 
     def __contains__(self, what: str) -> bool:
         return what in self._entries
@@ -120,7 +114,6 @@ class Undo:
         if what in self._entries:
             return
         self._entries[what] = how()
-        self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(self._entries))
 
     def entries(self) -> dict[str, object]:
@@ -139,32 +132,6 @@ class Undo:
         except (OSError, json.JSONDecodeError):
             return {}
         return dict(data) if is_json_object(data) else {}
-
-
-def drop_older(kind: str, keep: str) -> None:
-    """Remove the cached builds that `kind` (a regex whose first group is a version) matches, but for `keep`.
-
-    Every jevtest version whose agent differs builds its own; without this the cache only grows (measured: 6.5 GB of
-    iOS agent builds at about 150 MB each).
-    """
-    pattern = re.compile(kind)
-    for entry in cache_dir().iterdir():
-        found = pattern.fullmatch(entry.name)
-        if found and found[1] != keep:
-            if entry.is_dir():
-                shutil.rmtree(entry, ignore_errors=True)
-            else:
-                entry.unlink(missing_ok=True)
-
-
-def digest(src: Path) -> str:
-    """Hash of a source tree, so a changed on-device agent gets rebuilt."""
-    h = hashlib.sha256()
-    for f in sorted(src.rglob("*")):
-        if f.is_file() and "xcuserdata" not in f.parts:
-            h.update(str(f.relative_to(src)).encode())
-            h.update(f.read_bytes())
-    return h.hexdigest()[:12]
 
 
 def start_process(

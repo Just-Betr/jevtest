@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import dataclasses
 import re
-import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
+
+from .words import nfc
 
 Bounds = tuple[int, int, int, int]
 """An element's rectangle: left, top, right, bottom, in the device's own units."""
@@ -23,7 +24,7 @@ def folded(text: str) -> str:
 
     So an é typed as an e and an accent matches an é stored as one character.
     """
-    return unicodedata.normalize("NFC", text).casefold()
+    return nfc(text).casefold()
 
 
 def one_space(text: str) -> str:

@@ -15,7 +15,8 @@ from pathlib import Path
 
 from jevtest.domain.failures import DeviceError
 
-from .common import Progress, cache_dir, digest, drop_older, run
+from .cache import AgentBuilds, BuildInUse, cache_dir, digest
+from .common import Progress, run
 
 AGENT_SRC = Path(__file__).resolve().parent / "android_agent"
 """The on-device agent's source, built into an APK the first time a version is needed."""
@@ -105,20 +106,34 @@ def http_get(url: str, timeout: float) -> str:
 AGENT_LOCK = threading.Lock()
 
 
-def build_agent(progress: Progress) -> Path:
-    """The agent APK, built once per source version and cached (older versions removed); one device at a time."""
-    with AGENT_LOCK:
-        apk = _build_agent(progress)
-        drop_older(r"android-agent-([0-9a-f]+)\.apk(?:\.idsig)?", digest(AGENT_SRC))
-        return apk
+AGENT_BUILDS = AgentBuilds("android-agent-", ".apk", beside=(".idsig", ".part", ".idsig.part"))
+"""The agent APKs in the cache, with the ``.idsig`` apksigner writes beside each, and what a build that stopped
+partway left (see `_put_in_place`)."""
 
 
-def _build_agent(progress: Progress) -> Path:
-    """Compile the on-device agent with the SDK's own tools (no Gradle). Cached by source hash."""
+def build_agent(progress: Progress) -> BuildInUse:
+    """The agent APK, built once per source version and cached (older versions removed); one device at a time.
+
+    The caller closes it once the APK is installed, so no other jevtest run removes it before then.
+    """
     version = digest(AGENT_SRC)
-    apk = cache_dir() / f"android-agent-{version}.apk"
-    if apk.exists():
+    with AGENT_LOCK:
+        apk = AGENT_BUILDS.use(version)
+        try:
+            if not apk.path.exists():
+                _build_agent(apk.path, version, progress)
+            AGENT_BUILDS.drop_older(keep=version)
+        except BaseException:
+            apk.close()
+            raise
         return apk
+
+
+def _build_agent(apk: Path, version: str, progress: Progress) -> None:
+    """Compile the on-device agent with the SDK's own tools (no Gradle) into `apk`.
+
+    `apk` appears only once it's whole: a build that stops partway leaves nothing a later run would take for built.
+    """
     root = sdk_root()
     tools = sorted(root.glob("build-tools/*")) if root else []
     jars = sorted(root.glob("platforms/android-*/android.jar")) if root else []
@@ -169,7 +184,7 @@ def _build_agent(progress: Progress) -> Path:
         with zipfile.ZipFile(t / "base.apk", "a") as z:
             z.write(t / "classes.dex", "classes.dex")
         run([str(bt / "zipalign"), "-f", "4", str(t / "base.apk"), str(t / "aligned.apk")])
-        apk.parent.mkdir(parents=True, exist_ok=True)
+        cache_dir().mkdir(parents=True, exist_ok=True)
         keystore = cache_dir() / "jevtest-debug.keystore"
         if not keystore.exists():
             run(
@@ -177,7 +192,7 @@ def _build_agent(progress: Progress) -> Path:
                     "keytool",
                     "-genkeypair",
                     "-keystore",
-                    str(keystore),
+                    str(t / "new.keystore"),
                     "-storepass",
                     "android",
                     "-alias",
@@ -192,6 +207,7 @@ def _build_agent(progress: Progress) -> Path:
                     "CN=jevtest",
                 ]
             )
+            _put_in_place(t / "new.keystore", keystore)
         run(
             [
                 str(bt / "apksigner"),
@@ -201,8 +217,24 @@ def _build_agent(progress: Progress) -> Path:
                 "--ks-pass",
                 "pass:android",
                 "--out",
-                str(apk),
+                str(t / "signed.apk"),
                 str(t / "aligned.apk"),
             ]
         )
-    return apk
+        signature, beside = t / "signed.apk.idsig", apk.with_name(apk.name + ".idsig")
+        if signature.exists():  # apksigner writes one when it signs with v4 (build-tools 37 does: measured)
+            _put_in_place(signature, beside)
+        else:
+            beside.unlink(missing_ok=True)  # an earlier build's would not match this APK
+        _put_in_place(t / "signed.apk", apk)  # last: the APK is there only with all of it
+
+
+def _put_in_place(made: Path, final: Path) -> None:
+    """Move a file made elsewhere to `final` in one step, so `final` is never there half written.
+
+    The temporary folder may be on another disk, where a move is a copy: the copy is made next to `final`, as
+    ``….part``, and renamed, which is one step.
+    """
+    part = final.with_name(final.name + ".part")
+    shutil.move(made, part)
+    part.replace(final)
