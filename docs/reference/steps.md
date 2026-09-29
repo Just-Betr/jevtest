@@ -90,7 +90,7 @@ When nothing matches but a longer text contains the target, the step fails and l
 
 ### Device
 
-These change device state because the test asks for it. Anything jevtest changes, it changes back when the run ends.
+These change device state because the test asks for it. Anything jevtest changes, it changes back when the run ends, however it ends: a run killed outright (`kill -9`, a CI job past its grace period) can't, so the next run on that device puts it back first, and says so.
 
 | Action | Does |
 |---|---|

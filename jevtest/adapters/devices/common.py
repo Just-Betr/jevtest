@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -10,13 +11,16 @@ import subprocess
 import threading
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, TypeVar
 
+from jevtest.adapters.shapes import is_json_object
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction
 from jevtest.domain.screen import Element, Screen
+
+from ._typing import override
 
 FOLLOW_UP = 3.0
 """Seconds a device waits for its own follow-ups to an action: a tapped field taking keyboard focus, a web
@@ -74,6 +78,48 @@ def run(cmd: list[str], *, timeout: float = 120, check: bool = True) -> str:
 def cache_dir() -> Path:
     """Where built agents and their logs are kept: ``$JEVTEST_CACHE``, or ``~/.cache/jevtest``."""
     return Path(os.environ.get("JEVTEST_CACHE", Path.home() / ".cache" / "jevtest"))
+
+
+V = TypeVar("V")
+
+
+class Undo(dict[str, V]):
+    """What puts back each thing steps changed on a device, by name, kept on disk as it changes.
+
+    A run that ends normally puts it all back and forgets it. One that is killed outright (``kill -9``, a CI job
+    past its grace period) can't: the next run on the device finds what it left, and puts that back first.
+    """
+
+    def __init__(self, device_id: str) -> None:
+        super().__init__()
+        self.path = cache_dir() / "in-use" / f"{device_id}.undo.json"
+
+    @staticmethod
+    def described(left: Mapping[str, object]) -> str:
+        """What a stopped run left changed, in words: ``dark mode, network``."""
+        words = {"/appearance": "dark mode", "dark_mode": "dark mode", "/rotate": "rotation"}
+        return ", ".join(words.get(what, what) for what in left)
+
+    def left_by_a_stopped_run(self) -> dict[str, object]:
+        """What a run that couldn't finish left to put back on this device; {} if nothing."""
+        try:
+            data: object = json.loads(self.path.read_text())
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return dict(data) if is_json_object(data) else {}
+
+    @override
+    def __setitem__(self, key: str, value: V) -> None:
+        """Remember how to put `key` back, on disk at once."""
+        super().__setitem__(key, value)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(self))
+
+    @override
+    def clear(self) -> None:
+        """Everything is put back: forget it, on disk too."""
+        super().clear()
+        self.path.unlink(missing_ok=True)
 
 
 def drop_older(kind: str, keep: str) -> None:

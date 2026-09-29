@@ -19,10 +19,11 @@ import shutil
 import subprocess
 import tempfile
 from base64 import b64decode
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
+from jevtest.adapters.shapes import is_json_object
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
@@ -32,6 +33,7 @@ from ._typing import override
 from .common import (
     BaseDevice,
     Progress,
+    Undo,
     cache_dir,
     digest,
     drop_older,
@@ -106,11 +108,16 @@ class IOSDevice(BaseDevice):
         self.app_id = ""
         self.agent_log = cache_dir() / f"ios-agent-{target.udid}.log"
         self.app_path: Path | None = None
-        self._restore: dict[str, dict[str, object]] = {}  # agent call -> body that puts back what a step changed
-        self._location_set = False
+        # agent call -> body that puts back what a step changed; "location" for a simulator's
+        self._restore: Undo[dict[str, object]] = Undo(target.udid)
         try:
             self.team = xcode_team(app_team(app_bundle(app, Path(self._tmp.name) / "team"))) if self.physical else ""
             self._start_agent()
+            left = self._restore.left_by_a_stopped_run()
+            if left:
+                self._progress(f"putting back what a run that was stopped left changed: {Undo.described(left)}")
+                self._put_back(left)
+                self._restore.clear()
         except BaseException:
             self._tmp.cleanup()  # the caller never gets a device to close
             raise
@@ -244,13 +251,16 @@ class IOSDevice(BaseDevice):
     @override
     def restore(self) -> None:
         """Put back what steps changed (appearance, orientation, a simulator's location)."""
-        for path, body in self._restore.items():
-            with contextlib.suppress(DeviceError):
-                self._call(path, **body)
+        self._put_back(self._restore)
         self._restore.clear()
-        if self._location_set and not self.physical:
-            simctl("location", self.udid, "clear")
-        self._location_set = False
+
+    def _put_back(self, changed: Mapping[str, object]) -> None:
+        for path, body in changed.items():
+            with contextlib.suppress(DeviceError):
+                if path == "location":
+                    simctl("location", self.udid, "clear")
+                elif is_json_object(body):
+                    self._call(path, **body)
 
     def _remember(self, path: str) -> None:
         """Before the first change through `path`, note the current value so close() can put it back."""
@@ -439,7 +449,8 @@ class IOSDevice(BaseDevice):
 
     def set_location(self, latitude: float, longitude: float) -> None:
         """Simulate a GPS location; on a simulator it's cleared on close."""
-        self._location_set = True
+        if not self.physical:
+            self._restore["location"] = {}
         if self.physical:
             self._call("/location", lat=latitude, lon=longitude)
         else:

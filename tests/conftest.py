@@ -61,6 +61,12 @@ class FakeModel:
         return answers
 
 
+@pytest.fixture(autouse=True)
+def _own_cache(tmp_path_factory, monkeypatch):
+    """No test reads or writes the real ~/.cache/jevtest (agents, device claims, undo records)."""
+    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path_factory.mktemp("cache")))
+
+
 def act(action, target=None, field=None, value=None, confidence=0.9):
     """Jev's answers for Brain.next_action."""
     out = {

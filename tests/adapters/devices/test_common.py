@@ -170,3 +170,27 @@ def test_drop_older_keeps_only_the_current_build_of_that_kind(tmp_path, monkeypa
     ]
     common.drop_older(r"android-agent-([0-9a-f]+)\.apk", "bbb")
     assert not (tmp_path / "android-agent-aaa.apk").exists()
+
+
+def test_undo_is_kept_on_disk_until_everything_is_put_back():
+    undo: common.Undo[str] = common.Undo("dev-1")
+    assert undo.left_by_a_stopped_run() == {}
+    undo["dark_mode"] = "cmd uimode night no"
+    undo["network"] = "svc wifi enable"
+    # a run killed now leaves both for the next run on the device
+    assert common.Undo("dev-1").left_by_a_stopped_run() == {
+        "dark_mode": "cmd uimode night no",
+        "network": "svc wifi enable",
+    }
+    undo.clear()
+    assert common.Undo("dev-1").left_by_a_stopped_run() == {}
+    undo.path.write_text("not json")
+    assert undo.left_by_a_stopped_run() == {}
+    undo.path.write_text("[1]")
+    assert undo.left_by_a_stopped_run() == {}
+
+
+def test_what_was_left_is_said_in_words():
+    assert common.Undo.described({"/appearance": {}, "/rotate": {}, "location": {}, "network": ""}) == (
+        "dark mode, rotation, location, network"
+    )

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from jevtest.adapters.devices.common import Undo
 from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.screen import Element
@@ -369,3 +370,22 @@ def test_a_key_with_no_keyboard_up_says_ios_needs_a_field(drv, env, monkeypatch)
     ):
         drv.key("enter")
     assert "/key" not in env[1].paths()
+
+
+def test_what_a_killed_run_left_changed_is_put_back_first_on_ios(env):
+    left: Undo[dict[str, object]] = Undo("A")
+    left["/appearance"] = {"raw": 1}
+    left["location"] = {}
+    d = IOSDevice("A", Path("Demo.app"), PROGRESS)
+    assert ("/appearance", {"raw": 1}) in [
+        (p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in env[1].calls
+    ]
+    assert any(c.endswith("location A clear") for c in env[0].cmds)
+    assert d._restore.left_by_a_stopped_run() == {}
+
+
+def test_a_damaged_undo_entry_is_skipped(env):
+    Undo("A").path.parent.mkdir(parents=True, exist_ok=True)
+    Undo("A").path.write_text('{"/rotate": 5}')  # not a request body
+    IOSDevice("A", Path("Demo.app"), PROGRESS)
+    assert "/rotate" not in env[1].paths()

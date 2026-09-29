@@ -26,6 +26,7 @@ from .android_tools import aapt2_path, adb_path, build_agent, devices, http_get,
 from .common import (
     BaseDevice,
     Progress,
+    Undo,
     cache_dir,
     no_app_opens,
     run,
@@ -101,8 +102,14 @@ class AndroidDevice(BaseDevice):
         self._size: tuple[int, int] | None = None
         self.port = 0
         self.agent: subprocess.Popen[str] | None = None
-        self._restore: dict[str, str] = {}  # what -> shell command that puts back what a step changed
+        self._restore: Undo[str] = Undo(self.serial)  # what -> shell command that puts back what a step changed
         self._start_agent()
+        left = self._restore.left_by_a_stopped_run()
+        if left:
+            self._progress(f"putting back what a run that was stopped left changed: {Undo.described(left)}")
+            for command in left.values():
+                self.sh(str(command), check=False)
+            self._restore.clear()
 
     # --- agent -------------------------------------------------------------------
     def _start_agent(self) -> None:

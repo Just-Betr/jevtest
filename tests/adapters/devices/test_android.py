@@ -6,6 +6,7 @@ import pytest
 
 from jevtest.adapters.devices import android
 from jevtest.adapters.devices.android import KEYCODES, AndroidDevice
+from jevtest.adapters.devices.common import Undo
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction, Orientation
 from jevtest.domain.screen import Element
@@ -569,3 +570,11 @@ def test_an_agent_that_stopped_is_started_again_before_the_next_test(drv, adb):
     drv.check_ready()
     assert drv.agent is not first and drv.agent.poll() is None
     assert any("forward --remove tcp:" in c for c in adb.cmds)  # the old port forward goes
+
+
+def test_what_a_killed_run_left_changed_is_put_back_first(adb, agent):
+    left: Undo[str] = Undo("emulator-5554")
+    left["dark_mode"] = "cmd uimode night no"  # a run set dark mode, then was killed (kill -9)
+    d = AndroidDevice("emulator-5554", PROGRESS)
+    assert "cmd uimode night no" in adb.shell()
+    assert d._restore.left_by_a_stopped_run() == {}  # put back, and forgotten
