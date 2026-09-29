@@ -308,3 +308,11 @@ def test_jev_is_never_sent_a_variables_value():
     sent = json.dumps(model.asked)
     assert "ann@x.io" not in sent
     assert "Welcome, ${EMAIL}" in sent and "Log out ${EMAIL}" in sent
+
+
+def test_jev_is_told_typing_adds_to_a_fields_text():
+    """Without it, "change the nickname to Ada" typed Ada after Guest (measured: GuestAda); with it, Jev clears first."""
+    from jevtest.application.brain import ACTIONS
+
+    assert "added to any text already in the field" in ACTIONS["type"]
+    assert "clear the field first" in ACTIONS["type"]

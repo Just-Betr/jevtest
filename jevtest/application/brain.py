@@ -48,8 +48,9 @@ ACTIONS = {
     "long_press": "Long press (press and hold) an element. Only when the goal asks to hold or long press.",
     "swipe_left_on": "Swipe left on one element, e.g. to delete a list row or reveal its actions.",
     "swipe_right_on": "Swipe right on one element.",
-    "type": "Type one of the goal's quoted values into a text field.",
-    "clear": "Erase the existing text in a text field.",
+    "type": "Type one of the goal's quoted values into a text field. It is added to any text already in the field: "
+    "to replace that text, clear the field first.",
+    "clear": "Erase the existing text in a text field, e.g. before typing a value that replaces it.",
     "scroll_down": "Scroll down: the element the goal needs is not in `screen` and may be further down "
     "(or under the keyboard).",
     "scroll_up": "Scroll up: the element the goal needs is not on screen and may be further up.",

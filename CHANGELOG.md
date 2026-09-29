@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- A `do:` that changes a field's text ("change the nickname to \"Ada\"") replaces it: Jev typed after the text already
+  there (`GuestAda`), as it wasn't told typing adds to it. It is now, and clears first (measured: 6 of 6, Android and
+  iOS). Steps already saved, and recorded answers, are unchanged.
+
 ## 0.9.10
 
 - `--platform` also leaves out the other platforms' `${NAME}`s: a both-platform file whose iOS device and build
