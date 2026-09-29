@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Android types any text: `José`, `日本`, emoji. adb's `input text` types only a US keyboard's keys, so a line with
+  other letters now goes in at the cursor through jevtest's agent, all at once rather than key by key (ASCII is still
+  typed key by key). Into a password field only while it's empty: Android hides what's in it. Tests that typed such
+  text were an error before the run; now they run. Measured on Flutter, native and web fields, on Android 17 and 13
+  (where the web page's focused field had to be found by walking the screen: WebView 146 answers with the WebView).
+
 ## 0.9.2
 
 - `grant:` takes several permissions (`grant: [camera, microphone]`), and names per platform, so a file that runs

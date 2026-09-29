@@ -24,15 +24,14 @@ from jevtest.adapters.reports.junit import write_junit
 from jevtest.adapters.testfile.discovery import find_test_files
 from jevtest.adapters.testfile.env import read_env
 from jevtest.adapters.testfile.loader import load
-from jevtest.application.brain import Brain, quoted_values
+from jevtest.application.brain import Brain
 from jevtest.application.planning import shard
 from jevtest.application.runner import TestRunner
 from jevtest.domain.failures import DeviceError, ModelError, TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 from jevtest.domain.results import RunResult
-from jevtest.domain.steps import Do, Expect, Grant, Network, Step, Suite, Test, TypeText, Use
-from jevtest.domain.variables import fill, hide
+from jevtest.domain.steps import Do, Expect, Grant, Network, Step, Suite, Test, Use
 
 from .console import ConsoleListener, Printer, summary
 
@@ -288,8 +287,6 @@ def _check_runnable(loaded: Loaded, options: RunOptions) -> None:
                 f"'{network}' has a network: step. Put Android-only tests in a file whose app: is Android only"
             )
     for suite, _ in loaded:
-        if Platform.ANDROID in suite.apps:
-            _check_android_typing(suite)
         _check_grants(suite)
     if options.lock in (LockMode.REFRESH, LockMode.OFF):
         keyless = [suite.path.name for suite, env in loaded if not env.get(API_KEY) and _asks_jev(suite)]
@@ -364,28 +361,6 @@ def _check_grants(suite: Suite) -> None:
                         f"needs the full name, e.g. android.permission.{permission.upper()}. For both platforms: "
                         f"grant: {{android: android.permission.{permission.upper()}, ios: {permission}}}"
                     )
-
-
-def _check_android_typing(suite: Suite) -> None:
-    """Android types only ASCII (`adb shell input text`): text it can't type is an error before the run.
-
-    What a step types (with its values filled in), and the quoted values a `do:` lets Jev type.
-    """
-    for name, step in _steps(suite):
-        match step.action:
-            case TypeText(text):
-                typed = [fill(text, suite.variables)]
-            case Do(goal):
-                typed = [fill(v, suite.variables) for v in quoted_values(goal)]
-            case _:
-                typed = []
-        for text in typed:
-            if not text.isascii():
-                shown = hide(text, suite.variables)
-                raise TestFileError(
-                    f"{suite.path.name} runs on Android, which types only ASCII (adb's `input text`), and test "
-                    f"'{name}' types {shown!r}. Put that test in a file whose app: is iOS only, or type only ASCII"
-                )
 
 
 def _asks_jev(suite: Suite) -> bool:

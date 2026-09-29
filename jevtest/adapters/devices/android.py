@@ -12,6 +12,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import urllib.parse
 import xml.etree.ElementTree as ET
 from collections.abc import Sequence
 from pathlib import Path
@@ -369,17 +370,24 @@ class AndroidDevice(BaseDevice):
         )
 
     def type_text(self, text: str, at: Point | None = None) -> None:
-        """Type into the focused field, or first focus the field at `at`."""
-        if not text.isascii():
-            raise DeviceError("Android `input text` only supports ASCII characters")
+        """Type into the focused field, or first focus the field at `at`.
+
+        ASCII is typed key by key (`adb shell input text`). A line with any other letter (`José`, `日本`) is put in at
+        the cursor by the agent: `input text` types only the keys of a US keyboard.
+        """
         if at:  # focus the field, then wait until it has focus and the keyboard is up
             self.tap(*at)
             self._wait_for_typing()
-        # Newlines become Enter presses. `input text` types %s as a space and has no escape for it, so each piece
-        # ends right after a % and no piece holds a %s of the text's own; spaces are then written as %s (measured).
         for i, line in enumerate(text.split("\n")):
             if i:
-                self.key("enter")
+                self.key("enter")  # newlines become Enter presses
+            if not line.isascii():
+                answer = self._agent("/insert?text=" + urllib.parse.quote(line, safe=""))
+                if answer != "inserted":
+                    raise DeviceError(f"Couldn't type {line!r}: {answer}")
+                continue
+            # `input text` types %s as a space and has no escape for it, so each piece ends right after a % and no
+            # piece holds a %s of the text's own; spaces are then written as %s (measured).
             pieces = re.findall(r"[^%]*%|[^%]+", line)
             if pieces:
                 self.sh("; ".join("input text " + shlex.quote(p.replace(" ", "%s")) for p in pieces))

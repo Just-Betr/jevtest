@@ -6,6 +6,7 @@ import android.app.UiAutomation;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Display;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -17,6 +18,7 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -33,6 +35,8 @@ import java.util.List;
  *   GET /pixels?rects=x1,y1,x2,y2;x1,y1,x2,y2;... -> a fingerprint of the pixels in those parts of the
  *                       screen, from one screenshot: a system dialog fading or sliding in reports bounds in
  *                       the tree that don't move with it, so only its pixels show it is still moving
+ *   GET /insert?text=T -> inserts T (URL-encoded, any text) at the cursor of the field with input focus, as typing
+ *                       would; answers "inserted", or why not. For what `adb shell input text` can't type.
  *   GET /quit        -> stops the agent
  * When it is listening it reports status "ready=1" (visible with `am instrument -r`).
  * Reading the tree this way takes milliseconds instead of the ~2 s that a fresh
@@ -77,6 +81,8 @@ public class Agent extends Instrumentation {
                         body = tree(ui);
                     } else if (path.equals("/pixels")) {
                         body = pixels(ui, text(target, "rects"));
+                    } else if (path.equals("/insert")) {
+                        body = insert(ui, URLDecoder.decode(text(target, "text"), "UTF-8"));
                     } else if (path.equals("/rotate")) {
                         body = ui.setRotation((int) param(target, "to", -1)) ? "rotated" : "refused";
                     } else if (path.equals("/quit")) {
@@ -97,6 +103,71 @@ public class Agent extends Instrumentation {
             return;
         }
         finish(0, new Bundle());
+    }
+
+    /**
+     * Insert text at the cursor of the field with input focus, as typing would: the field's text becomes what's
+     * before the cursor (or selection), the text, and what's after, and the cursor goes after the text.
+     */
+    private static String insert(UiAutomation ui, String typed) {
+        AccessibilityNodeInfo root = ui.getRootInActiveWindow();
+        AccessibilityNodeInfo field = root == null ? null : root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+        if ((field == null || !editable(field)) && root != null) {
+            // In a web page, findFocus can answer with the WebView, which holds the input focus, rather than the
+            // focused <input> inside it (measured: WebView 146); the <input> itself is marked focused.
+            field = focusedField(root);
+        }
+        if (field == null || !editable(field)) {
+            return "no text field has input focus";
+        }
+        CharSequence shown = field.getText();
+        boolean hint = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && field.isShowingHintText();
+        String now = shown == null || hint ? "" : shown.toString();
+        if (field.isPassword() && !now.isEmpty()) {
+            return "a password field hides its text, so text can only be put into it while it's empty";
+        }
+        int start = Math.min(field.getTextSelectionStart(), field.getTextSelectionEnd());
+        int end = Math.max(field.getTextSelectionStart(), field.getTextSelectionEnd());
+        if (start < 0 || end > now.length()) {
+            start = now.length();
+            end = now.length();
+        }
+        Bundle text = new Bundle();
+        text.putCharSequence(
+                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                now.substring(0, start) + typed + now.substring(end));
+        if (!field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, text)) {
+            return "the field refused the text";
+        }
+        Bundle cursor = new Bundle();
+        cursor.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, start + typed.length());
+        cursor.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, start + typed.length());
+        field.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, cursor);
+        return "inserted";
+    }
+
+    /**
+     * Whether the node takes typed text: as jevtest's screen reading decides it, by its class, since WebView 146
+     * doesn't mark its focused {@code <input>} editable (measured).
+     */
+    private static boolean editable(AccessibilityNodeInfo node) {
+        String cls = String.valueOf(node.getClassName());
+        return node.isEditable() || cls.endsWith("EditText") || cls.endsWith("AutoCompleteTextView");
+    }
+
+    /** The focused editable node under `node`, found by walking the tree; null if none. */
+    private static AccessibilityNodeInfo focusedField(AccessibilityNodeInfo node) {
+        if (node.isFocused() && editable(node)) {
+            return node;
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            AccessibilityNodeInfo found = child == null ? null : focusedField(child);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     private static String text(String target, String name) {

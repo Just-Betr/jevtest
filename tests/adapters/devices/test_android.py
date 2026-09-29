@@ -289,8 +289,17 @@ def test_type_text_blank_lines_are_just_enter(drv, adb):
     assert adb.shell() == ["input text a", "input keyevent 66", "input keyevent 66", "input text b"]
 
 
-def test_type_text_rejects_non_ascii(drv):
-    with pytest.raises(DeviceError, match="ASCII"):
+def test_letters_adb_cant_type_are_put_in_by_the_agent(drv, adb, agent):
+    """`input text` types only a US keyboard's keys: a line with any other letter goes to the agent, whole."""
+    agent.replies["/insert"] = "inserted"
+    drv.type_text("José + Zoë 日本\nplain 50%")
+    assert agent.paths()[-1] == "/insert?text=Jos%C3%A9%20%2B%20Zo%C3%AB%20%E6%97%A5%E6%9C%AC"
+    assert adb.shell() == ["input keyevent 66", "input text plain%s50%"]  # ASCII lines still key by key
+
+
+def test_text_the_agent_couldnt_put_in_says_why(drv, agent):
+    agent.replies["/insert"] = "no text field has input focus"
+    with pytest.raises(DeviceError, match="^Couldn't type 'café': no text field has input focus$"):
         drv.type_text("café")
 
 

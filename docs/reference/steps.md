@@ -69,7 +69,7 @@ When nothing matches but a longer text contains the target, the step fails and l
 | Action | Does |
 |---|---|
 | `type: text` | Types into the field that has focus: waits until the keyboard is up, and fails if it never comes (keys would go nowhere). |
-| `type: { text: "…", into: target }` | Taps the field, then types. Text is typed exactly as written, spaces included. Android types only ASCII (adb's `input text`): a test that runs on Android and types other letters (`José`), directly or as a `do:`'s quoted value, is an error before the run. iOS types any text. |
+| `type: { text: "…", into: target }` | Taps the field, then types. Text is typed exactly as written, spaces included. Any text, on both platforms: `José`, `日本`, emoji. On Android, a line with letters beyond a US keyboard's goes in at the cursor all at once rather than key by key, and into a password field only while it's empty. |
 | `clear: target` | Erases a text field. |
 | `key: name` | Presses a key. On both platforms: `enter` (or `return`), `delete` (or `backspace`), `tab`, `escape`, `space`. On Android also `back`, `home`, `menu`, `search`, `app_switch`, `power`, `volume_up`, `volume_down`, `dpad_up`, `dpad_down`, `dpad_left`, `dpad_right`, `move_home`, `move_end`, or a key code number in quotes (`key: "67"`). Names are exact and checked when the file loads. iOS presses keys only into a field, so there the step waits until the keyboard is up. |
 | `hide_keyboard` | Closes the on-screen keyboard. |

@@ -727,37 +727,6 @@ def test_asking_for_a_library_test_says_what_runs_it(tmp_path, monkeypatch, fake
     assert message in capsys.readouterr().err
 
 
-@pytest.mark.parametrize(
-    ("step", "shown"),
-    [
-        ("{type: José}", "'José'"),
-        ("{type: {text: '${NAME}', into: Name}}", "'${NAME}'"),  # the value is never printed
-        ("{do: 'Type \"Zoë\" into Name'}", "'Zoë'"),
-    ],
-)
-def test_text_android_cant_type_is_an_error_before_the_run(tmp_path, monkeypatch, fakes, capsys, step, shown):
-    spec_file(tmp_path, tests=f"  - {{name: T, fresh: true, steps: [{step}]}}\n")
-    (tmp_path / ".env").write_text("NAME=Zoë\n")
-    monkeypatch.chdir(tmp_path)
-    assert fakes.run() == 2
-    err = capsys.readouterr().err
-    assert f"t.yaml runs on Android, which types only ASCII (adb's `input text`), and test 'T' types {shown}" in err
-    assert "Zoë" not in err or shown == "'Zoë'"
-    assert fakes.devices == []
-
-
-def test_ios_types_any_text(tmp_path, monkeypatch, fakes):
-    spec_file(
-        tmp_path,
-        app="app: a.zip\n",
-        device="device: {ios: iPhone 17}\n",
-        tests="  - {name: T, fresh: true, steps: [{type: José}]}\n",
-    )
-    (tmp_path / "a.zip").write_text("")
-    monkeypatch.chdir(tmp_path)
-    assert fakes.run() != 2
-
-
 BOTH = {"app": "app: {android: a.apk, ios: a.zip}\n", "device": "device: {android: emulator-5554, ios: iPhone 17}\n"}
 
 
