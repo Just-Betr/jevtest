@@ -182,7 +182,7 @@ def test_app_lifecycle_uses_devicectl_and_the_agent(dev, phone):
     dev.clear_data()
     calls = [c[:3] for c in phone.ctl.calls]
     assert calls == [("device", "process", "launch"), ("device", "uninstall", "app"), ("device", "install", "app")]
-    assert "--terminate-existing" in phone.ctl.calls[0]
+    assert "--terminate-existing" not in phone.ctl.calls[0]  # a running app comes back as it was, as elsewhere
     # after the reinstall, no permission decided, as a new install has: an uninstall doesn't always clear them
     assert [p for p, _ in phone[1].calls] == ["/wait_foreground", "/terminate", "/terminate", "/reset_permissions"]
 

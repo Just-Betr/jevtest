@@ -318,9 +318,13 @@ class IOSDevice(BaseDevice):
             simctl("install", self.udid, str(self.app_path), timeout=300)
 
     def launch(self) -> None:
-        """Launch the app and wait until it's in the foreground."""
+        """Launch the app and wait until it's in the foreground; one that's running comes back as it was.
+
+        That's what `simctl launch` and Android's `am start` do; devicectl did too once `--terminate-existing` was
+        dropped (measured: the same process). A test that wants a new start stops the app first (`restart:`).
+        """
         if self.physical:
-            devicectl("device", "process", "launch", "--device", self.udid, "--terminate-existing", self.app_id)
+            devicectl("device", "process", "launch", "--device", self.udid, self.app_id)
         else:
             simctl("launch", self.udid, self.app_id)
         self._call("/wait_foreground", timeout=APP_WAIT)

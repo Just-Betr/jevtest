@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- On an iPhone, `launch` after `home` started the app anew (signed out), while simulators and Android bring it back
+  as it was. It now comes back as it was there too; `restart`, and a fresh test, still start it anew.
 - iOS on a Mac with only the Command Line Tools says to install Xcode and select it, instead of `xcrun simctl … failed
   (72): unable to find utility "simctl"`; without xcrun at all, that iOS needs a Mac with Xcode.
 - A first Android run without a JDK says to install one (11 or newer) and put it on the PATH, instead of

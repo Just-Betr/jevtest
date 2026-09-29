@@ -80,7 +80,7 @@ When nothing matches but a longer text contains the target, the step fails and l
 |---|---|
 | `back` | System back on Android. On iOS: the "Back" button, else the navigation bar's back button, else an edge swipe. |
 | `home` | Goes to the home screen. The app may be in the background afterwards. |
-| `launch` | Launches the app. |
+| `launch` | Launches the app, and waits until it's in the foreground. An app that's already running (after `home`, say) comes back as it was; `restart` starts it anew. |
 | `stop` | Stops the app. |
 | `restart` | Stops and launches the app. |
 | `clear_data` | Stops the app and clears its data (iOS: reinstalls it). |
