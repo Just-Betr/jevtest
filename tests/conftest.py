@@ -174,6 +174,7 @@ class FakeDevice(BaseDevice):
     def reinstall(self):
         self._rec("reinstall")
 
+    @override
     def app_state(self):
         self._rec("app_state")
         return self.state
@@ -204,8 +205,8 @@ class FakeDevice(BaseDevice):
         self._rec("long_press", x, y)
 
     @override
-    def drag(self, x1, y1, x2, y2, *, scroll=False):
-        self._rec("drag", x1, y1, x2, y2)  # whether it scrolls is the device's concern (see its tests)
+    def drag(self, x1, y1, x2, y2):
+        self._rec("drag", x1, y1, x2, y2)  # how a scroll drags is the device's concern (see its tests)
 
     def type_text(self, text, at=None):
         self._rec("type_text", text, at)
@@ -219,6 +220,7 @@ class FakeDevice(BaseDevice):
     def back(self):
         self._rec("back")
 
+    @override
     def home(self):
         self._rec("home")
 
@@ -254,6 +256,10 @@ class FakeDevice(BaseDevice):
 
     @override
     def _put_back(self, entries):  # never called: restore() is recorded instead
+        raise NotImplementedError
+
+    @override
+    def _press_home(self):  # never called: home() is recorded instead
         raise NotImplementedError
 
     @override

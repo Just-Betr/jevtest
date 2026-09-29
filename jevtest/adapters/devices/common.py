@@ -17,7 +17,7 @@ from typing import Protocol
 
 from jevtest.adapters.shapes import is_json_object
 from jevtest.domain.failures import DeviceError
-from jevtest.domain.kinds import Direction
+from jevtest.domain.kinds import AppState, Direction
 from jevtest.domain.screen import Element, Screen
 
 FOLLOW_UP = 3.0
@@ -264,8 +264,30 @@ class BaseDevice(ABC):
         """What's on the screen now."""
 
     @abstractmethod
-    def drag(self, x1: int, y1: int, x2: int, y2: int, *, scroll: bool = False) -> None:
-        """Press at (x1, y1), move to (x2, y2), lift. A `scroll` drag moves the content as far as the finger."""
+    def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
+        """Press at (x1, y1), move to (x2, y2), lift: a finger's swipe."""
+
+    def _scroll_drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
+        """A drag that moves the content as far as the finger, and no further.
+
+        A device whose `drag` lets the content fling on overrides this.
+        """
+        self.drag(x1, y1, x2, y2)
+
+    @abstractmethod
+    def app_state(self) -> AppState:
+        """Where the app is: in the foreground, the background, or not running."""
+
+    @abstractmethod
+    def _press_home(self) -> None:
+        """Press the Home button (or gesture); it returns before the app has left."""
+
+    def home(self) -> None:
+        """Press Home, and wait until the app has left the foreground (the press returns before it has)."""
+        self._press_home()
+        wait_until(
+            lambda: self.app_state() is not AppState.FOREGROUND, "The app was still in the foreground after Home"
+        )
 
     _undo: Undo
     _progress: Progress
@@ -317,15 +339,14 @@ class BaseDevice(ABC):
         """
         wait_until(lambda: done(self.screen()), what)
 
-    def swipe(
-        self,
-        direction: Direction,
-        element: Element | None = None,
-        screen: Screen | None = None,
-        *,
-        scroll: bool = False,
-    ) -> None:
-        """Finger swipe in `direction`, across an element or across the page (a `scroll` one moves no further).
+    def swipe(self, direction: Direction, element: Element | None = None, screen: Screen | None = None) -> None:
+        """Finger swipe in `direction`, across an element or across the page."""
+        self.drag(*self._across(direction, element, screen))
+
+    def _across(
+        self, direction: Direction, element: Element | None, screen: Screen | None
+    ) -> tuple[int, int, int, int]:
+        """Where a swipe in `direction` starts and ends: across the element, or across the page.
 
         The page is the part of the screen the keyboard doesn't cover: a drag that starts on the keyboard moves
         nothing.
@@ -343,7 +364,7 @@ class BaseDevice(ABC):
             Direction.LEFT: (cx + dx, cy, cx - dx, cy),
             Direction.RIGHT: (cx - dx, cy, cx + dx, cy),
         }
-        self.drag(*moves[Direction(direction)], scroll=scroll)
+        return moves[Direction(direction)]
 
     def scroll(self, direction: Direction, screen: Screen | None = None) -> None:
         """Scroll so more of the content in `direction` comes into view: the finger moves the other way."""
@@ -353,4 +374,4 @@ class BaseDevice(ABC):
             Direction.LEFT: Direction.RIGHT,
             Direction.RIGHT: Direction.LEFT,
         }
-        self.swipe(finger[Direction(direction)], screen=screen, scroll=True)
+        self._scroll_drag(*self._across(finger[Direction(direction)], None, screen))

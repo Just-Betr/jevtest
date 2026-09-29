@@ -133,7 +133,7 @@ def test_cache_dir(monkeypatch, tmp_path):
     assert cache_dir().name == "jevtest"
 
 
-def test_a_device_must_say_how_it_restores_waits_and_closes():
+def test_a_device_must_say_how_it_puts_back_goes_home_and_closes():
     from jevtest.adapters.devices.common import BaseDevice
 
     class Partial(BaseDevice):
@@ -142,11 +142,11 @@ def test_a_device_must_say_how_it_restores_waits_and_closes():
             raise NotImplementedError
 
         @override
-        def drag(self, x1, y1, x2, y2, *, scroll=False):
+        def drag(self, x1, y1, x2, y2):
             raise NotImplementedError
 
     # Python words this message differently between versions; the method names are what matter.
-    with pytest.raises(TypeError, match="_put_back'?, '?close'?, '?prepare_for_test"):
+    with pytest.raises(TypeError, match="_press_home'?, '?_put_back'?, '?app_state'?, '?close'?, '?prepare_for_test"):
         Partial()  # type: ignore[abstract]  # instantiating it is what this test checks
 
 

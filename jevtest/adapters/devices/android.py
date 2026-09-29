@@ -278,8 +278,11 @@ class AndroidDevice(BaseDevice):
         self._am_start(f"-n {self.activity}", f"start {self.activity}")
 
     def resume(self) -> None:
-        """Bring the app back to the foreground without restarting it."""
-        self._am_start(f"-n {self.activity}", f"start {self.activity}")
+        """Bring the app back to the foreground without restarting it.
+
+        Starting a running app's launcher activity brings its task forward as it was.
+        """
+        self.launch()
 
     def _am_start(self, args: str, what: str) -> None:
         """`am start -W`, failing with what it says went wrong: Android 13 says it and exits 0 (measured).
@@ -325,6 +328,7 @@ class AndroidDevice(BaseDevice):
             self._stop_old_agent()
             self._launch_agent()
 
+    @override
     def app_state(self) -> AppState:
         """Where the app is: running at all, and whether it or its own permission prompt is on top."""
         out = self.sh(
@@ -389,8 +393,8 @@ class AndroidDevice(BaseDevice):
         self.sh(f"input swipe {x} {y} {x} {y} {int(seconds * 1000)}")
 
     @override
-    def drag(self, x1: int, y1: int, x2: int, y2: int, *, scroll: bool = False) -> None:  # noqa: ARG002
-        """Press, move, hold still, lift: every drag moves the content as far as the finger, a scroll too."""
+    def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
+        """Press, move, hold still, lift: every drag moves the content as far as the finger, so a scroll too."""
         # Press, move in steps, hold still, lift: the content stops where the finger stops. A plain
         # `input swipe` lifts while moving, so the content flings on and a scroll lands anywhere.
         steps = [(x1 + (x2 - x1) * i // DRAG_STEPS, y1 + (y2 - y1) * i // DRAG_STEPS) for i in range(1, DRAG_STEPS + 1)]
@@ -444,12 +448,9 @@ class AndroidDevice(BaseDevice):
         """Press Back."""
         self.key("back")
 
-    def home(self) -> None:
-        """Press Home, and wait until the app has left the foreground (the key returns before it has)."""
+    @override
+    def _press_home(self) -> None:
         self.key("home")
-        wait_until(
-            lambda: self.app_state() is not AppState.FOREGROUND, "The app was still in the foreground after Home"
-        )
 
     def looks(self, elements: Sequence[Element]) -> str:
         """A fingerprint of how the elements are drawn now, from one screenshot.

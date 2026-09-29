@@ -313,6 +313,7 @@ class IOSDevice(BaseDevice):
         """Bring the app back to the foreground without restarting it."""
         self._call("/activate", timeout=APP_WAIT)
 
+    @override
     def app_state(self) -> AppState:
         """Where the app is, from XCUITest's state."""
         state = self._call("/state").get("state")
@@ -367,10 +368,14 @@ class IOSDevice(BaseDevice):
         self._call("/long_press", x=x, y=y, seconds=seconds)
 
     @override
-    def drag(self, x1: int, y1: int, x2: int, y2: int, *, scroll: bool = False) -> None:
-        """Press, move, lift: a swipe at a flick's speed, a scroll slowly enough that nothing flings on."""
-        speed, hold = (SCROLL_SPEED, SCROLL_HOLD) if scroll else (SWIPE_SPEED, SWIPE_HOLD)
-        self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2, velocity=speed, hold=hold)
+    def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
+        """Press, move, lift, at a flick's speed."""
+        self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2, velocity=SWIPE_SPEED, hold=SWIPE_HOLD)
+
+    @override
+    def _scroll_drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
+        """Press, move slowly enough that nothing flings on, hold still, lift."""
+        self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2, velocity=SCROLL_SPEED, hold=SCROLL_HOLD)
 
     def type_text(self, text: str, at: Point | None = None) -> None:
         """Type into the focused field, or first focus the field at `at`."""
@@ -412,12 +417,9 @@ class IOSDevice(BaseDevice):
         """The "Back" button, else the navigation bar's back button, else an edge swipe."""
         self._call("/back")
 
-    def home(self) -> None:
-        """Press Home, and wait until the app has left the foreground (the press returns before it has)."""
+    @override
+    def _press_home(self) -> None:
         self._call("/home")
-        wait_until(
-            lambda: self.app_state() is not AppState.FOREGROUND, "The app was still in the foreground after Home"
-        )
 
     def looks(self, elements: Sequence[Element]) -> str:  # noqa: ARG002 - the Device port; iOS needs no pixels
         """Nothing: on iOS an element's frame moves with its animation (measured), so its bounds say it all."""
