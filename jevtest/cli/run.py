@@ -394,10 +394,8 @@ def _report_all(suites: Sequence[JunitSuite], *, files: int, junit: Path) -> int
     passed = sum(s.result.passed for s in suites)
     failed = sum(s.result.failed for s in suites)
     if len(suites) > 1:
-        print(
-            f"\nAll: {passed}/{passed + failed} passed ({files} file{'' if files == 1 else 's'}, {len(suites)} device runs). "
-            f"JUnit: {junit}"
-        )
+        in_files = f"{files} file{'' if files == 1 else 's'}"
+        print(f"\nAll: {passed}/{passed + failed} passed ({in_files}, {len(suites)} device runs). JUnit: {junit}")
     return 0 if failed == 0 else 1
 
 
