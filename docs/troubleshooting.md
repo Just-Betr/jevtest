@@ -23,7 +23,15 @@ error: t.yaml has 2 problems:
 | `` `settle` is gone (jevtest 0.9): each step waits until what it needs is on screen; remove it `` | Remove `settle`: there's no waiting after an action any more. A step that needs longer gets `timeout:`. |
 | `` `timeout` must be from 1 to 300, got 1000 `` | Each setting has [limits](reference/test-file.md#settings-optional). A step that needs more is usually waiting on something the app should do faster, or is two steps. |
 | `t.yaml is not valid YAML: … A value starting with ${ must be quoted inside { } or [ ]` | `{android: "${PHONE}"}`. |
-| ``Not set: ${PASSWORD}. Add them to .env next to the test file, or to the environment`` | Define the value. Only the `.env` **next to the test file** is read. |
+| ``t.yaml uses ${PASSWORD}, which is not set. Add it to /…/.env (the .env next to this test file), or to the environment`` | Define the value. Only the `.env` **next to the test file** is read, not one in a folder above. |
+| `…/.env:2: is ' #…' a comment or part of PASSWORD?` | Put the comment on its own line, or quote the value. |
+| `On line 5, a step with checks under it needs a colon after its action:` `- back:` | A bare action (`- back`) with `see:` under it needs a colon. |
+| `'wait' must be from 0 to 300 seconds, got 600` / `Unknown key 'Enter'. Keys: …` | Waits and background times are capped at 300 s; key names are exact and listed. |
+| `` `interval` (2s) is longer than `timeout` (1s): a step would check only once `` | Shorten `interval`, or lengthen `timeout`. |
+| `t.yaml runs on ios, and test 'T' has a grant: with no ios permission` / `…Android needs the full name, e.g. android.permission.CAMERA` | Name the permission for every platform the file runs on: `grant: {android: android.permission.CAMERA, ios: camera}` ([names](reference/steps.md#grant-permission-names)). |
+| `t.yaml runs on iOS, where jevtest can't turn the network on or off` | Put tests with `network:` in a file whose `app:` is Android only. |
+| `--lock refresh asks Jev about every do: and expect:, and t.yaml has them, but TYPESAFE_API_KEY is not set` | Add the key, or use `--lock frozen`. |
+| `'Sign in' is a library test: it runs only where a test uses it; --test one that does: …` | `--test` a test that uses it. |
 | `PASSWORD is set in the environment and in …/.env to different values: remove one of them` | jevtest won't pick one. |
 | `…/.env:3 is not a KEY=value line` | Fix or comment out (`#`) that line. |
 | `Tests use each other in a loop: A -> B -> A` | A `use:` cycle. |
@@ -35,7 +43,11 @@ error: t.yaml has 2 problems:
 |---|---|
 | `No connected Android device called 'pixel 4a' (names are exact). Connected: 15241JEC211832 / Pixel 4a; emulator-5554 / sdk_gphone16k_arm64 / Pixel_10` | Use one of the listed names exactly (`Pixel 4a`). |
 | `Several connected Android devices are called 'Pixel 4a' (A1, B2): name one by its serial` | Two identical phones: use serials. |
-| `No booted simulator or connected iPhone called 'iPhone 16' (names are exact). Running: …` | Boot it (`xcrun simctl boot "iPhone 16"`), or use a listed name. |
+| `No booted simulator or connected iPhone called 'iPhone 16' (names are exact). Running: …` | No device has that name: use a listed one exactly. |
+| `The simulator 'iPhone 16e' isn't booted: boot it (xcrun simctl boot "iPhone 16e")` | Boot it: jevtest never boots devices. |
+| `The iPhone 'BH' is paired but not connected: plug it in with USB, unlock it and keep it awake` | The phone is asleep, locked or unplugged. |
+| `emulator-5554: another jevtest run (pid 1234) is testing it: wait for it to finish, or use another device` | Two runs can't share a device: the second would restart the app under the first. |
+| `putting back what a run that was stopped left changed: dark mode, network` | Not an error: a run killed outright left those changed, and this one puts them back first. |
 | `Several devices are called 'iPhone 17 Pro' (X, Y): name one by its UDID` | Use the UDID. |
 | `… is asleep or locked: unlock it` / `BH is locked: unlock it and keep it unlocked during the run` | Unlock the phone; consider a longer screen timeout while testing. |
 | `The app is signed by team ABCDE12345, which is not signed into Xcode (signed in: …)` | jevtest signs its agent with your app's team: add that team's Apple Account in Xcode > Settings > Accounts. |
@@ -43,7 +55,10 @@ error: t.yaml has 2 problems:
 | `Testing on a real iPhone needs signing: in Xcode, Settings > Accounts > + > Apple Account` | Sign into Xcode ([Real phones](guides/real-devices.md#iphone)). |
 | `Runner.app is built for iPhoneSimulator, not a real iPhone (BH)…` | Build for the device, signed with your team. |
 | `Setting location is only supported on the Android emulator` | Android phones can't take a simulated location. |
-| `A real iPhone can't pre-grant permissions` | Tap the prompt in the test: `do: Allow camera access`. |
+| `t.yaml runs on the iPhone BH, where jevtest can't pre-grant permissions` | Run that test on a simulator, or tap the prompt in the test: `do: Allow camera access`. |
+| `Can't grant android.permission.RECORD_AUDIO: the app doesn't declare it in its manifest` | Declare it in the app, or leave it out of `grant:`. |
+| `No keyboard came up within 3 seconds: iOS presses keys only into a field, so tap one first` | Tap the field before `key:`. |
+| `No app on the device opens myapp://x: check the link, and that the app registers its scheme` | Check the link and the app's URL scheme. |
 
 ## Jev
 
@@ -53,20 +68,24 @@ error: t.yaml has 2 problems:
 | `TYPESAFE_API_KEY is not set: put it in the .env next to the test file, or in the environment` | Add the key, or run `--lock frozen` if everything is recorded. |
 | `No steps are saved for this do: in tests.lock.json, and --lock frozen only repeats saved steps…` | This `do:` hasn't been worked out yet (or its text changed). Run `--lock record` and commit the lockfile. |
 | `This screen and question are not in tests.lock.json, and --lock frozen only replays recorded decisions…` | An `expect:` (or a choice between exact matches) met a screen that wasn't recorded. Run `--lock record` and commit the lockfile. |
-| `Waited 10s until the 2nd of 2 button 'Delete' is on screen; the screen shows 1, the saved step was made with 2` | The app changed since the `do:` was worked out. Run `--lock record`: it works the goal out again from where the saved steps stopped fitting. |
+| `Waited 10s until the 2nd of 2 button 'Delete' is on screen and stopped moving; the screen shows 1, the saved step was made with 2` | The app changed since the `do:` was worked out. Run `--lock record`: it works the goal out again from where the saved steps stopped fitting. |
 | `Jev HTTP 429: trying again in 0.5s (retry 1 of 4)` | Printed while TypeSafe is rate-limiting (429) or overloaded (529); jevtest retries, waiting as long as TypeSafe asks (up to a minute) or with backoff, and says so each time. |
 | `Jev HTTP 401: …` | Check the key. |
 
 ## Tests that fail
 
-- **`Could not find element 'X' on screen`**: no element says exactly *X* within `timeout`. Check the failure screenshot; maybe it's below the fold (`scroll_to:` first) or labelled differently.
+- **`Waited 10s until an element says 'X' on screen and stopped moving`**: no element says exactly *X* within `timeout`. Check the failure screenshot; maybe it's below the fold (`scroll_to:` first) or labelled differently. If it ends `; the app is in the background` or `; the app isn't running`, an earlier step left the app.
+- **`…; what says 'Sign in' doesn't take text (button)`**: `type: into:` or `clear:` named something that isn't a field.
+- **`Waited 10s until the keyboard is up (a field takes typed text); tap the field first, or name it with into:`**: `type:` without `into:` needs a field with the keyboard up.
 - **`…; close but not exact: 'Save draft', 'Unsaved changes'`**: the screen has longer texts containing the target. Matching is exact (ignoring case), so write the whole text as the screen shows it: `tap: Save draft`. Close texts are only listed, never used.
 - **`Jev says the goal is impossible from this screen`**: the goal can't be done from where the app is. Often a previous step didn't land; add a `see:` after it.
-- **`Goal not reached after 10 actions (max_actions)`**: split the `do:` into smaller goals, one per step, or give a long form a higher `max_actions:`.
+- **`Goal not reached after 10 actions (max_actions); Jev's next would be …`**: split the `do:` into smaller goals, one per step, or give a long form a higher `max_actions:`.
+- **`…. The goal has no "quoted" values, so Jev can't type anything`**: put what to type in quotes: `do: Type "hello" into Email`.
+- **`The app left the foreground after back`**: a `do:` move left the app (back on the first screen), so the goal stopped there.
 - **`Scrolled down to the end but never found 'X'`**: the text isn't in the list, or it's the other way (`direction: up`).
 - **`Stuck repeating: tap button 'Next'`**: the action has no effect. The element may be disabled or covered.
 - **`The app is no longer running (crashed or closed)`**: the app crashed. The log from `adb logcat` or the device's crash reports will say why.
-- **`expect: … — Jev says false (0.31)`**: Jev judged the statement false. Read the screenshot: it's usually right. If the statement is ambiguous, make it concrete, or use `see:` for exact text.
+- **`expect: … — Waited 10s until Jev judged it true of a screen that stopped moving; Jev says false (0.31)`**: Jev judged the statement false. Read the screenshot: it's usually right. If the statement is ambiguous, make it concrete, or use `see:` for exact text.
 
 ## Web pages on Android: fields with no name
 
