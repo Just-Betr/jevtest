@@ -514,3 +514,24 @@ def test_a_library_test_no_test_uses_isnt_checked_for_the_files_platforms(tmp_pa
     (tmp_path / "x.zip").write_text("")
     (tmp_path / "lib.yaml").write_text("tests: [{name: Offline, fresh: true, steps: [{network: false}]}]\n")
     load(write(tmp_path, f"{BOTH}include: lib.yaml\ntests:\n  - {{name: T, fresh: true, steps: [back]}}\n"), {})
+
+
+def test_a_platform_leaves_out_the_other_platforms_builds_devices_and_values(tmp_path):
+    (tmp_path / "x.zip").write_text("")
+    body = 'app: {android: a.apk, ios: "${IOS_APP}"}\ndevice: {android: Pixel, ios: "${IOS_DEVICE}"}\n'
+    body += "tests:\n  - {name: T, fresh: true, steps: [{network: false}]}\n"  # Android only: fine on Android
+    spec = load(write(tmp_path, body), {}, [Platform.ANDROID])  # the iOS values aren't set: not needed
+    assert spec.apps == {"android": (tmp_path / "a.apk").resolve()} and spec.devices == {"android": ("Pixel",)}
+    with pytest.raises(TestFileError, match="network: can't run on iOS"):  # every platform: every check
+        load(write(tmp_path, body), {"IOS_APP": "x.zip", "IOS_DEVICE": "BH"})
+
+
+def test_a_file_without_the_platform_loads_with_no_builds(tmp_path):
+    spec = load(write(tmp_path, minimal()), {}, [Platform.IOS])
+    assert spec.apps == {} and spec.devices == {}
+
+
+def test_a_misspelled_platform_key_is_still_an_error_with_a_platform(tmp_path):
+    body = "app: {phone: a.apk}\ndevice: {android: Pixel}\ntests:\n  - {name: T, fresh: true, steps: [back]}\n"
+    with pytest.raises(TestFileError, match="`app` keys must be android and/or ios, got 'phone'"):
+        load(write(tmp_path, body), {}, [Platform.ANDROID])

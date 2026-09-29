@@ -8,7 +8,7 @@ anything missing, misspelled or of the wrong type is an error.
 from __future__ import annotations
 
 import re
-from collections.abc import Generator, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Collection, Generator, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -180,12 +180,14 @@ def is_test_file(path: Path) -> bool:
         return True  # run it, so load() says what is wrong with it
 
 
-def load(path: str | Path, env: Mapping[str, str]) -> Suite:
+def load(path: str | Path, env: Mapping[str, str], platforms: Collection[Platform] = ()) -> Suite:
     """A test file and the library files it includes, as a `Suite`.
 
     Args:
         path: The test file.
         env: Where ``${NAME}`` values come from (the environment plus the .env next to the file).
+        platforms: Only the file's builds and devices for these (empty: all of them). Another platform's
+            ``${NAME}``s needn't be set, and a file with no build for any of them has none in its `Suite`.
 
     Raises:
         TestFileError: Anything is wrong. Every problem in the file is reported at once, in file order.
@@ -196,12 +198,18 @@ def load(path: str | Path, env: Mapping[str, str]) -> Suite:
     if unknown:
         raise TestFileError(f"Unknown top-level keys: {_names(unknown)} (a test file has {', '.join(TOP_LEVEL)})")
     libraries = _included(data, path, (path,))
+    if platforms:
+        data = {**data, **{key: _on(data.get(key), platforms) for key in ("app", "device") if key in data}}
     variables = _variables(path, [data, *libraries.values()], env)
     problems = Problems()
     apps: dict[Platform, Path] = {}
     devices: dict[Platform, tuple[str, ...]] = {}
     with problems.collect():
-        apps = _apps(_fill_all(data.get("app"), variables), path.parent)
+        apps = {
+            p: app
+            for p, app in _apps(_fill_all(data.get("app"), variables), path.parent).items()
+            if not platforms or p in platforms
+        }
         devices = _devices(data.get("device"), apps, variables)
     settings = _settings(data.get("settings"), problems)
     tests = _tests(data.get("tests"), path.name, settings, problems)
@@ -216,6 +224,16 @@ def load(path: str | Path, env: Mapping[str, str]) -> Suite:
             _check_runs_on(step.action, list(apps))
     problems.check(path.name)
     return suite
+
+
+def _on(raw: object, platforms: Collection[Platform]) -> object:
+    """An `app:` or `device:` value without the entries of platforms other than `platforms`.
+
+    A key that names no platform stays, so a misspelled one is still an error.
+    """
+    if not is_mapping(raw):
+        return raw
+    return {key: value for key, value in raw.items() if key not in PLATFORMS or key in platforms}
 
 
 def _check_runs_on(action: Action | None, platforms: Sequence[Platform]) -> None:

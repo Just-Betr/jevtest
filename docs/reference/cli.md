@@ -12,7 +12,7 @@ jevtest run PATH... --lock MODE --out DIR [--test NAME]... [--platform android|i
 | `--lock MODE` | yes | How the [lockfile](../how-it-works.md#the-lockfile) is used. |
 | `--out DIR` | yes | Where results go. Each run adds a timestamped folder inside it. |
 | `--test NAME` | no | Only run this test. Repeatable; names can come from any of the files. |
-| `--platform android\|ios` | no | Only run each file's tests on this platform: its other builds needn't exist and its other devices aren't looked for, so a Linux CI job can run the Android part of files that also run on iOS. A file without the platform doesn't run, and says so. Repeatable. |
+| `--platform android\|ios` | no | Only run each file's tests on this platform: its other builds needn't exist, its other devices aren't looked for, and the `${NAME}`s only they use needn't be set, so a Linux CI job can run the Android part of files that also run on iOS. A file without the platform doesn't run, and says so. Repeatable. |
 | `--prune-lock` | no | After a run where every test passed, remove saved steps and recorded answers the run didn't use. |
 | `-v`, `--verbose` | no | Also print every Jev question with its top answers and probabilities. |
 | `--version` | no | Print the version. |

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `--platform` also leaves out the other platforms' `${NAME}`s: a both-platform file whose iOS device and build
+  come from `${IOS_DEVICE}` and `${IOS_APP}` ran on a Linux job only with those set to something. A misspelled
+  platform key in `app:` or `device:` is still an error.
+
 ## 0.9.9
 
 - `--platform android|ios` runs only that platform's part of each file, so a Linux CI job can run a file that also

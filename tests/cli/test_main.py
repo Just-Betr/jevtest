@@ -820,3 +820,23 @@ def test_a_platform_no_file_has_is_an_error(tmp_path, monkeypatch, fakes, capsys
 def test_pruning_needs_every_platform_to_run(project, fakes, capsys):
     assert fakes.run("--platform", "android", "--prune-lock") == 2
     assert "--prune-lock needs every test to run on every platform (no --test or --platform)" in capsys.readouterr().err
+
+
+def test_a_platform_needs_no_values_or_libraries_of_the_others(tmp_path, monkeypatch, fakes):
+    """A Linux job runs a both-platform file with no iOS values set; a library only an iOS file uses isn't stray."""
+    spec_file(
+        tmp_path / "suite",
+        "both.yaml",
+        app='app: {android: a.apk, ios: "${IOS_APP}"}\n',
+        device='device: {android: emulator-5554, ios: "${IOS_DEVICE}"}\n',
+    )
+    spec_file(
+        tmp_path / "suite",
+        "ios.yaml",
+        app="app: a.zip\n",
+        device="device: {ios: iPhone 17}\n",
+        extra="include: lib.yaml\n",
+    )
+    (tmp_path / "suite" / "lib.yaml").write_text("tests: [{name: L, fresh: true, steps: [back]}]\n")
+    monkeypatch.chdir(tmp_path)
+    assert fakes.run("--platform", "android", files=("suite",)) == 0

@@ -263,11 +263,11 @@ def run_command(
         JevtestError: Something needs fixing before tests can run (the message says what).
     """
     files, others = find_test_files(options.paths)
-    loaded = _load(files, others)
-    if options.tests:
-        loaded = _only(loaded, options.tests)
+    loaded = _load(files, others, options.platforms)
     if options.platforms:
         loaded = _on_platforms(loaded, options.platforms)
+    if options.tests:
+        loaded = _only(loaded, options.tests)
     _check_builds(loaded)
     _check_options(loaded, options)
     _check_iphone_grants(loaded, _find_devices(loaded, find_device))
@@ -399,15 +399,16 @@ def _report_all(suites: Sequence[JunitSuite], *, files: int, junit: Path) -> int
     return 0 if failed == 0 else 1
 
 
-def _load(files: Sequence[Path], others: Sequence[Path]) -> Loaded:
+def _load(files: Sequence[Path], others: Sequence[Path], platforms: Sequence[Platform]) -> Loaded:
     """Each test file, with the environment its ``${NAME}`` values came from.
 
-    Every other YAML file found in a folder must be a library one of them includes.
+    With `platforms`, each file is loaded with only its part on them. Every other YAML file found in a folder must
+    be a library one of the test files includes, whether or not that file has a build for `platforms`.
     """
     loaded: Loaded = []
     for f in files:
         env = read_env(f.parent)
-        loaded.append((load(f, env), env))
+        loaded.append((load(f, env, platforms), env))
     included = {lib for suite, _ in loaded for lib in suite.includes}
     stray = [f for f in others if f not in included]
     if stray:
@@ -440,21 +441,16 @@ def _only(loaded: Loaded, names: Sequence[str]) -> Loaded:
 
 
 def _on_platforms(loaded: Loaded, platforms: Sequence[Platform]) -> Loaded:
-    """Each file's part on `platforms`: its builds and devices for them.
-
-    A file with none of them doesn't run, and says so.
+    """The files with a build for `platforms` (loaded with only those): one without doesn't run, and says so.
 
     Raises:
         TestFileError: No file has a build for any of them.
     """
     wanted = " or ".join(platforms)
-    kept: Loaded = []
-    for suite, env in loaded:
-        apps = {p: app for p, app in suite.apps.items() if p in platforms}
-        if not apps:
+    for suite, _ in loaded:
+        if not suite.apps:
             print(f"{suite.path.name}: no {wanted} build, so it doesn't run (--platform)", flush=True)
-            continue
-        kept.append((replace(suite, apps=apps, devices={p: suite.devices[p] for p in apps}), env))
+    kept = [(suite, env) for suite, env in loaded if suite.apps]
     if not kept:
         raise TestFileError(f"No test file has an {wanted} build: --platform {wanted} leaves nothing to run")
     return kept
