@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Mapping
 
 VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -31,9 +32,11 @@ def hide(text: str, variables: Mapping[str, str]) -> str:
 
     Used on everything read from the screen before it leaves the device's side: what Jev is sent, and what
     jevtest prints. An app that shows a value (a signed-in user's email) keeps it out of Jev's requests, logs and
-    lockfile keys. Longer values are replaced first, so a value inside another is never left half hidden.
+    lockfile keys. Longer values are replaced first, so a value inside another is never left half hidden. Both are
+    compared in one Unicode encoding (NFC): an é shown as an e and an accent is still the value's é.
     """
+    text = unicodedata.normalize("NFC", text)
     for name, value in sorted(variables.items(), key=lambda item: -len(item[1])):
         if value:
-            text = text.replace(value, f"${{{name}}}")
+            text = text.replace(unicodedata.normalize("NFC", value), f"${{{name}}}")
     return text

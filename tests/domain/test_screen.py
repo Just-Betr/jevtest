@@ -50,6 +50,13 @@ def test_a_targets_spaces_and_line_breaks_count_as_the_screens_do():
     assert not taps.says("Taps:2")
 
 
+def test_the_same_letters_in_another_encoding_match():
+    """An é stored whole (U+00E9) and one written as an e and an accent (U+0301) are the same text."""
+    composed, decomposed = "Jos\u00e9", "Jose\u0301"
+    assert Element("text", decomposed).says(composed) and Element("text", composed).says(decomposed)
+    assert not Element("text", "Jose").says(composed)  # a different letter is still different
+
+
 def test_near_lists_longer_texts_containing_the_target_only():
     s = Screen(10, 10, tuple(el("text", t) for t in ("Save draft", "SAVE", "Unsaved changes", "Cancel", "Save")))
     assert s.near("Save") == ("Save draft", "Unsaved changes")  # SAVE and Save match; they aren't near

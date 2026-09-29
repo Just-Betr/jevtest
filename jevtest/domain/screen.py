@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -15,6 +16,14 @@ Point = tuple[int, int]
 
 
 BETWEEN_WORDS = re.compile(r"(?<=\S)\s+(?=\S)")
+
+
+def folded(text: str) -> str:
+    """`text` as matching compares it: case ignored, and each letter in one encoding (NFC).
+
+    So an é typed as an e and an accent matches an é stored as one character.
+    """
+    return unicodedata.normalize("NFC", text).casefold()
 
 
 def one_space(text: str) -> str:
@@ -82,8 +91,8 @@ class Element:
         the whole text must be the target, never a part of a longer text. Spaces and line breaks between the target's
         words count as one space, as they do in the screen's text when it's read.
         """
-        wanted = one_space(target).casefold()
-        return any(name.casefold() == wanted for name in self.names())
+        wanted = folded(one_space(target))
+        return any(folded(name) == wanted for name in self.names())
 
     def names(self) -> tuple[str, ...]:
         """Every text a test can name the element by, in order: text, parts, hint, id."""
@@ -189,8 +198,8 @@ def near_names(target: str, elements: Sequence[Element]) -> tuple[str, ...]:
 
     Only for error messages, so the user can fix the test file: a near match is never matched.
     """
-    wanted = target.casefold()
-    found = (name for el in elements for name in el.names() if _contains_longer(name.casefold(), wanted))
+    wanted = folded(target)
+    found = (name for el in elements for name in el.names() if _contains_longer(folded(name), wanted))
     return tuple(dict.fromkeys(found))[:NEAR_LIMIT]
 
 

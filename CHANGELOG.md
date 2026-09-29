@@ -8,6 +8,10 @@
   text were an error before the run; now they run. Measured on Flutter, native and web fields, on Android 17 and 13
   (where the web page's focused field had to be found by walking the screen: WebView 146 answers with the WebView).
 
+- The same letters in another Unicode encoding (an é stored as an e and an accent, as text copied from macOS
+  often is) didn't match: `see: José` failed on a screen showing José. Text is now compared in one encoding (NFC).
+  So is `${NAME}` masking: a value shown in the other encoding was printed and sent to Jev as it was.
+
 ## 0.9.2
 
 - `grant:` takes several permissions (`grant: [camera, microphone]`), and names per platform, so a file that runs
