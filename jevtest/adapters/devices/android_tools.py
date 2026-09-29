@@ -138,7 +138,16 @@ def _build_agent(apk: Path, version: str, progress: Progress) -> None:
     tools = sorted(root.glob("build-tools/*")) if root else []
     jars = sorted(root.glob("platforms/android-*/android.jar")) if root else []
     if not tools or not jars:
-        raise DeviceError("Android SDK build-tools and a platform are needed to build the jevtest agent")
+        raise DeviceError(
+            "Android SDK build-tools and a platform are needed to build the jevtest agent: install them in Android "
+            "Studio's SDK Manager"
+        )
+    missing = [tool for tool in ("javac", "keytool") if shutil.which(tool) is None]
+    if missing:
+        raise DeviceError(
+            f"{' and '.join(missing)} not found: jevtest builds its Android agent with a JDK (11 or newer). Install "
+            "one and put its bin folder on the PATH"
+        )
     bt, jar = tools[-1], str(jars[-1])
     progress("building the Android agent (one time, a few seconds)")
     with tempfile.TemporaryDirectory() as tmp:

@@ -121,6 +121,19 @@ def test_build_agent_needs_sdk(monkeypatch, tmp_path):
         android_tools.build_agent(PROGRESS)
 
 
+@pytest.mark.parametrize(("have", "missing"), [({"keytool"}, "javac"), (set(), "javac and keytool")])
+def test_build_agent_needs_a_jdk(monkeypatch, tmp_path, have, missing):
+    monkeypatch.setenv("JEVTEST_CACHE", str(tmp_path / "cache"))
+    sdk = tmp_path / "sdk"
+    (sdk / "build-tools/37.0.0").mkdir(parents=True)
+    (sdk / "platforms/android-37").mkdir(parents=True)
+    (sdk / "platforms/android-37/android.jar").write_text("")
+    swap(monkeypatch, "sdk_root", lambda: sdk)
+    monkeypatch.setattr(shutil, "which", lambda name: f"/bin/{name}" if name in have else None)
+    with pytest.raises(DeviceError, match=f"^{missing} not found: jevtest builds its Android agent with a JDK"):
+        android_tools.build_agent(PROGRESS)
+
+
 def test_http_get(monkeypatch):
     class R:
         def read(self):

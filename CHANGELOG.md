@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A first Android run without a JDK says to install one (11 or newer) and put it on the PATH, instead of
+  `Command not found: javac`; missing SDK build-tools say to install them in Android Studio's SDK Manager.
 - Jev is told when its last move left the screen as it was (`scroll down (it changed nothing on the screen)`), so a
   goal at the end of a page stops scrolling and tries something else, or says it's impossible.
 - Docs: on iOS a web radio button reads `Pro plan: 1` when chosen and `Pro plan: 0` when not (measured).
