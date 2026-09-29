@@ -853,7 +853,9 @@ def test_frozen_fails_when_the_saved_steps_element_is_not_there_as_saved(tmp_pat
     model = FakeModel(saved={SIGN_IN: (SavedStep("tap", Target("button", "Sign in", 2, 2)),)}, frozen=True)
     res, d, _ = run1(tmp_path, clock, out, {"do": "Sign in", "timeout": 1}, model=model)
     assert failure_of(res).endswith(
-        "Waited 1s until the 2nd of 2 button 'Sign in' is on screen and stopped moving; the screen shows 1, the saved step was made with 2"
+        "Waited 1s until the 2nd of 2 button 'Sign in' is on screen and stopped moving; the screen shows 1, the saved step "
+        "was made with 2 (saved step 1 of 1: if the app changed since this do: was worked out, run --lock record to work "
+        "it out again from there)"
     )
     assert "tap" not in d.names() and not model.asked
 

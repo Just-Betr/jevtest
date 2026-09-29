@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `--lock frozen`: a `do:` whose saved steps no longer fit the app says which saved step and what to do
+  (`(saved step 4 of 4: if the app changed since this do: was worked out, run --lock record …)`).
+- Docs: "Writing tests" advised `--lock frozen` for CI, against the CI guide (`record` everyday, `frozen` for release
+  gates); troubleshooting quotes the messages jevtest prints now; `use:` runs only the used test's steps.
+
 ## 0.9.3
 
 - A device that's there but not ready is one clear error before the run, instead of a failure per test or "no

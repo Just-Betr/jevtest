@@ -633,9 +633,13 @@ class TestRunner:
                     self._repeat(step, settings)
                     record.ran.append(step.describe())
                 return f"{_count(len(saved), 'saved step')}"
-            except StepFailed:
+            except StepFailed as e:
                 if model.replays_only:
-                    raise
+                    n = len(record.ran) + 1
+                    raise StepFailed(
+                        f"{e} (saved step {n} of {len(saved)}: if the app changed since this do: was worked out, run "
+                        "--lock record to work it out again from there)"
+                    ) from None
         done = saved[: len(record.ran)] if saved else ()
         steps = self._work_out(goal, settings, record)
         model.save_steps(key, [*done, *steps])
