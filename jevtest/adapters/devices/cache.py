@@ -18,10 +18,20 @@ from pathlib import Path
 from types import TracebackType
 from typing import IO, Self
 
+from jevtest.domain.failures import DeviceError
+
 
 def cache_dir() -> Path:
     """Where built agents and their logs are kept: ``$JEVTEST_CACHE``, or ``~/.cache/jevtest``."""
     return Path(os.environ.get("JEVTEST_CACHE", Path.home() / ".cache" / "jevtest"))
+
+
+def unwritable(error: OSError, doing: str, so: str = "") -> DeviceError:
+    """The error for a cache folder jevtest can't write in: what it was doing, what that means, and what to do."""
+    return DeviceError(
+        f"can't {doing} in {cache_dir()} ({error.strerror or error}){so}: make that folder writable, or set "
+        "JEVTEST_CACHE to one that is"
+    )
 
 
 def in_use_dir() -> Path:
@@ -132,8 +142,14 @@ class AgentBuilds:
         """Mark the build of `version` as in use, whether or not it's built yet; wait while another run removes it.
 
         The caller builds it if it isn't there, then closes it when done with it.
+
+        Raises:
+            DeviceError: The cache folder can't hold the mark.
         """
-        return BuildInUse(self.path(version), version, lock(self._lock_path(version), shared=True))
+        try:
+            return BuildInUse(self.path(version), version, lock(self._lock_path(version), shared=True))
+        except OSError as e:
+            raise unwritable(e, "mark the agent build as in use") from None
 
     def drop_older(self, keep: str) -> None:
         """Remove every build but `keep`'s, except those another run is using.

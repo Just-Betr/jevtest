@@ -24,6 +24,8 @@ jevtest is a command-line tool, and the command line is its supported interface.
 
 ::: jevtest.domain.variables
 
+::: jevtest.domain.words
+
 ## Application
 
 ::: jevtest.application.runner

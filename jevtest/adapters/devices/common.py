@@ -17,7 +17,7 @@ from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Direction
 from jevtest.domain.screen import Element, Screen
 
-from .cache import in_use_dir
+from .cache import in_use_dir, unwritable
 
 FOLLOW_UP = 3.0
 """Seconds a device waits for its own follow-ups to an action: a tapped field taking keyboard focus, a web
@@ -104,26 +104,47 @@ class Undo:
 
     def __init__(self, device_id: str) -> None:
         self._entries: dict[str, object] = {}
-        self.path = in_use_dir() / f"{device_id}.undo.json"
+        self._device_id = device_id
+
+    @property
+    def path(self) -> Path:
+        """The file it's kept in."""
+        return in_use_dir() / f"{self._device_id}.undo.json"
 
     def __contains__(self, what: str) -> bool:
         return what in self._entries
 
     def remember(self, what: str, how: Callable[[], object]) -> None:
-        """Before the first change to `what` ("dark mode"), note how to put it back: `how` is called only then."""
+        """Before the first change to `what` ("dark mode"), note how to put it back: `how` is called only then.
+
+        Raises:
+            DeviceError: It can't be noted on disk, so the change mustn't be made: a run killed then couldn't be
+                put back by the next one.
+        """
         if what in self._entries:
             return
-        self._entries[what] = how()
-        self.path.write_text(json.dumps(self._entries))
+        back = how()
+        try:
+            self.path.write_text(json.dumps({**self._entries, what: back}))
+        except OSError as e:
+            raise unwritable(e, f"note how to put back {what}", ", so it wasn't changed") from None
+        self._entries[what] = back
 
     def entries(self) -> dict[str, object]:
         """What steps changed, and how to put each back, in the order they first changed it."""
         return dict(self._entries)
 
     def forget_all(self) -> None:
-        """Everything is put back: forget it, on disk too."""
+        """Everything is put back: forget it, on disk too.
+
+        Raises:
+            DeviceError: The file can't be removed, so the next run would put it all back again.
+        """
         self._entries.clear()
-        self.path.unlink(missing_ok=True)
+        try:
+            self.path.unlink(missing_ok=True)
+        except OSError as e:
+            raise unwritable(e, "forget what was put back") from None
 
     def left_by_a_stopped_run(self) -> dict[str, object]:
         """What a run that couldn't finish left to put back on this device; {} if nothing."""

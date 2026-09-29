@@ -10,6 +10,7 @@ import pytest
 
 from jevtest.adapters.devices import cache
 from jevtest.adapters.devices.cache import AgentBuilds, in_use_dir, lock, try_lock
+from jevtest.domain.failures import DeviceError
 
 
 @pytest.fixture(autouse=True)
@@ -132,3 +133,12 @@ def test_a_lock_that_fails_closes_its_file(folder, monkeypatch):
     with pytest.raises(OSError, match="I/O error"):
         lock(folder / "x.lock")
     assert opened and all(f.closed for f in opened)
+
+
+def test_a_build_that_cant_be_marked_in_use_says_what_to_do(folder, monkeypatch):
+    def full(*args, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(cache, "lock", full)
+    with pytest.raises(DeviceError, match=r"^can't mark the agent build as in use in .* \(No space left on device\)"):
+        AgentBuilds("ios-agent-").use("aaa")

@@ -11,7 +11,7 @@ from typing import IO
 
 from jevtest.domain.failures import DeviceError
 
-from .cache import cache_dir, in_use_dir, try_lock
+from .cache import in_use_dir, try_lock, unwritable
 
 
 class Claims:
@@ -31,10 +31,7 @@ class Claims:
         try:
             self._held[device_id] = self._lock(device_id)
         except OSError as e:
-            raise DeviceError(
-                f"can't mark it as in use in {cache_dir()} ({e.strerror or e}): make that folder writable, or set "
-                "JEVTEST_CACHE to one that is"
-            ) from None
+            raise unwritable(e, "mark it as in use") from None
 
     @staticmethod
     def _lock(device_id: str) -> IO[str]:

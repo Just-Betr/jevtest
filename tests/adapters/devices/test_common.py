@@ -185,3 +185,29 @@ def test_a_failed_tool_carries_its_exit_code_and_everything_it_printed():
         run([sys.executable, "-c", "import sys; print('on stdout'); print('on stderr', file=sys.stderr); sys.exit(3)"])
     assert e.value.returncode == 3
     assert "on stdout" in e.value.output and "on stderr" in e.value.output
+
+
+def test_a_change_that_cant_be_noted_on_disk_is_refused_before_it_is_made(monkeypatch):
+    undo = common.Undo("dev-1")
+
+    def full(self, text, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(type(undo.path), "write_text", full)
+    with pytest.raises(
+        DeviceError,
+        match=r"^can't note how to put back dark mode in .* \(No space left on device\), so it wasn't changed: make",
+    ):
+        undo.remember("dark mode", lambda: "cmd uimode night no")
+    assert "dark mode" not in undo  # nothing to put back: the caller never changed it
+
+
+def test_forgetting_what_was_put_back_says_when_it_cant(monkeypatch):
+    undo = common.Undo("dev-1")
+
+    def locked(self, missing_ok=False):
+        raise OSError(1, "Operation not permitted")
+
+    monkeypatch.setattr(type(undo.path), "unlink", locked)
+    with pytest.raises(DeviceError, match=r"^can't forget what was put back in .* \(Operation not permitted\)"):
+        undo.forget_all()

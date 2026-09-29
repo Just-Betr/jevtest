@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A change jevtest can't note how to put back (the cache folder is full or read-only) is refused before it's made,
+  with what to do, instead of a traceback; so is a cache folder that can't hold an agent build's in-use mark.
 - `tap: Don't allow` never matched a permission prompt: Android and iOS write *Don’t* with a curly apostrophe
   (measured), and matching compared quotes exactly. Curly quotes now match the straight ones a keyboard types.
 - On an iPhone, a `fresh: true` test could start with a permission the previous test decided: an uninstall
