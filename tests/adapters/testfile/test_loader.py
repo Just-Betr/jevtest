@@ -224,6 +224,7 @@ def test_a_bare_action_with_checks_gets_a_hint(tmp_path):
         "steps:\n  - tap: A\n    see: y: z\n",  # the line above is not a bare word
         "app: [\n",  # another problem
         "a: b, ${X}: c\n",  # a ${ outside { } or [ ]
+        "? [a, b]\n: c\n",  # a key that isn't a plain scalar: not a key a test file has
     ],
 )
 def test_other_yaml_errors_get_no_bare_word_hint(tmp_path, body):
@@ -435,3 +436,24 @@ def test_a_test_file_that_isnt_utf8_says_so(tmp_path):
     f.write_bytes(f.read_bytes().replace(b"name: T", b"name: \xe9"))  # Latin-1
     with pytest.raises(TestFileError, match="t.yaml isn't UTF-8 text: save it as UTF-8"):
         load(f, {})
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        (
+            "tests:\n  - name: T\n    fresh: true\n    steps:\n      - see: A\n        see: B\n",
+            r"t\.yaml, line 6: `see` is given twice \(first on line 5\), .*: see: \[A, B\]$",
+        ),
+        ("app: a.apk\napp: b.aab\n", r"line 2: `app` is given twice \(first on line 1\), .*: remove one of them$"),
+    ],
+)
+def test_a_key_given_twice_is_an_error_not_dropped(tmp_path, body, message):
+    """Plain YAML keeps the last and drops the rest: a second see: would replace the first check without a word."""
+    with pytest.raises(TestFileError, match=message):
+        load(write(tmp_path, body), {})
+
+
+def test_tabs_get_a_hint(tmp_path):
+    with pytest.raises(TestFileError, match="Indent with spaces: YAML doesn't allow tabs$"):
+        load(write(tmp_path, "app: a.apk\ntests:\n\t- name: T\n"), {})

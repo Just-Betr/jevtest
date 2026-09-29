@@ -97,6 +97,36 @@ def _bare_word_hint(path: Path, error: yaml.YAMLError) -> str:
     return f"\nOn line {line}, a step with checks under it needs a colon after its action: `- {word[1]}:`"
 
 
+class _GivenTwice(Exception):
+    """A key given twice in one YAML mapping."""
+
+    def __init__(self, key: object, first: int, again: int) -> None:
+        super().__init__(key)
+        self.key, self.first, self.again = key, first, again
+
+
+class _UniqueKeys(yaml.SafeLoader):
+    """YAML's safe loader, except that a key given twice in one mapping is an error.
+
+    Plain YAML keeps the last and drops the rest without a word, so a second `see:` in a step would silently replace
+    the first check.
+    """
+
+
+def _unique_mapping(loader: _UniqueKeys, node: yaml.MappingNode) -> object:
+    lines: dict[str, int] = {}
+    for key_node, _ in node.value:
+        if isinstance(key_node, yaml.ScalarNode):  # a key as written: `see`, `app`
+            key = str(key_node.value)
+            if key in lines:
+                raise _GivenTwice(key, lines[key], key_node.start_mark.line + 1)
+            lines[key] = key_node.start_mark.line + 1
+    return loader.construct_mapping(node)
+
+
+_UniqueKeys.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
+
+
 def read_yaml(path: Path) -> Document:
     """A YAML file that must be a mapping.
 
@@ -104,13 +134,25 @@ def read_yaml(path: Path) -> Document:
         TestFileError: It's missing, isn't valid YAML, or isn't a mapping.
     """
     try:
-        data: object = yaml.safe_load(path.read_text(encoding=USER_TEXT))
+        data: object = yaml.load(path.read_text(encoding=USER_TEXT), Loader=_UniqueKeys)  # noqa: S506 - a safe loader
+    except _GivenTwice as twice:
+        fix = (
+            f"for several checks of one kind, give a list: {twice.key}: [A, B]"
+            if twice.key in ("see", "not_see", "expect")
+            else "remove one of them"
+        )
+        raise TestFileError(
+            f"{path.name}, line {twice.again}: `{twice.key}` is given twice (first on line {twice.first}), and YAML "
+            f"would keep only the last: {fix}"
+        ) from None
     except FileNotFoundError:
         raise TestFileError(f"Test file not found: {path}") from None
     except UnicodeDecodeError:
         raise TestFileError(f"{path.name} isn't UTF-8 text: save it as UTF-8") from None
     except yaml.YAMLError as e:
         hint = _bare_word_hint(path, e)
+        if not hint and "found character '\\t'" in str(e):
+            hint = "\nIndent with spaces: YAML doesn't allow tabs"
         if not hint and re.search(r"[{\[][^\n]*\$\{", str(e)):
             hint = (
                 '\nA value starting with ${ must be quoted inside { } or [ ]: {android: "${PHONE}"}, '

@@ -4,6 +4,9 @@
 
 - `--lock frozen`: a `do:` whose saved steps no longer fit the app says which saved step and what to do
   (`(saved step 4 of 4: if the app changed since this do: was worked out, run --lock record …)`).
+- A key given twice in one place (two `see:` in a step, two `app:`) was silently dropped by YAML, which keeps the
+  last: a failing check written first vanished and the test passed. It's now an error with both line numbers
+  (`see: [A, B]` checks several texts). Tabs used for indenting get a hint: YAML allows only spaces.
 - A `.env` or test file saved by Windows Notepad (UTF-8 with a byte-order mark) failed: `.env:1 is not a KEY=value
   line`, on a line that looked right. Test files, `.env` and lockfiles are now read as UTF-8 whatever the machine's
   locale, a byte-order mark and Windows line endings are fine, and a file in another encoding says to save it as UTF-8
