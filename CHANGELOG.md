@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.6
 
 - Android 12 and older: jevtest took the app to be in the foreground always, since those versions print no
   `topResumedActivity`: `home` then failed ("still in the foreground"), and a crash or a `do:` leaving the app went
