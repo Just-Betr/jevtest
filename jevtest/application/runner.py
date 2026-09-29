@@ -78,6 +78,9 @@ from jevtest.domain.words import number_text, plural
 
 from .brain import Brain, Located, quoted_values
 
+STUCK = 2
+"""Times in a row a `do:` move may leave the screen as it was before the goal fails: the move does nothing."""
+
 END_OF_CONTENT = 2
 """Scrolls in a row that must move nothing before `scroll_to:` calls it the end. One isn't enough: a real
 phone's web view sometimes ignores a single scroll."""
@@ -682,7 +685,13 @@ class TestRunner:
         taken = list(record.ran)
         steps: list[SavedStep] = []
         # Jev types only the goal's quoted values: say so when it gives up on a goal that has none
-        cant_type = "" if quoted_values(goal) else '. The goal has no "quoted" values, so Jev can\'t type anything'
+        cant_type = (
+            ""
+            if quoted_values(goal)
+            else ' (Jev types only a goal\'s "quoted" values, and this goal has none: if it needs to type, quote them)'
+        )
+        last: tuple[str, Screen] | None = None  # the last move made, and the screen it was made on
+        no_effect = 0  # times in a row that move left the screen as it was
 
         while True:
             screen = self._still_screen(settings)
@@ -700,8 +709,10 @@ class TestRunner:
                     f"Goal not reached after {plural(len(taken), 'action')} (max_actions); "
                     f"Jev's next would be {move.describe()}{cant_type}"
                 )
-            if taken[-2:] == [move.describe()] * 2:
-                raise StepFailed(f"Stuck repeating: {move.describe()}{cant_type}")
+            # the same move again on the screen it didn't change: a scroll that moves the list is progress
+            no_effect = no_effect + 1 if last == (move.describe(), screen) else 0
+            if no_effect == STUCK:
+                raise StepFailed(f"Stuck repeating: {move.describe()}, which changes nothing on the screen{cant_type}")
             record.decisions.append(decision)
             if isinstance(move, WaitForScreen):  # still loading: wait_until it changes; nothing to save
                 self._wait_until(_changed_from(screen), settings, "the screen changed", lambda _: "")
@@ -709,6 +720,7 @@ class TestRunner:
                 steps.append(self._saved(move, screen))
                 self._make(move, screen, settings)
             taken.append(move.describe())
+            last = (move.describe(), screen)
 
     def _name(self, el: Element) -> str:
         """What a saved step calls an element: its text, else its hint, else its id; ``${NAME}`` values masked."""

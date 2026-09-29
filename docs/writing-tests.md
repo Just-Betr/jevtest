@@ -22,7 +22,7 @@
   see: Notifications are on
 ```
 
-Jev looks at the screen and picks the next action (tap, type, scroll, back, …) until it says the goal is done. A goal it judges impossible from the screen fails the step at once, and so does one that takes more than 10 actions (its `max_actions`) or repeats itself. A bigger goal is two steps.
+Jev looks at the screen and picks the next action (tap, type, scroll, back, …) until it says the goal is done. A goal it judges impossible from the screen fails the step at once, and so does one that takes more than 10 actions (its `max_actions`) or repeats an action that changes nothing. A bigger goal is two steps.
 
 **Text to type goes in `"quotes"`.** Jev picks which quoted value goes in which field; it never makes up text. Anything you want typed must be in the goal:
 

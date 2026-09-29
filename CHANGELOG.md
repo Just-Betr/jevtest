@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- A `do:` that changes a field's text ("change the nickname to \"Ada\"") replaces it: Jev typed after the text already
+- A `do:` that needs the same action several times, each changing the screen (scrolling down a long list to Item
+  40, tapping a counter three times), no longer fails as `Stuck repeating`: that's only when the same action leaves
+  the screen as it was, twice. The hint about quoted values no longer reads as the cause.
+- A `do:` that changes a field's text ("change the nickname to 'Ada'") replaces it: Jev typed after the text already
   there (`GuestAda`), as it wasn't told typing adds to it. It is now, and clears first (measured: 6 of 6, Android and
   iOS). Steps already saved, and recorded answers, are unchanged.
 

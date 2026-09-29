@@ -737,7 +737,8 @@ def test_a_failing_goal_with_nothing_quoted_says_jev_cant_type(tmp_path, clock, 
     model = FakeModel(*[act("tap", target="e1")] * 3)
     res, _, _ = run1(tmp_path, clock, out, {"do": "Type hello into Email"}, model=model)
     assert failure_of(res).endswith(
-        "Stuck repeating: tap text_field 'Email'. The goal has no \"quoted\" values, so Jev can't type anything"
+        "Stuck repeating: tap text_field 'Email', which changes nothing on the screen (Jev types only a goal's "
+        '"quoted" values, and this goal has none: if it needs to type, quote them)'
     )
 
 
@@ -1174,3 +1175,27 @@ def test_scroll_to_takes_an_element_at_an_edge_after_its_last_scroll(tmp_path, c
     d = FakeDevice(*held(listed("Item 0"), listed("Item 1"), listed("Show more", y=1960)))
     res, _, _ = run1(tmp_path, clock, out, {"scroll_to": "Show more", "direction": "down", "max_scrolls": 2}, device=d)
     assert res.status is Status.PASS and res.steps[0].detail == "2 scrolls"
+
+
+def rows(*names):
+    """A list screen showing these rows."""
+    return Screen(
+        1000, 2000, tuple(el("text", n, bounds=(0, 100 * i, 1000, 100 * i + 90)) for i, n in enumerate(names))
+    )
+
+
+def test_a_move_repeated_while_it_changes_the_screen_is_progress_not_stuck(tmp_path, clock, out):
+    """Scrolling down a long list is the same move every time: it's only stuck when the list stops moving."""
+    screens = [rows("Item 1"), rows("Item 1"), rows("Item 9"), rows("Item 9"), rows("Item 17"), rows("Item 17")]
+    screens += [rows("Item 25")] * 3
+    model = FakeModel(*[act("scroll_down")] * 3, act("done"))
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Scroll to Item 25"}, device=FakeDevice(*screens), model=model)
+    assert res.status is Status.PASS
+    assert d.names().count("drag") == 3
+
+
+def test_the_same_move_that_changes_nothing_is_stuck(tmp_path, clock, out):
+    model = FakeModel(*[act("scroll_down")] * 3)
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Scroll to Item 99"}, device=FakeDevice(rows("Item 1")), model=model)
+    assert "Stuck repeating: scroll down, which changes nothing on the screen" in failure_of(res)
+    assert d.names().count("drag") == 2  # the third, which would change nothing either, isn't made

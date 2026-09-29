@@ -86,7 +86,7 @@ error: t.yaml has 2 problems:
 - **`…. The goal has no "quoted" values, so Jev can't type anything`**: put what to type in quotes: `do: Type "hello" into Email`.
 - **`The app left the foreground after back`**: a `do:` move left the app (back on the first screen), so the goal stopped there.
 - **`Scrolled down to the end but never found 'X'`**: the text isn't in the list, or it's the other way (`direction: up`).
-- **`Stuck repeating: tap button 'Next'`**: the action has no effect. The element may be disabled or covered.
+- **`Stuck repeating: tap button 'Next', which changes nothing on the screen`**: Jev chose the same action again after it left the screen as it was, twice. The element may be disabled or covered. (Repeating an action that does change the screen, like scrolling down a long list, is fine.)
 - **`The app is no longer running (crashed or closed)`**: the app crashed. The log from `adb logcat` or the device's crash reports will say why.
 - **`expect: … — Waited 10s until Jev judged it true of a screen that stopped moving; Jev says false (0.31)`**: Jev judged the statement false. Read the screenshot: it's usually right. If the statement is ambiguous, make it concrete, or use `see:` for exact text.
 

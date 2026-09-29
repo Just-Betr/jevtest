@@ -26,7 +26,7 @@ Each takes one value or a list. A check waits until it holds: it reads the scree
 
 | Action | Does |
 |---|---|
-| `do: goal` | What a person would do, in plain English. The first run, Jev picks the steps (tap, double tap, long press, type, clear, swipe on an element, scroll, back, enter, hide the keyboard), each on a screen that stopped moving, until it judges the goal done; the steps are saved in the lockfile. Every later run repeats the saved steps, each waiting until its element is on screen. Values in `"quotes"` are what it may type. Fails if Jev says the goal is impossible from the screen, repeats one action three times, or needs more than `max_actions` (10 by default). |
+| `do: goal` | What a person would do, in plain English. The first run, Jev picks the steps (tap, double tap, long press, type, clear, swipe on an element, scroll, back, enter, hide the keyboard), each on a screen that stopped moving, until it judges the goal done; the steps are saved in the lockfile. Every later run repeats the saved steps, each waiting until its element is on screen. Values in `"quotes"` are what it may type. Fails if Jev says the goal is impossible from the screen, repeats an action that changes nothing on the screen, or needs more than `max_actions` (10 by default). |
 | `use: test name` | Runs that test's steps here. |
 
 ### Touch
