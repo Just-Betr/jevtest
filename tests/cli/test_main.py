@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import signal
+import sys
 import threading
 import time
 import xml.etree.ElementTree as ET
@@ -773,3 +774,17 @@ def test_a_missing_app_written_with_a_tilde_says_a_test_file_doesnt_expand_it(
     err = capsys.readouterr().err
     assert "App not found: " in err
     assert ("a test file doesn't expand ~: write the path relative to the test file, or in full" in err) is hint
+
+
+def test_the_command_says_which_systems_it_runs_on_before_loading_anything(monkeypatch, capsys):
+    import jevtest.cli
+
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert jevtest.cli.command() == 2
+    assert capsys.readouterr().err == "error: jevtest runs on macOS and Linux, not win32\n"
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr("sys.argv", ["jevtest", "--version"])
+    with pytest.raises(SystemExit) as done:
+        jevtest.cli.command()
+    assert done.value.code == 0
+    assert capsys.readouterr().out.strip() == jevtest.__version__

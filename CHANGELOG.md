@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- On Windows, `jevtest` says it runs on macOS and Linux, instead of failing to import `fcntl`; the getting-started
+  guide says so too.
 - An app path written with `~` says a test file doesn't expand it, instead of only naming a path with `~` inside.
 - Tested: an `.aab` build installs through bundletool and passes the emulator suite; `--prune-lock` removes exactly
   what the docs say, and refuses after a failure.

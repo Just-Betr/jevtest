@@ -4,7 +4,7 @@ From nothing to a passing test in about ten minutes.
 
 ## 1. Install
 
-jevtest needs Python 3.11 or newer.
+jevtest runs on macOS and Linux, with Python 3.11 or newer. iOS needs a Mac.
 
 ```bash
 pip install jevtest

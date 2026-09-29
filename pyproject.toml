@@ -40,7 +40,7 @@ Issues = "https://github.com/Just-Betr/jevtest/issues"
 Changelog = "https://github.com/Just-Betr/jevtest/blob/main/CHANGELOG.md"
 
 [project.scripts]
-jevtest = "jevtest.cli.main:main"
+jevtest = "jevtest.cli:command"
 
 [tool.setuptools.dynamic]
 version = { attr = "jevtest.__version__" }
