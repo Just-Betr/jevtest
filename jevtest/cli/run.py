@@ -9,6 +9,7 @@ import contextlib
 import itertools
 import os
 import re
+import shutil
 import threading
 import time
 from collections.abc import Callable, Iterator, Sequence
@@ -278,6 +279,11 @@ def _check_runnable(loaded: Loaded, options: RunOptions) -> None:
     missing = [app for suite, _ in loaded for app in suite.apps.values() if not app.exists()]
     if missing:
         raise TestFileError(f"App not found: {missing[0]}")
+    bundles = [app for suite, _ in loaded for app in suite.apps.values() if app.suffix.lower() == ".aab"]
+    if bundles and not shutil.which("bundletool"):
+        raise TestFileError(
+            f"{bundles[0].name}: bundletool is required to install .aab files (brew install bundletool)"
+        )
     if options.prune_lock and (options.tests or options.lock is LockMode.OFF):
         raise TestFileError("--prune-lock needs every test to run (no --test) and a lockfile (not --lock off)")
     for suite, _ in loaded:

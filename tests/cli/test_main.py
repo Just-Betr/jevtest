@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import signal
 import threading
 import time
@@ -777,3 +778,15 @@ def test_a_grant_on_a_real_iphone_is_an_error_before_the_run(tmp_path, monkeypat
     assert fakes.devices == []
     fakes.iphones = set()
     assert fakes.run() != 2  # on simulators only, it runs
+
+
+def test_an_aab_without_bundletool_is_an_error_before_the_run(tmp_path, monkeypatch, fakes, capsys):
+    spec_file(tmp_path, app="app: b.aab\n")
+    (tmp_path / "b.aab").write_text("")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    assert fakes.run() == 2
+    assert "b.aab: bundletool is required to install .aab files" in capsys.readouterr().err
+    assert fakes.devices == []
+    monkeypatch.setattr(shutil, "which", lambda name: f"/bin/{name}")
+    assert fakes.run() != 2

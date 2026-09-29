@@ -5,6 +5,7 @@
 - A file listing a simulator and a real iPhone together ran the simulator's tests, then stopped with a setup error
   when the iPhone got the simulator build, so the tests dealt to the iPhone never ran. Each iOS device's build is now
   checked before the run. The test file reference says a file has one iOS build: use two files for both kinds.
+- An `.aab` without `bundletool` installed is an error before the run, not when each Android device starts.
 
 ## 0.9.4
 
