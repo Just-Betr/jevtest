@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.5
 
 - A file listing a simulator and a real iPhone together ran the simulator's tests, then stopped with a setup error
   when the iPhone got the simulator build, so the tests dealt to the iPhone never ran. Each iOS device's build is now
