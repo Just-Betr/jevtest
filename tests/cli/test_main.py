@@ -15,7 +15,7 @@ from jevtest.adapters.devices._typing import override
 from jevtest.adapters.jev.client import JevClient, Reply
 from jevtest.cli import main as cli
 from jevtest.cli.run import slug
-from jevtest.domain.failures import DeviceError, KeyRejected
+from jevtest.domain.failures import DeviceError, SetupRefused
 from jevtest.domain.kinds import Platform
 from jevtest.domain.screen import Screen
 from tests.conftest import FakeClock, FakeDevice, act, screen_with, yes
@@ -793,7 +793,7 @@ def test_the_command_says_which_systems_it_runs_on_before_loading_anything(monke
 
 
 def test_a_rejected_key_stops_the_run_instead_of_failing_each_test(project, fakes, capsys):
-    clients = fakes.script(KeyRejected("Jev HTTP 401: Cannot authenticate (check the key; Create a key at …)"))
+    clients = fakes.script(SetupRefused("Jev HTTP 401: Cannot authenticate (check the key; Create a key at …)"))
     assert fakes.run() == 2
     assert "error: Jev HTTP 401: Cannot authenticate (check the key;" in capsys.readouterr().err
     assert sum(len(c.requests) for c in clients) == 1  # no later test asked Jev again

@@ -36,8 +36,8 @@ class StepFailed(JevtestError):
     """A step or check didn't get the result the test expects: the test fails, the run goes on."""
 
 
-class KeyRejected(JevtestError):
-    """Jev refused the API key.
+class SetupRefused(JevtestError):
+    """Jev refused the run's setup: its API key, or its `model`.
 
     Every question would be refused the same way, so the run stops rather than fail each test in turn.
     """

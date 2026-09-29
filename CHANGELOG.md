@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- A `model` TypeSafe doesn't serve (`jev-1.12.0`) stops the run with exit 2, saying which version jevtest is tested
+  with; it failed each test in turn with `Jev HTTP 400: Unknown model`, exit 1.
+
 ## 0.9.12
 
 - Tested: every step action, check and option on the emulator, the Pixel, the simulator and the iPhone, with each

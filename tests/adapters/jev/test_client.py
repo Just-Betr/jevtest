@@ -9,7 +9,7 @@ from typing import Self
 import pytest
 
 from jevtest.adapters.jev.client import JevClient
-from jevtest.domain.failures import KeyRejected, ModelError
+from jevtest.domain.failures import ModelError, SetupRefused
 
 MODEL = "jev-1.13.0"
 
@@ -149,7 +149,7 @@ def test_unreachable_after_retries():
 def test_client_errors_are_not_retried():
     j, slept = client(http_error(401, b"bad key"))
     with pytest.raises(
-        KeyRejected, match=r"HTTP 401: bad key \(check the key; Create a key at https://console.typesafe.ai/keys\)"
+        SetupRefused, match=r"HTTP 401: bad key \(check the key; Create a key at https://console.typesafe.ai/keys\)"
     ):
         j.ask("s", Q)
     assert not slept
@@ -159,8 +159,8 @@ def test_client_errors_are_not_retried():
     ("body", "shown"),
     [
         (
-            b'{"detail":{"error_type":"api_usage_error","message":"Unknown model: jev-9.9.9"}}',
-            "Unknown model: jev-9.9.9",
+            b'{"detail":{"error_type":"api_usage_error","message":"Too many questions"}}',
+            "Too many questions",
         ),
         (b'{"detail":"Not authenticated"}', "Not authenticated"),
         (b'{"detail":{"message":""}}', '{"detail":{"message":""}}'),
@@ -218,3 +218,15 @@ def test_odd_metadata_is_ignored_not_trusted(extra, served_by, cost):
     j, _ = client({"answers": {"q": {"type": "choice", "choice": "a"}}, **extra})
     reply = j.ask("s", Q)
     assert (reply.served_by, reply.cost) == (served_by, cost)
+
+
+def test_an_unknown_model_stops_the_run_saying_which_version_jevtest_is_tested_with():
+    body = b'{"detail":{"error_type":"api_usage_error","message":"Unknown model: jev-1.12.0"}}'  # as measured
+    j, slept = client(http_error(400, body))
+    with pytest.raises(
+        SetupRefused,
+        match=r"^Jev HTTP 400: Unknown model: jev-1\.12\.0 \(settings: model names a Jev version TypeSafe serves; "
+        r"this jevtest is tested with jev-1\.13\.0\)$",
+    ):
+        j.ask("s", Q)
+    assert not slept

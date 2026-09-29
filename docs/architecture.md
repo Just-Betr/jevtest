@@ -32,7 +32,7 @@ Each layer hands the next one plain, immutable domain types:
 
 ## Errors
 
-Adapters catch the exceptions of the tools they wrap (`subprocess`, HTTP, YAML) and raise one of jevtest's own failures instead: `TestFileError`, `DeviceError`, `ModelError`, `KeyRejected`, or `StepFailed`. Nothing outside an adapter ever handles a tool's exception. Every message says what to fix. Before any test runs, any of them is printed as `error: …` and the run exits 2. During a test, a `StepFailed`, `DeviceError` or `ModelError` fails that test and the run goes on; a `KeyRejected` stops the run with exit 2, since every later question would be refused too.
+Adapters catch the exceptions of the tools they wrap (`subprocess`, HTTP, YAML) and raise one of jevtest's own failures instead: `TestFileError`, `DeviceError`, `ModelError`, `SetupRefused`, or `StepFailed`. Nothing outside an adapter ever handles a tool's exception. Every message says what to fix. Before any test runs, any of them is printed as `error: …` and the run exits 2. During a test, a `StepFailed`, `DeviceError` or `ModelError` fails that test and the run goes on; a `SetupRefused` (a key or `model` Jev refuses) stops the run with exit 2, since every later question would be refused too.
 
 ## The ports
 

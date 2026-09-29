@@ -16,7 +16,8 @@ from dataclasses import dataclass
 from typing import Protocol, Self
 
 from jevtest.adapters.shapes import is_json_object, objects_by_key
-from jevtest.domain.failures import KeyRejected, ModelError
+from jevtest.domain.failures import ModelError, SetupRefused
+from jevtest.domain.settings import DEFAULTS
 from jevtest.domain.words import plural
 
 from .wire import RawAnswers
@@ -30,6 +31,9 @@ TIMEOUT = 15
 """Seconds to wait for one answer before asking again. Measured 2026-09-28 against api.typesafe.ai with 74 real
 requests from a run: half answered within 0.2 s, but a quarter took 8 to 29 s, and in runs some took over 30 s."""
 UNAUTHORIZED = 401
+
+UNKNOWN_MODEL = "Unknown model"
+"""How TypeSafe's message starts for a model it doesn't serve (measured: HTTP 400, "Unknown model: jev-1.12.0")."""
 KEY_HELP = "Create a key at https://console.typesafe.ai/keys"
 PRICE_PER_INPUT_TOKEN: Mapping[str, float] = {"jev-1.13.0": 0.042 / 1_000_000}
 """US dollars, from https://docs.typesafe.ai/models: Jev charges per input token; output tokens are free."""
@@ -112,7 +116,7 @@ class JevClient:
 
         Raises:
             ModelError: Jev couldn't be reached, refused the request, or answered a different set of questions.
-            KeyRejected: Jev refused the API key.
+            SetupRefused: Jev refused the API key, or doesn't know the model.
         """
         body = json.dumps({"model": self.model, "state": state, "questions": questions}).encode()
         started = time.monotonic()
@@ -161,9 +165,15 @@ class JevClient:
                     self._retry(f"HTTP {e.code}", attempt, _retry_after(e.headers.get("retry-after")))
                     attempt += 1
                     continue
+                said = _message(detail)
                 if e.code == UNAUTHORIZED:
-                    raise KeyRejected(f"Jev HTTP {e.code}: {_message(detail)} (check the key; {KEY_HELP})") from None
-                raise ModelError(f"Jev HTTP {e.code}: {_message(detail)}") from None
+                    raise SetupRefused(f"Jev HTTP {e.code}: {said} (check the key; {KEY_HELP})") from None
+                if said.startswith(UNKNOWN_MODEL):
+                    raise SetupRefused(
+                        f"Jev HTTP {e.code}: {said} (settings: model names a Jev version TypeSafe serves; this jevtest "
+                        f"is tested with {DEFAULTS.model})"
+                    ) from None
+                raise ModelError(f"Jev HTTP {e.code}: {said}") from None
             except (urllib.error.URLError, TimeoutError) as e:
                 if not last:
                     self._retry(f"unreachable ({e})", attempt)

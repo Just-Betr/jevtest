@@ -74,6 +74,7 @@ error: t.yaml has 2 problems:
 | `Jev HTTP 429: trying again in 0.5s (retry 1 of 4)` | Printed while TypeSafe is rate-limiting (429) or overloaded (529); jevtest retries, waiting as long as TypeSafe asks (up to a minute) or with backoff, and says so each time. |
 | `Jev unreachable after 4 retries (…): check the network` | No connection to TypeSafe's API for about 8 s. That test fails and the next one tries again. With every decision recorded, `--lock frozen` needs no network. |
 | `Jev HTTP 401: …` | Check the key. The run stops there (exit 2): every question would be refused the same way. |
+| `Jev HTTP 400: Unknown model: jev-1.12.0 (settings: model names a Jev version TypeSafe serves; …)` | `settings: model` names a version TypeSafe doesn't serve. The run stops there (exit 2). |
 
 ## Tests that fail
 
