@@ -34,3 +34,8 @@ def objects_by_key(value: object) -> dict[str, dict[str, object]] | None:
             return None
         found[key] = item
     return found
+
+
+USER_TEXT = "utf-8-sig"
+"""How files people write are read (test files, `.env`, lockfiles): UTF-8 whatever the machine's locale, and a
+byte-order mark (which Windows Notepad adds) is not part of the first line."""

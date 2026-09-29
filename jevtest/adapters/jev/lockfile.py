@@ -17,7 +17,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol, TypedDict, TypeGuard
 
-from jevtest.adapters.shapes import is_json_object, is_list, objects_by_key
+from jevtest.adapters.shapes import USER_TEXT, is_json_object, is_list, objects_by_key
 from jevtest.domain.decisions import STEP_ACTIONS, SavedStep, Target
 from jevtest.domain.failures import ModelError, NotRecorded
 from jevtest.domain.model import Answer, ModelCall, Question, State
@@ -151,7 +151,10 @@ class _Store:
         self.used_steps: set[str] = set()
         self.dirty = False
         if mode is not LockMode.OFF and path.exists():
-            text = path.read_text()
+            try:
+                text = path.read_text(encoding=USER_TEXT)
+            except UnicodeDecodeError:
+                raise ModelError(f"{path.name} isn't UTF-8 text; delete it to re-record") from None
             if any(line.startswith(("<<<<<<< ", ">>>>>>> ")) for line in text.splitlines()):
                 raise ModelError(f"{path.name} has git merge conflict markers: resolve them, or delete it to re-record")
             try:

@@ -136,6 +136,7 @@ def test_a_recorded_answer_that_no_longer_fits_the_question_is_an_error(tmp_path
     ("content", "message"),
     [
         ("{", "not valid JSON"),
+        (b'{"version": 2, "x": "\xe9"}', "isn't UTF-8 text; delete it to re-record"),
         ('<<<<<<< HEAD\n{"version": 2}\n=======\n{}\n>>>>>>> main\n', "has git merge conflict markers: resolve them"),
         ("[]", "not a jevtest v2 lockfile"),
         ('{"version": 99}', "not a jevtest v2"),
@@ -166,7 +167,8 @@ def test_a_recorded_answer_that_no_longer_fits_the_question_is_an_error(tmp_path
     ],
 )
 def test_bad_lockfile(tmp_path, content, message):
-    (tmp_path / "t.lock.json").write_text(content)
+    f = tmp_path / "t.lock.json"
+    f.write_bytes(content) if isinstance(content, bytes) else f.write_text(content)
     with pytest.raises(ModelError, match=message):
         locked(tmp_path)
 

@@ -7,6 +7,7 @@ import re
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 
+from jevtest.adapters.shapes import USER_TEXT
 from jevtest.domain.failures import TestFileError
 
 ENV_LINE = re.compile(r"(?:export )?([A-Za-z_][A-Za-z0-9_]*)=(.*)")
@@ -38,7 +39,11 @@ def read_env(folder: Path, environ: Mapping[str, str] = os.environ) -> dict[str,
 
 def _entries(f: Path) -> Iterator[tuple[int, str, str]]:
     """Each ``KEY=value`` line's number, key and value (quotes around the value removed)."""
-    for n, line in enumerate(f.read_text().splitlines(), 1):
+    try:
+        text = f.read_text(encoding=USER_TEXT)
+    except UnicodeDecodeError:
+        raise TestFileError(f"{f} isn't UTF-8 text: save it as UTF-8") from None
+    for n, line in enumerate(text.splitlines(), 1):
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         m = ENV_LINE.fullmatch(line.strip())

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-from jevtest.adapters.shapes import is_list, is_mapping
+from jevtest.adapters.shapes import USER_TEXT, is_list, is_mapping
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
@@ -91,7 +91,7 @@ def _bare_word_hint(path: Path, error: yaml.YAMLError) -> str:
     line: int = error.problem_mark.line if error.problem_mark else 0
     if line < 1:
         return ""
-    word = re.fullmatch(r"-\s+([a-z_]+)", path.read_text().splitlines()[line - 1].strip())
+    word = re.fullmatch(r"-\s+([a-z_]+)", path.read_text(encoding=USER_TEXT).splitlines()[line - 1].strip())
     if word is None:
         return ""
     return f"\nOn line {line}, a step with checks under it needs a colon after its action: `- {word[1]}:`"
@@ -104,9 +104,11 @@ def read_yaml(path: Path) -> Document:
         TestFileError: It's missing, isn't valid YAML, or isn't a mapping.
     """
     try:
-        data: object = yaml.safe_load(path.read_text())
+        data: object = yaml.safe_load(path.read_text(encoding=USER_TEXT))
     except FileNotFoundError:
         raise TestFileError(f"Test file not found: {path}") from None
+    except UnicodeDecodeError:
+        raise TestFileError(f"{path.name} isn't UTF-8 text: save it as UTF-8") from None
     except yaml.YAMLError as e:
         hint = _bare_word_hint(path, e)
         if not hint and re.search(r"[{\[][^\n]*\$\{", str(e)):

@@ -37,3 +37,16 @@ def test_bad_env_files(tmp_path, body, message):
     (tmp_path / ".env").write_text(body)
     with pytest.raises(TestFileError, match=message):
         read_env(tmp_path, {"T_KEY": "env"})
+
+
+def test_a_bom_and_windows_line_endings_are_fine(tmp_path):
+    """Windows Notepad saves UTF-8 with a byte-order mark, and CRLF line ends."""
+    (tmp_path / ".env").write_bytes(b"\xef\xbb\xbfNAME=Ren\xc3\xa9e\r\nOTHER=x\r\n")
+    env = read_env(tmp_path, {})
+    assert (env["NAME"], env["OTHER"]) == ("Renée", "x")
+
+
+def test_a_file_that_isnt_utf8_says_so(tmp_path):
+    (tmp_path / ".env").write_bytes(b"NAME=Ren\xe9e\n")  # Latin-1
+    with pytest.raises(TestFileError, match=r"\.env isn't UTF-8 text: save it as UTF-8"):
+        read_env(tmp_path, {})

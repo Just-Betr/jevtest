@@ -422,3 +422,16 @@ def test_a_missing_library_names_the_file_that_includes_it(tmp_path):
 def test_file_settings_must_make_sense_together(tmp_path):
     with pytest.raises(TestFileError, match="is longer than `timeout`"):
         load(write(tmp_path, minimal(extra="settings: {timeout: 1, interval: 1.5}\n")), {})
+
+
+def test_a_test_file_with_a_bom_and_windows_line_endings_loads(tmp_path):
+    f = write(tmp_path, minimal())
+    f.write_bytes(b"\xef\xbb\xbf" + f.read_bytes().replace(b"\n", b"\r\n"))
+    assert load(f, {}).tests[0].name == "T"
+
+
+def test_a_test_file_that_isnt_utf8_says_so(tmp_path):
+    f = write(tmp_path, minimal())
+    f.write_bytes(f.read_bytes().replace(b"name: T", b"name: \xe9"))  # Latin-1
+    with pytest.raises(TestFileError, match="t.yaml isn't UTF-8 text: save it as UTF-8"):
+        load(f, {})
