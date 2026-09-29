@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.8
 
 - Jev unreachable says how often it tried and what to do: check the network, or `--lock frozen`, which needs none.
 - A rejected API key (Jev HTTP 401) stops the run with exit 2 and says to check the key; it failed each test in
