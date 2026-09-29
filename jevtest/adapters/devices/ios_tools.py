@@ -108,6 +108,8 @@ class Target:
     udid: str
     name: str
     physical: bool
+    runs: str = ""
+    """What it runs, to tell devices with the same name apart: ``iOS 26.5`` for a simulator."""
 
 
 def find_target(wanted: str) -> Target:
@@ -133,15 +135,18 @@ def find_target(wanted: str) -> Target:
             f"No booted simulator or connected iPhone called '{wanted}' (names are exact). Running: {listed}"
         )
     if len(matches) > 1:
-        raise DeviceError(
-            f"Several devices are called '{wanted}' ({', '.join(t.udid for t in matches)}): name one by its UDID"
-        )
+        listed = ", ".join(f"{t.udid} ({t.runs or 'an iPhone'})" for t in matches)
+        raise DeviceError(f"Several devices are called '{wanted}' ({listed}): name one by its UDID")
     return matches[0]
 
 
 def _running_targets() -> list[Target]:
     """The booted simulators, then the connected iPhones."""
-    sims = [Target(d["udid"], d["name"], physical=False) for d in simulators() if d["state"] == "Booted"]
+    sims = [
+        Target(d["udid"], d["name"], physical=False, runs=d["runtime"].replace("-", " ", 1).replace("-", "."))
+        for d in simulators()
+        if d["state"] == "Booted"
+    ]
     return sims + [Target(d["udid"], d["name"], physical=True) for d in phones()]
 
 

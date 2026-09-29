@@ -25,7 +25,7 @@ def test_simulators_sorted_newest_first(env):
 
 def test_uses_the_named_booted_simulator_and_never_boots_or_opens_one(env):
     sim = env[0]
-    assert ios_tools.find_target("iPhone 16") == ios_tools.Target("A", "iPhone 16", False)
+    assert ios_tools.find_target("iPhone 16") == ios_tools.Target("A", "iPhone 16", False, runs="iOS 18.0")
     assert not any(" boot " in c or "open -a" in c for c in sim.cmds)
 
 
@@ -42,13 +42,20 @@ def test_a_name_two_devices_share_is_an_error(env):
         {
             "devices": {
                 "com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
-                    {"name": "iPhone 17 Pro", "udid": "X", "state": "Booted"},
-                    {"name": "iPhone 17 Pro", "udid": "Y", "state": "Booted"},
-                ]
+                    {"name": "iPhone 17 Pro", "udid": "X", "state": "Booted"}
+                ],
+                "com.apple.CoreSimulator.SimRuntime.iOS-26-3": [
+                    {"name": "iPhone 17 Pro", "udid": "Y", "state": "Booted"}
+                ],
             }
         }
     )
-    with pytest.raises(DeviceError, match=r"Several devices are called 'iPhone 17 Pro' \(X, Y\): name one by its UDID"):
+    env.ctl.phones = [dict(PHONE, deviceProperties={"name": "iPhone 17 Pro"})]
+    with pytest.raises(
+        DeviceError,
+        match=r"Several devices are called 'iPhone 17 Pro' \(X \(iOS 26\.5\), Y \(iOS 26\.3\), 00008150-X \(an iPhone\)\): "
+        "name one by its UDID",
+    ):
         ios_tools.find_target("iPhone 17 Pro")
 
 

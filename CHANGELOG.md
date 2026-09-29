@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Several devices with one name (`iPhone 17 Pro` on iOS 26.3 and 26.5) are listed with what each runs, so you can
+  tell which UDID to use: `D9656DC8-… (iOS 26.5), 657BA69D-… (iOS 26.3)`.
+- Tested: every suite on the iOS 26.3, 26.4 and 26.5 simulators (a 17e's smaller screen included); the demo suite
+  records and replays exactly on each.
+
 ## 0.9.6
 
 - Android 12 and older: jevtest took the app to be in the foreground always, since those versions print no
