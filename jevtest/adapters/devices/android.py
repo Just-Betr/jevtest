@@ -21,12 +21,15 @@ from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
 
+from . import tool_says as says
 from ._typing import override
-from .android_screen import has_empty_webview, keyboard_up, parse_screen, typing_ready
+from .android_screen import EDITABLE, has_empty_webview, keyboard_up, parse_screen, typing_ready
 from .android_tools import aapt2_path, adb_path, build_agent, devices, http_get, pick_device
 from .common import (
+    AgentRefused,
     BaseDevice,
     Progress,
+    ToolFailed,
     Undo,
     cache_dir,
     no_app_opens,
@@ -70,29 +73,26 @@ DOUBLE_TAP_GAP = 0.1  # Android and Flutter ignore taps < 40 ms apart and > 300 
 DRAG_STEPS = 10  # finger positions along a drag
 DRAG_HOLD = 0.1  # seconds the finger rests before lifting, so nothing flings
 AGENT_START_TIMEOUT = 30
-TOP_ACTIVITY = re.compile(r"(?:topResumedActivity=|mResumedActivity: )ActivityRecord\{\S+ \S+ ([\w.]+)/")
-"""The activity on top: Android 13 and newer print `topResumedActivity=…`, 12 and older only `mResumedActivity: …`
-(measured on 12, 13, 15 and 17; each prints one of the two)."""
-PERMISSION_PROMPT = re.compile(r"com\.(google\.)?android\.permissioncontroller")
 AGENT_ID = "dev.jevtest.agent"
 AGENT_STOP_TIMEOUT = 10  # seconds for the agent to finish after /quit
 AGENT_PORT = 7912  # on the device; adb forwards a free local port to it
+AGENT_ERROR = "error: "
+"""How the agent starts an answer to a request it couldn't do."""
 AGENT_CALL_TIMEOUT = 10  # seconds for one agent call to answer (it answers at once: this catches a lost agent)
+
+
+class AmStartFailed(DeviceError):
+    """`am start` said why it couldn't start something. `said` is its own words."""
+
+    def __init__(self, message: str, said: str) -> None:
+        super().__init__(message)
+        self.said = said
 
 
 def check_awake(serial: str) -> None:
     """Raise `DeviceError` if the device is asleep or locked: it shows no app to test. Never wakes or unlocks it."""
-    out = run(
-        [
-            adb_path(),
-            "-s",
-            serial,
-            "shell",
-            "dumpsys power | grep -m1 mWakefulness=; dumpsys window | grep -m1 -E 'isKeyguardShowing='",
-        ],
-        check=False,
-    )
-    if "mWakefulness=Awake" not in out or "isKeyguardShowing=true" in out:
+    out = run([adb_path(), "-s", serial, "shell", says.AWAKE_QUERY], check=False)
+    if not says.awake_and_unlocked(out):
         raise DeviceError(f"Android device {serial} is asleep or locked: unlock it and keep it awake during the run")
 
 
@@ -165,15 +165,23 @@ class AndroidDevice(BaseDevice):
         )
 
     def _agent(self, path: str) -> str:
-        """Call the agent: it answers at once, it never waits for the screen."""
+        """Call the agent: it answers at once, it never waits for the screen.
+
+        Raises:
+            AgentRefused: It answered that it couldn't (``error: …``).
+            DeviceError: It didn't answer: something stopped it.
+        """
         url = f"http://127.0.0.1:{self.port}{path}"
         try:
-            return http_get(url, timeout=AGENT_CALL_TIMEOUT)
+            answer = http_get(url, timeout=AGENT_CALL_TIMEOUT)
         except OSError as e:
             raise DeviceError(
                 f"Lost the Android agent during {path} ({e}): something stopped it, such as another tool using UI "
                 "Automation (only one can at a time); the next test starts it again"
             ) from None
+        if answer.startswith(AGENT_ERROR):
+            raise AgentRefused("Android agent", path.split("?", 1)[0], answer.removeprefix(AGENT_ERROR))
+        return answer
 
     @override
     def close(self) -> None:
@@ -271,16 +279,21 @@ class AndroidDevice(BaseDevice):
         """Bring the app back to the foreground without restarting it."""
         self._am_start(f"-n {self.activity}", f"start {self.activity}")
 
-    def _am_start(self, args: str, what: str) -> str:
-        """`am start -W`, failing when it exits with an error or says it failed.
+    def _am_start(self, args: str, what: str) -> None:
+        """`am start -W`, failing with what it says went wrong: Android 13 says it and exits 0 (measured).
 
-        On some phones it exits 0 after printing `Error: ...` (measured: Android 13).
+        Raises:
+            AmStartFailed: It said why it couldn't start.
+            ToolFailed: It exited with an error and said nothing `am_error` recognises.
         """
-        out = self.sh(f"am start -W {args}")
-        error = re.search(r"^Error: (.+)$", out, re.MULTILINE)
-        if error:
-            raise DeviceError(f"Could not {what}: {error[1]}")
-        return out
+        try:
+            said = says.am_error(self.sh(f"am start -W {args}"))
+        except ToolFailed as e:  # Android 14 and newer exit 1 after saying why (measured)
+            said = says.am_error(e.output)
+            if said is None:
+                raise
+        if said is not None:
+            raise AmStartFailed(f"Could not {what}: {said}", said)
 
     def stop(self) -> None:
         """Force-stop the app."""
@@ -310,15 +323,14 @@ class AndroidDevice(BaseDevice):
     def app_state(self) -> AppState:
         """Where the app is: running at all, and whether it or its own permission prompt is on top."""
         out = self.sh(
-            f"pidof {self.app_id}; dumpsys activity activities | grep -m1 -E 'topResumedActivity=|mResumedActivity: '",
-            check=False,
+            f"pidof {self.app_id}; dumpsys activity activities | grep -m1 -E '{says.RESUMED_GREP}'", check=False
         )
         if not re.match(r"\d+", out.strip()):
             return AppState.NOT_RUNNING
-        top = TOP_ACTIVITY.search(out)
+        top = says.resumed_app(out)
         # The app has left only when another app is on top. No top activity = mid-transition;
         # a permission prompt the app asked for sits on top of it but belongs to it.
-        if not top or top.group(1) == self.app_id or PERMISSION_PROMPT.fullmatch(top.group(1)):
+        if top is None or top == self.app_id or says.PERMISSION_PROMPT.fullmatch(top):
             return AppState.FOREGROUND
         return AppState.BACKGROUND
 
@@ -397,7 +409,9 @@ class AndroidDevice(BaseDevice):
             if i:
                 self.key("enter")  # newlines become Enter presses
             if not line.isascii():
-                answer = self._agent("/insert?text=" + urllib.parse.quote(line, safe=""))
+                answer = self._agent(
+                    f"/insert?text={urllib.parse.quote(line, safe='')}&fields={','.join(sorted(EDITABLE))}"
+                )
                 if answer != "inserted":
                     raise DeviceError(f"Couldn't type {line!r}: {answer}")
                 continue
@@ -492,8 +506,8 @@ class AndroidDevice(BaseDevice):
         """Open a deep link or URL."""
         try:
             self._am_start(f"-a android.intent.action.VIEW -d {shlex.quote(url)}", f"open {url}")
-        except DeviceError as e:
-            if "unable to resolve Intent" in str(e):
+        except AmStartFailed as e:
+            if says.NO_ACTIVITY_FOR_INTENT in e.said:
                 raise no_app_opens(url) from None
             raise
 
@@ -516,15 +530,13 @@ class AndroidDevice(BaseDevice):
                 )
             try:
                 self.sh(f"pm grant {self.app_id} {permission}")
-            except DeviceError as e:  # the reason is the exception's own line, under "Exception occurred ..."
-                reason = re.search(r"^[\w.$]+(?:Exception|Error): (.+)$", str(e), re.MULTILINE)
-                raise DeviceError(f"Can't grant {permission}: {reason[1] if reason else e}") from None
-            # Android 17 grants a permission the app doesn't declare with no error, and nothing changes
-            # (measured; Android 13 refuses it): what Android recorded is what counts.
+            except ToolFailed as e:
+                raise DeviceError(f"Can't grant {permission}: {says.pm_exception(e.output) or e}") from None
+            # Android 15 and 17 answer a permission the app doesn't declare with no error, and grant nothing
+            # (measured; 12 and 13 refuse it): what Android recorded is what counts.
             record = self.sh(f"dumpsys package {self.app_id}", check=False)
-            if not re.search(rf"^\s*{re.escape(permission)}: granted=true", record, re.MULTILINE):
-                declared = re.search(rf"^\s*{re.escape(permission)}\s*$", record, re.MULTILINE)
-                if not declared:
+            if not says.granted(permission, record):
+                if not says.declared(permission, record):
                     raise DeviceError(f"Can't grant {permission}: the app doesn't declare it in its manifest")
                 raise DeviceError(f"Can't grant {permission}: Android didn't record it as granted")
 

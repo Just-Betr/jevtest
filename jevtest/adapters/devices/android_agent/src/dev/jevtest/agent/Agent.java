@@ -21,7 +21,11 @@ import java.net.Socket;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * jevtest Android agent. Started with
@@ -35,8 +39,11 @@ import java.util.List;
  *   GET /pixels?rects=x1,y1,x2,y2;x1,y1,x2,y2;... -> a fingerprint of the pixels in those parts of the
  *                       screen, from one screenshot: a system dialog fading or sliding in reports bounds in
  *                       the tree that don't move with it, so only its pixels show it is still moving
- *   GET /insert?text=T -> inserts T (URL-encoded, any text) at the cursor of the field with input focus, as typing
- *                       would; answers "inserted", or why not. For what `adb shell input text` can't type.
+ *   GET /insert?text=T&fields=C1,C2 -> inserts T (any text) at the cursor of the field with input focus, as
+ *                       typing would; answers "inserted", or why not. For what `adb shell input text` can't type.
+ *                       A field is a node whose class's short name is one of the C (jevtest's own list, so the
+ *                       agent and jevtest's screen reading agree on what a text field is).
+ * Parameters are URL-encoded. A request the agent can't do answers "error: " and why.
  *   GET /quit        -> stops the agent
  * When it is listening it reports status "ready=1" (visible with `am instrument -r`).
  * Reading the tree this way takes milliseconds instead of the ~2 s that a fresh
@@ -76,24 +83,20 @@ public class Agent extends Instrumentation {
                     String target = parts.length > 1 ? parts[1] : "";
                     int q = target.indexOf('?');
                     String path = q < 0 ? target : target.substring(0, q);
-                    String body;
-                    if (path.equals("/tree")) {
-                        body = tree(ui);
-                    } else if (path.equals("/pixels")) {
-                        body = pixels(ui, text(target, "rects"));
-                    } else if (path.equals("/insert")) {
-                        body = insert(ui, URLDecoder.decode(text(target, "text"), "UTF-8"));
-                    } else if (path.equals("/rotate")) {
-                        body = ui.setRotation((int) param(target, "to", -1)) ? "rotated" : "refused";
-                    } else if (path.equals("/quit")) {
+                    Map<String, String> params = query(q < 0 ? "" : target.substring(q + 1));
+                    if (path.equals("/quit")) {
                         reply(client, "bye");
                         break;
-                    } else {
-                        body = "unknown " + path;
+                    }
+                    String body;
+                    try {
+                        body = answer(ui, path, params);
+                    } catch (Exception e) {
+                        body = "error: " + e;  // one bad request must not stop the agent: it says why instead
                     }
                     reply(client, body);
                 } catch (Exception e) {
-                    // One bad request must not stop the agent.
+                    // The client went away mid-request: nothing to answer.
                 }
             }
         } catch (Exception e) {
@@ -105,19 +108,55 @@ public class Agent extends Instrumentation {
         finish(0, new Bundle());
     }
 
+    private String answer(UiAutomation ui, String path, Map<String, String> params) throws Exception {
+        switch (path) {
+            case "/tree":
+                return tree(ui);
+            case "/pixels":
+                return pixels(ui, required(params, "rects"));
+            case "/insert":
+                Set<String> fields = new HashSet<>(Arrays.asList(required(params, "fields").split(",")));
+                return insert(ui, required(params, "text"), fields);
+            case "/rotate":
+                return ui.setRotation(Integer.parseInt(required(params, "to"))) ? "rotated" : "refused";
+            default:
+                return "error: unknown " + path;
+        }
+    }
+
+    /** The query's parameters, each value URL-decoded. */
+    private static Map<String, String> query(String query) throws Exception {
+        Map<String, String> params = new HashMap<>();
+        for (String pair : query.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0) {
+                params.put(pair.substring(0, eq), URLDecoder.decode(pair.substring(eq + 1), "UTF-8"));
+            }
+        }
+        return params;
+    }
+
+    private static String required(Map<String, String> params, String name) {
+        String value = params.get(name);
+        if (value == null) {
+            throw new IllegalArgumentException("missing parameter " + name);
+        }
+        return value;
+    }
+
     /**
      * Insert text at the cursor of the field with input focus, as typing would: the field's text becomes what's
      * before the cursor (or selection), the text, and what's after, and the cursor goes after the text.
      */
-    private static String insert(UiAutomation ui, String typed) {
+    private static String insert(UiAutomation ui, String typed, Set<String> fields) {
         AccessibilityNodeInfo root = ui.getRootInActiveWindow();
         AccessibilityNodeInfo field = root == null ? null : root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
-        if ((field == null || !editable(field)) && root != null) {
+        if ((field == null || !isField(field, fields)) && root != null) {
             // In a web page, findFocus can answer with the WebView, which holds the input focus, rather than the
             // focused <input> inside it (measured: WebView 146); the <input> itself is marked focused.
-            field = focusedField(root);
+            field = focusedField(root, fields);
         }
-        if (field == null || !editable(field)) {
+        if (field == null || !isField(field, fields)) {
             return "no text field has input focus";
         }
         CharSequence shown = field.getText();
@@ -146,46 +185,25 @@ public class Agent extends Instrumentation {
         return "inserted";
     }
 
-    /**
-     * Whether the node takes typed text: as jevtest's screen reading decides it, by its class, since WebView 146
-     * doesn't mark its focused {@code <input>} editable (measured).
-     */
-    private static boolean editable(AccessibilityNodeInfo node) {
+    /** Whether the node is a text field: its class's short name is one of `fields`, as jevtest decides it. */
+    private static boolean isField(AccessibilityNodeInfo node, Set<String> fields) {
         String cls = String.valueOf(node.getClassName());
-        return node.isEditable() || cls.endsWith("EditText") || cls.endsWith("AutoCompleteTextView");
+        return fields.contains(cls.substring(cls.lastIndexOf('.') + 1));
     }
 
-    /** The focused editable node under `node`, found by walking the tree; null if none. */
-    private static AccessibilityNodeInfo focusedField(AccessibilityNodeInfo node) {
-        if (node.isFocused() && editable(node)) {
+    /** The focused text field under `node`, found by walking the tree; null if none. */
+    private static AccessibilityNodeInfo focusedField(AccessibilityNodeInfo node, Set<String> fields) {
+        if (node.isFocused() && isField(node, fields)) {
             return node;
         }
         for (int i = 0; i < node.getChildCount(); i++) {
             AccessibilityNodeInfo child = node.getChild(i);
-            AccessibilityNodeInfo found = child == null ? null : focusedField(child);
+            AccessibilityNodeInfo found = child == null ? null : focusedField(child, fields);
             if (found != null) {
                 return found;
             }
         }
         return null;
-    }
-
-    private static String text(String target, String name) {
-        for (String pair : target.substring(target.indexOf('?') + 1).split("&")) {
-            if (pair.startsWith(name + "=")) {
-                return pair.substring(name.length() + 1);
-            }
-        }
-        return "";
-    }
-
-    private static long param(String target, String name, long fallback) {
-        for (String pair : target.substring(target.indexOf('?') + 1).split("&")) {
-            if (pair.startsWith(name + "=")) {
-                return Long.parseLong(pair.substring(name.length() + 1));
-            }
-        }
-        return fallback;
     }
 
     /**
@@ -202,7 +220,7 @@ public class Agent extends Instrumentation {
             for (String rect : rects.split(";")) {
                 String[] v = rect.split(",");
                 if (v.length != 4) {
-                    continue;
+                    throw new IllegalArgumentException("not x1,y1,x2,y2: " + rect);
                 }
                 int left = Math.max(0, Math.min(Integer.parseInt(v[0]), shot.getWidth()));
                 int top = Math.max(0, Math.min(Integer.parseInt(v[1]), shot.getHeight()));

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from jevtest.adapters.devices.common import Undo
+from jevtest.adapters.devices.common import AgentRefused, ToolFailed, Undo
 from jevtest.adapters.devices.ios import IOSDevice
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.screen import Element
@@ -339,14 +339,17 @@ def test_looks_says_nothing_on_ios_where_frames_move_with_their_animation(drv, e
     assert not any(p == "/pixels" for p, _ in env[1].calls)
 
 
-def test_a_link_no_app_opens_says_so_on_the_simulator(drv, env):
-    env[1].replies["/open_url"] = DeviceError(
-        "iOS agent /open_url: The operation could not be completed. (LSApplicationWorkspaceErrorDomain error 115.)"
-    )
+@pytest.mark.parametrize("physical", [False, True])
+def test_a_link_no_app_opens_says_so(drv, env, physical):
+    """Simulator or iPhone, the agent opens it, and says why it couldn't in its own words (measured: error 115)."""
+    drv.physical = physical
+    env[1].replies["/open_url"] = {
+        "error": "The operation could not be completed. (LSApplicationWorkspaceErrorDomain error 115.)"
+    }
     with pytest.raises(DeviceError, match="^No app on the device opens x://y"):
         drv.open_url("x://y")
-    env[1].replies["/open_url"] = DeviceError("iOS agent /open_url: Not a URL")
-    with pytest.raises(DeviceError, match="Not a URL$"):
+    env[1].replies["/open_url"] = {"error": "Not a URL"}
+    with pytest.raises(AgentRefused, match="^iOS agent /open_url: Not a URL$"):
         drv.open_url("x://y")
 
 
@@ -357,16 +360,6 @@ def test_a_simulator_opens_links_through_the_agent_so_ios_doesnt_ask(drv, env):
         (p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in env[1].calls
     ]
     assert not any("openurl" in c for c in env[0].cmds)
-
-
-def test_a_link_no_app_opens_says_so_on_an_iphone(env, tmp_path, monkeypatch):
-    drv = IOSDevice("A", Path("Demo.app"), PROGRESS)
-    drv.physical = True
-    env[1].replies["/open_url"] = DeviceError(
-        "iOS agent /open_url: The operation could not be completed. (LSApplicationWorkspaceErrorDomain error 115.)"
-    )
-    with pytest.raises(DeviceError, match="^No app on the device opens x://y"):
-        drv.open_url("x://y")
 
 
 def test_a_key_with_no_keyboard_up_says_ios_needs_a_field(drv, env, monkeypatch):
@@ -410,6 +403,16 @@ def test_several_grants_start_the_app_again_once(drv, env, slept):
 
 def test_a_service_the_simulator_wont_grant_says_what_names_it_takes(drv, env):
     env[1].replies["/state"] = {"state": 1}
-    env[0].rules["privacy"] = DeviceError("simctl failed (1): Operation not permitted")
+    env[0].rules["privacy"] = ToolFailed(["xcrun", "simctl"], 1, "Failed to set access\nOperation not permitted\n")
     with pytest.raises(DeviceError, match="^The simulator didn't grant 'bogus': use a service name such as camera"):
         drv.grant(["bogus"])
+    env[0].rules["privacy"] = ToolFailed(["xcrun", "simctl"], 164, "Invalid device: A")  # another failure: as it came
+    with pytest.raises(ToolFailed, match="Invalid device: A$"):
+        drv.grant(["camera"])
+
+
+def test_a_key_passes_on_an_agent_failure_as_it_came(drv, env):
+    """Only a keyboard that never came up gets the hint about fields: an agent failure is reported as it is."""
+    env[1].replies["/tree"] = {"error": "Application is not running"}
+    with pytest.raises(AgentRefused, match="^iOS agent /tree: Application is not running$"):
+        drv.key("enter")

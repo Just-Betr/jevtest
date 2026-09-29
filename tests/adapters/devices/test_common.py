@@ -194,3 +194,10 @@ def test_what_was_left_is_said_in_words():
     assert common.Undo.described({"/appearance": {}, "/rotate": {}, "location": {}, "network": ""}) == (
         "dark mode, rotation, location, network"
     )
+
+
+def test_a_failed_tool_carries_its_exit_code_and_everything_it_printed():
+    with pytest.raises(common.ToolFailed) as e:
+        run([sys.executable, "-c", "import sys; print('on stdout'); print('on stderr', file=sys.stderr); sys.exit(3)"])
+    assert e.value.returncode == 3
+    assert "on stdout" in e.value.output and "on stderr" in e.value.output

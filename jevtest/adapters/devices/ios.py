@@ -29,10 +29,14 @@ from jevtest.domain.kinds import AppState, Orientation
 from jevtest.domain.screen import Element, Point, Screen
 from jevtest.domain.steps import KEYS
 
+from . import tool_says as says
 from ._typing import override
 from .common import (
+    AgentRefused,
     BaseDevice,
     Progress,
+    TimedOut,
+    ToolFailed,
     Undo,
     cache_dir,
     digest,
@@ -190,7 +194,7 @@ class IOSDevice(BaseDevice):
                     env=env,
                 )
             except DeviceError as e:
-                if "enabling automation mode" in self.agent_log.read_text(errors="replace"):
+                if says.AUTOMATION_NOT_ALLOWED in self.agent_log.read_text(errors="replace"):
                     raise DeviceError(
                         f'{self.name} did not allow UI automation ("Timed out while enabling automation mode"). '
                         "Unlock it and keep the screen on, check Settings > Developer > Enable UI Automation is on, "
@@ -240,7 +244,7 @@ class IOSDevice(BaseDevice):
                     f"Is it unlocked and plugged in? Agent log tail:\n{self._log_tail()}"
                 ) from None
         if "error" in data:
-            raise DeviceError(f"iOS agent {path}: {data['error']}")
+            raise AgentRefused("iOS agent", path, str(data["error"]))
         return data
 
     @override
@@ -397,7 +401,7 @@ class IOSDevice(BaseDevice):
             raise DeviceError(f"iOS has no key '{name}': it presses only {', '.join(KEYS)}")
         try:
             self.wait_until(lambda s: s.keyboard_visible, "No keyboard came up")
-        except DeviceError as e:
+        except TimedOut as e:
             raise DeviceError(f"{e}: iOS presses keys only into a field, so tap one first") from None
         self._call("/key", key=name)
 
@@ -433,7 +437,7 @@ class IOSDevice(BaseDevice):
         wide = orientation in (Orientation.LANDSCAPE, Orientation.LANDSCAPE_RIGHT)
         try:
             self.wait_until(lambda s: (s.width > s.height) == wide, f"The app did not turn to {orientation}")
-        except DeviceError as e:
+        except TimedOut as e:
             raise DeviceError(
                 f"{e}: does the app allow it? (UISupportedInterfaceOrientations in its Info.plist; iPhone apps "
                 "usually leave out portrait_upside_down)"
@@ -456,8 +460,8 @@ class IOSDevice(BaseDevice):
         """
         try:
             self._call("/open_url", url=url)
-        except DeviceError as e:
-            if re.search(r"LSApplicationWorkspaceErrorDomain(, code=| error )115", str(e)):  # measured: no app for it
+        except AgentRefused as e:
+            if says.no_app_for_url(e.said):
                 raise no_app_opens(url) from None
             raise
 
@@ -479,7 +483,9 @@ class IOSDevice(BaseDevice):
         for permission in permissions:
             try:
                 simctl("privacy", self.udid, "grant", permission, self.app_id)
-            except DeviceError:  # measured: an unknown service fails with "Operation not permitted"
+            except ToolFailed as e:
+                if says.PRIVACY_REFUSED not in e.output:
+                    raise
                 raise DeviceError(
                     f"The simulator didn't grant '{permission}': use a service name such as camera, photos, "
                     "microphone, location or contacts (`xcrun simctl privacy` lists them)"

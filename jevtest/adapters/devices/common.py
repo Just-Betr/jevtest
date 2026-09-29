@@ -30,6 +30,27 @@ CHECK_INTERVAL = 0.25
 """Seconds between two checks of such a follow-up (the same as a step's default `interval`)."""
 
 
+class ToolFailed(DeviceError):
+    """A tool exited with an error. `output` is everything it printed, both streams, to recognise why by."""
+
+    def __init__(self, cmd: list[str], returncode: int, output: str) -> None:
+        super().__init__(f"{' '.join(map(str, cmd))} failed ({returncode}): {output.strip()[:800]}")
+        self.returncode = returncode
+        self.output = output
+
+
+class TimedOut(DeviceError):
+    """A follow-up to an action didn't show within `FOLLOW_UP` seconds (see `wait_until`)."""
+
+
+class AgentRefused(DeviceError):
+    """The on-device agent answered, with why it couldn't do what was asked. `said` is its own words."""
+
+    def __init__(self, agent: str, path: str, said: str) -> None:
+        super().__init__(f"{agent} {path}: {said}")
+        self.said = said
+
+
 def no_app_opens(url: str) -> DeviceError:
     """The error for a link no app on the device handles."""
     return DeviceError(f"No app on the device opens {url}: check the link, and that the app registers its scheme")
@@ -39,12 +60,12 @@ def wait_until(condition: Callable[[], bool], what: str) -> None:
     """Check `condition`; if it's false, wait `CHECK_INTERVAL` seconds and check again, for up to `FOLLOW_UP`.
 
     Raises:
-        DeviceError: It's still false: the message is "`what` within N seconds".
+        TimedOut: It's still false: the message is "`what` within N seconds".
     """
     deadline = time.monotonic() + FOLLOW_UP
     while not condition():
         if time.monotonic() + CHECK_INTERVAL > deadline:
-            raise DeviceError(f"{what} within {FOLLOW_UP:g} seconds")
+            raise TimedOut(f"{what} within {FOLLOW_UP:g} seconds")
         time.sleep(CHECK_INTERVAL)
 
 
@@ -52,7 +73,8 @@ def run_bytes(cmd: list[str], *, timeout: float = 120, check: bool = True) -> by
     """Run a command and return its output.
 
     Raises:
-        DeviceError: The command isn't installed, timed out, or (with `check`) exited with an error.
+        DeviceError: The command isn't installed or timed out.
+        ToolFailed: With `check`, it exited with an error.
     """
     try:
         p = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False)
@@ -61,8 +83,7 @@ def run_bytes(cmd: list[str], *, timeout: float = 120, check: bool = True) -> by
     except subprocess.TimeoutExpired:
         raise DeviceError(f"Timed out after {timeout:g}s: {' '.join(map(str, cmd))}") from None
     if check and p.returncode != 0:
-        detail = (p.stderr or p.stdout).decode(errors="replace").strip()[:800]
-        raise DeviceError(f"{' '.join(map(str, cmd))} failed ({p.returncode}): {detail}")
+        raise ToolFailed(cmd, p.returncode, (p.stderr + p.stdout).decode(errors="replace"))
     return p.stdout
 
 
@@ -70,7 +91,8 @@ def run(cmd: list[str], *, timeout: float = 120, check: bool = True) -> str:
     """Run a command and return its output as text.
 
     Raises:
-        DeviceError: The command isn't installed, timed out, or (with `check`) exited with an error.
+        DeviceError: The command isn't installed or timed out.
+        ToolFailed: With `check`, it exited with an error.
     """
     return run_bytes(cmd, timeout=timeout, check=check).decode(errors="replace")
 
@@ -265,7 +287,7 @@ class BaseDevice(ABC):
         The effect comes a moment after the action returns: the keyboard sliding away, the screen turning.
 
         Raises:
-            DeviceError: The effect didn't show: the message is "`what` within N seconds".
+            TimedOut: The effect didn't show: the message is "`what` within N seconds".
         """
         wait_until(lambda: done(self.screen()), what)
 

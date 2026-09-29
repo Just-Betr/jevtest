@@ -6,7 +6,7 @@ import pytest
 
 from jevtest.adapters.devices import android
 from jevtest.adapters.devices.android import KEYCODES, AndroidDevice
-from jevtest.adapters.devices.common import Undo
+from jevtest.adapters.devices.common import AgentRefused, ToolFailed, Undo
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import Direction, Orientation
 from jevtest.domain.screen import Element
@@ -299,7 +299,10 @@ def test_letters_adb_cant_type_are_put_in_by_the_agent(drv, adb, agent):
     """`input text` types only a US keyboard's keys: a line with any other letter goes to the agent, whole."""
     agent.replies["/insert"] = "inserted"
     drv.type_text("José + Zoë 日本\nplain 50%")
-    assert agent.paths()[-1] == "/insert?text=Jos%C3%A9%20%2B%20Zo%C3%AB%20%E6%97%A5%E6%9C%AC"
+    # the agent decides what's a text field by jevtest's own list, so both agree
+    assert agent.paths()[-1] == (
+        "/insert?text=Jos%C3%A9%20%2B%20Zo%C3%AB%20%E6%97%A5%E6%9C%AC&fields=AutoCompleteTextView,EditText"
+    )
     assert adb.shell() == ["input keyevent 66", "input text plain%s50%"]  # ASCII lines still key by key
 
 
@@ -555,28 +558,33 @@ def test_a_link_no_app_opens_says_so(drv, adb):
     with pytest.raises(DeviceError, match="^Could not open x://y: Activity class does not exist$"):
         drv.open_url("x://y")
     # Android 14+ exits 1 with the same words (measured on the emulator)
-    adb.rules["am start -W -a android.intent.action.VIEW"] = DeviceError(
-        "am start failed (1): Error: Activity not started, unable to resolve Intent { dat=x:// }"
+    adb.rules["am start -W -a android.intent.action.VIEW"] = ToolFailed(
+        ["adb", "shell", "am start"], 1, "Starting: Intent\nError: Activity not started, unable to resolve Intent\n"
     )
     with pytest.raises(DeviceError, match="^No app on the device opens x://y"):
         drv.open_url("x://y")
-    adb.rules["am start -W"] = DeviceError("adb: device offline")
-    with pytest.raises(DeviceError, match="device offline"):
+    adb.rules["am start -W"] = ToolFailed(["adb", "shell", "am start"], 1, "adb: device offline")
+    with pytest.raises(ToolFailed, match="device offline"):  # not something am said: as it came
         drv.launch()
 
 
 def test_a_permission_that_cant_be_granted_says_why(drv, adb):
-    adb.rules["pm grant"] = DeviceError(
-        "adb shell pm grant failed (255): Exception occurred while executing 'grant':\n"
+    adb.rules["pm grant"] = ToolFailed(
+        ["adb", "shell", "pm grant"],
+        255,
+        "\nException occurred while executing 'grant':\n"
         "java.lang.SecurityException: Permission android.permission.INTERNET requested by package dev.demo is not a "
-        "changeable permission type\n\tat com.android.server..."
+        "changeable permission type\n\tat com.android.server...",
     )
     with pytest.raises(
-        DeviceError, match="^Can't grant android.permission.INTERNET: Permission .* is not a changeable"
+        DeviceError,
+        match="^Can't grant android.permission.INTERNET: Permission .* is not a changeable permission type$",
     ):
         drv.grant(["android.permission.INTERNET"])
-    adb.rules["pm grant"] = DeviceError("device offline")
-    with pytest.raises(DeviceError, match="^Can't grant android.permission.CAMERA: device offline$"):
+    adb.rules["pm grant"] = ToolFailed(["adb", "shell", "pm grant"], 1, "adb: device offline")
+    with pytest.raises(
+        DeviceError, match="^Can't grant android.permission.CAMERA: adb shell pm grant failed .*offline$"
+    ):
         drv.grant(["android.permission.CAMERA"])
 
 
@@ -628,3 +636,10 @@ def test_a_grant_android_didnt_record_fails(drv, adb, record, why):
     adb.rules["dumpsys package dev.demo"] = record
     with pytest.raises(DeviceError, match=f"^Can't grant android.permission.CAMERA: {why}$"):
         drv.grant(["android.permission.CAMERA"])
+
+
+def test_a_request_the_agent_couldnt_do_says_why_rather_than_lost(drv, agent):
+    """The agent answers what went wrong; only a request that gets no answer means something stopped it."""
+    agent.replies["/pixels"] = "error: java.lang.IllegalArgumentException: not x1,y1,x2,y2: 1,2"
+    with pytest.raises(AgentRefused, match=r"^Android agent /pixels: java.lang.IllegalArgumentException: not x1"):
+        drv.looks([Element("button", "OK", bounds=(10, 20, 110, 70))])
