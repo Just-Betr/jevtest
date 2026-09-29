@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.9
 
 - `--platform android|ios` runs only that platform's part of each file, so a Linux CI job can run a file that also
   runs on iOS (its iOS build and device aren't needed), and the getting-started demo runs with only the APK built:
