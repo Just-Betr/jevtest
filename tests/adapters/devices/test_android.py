@@ -411,13 +411,6 @@ def test_device_commands(drv, adb, agent):
     ]
 
 
-def test_grant_needs_the_full_permission_name(drv):
-    with pytest.raises(
-        DeviceError, match="'camera': give the full Android permission name, e.g. android.permission.CAMERA"
-    ):
-        drv.grant(["camera"])
-
-
 def test_unreadable_dark_mode_is_an_error_not_a_guess(drv, adb):
     adb.rules["cmd uimode night"] = "\n"
     with pytest.raises(DeviceError, match="Can't read the device's dark mode setting"):

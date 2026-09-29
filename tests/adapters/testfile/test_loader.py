@@ -457,3 +457,59 @@ def test_a_key_given_twice_is_an_error_not_dropped(tmp_path, body, message):
 def test_tabs_get_a_hint(tmp_path):
     with pytest.raises(TestFileError, match="Indent with spaces: YAML doesn't allow tabs$"):
         load(write(tmp_path, "app: a.apk\ntests:\n\t- name: T\n"), {})
+
+
+BOTH = "app: {android: a.apk, ios: x.zip}\ndevice: {android: Pixel, ios: iPhone 17}\n"
+FOR_ONE = "Put tests for one platform in a file whose `app:` has only that platform's build$"
+
+
+@pytest.mark.parametrize(
+    ("app", "step", "message"),
+    [
+        (BOTH, "{network: false}", f"^Test 'U': network: can't run on iOS, .* network on or off. {FOR_ONE}"),
+        (BOTH, "{key: home}", rf"^Test 'U': key: home is Android only \(iOS presses backspace, .*\). {FOR_ONE}"),
+        (BOTH, "{key: '66'}", r"^Test 'U': key: 66 is Android only"),
+        (
+            BOTH,
+            "{grant: {android: android.permission.CAMERA}}",
+            r"^Test 'U': grant: has no ios permission, and the file runs on ios. Give it: grant: \{android: ",
+        ),
+        (
+            BOTH,
+            "{grant: camera}",
+            "^Test 'U': 'camera' isn't a full Android permission name: .* android.permission.CAMERA",
+        ),
+        (minimal(tests=""), "{grant: camera}", "^Test 'U': 'camera' isn't a full Android permission name"),
+        (minimal(tests=""), "{grant: {ios: camera}}", "^Test 'U': grant: has no android permission"),
+    ],
+)
+def test_a_step_that_cant_run_on_a_platform_the_file_runs_on_is_an_error(tmp_path, app, step, message):
+    (tmp_path / "x.zip").write_text("")
+    head = app.split("tests:")[0]
+    body = f"{head}tests:\n  - {{name: T, fresh: true, steps: [back, {{use: U}}]}}\n  - {{name: U, fresh: true, steps: [{step}]}}\n"
+    with pytest.raises(TestFileError, match=message):
+        load(write(tmp_path, body), {})
+
+
+@pytest.mark.parametrize(
+    ("app", "step"),
+    [
+        (minimal(tests=""), "{network: false}"),
+        (minimal(tests=""), "{key: home}"),
+        (minimal(tests=""), "{grant: com.example.app.SCAN}"),  # an app's own permission
+        ("app: x.zip\ndevice: {ios: iPhone 17}\n", "{grant: camera}"),
+        (BOTH, "{grant: {android: android.permission.CAMERA, ios: camera}}"),
+        (BOTH, "{key: enter}"),
+    ],
+)
+def test_a_step_that_runs_on_every_platform_the_file_runs_on_loads(tmp_path, app, step):
+    (tmp_path / "x.zip").write_text("")
+    head = app.split("tests:")[0]
+    load(write(tmp_path, f"{head}tests:\n  - {{name: T, fresh: true, steps: [{step}]}}\n"), {})
+
+
+def test_a_library_test_no_test_uses_isnt_checked_for_the_files_platforms(tmp_path):
+    """A library may hold Android-only tests that only files running on Android use."""
+    (tmp_path / "x.zip").write_text("")
+    (tmp_path / "lib.yaml").write_text("tests: [{name: Offline, fresh: true, steps: [{network: false}]}]\n")
+    load(write(tmp_path, f"{BOTH}include: lib.yaml\ntests:\n  - {{name: T, fresh: true, steps: [back]}}\n"), {})

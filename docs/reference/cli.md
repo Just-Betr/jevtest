@@ -30,10 +30,10 @@ jevtest run PATH... --lock MODE --out DIR [--test NAME]... [--prune-lock] [-v]
 jevtest checks everything it can before it installs or starts anything, and exits with code 2 and a message saying what to fix:
 
 - every test file and library loads (a file's problems are listed together), and every `${NAME}` is set;
+- every step a file's tests take can run on each platform the file runs on: no `network:` or Android-only `key:` in a file that runs on iOS, and every `grant:` names its permission for each platform;
 - every app build exists;
 - every device a file names is running (a missing one is listed with the devices that are), and no other jevtest run is testing it: a second run on the same device would restart the app under the first. The claim ends with the run, however it ends;
 - with `--lock refresh` or `--lock off`, `TYPESAFE_API_KEY` is set if a test that runs has a `do:` or an `expect:`, since those always ask Jev then;
-- no test that runs on iOS has a `network:` step;
 - `--prune-lock` has every test and a lockfile to prune (below).
 
 ## `--prune-lock`

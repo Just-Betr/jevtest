@@ -71,7 +71,7 @@ When nothing matches but a longer text contains the target, the step fails and l
 | `type: text` | Types into the field that has focus: waits until the keyboard is up, and fails if it never comes (keys would go nowhere). |
 | `type: { text: "…", into: target }` | Taps the field, then types. Text is typed exactly as written, spaces included. Any text, on both platforms: `José`, `日本`, emoji. On Android, a line with letters beyond a US keyboard's goes in at the cursor all at once rather than key by key, and into a password field only while it's empty. |
 | `clear: target` | Erases a text field. |
-| `key: name` | Presses a key. On both platforms: `enter` (or `return`), `delete` (or `backspace`), `tab`, `escape`, `space`. On Android also `back`, `home`, `menu`, `search`, `app_switch`, `power`, `volume_up`, `volume_down`, `dpad_up`, `dpad_down`, `dpad_left`, `dpad_right`, `move_home`, `move_end`, or a key code number in quotes (`key: "67"`). Names are exact and checked when the file loads. iOS presses keys only into a field, so there the step waits until the keyboard is up. |
+| `key: name` | Presses a key. On both platforms: `enter` (or `return`), `delete` (or `backspace`), `tab`, `escape`, `space`. On Android also `back`, `home`, `menu`, `search`, `app_switch`, `power`, `volume_up`, `volume_down`, `dpad_up`, `dpad_down`, `dpad_left`, `dpad_right`, `move_home`, `move_end`, or a key code number in quotes (`key: "67"`). Names are exact and checked when the file loads, as is an Android-only key in a file that also runs on iOS. iOS presses keys only into a field, so there the step waits until the keyboard is up. |
 | `hide_keyboard` | Closes the on-screen keyboard. |
 
 ### Navigation and app lifecycle
@@ -98,7 +98,7 @@ These change device state because the test asks for it. Anything jevtest changes
 | `dark_mode: on\|off` | Dark or light appearance. |
 | `location: [latitude, longitude]` | Sets the GPS location (emulator, simulator, iPhone). |
 | `grant: permissions` | Grants runtime permissions, so the app never asks. One name, a list, or names per platform ([below](#grant-permission-names)). |
-| `network: on\|off` | Wi-Fi and mobile data. Android only: a file whose `app:` includes iOS and runs a test with `network:` is an error before anything runs. |
+| `network: on\|off` | Wi-Fi and mobile data. Android only: a file whose `app:` includes iOS and runs a test with `network:` is an error when it loads. |
 
 ### `grant:` permission names
 
@@ -125,7 +125,7 @@ Each platform names a permission its own way, so a file that runs on both gives 
 | Notifications | `android.permission.POST_NOTIFICATIONS` (Android 13+) | none: the simulator can't pre-grant them |
 | Reminders | none | `reminders` |
 
-- **Android:** the full name, and only a permission the app declares in its manifest and Android grants at run time. Anything else fails, saying why (`not a changeable permission type`).
+- **Android:** the full name, with its package (`android.permission.CAMERA`, or an app's own `com.example.app.SCAN`), and only a permission the app declares in its manifest and Android grants at run time. Anything else fails, saying why (`not a changeable permission type`).
 - **iOS simulator:** a service `xcrun simctl privacy` accepts. The simulator ends an app whose permissions change, so jevtest starts it again, once for the whole list: put `grant:` first in a test.
 - **A real iPhone** can't be granted permissions (Apple doesn't allow it). A file that runs on one and has a `grant:` is an error before the run: run that test on a simulator, or tap the permission prompt with a step instead.
 - A file that runs on both platforms with a `grant:` that doesn't name both is an error before the run.

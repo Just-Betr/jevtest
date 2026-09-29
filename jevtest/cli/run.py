@@ -12,7 +12,7 @@ import re
 import shutil
 import threading
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -32,17 +32,18 @@ from jevtest.domain.failures import DeviceError, ModelError, TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 from jevtest.domain.results import RunResult
-from jevtest.domain.steps import Do, Expect, Grant, Network, Step, Suite, Test, Use
+from jevtest.domain.steps import Do, Expect, Grant, Suite, Test, Use
 
 from .console import ConsoleListener, Printer, summary
 
 API_KEY = "TYPESAFE_API_KEY"
 
 MakeDevice = Callable[[Platform, str, Path, Callable[[str], None]], Device]
+"""Makes the device for a platform: (platform, device name, app build, progress) -> device."""
+
 FindDevice = Callable[[Platform, str, Path], bool]
 """Claims the named device, and says whether it's a real iPhone. Raises `DeviceError` unless it's running and the
 build (the path) suits it."""
-"""Makes the device for a platform: (platform, device name, app build, progress) -> device."""
 
 MakeClient = Callable[[str, str | None], JevAsker]
 """Makes the Jev client from the model and the API key (None when it isn't set)."""
@@ -174,7 +175,7 @@ class Runs:
                 device,
                 Brain(model, job.suite.variables),
                 job.out,
-                platform=job.platform.value,
+                platform=job.platform,
                 clock=self.clock,
                 listener=listener,
             ).run()
@@ -249,8 +250,9 @@ def run_command(
     loaded = _load(files, others)
     if options.tests:
         loaded = _only(loaded, options.tests)
-    _check_runnable(loaded, options)
-    _find_devices(loaded, find_device)
+    _check_builds(loaded)
+    _check_options(loaded, options)
+    _check_iphone_grants(loaded, _find_devices(loaded, find_device))
     root = Path(os.path.commonpath([f.parent for f in files]))
     out = _results_folder(options.out, time.strftime("%Y%m%d-%H%M%S"))
     runs = Runs(make_device, clock, verbose=options.verbose)
@@ -274,8 +276,8 @@ def run_command(
 Loaded = list[tuple[Suite, dict[str, str]]]
 
 
-def _check_runnable(loaded: Loaded, options: RunOptions) -> None:
-    """Every app build exists, and --prune-lock has a whole run and a lockfile to prune."""
+def _check_builds(loaded: Loaded) -> None:
+    """Every app build exists, and an Android App Bundle has bundletool to install it."""
     missing = [app for suite, _ in loaded for app in suite.apps.values() if not app.exists()]
     if missing:
         raise TestFileError(f"App not found: {missing[0]}")
@@ -284,17 +286,12 @@ def _check_runnable(loaded: Loaded, options: RunOptions) -> None:
         raise TestFileError(
             f"{bundles[0].name}: bundletool is required to install .aab files (brew install bundletool)"
         )
+
+
+def _check_options(loaded: Loaded, options: RunOptions) -> None:
+    """--prune-lock has a whole run and a lockfile to prune; a --lock that asks Jev has the API key to."""
     if options.prune_lock and (options.tests or options.lock is LockMode.OFF):
         raise TestFileError("--prune-lock needs every test to run (no --test) and a lockfile (not --lock off)")
-    for suite, _ in loaded:
-        network = next((name for name, step in _steps(suite) if isinstance(step.action, Network)), None)
-        if Platform.IOS in suite.apps and network is not None:
-            raise TestFileError(
-                f"{suite.path.name} runs on iOS, where jevtest can't turn the network on or off, and test "
-                f"'{network}' has a network: step. Put Android-only tests in a file whose app: is Android only"
-            )
-    for suite, _ in loaded:
-        _check_grants(suite)
     if options.lock in (LockMode.REFRESH, LockMode.OFF):
         keyless = [suite.path.name for suite, env in loaded if not env.get(API_KEY) and _asks_jev(suite)]
         if keyless:
@@ -325,10 +322,13 @@ def _results_folder(parent: Path, stamp: str) -> Path:
     raise AssertionError  # pragma: no cover - itertools.count never ends
 
 
-def _find_devices(loaded: Loaded, find_device: FindDevice) -> None:
-    """Every device every file names is running, before any test starts: not found only once others finish.
+def _find_devices(loaded: Loaded, find_device: FindDevice) -> set[str]:
+    """Claim every device the files name, and say which are real iPhones.
 
-    A real iPhone can't be granted permissions, so a file that runs on one has no `grant:` in its tests.
+    All are found before any test starts, so a missing device is reported now, not once other files have run.
+
+    Raises:
+        DeviceError: A device isn't running, another run has it, or the build doesn't suit it.
     """
     named = dict.fromkeys((p, d, suite.apps[p]) for suite, _ in loaded for p in suite.apps for d in suite.devices[p])
     iphones: set[str] = set()
@@ -338,9 +338,14 @@ def _find_devices(loaded: Loaded, find_device: FindDevice) -> None:
                 iphones.add(device)
         except DeviceError as e:
             raise DeviceError(f"{platform} · {device}: {e}") from None
+    return iphones
+
+
+def _check_iphone_grants(loaded: Loaded, iphones: set[str]) -> None:
+    """A file that runs on a real iPhone has no `grant:` in its tests: Apple doesn't let anything pre-grant there."""
     for suite, _ in loaded:
         iphone = next((d for d in suite.devices.get(Platform.IOS, ()) if d in iphones), None)
-        granting = next((name for name, step in _steps(suite) if isinstance(step.action, Grant)), None)
+        granting = next((name for name, step in suite.steps() if isinstance(step.action, Grant)), None)
         if iphone is not None and granting is not None:
             raise TestFileError(
                 f"{suite.path.name} runs on the iPhone {iphone}, where jevtest can't pre-grant permissions (Apple "
@@ -349,44 +354,11 @@ def _find_devices(loaded: Loaded, find_device: FindDevice) -> None:
             )
 
 
-def _check_grants(suite: Suite) -> None:
-    """Each `grant:` names its permission for every platform the file runs on, as that platform names it."""
-    for name, step in _steps(suite):
-        if not isinstance(step.action, Grant):
-            continue
-        for platform in suite.apps:
-            permissions = step.action.names_on(platform)
-            if permissions is None:
-                raise TestFileError(
-                    f"{suite.path.name} runs on {platform}, and test '{name}' has a grant: with no {platform} "
-                    f"permission. Add it: grant: {{android: android.permission.CAMERA, ios: camera}}"
-                )
-            for permission in permissions:
-                if platform is Platform.ANDROID and not permission.startswith("android.permission."):
-                    raise TestFileError(
-                        f"{suite.path.name} runs on Android, where test '{name}' grants '{permission}': Android "
-                        f"needs the full name, e.g. android.permission.{permission.upper()}. For both platforms: "
-                        f"grant: {{android: android.permission.{permission.upper()}, ios: {permission}}}"
-                    )
-
-
 def _asks_jev(suite: Suite) -> bool:
     """Whether a test that runs (or one it uses) has a `do:` or an `expect:`."""
     return any(
-        isinstance(step.action, Do) or any(isinstance(c, Expect) for c in step.checks) for _, step in _steps(suite)
+        isinstance(step.action, Do) or any(isinstance(c, Expect) for c in step.checks) for _, step in suite.steps()
     )
-
-
-def _steps(suite: Suite) -> Iterator[tuple[str, Step]]:
-    """Every step the tests that run take, with the test that has it: a used test's steps once."""
-    tests, seen = list(suite.tests), set[str]()
-    while tests:
-        test = tests.pop(0)
-        for step in test.steps:
-            yield test.name, step
-            if isinstance(step.action, Use) and step.action.test not in seen:
-                seen.add(step.action.test)
-                tests.append(suite.library[step.action.test])
 
 
 def _report_all(suites: Sequence[JunitSuite], *, files: int, junit: Path) -> int:
@@ -428,7 +400,7 @@ def _only(loaded: Loaded, names: Sequence[str]) -> Loaded:
             for suite, _ in loaded
             if name in suite.library
             for t in suite.tests
-            if any(isinstance(s.action, Use) and s.action.test == name for _, s in _steps(replace(suite, tests=(t,))))
+            if any(isinstance(s.action, Use) and s.action.test == name for _, s in replace(suite, tests=(t,)).steps())
         ]
         if any(name in suite.library for suite, _ in loaded):
             runs_in = f"--test one that does: {', '.join(users)}" if users else "and no test does"

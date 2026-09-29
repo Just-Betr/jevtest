@@ -32,7 +32,7 @@ from jevtest.domain.decisions import (
     WaitForScreen,
 )
 from jevtest.domain.failures import DeviceError, ModelError, NotRecorded, StepFailed
-from jevtest.domain.kinds import AppState, Direction, Gesture, Status
+from jevtest.domain.kinds import AppState, Direction, Gesture, Platform, Status
 from jevtest.domain.model import ModelCall
 from jevtest.domain.ports import Clock, Device, RunListener
 from jevtest.domain.results import CheckResult, RunResult, StepResult, TestResult
@@ -114,7 +114,7 @@ class TestRunner:
         brain: Brain,
         screenshots: Path,
         *,
-        platform: str,
+        platform: Platform,
         clock: Clock,
         listener: RunListener,
     ) -> None:

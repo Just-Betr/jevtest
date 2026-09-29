@@ -28,8 +28,8 @@ error: t.yaml has 2 problems:
 | `On line 5, a step with checks under it needs a colon after its action:` `- back:` | A bare action (`- back`) with `see:` under it needs a colon. |
 | `'wait' must be from 0 to 300 seconds, got 600` / `Unknown key 'Enter'. Keys: …` | Waits and background times are capped at 300 s; key names are exact and listed. |
 | `` `interval` (2s) is longer than `timeout` (1s): a step would check only once `` | Shorten `interval`, or lengthen `timeout`. |
-| `t.yaml runs on ios, and test 'T' has a grant: with no ios permission` / `…Android needs the full name, e.g. android.permission.CAMERA` | Name the permission for every platform the file runs on: `grant: {android: android.permission.CAMERA, ios: camera}` ([names](reference/steps.md#grant-permission-names)). |
-| `t.yaml runs on iOS, where jevtest can't turn the network on or off` | Put tests with `network:` in a file whose `app:` is Android only. |
+| `Test 'T': grant: has no ios permission, and the file runs on ios` / `'camera' isn't a full Android permission name` | Name the permission for every platform the file runs on: `grant: {android: android.permission.CAMERA, ios: camera}` ([names](reference/steps.md#grant-permission-names)). |
+| `Test 'T': network: can't run on iOS` / `Test 'T': key: home is Android only` | Put tests with `network:` or an Android-only key in a file whose `app:` is Android only. |
 | `--lock refresh asks Jev about every do: and expect:, and t.yaml has them, but TYPESAFE_API_KEY is not set` | Add the key, or use `--lock frozen`. |
 | `'Sign in' is a library test: it runs only where a test uses it; --test one that does: …` | `--test` a test that uses it. |
 | `PASSWORD is set in the environment and in …/.env to different values: remove one of them` | jevtest won't pick one. |

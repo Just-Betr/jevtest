@@ -12,7 +12,7 @@ from jevtest.application.runner import TestRunner
 from jevtest.cli.console import ConsoleListener
 from jevtest.domain.decisions import SavedStep, Target
 from jevtest.domain.failures import DeviceError, ModelError, NotRecorded
-from jevtest.domain.kinds import AppState, Status
+from jevtest.domain.kinds import AppState, Platform, Status
 from jevtest.domain.results import TestResult
 from jevtest.domain.screen import Screen
 from jevtest.domain.settings import Settings
@@ -43,7 +43,13 @@ def make(tmp_path, clock, out, *steps, device=None, model=None, verbose=False, t
     device.clock = clock
     model = model or FakeModel()
     runner = TestRunner(
-        suite, device, Brain(model), tmp_path, platform="android", clock=clock, listener=console(out, verbose=verbose)
+        suite,
+        device,
+        Brain(model),
+        tmp_path,
+        platform=Platform.ANDROID,
+        clock=clock,
+        listener=console(out, verbose=verbose),
     )
     return runner, device, model
 
@@ -1025,7 +1031,7 @@ def test_a_files_settings_reach_every_step(tmp_path, clock, out):
     d = FakeDevice()
     d.clock = clock
     res = TestRunner(
-        suite, d, Brain(FakeModel()), tmp_path, platform="android", clock=clock, listener=console(out)
+        suite, d, Brain(FakeModel()), tmp_path, platform=Platform.ANDROID, clock=clock, listener=console(out)
     ).run_test(test)
     assert failure_of(res).endswith("Waited 2s until an element says 'Ghost' on screen and stopped moving")
     assert clock.slept == [0.5] * 4  # checked at 0, 0.5, 1, 1.5 and 2 seconds

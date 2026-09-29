@@ -138,20 +138,40 @@ def _swipe(key: str, value: object, options: Options) -> Action:
     return Swipe(choice(value, Direction, f"'{key}'"), None if target is None else text(target, "target"))
 
 
+GRANT_PER_PLATFORM = "{android: android.permission.CAMERA, ios: camera}"
+"""How `grant:` names its permissions per platform, for error messages."""
+
+
+def full_android_permission(name: str) -> str:
+    """`name`, checked to be a permission's full name, as Android records it.
+
+    Android records every permission with a package (read in its source, `ParsingUtils.buildClassName`: a manifest's
+    `camera` is recorded as `<package>.camera`), so a name without one can't be granted.
+
+    Raises:
+        TestFileError: It has no package, like iOS's `camera`.
+    """
+    if "." not in name or name.startswith("."):
+        raise TestFileError(
+            f"'{name}' isn't a full Android permission name: write it with its package, e.g. "
+            f"android.permission.{name.strip('.').upper()} (names per platform: grant: {GRANT_PER_PLATFORM})"
+        )
+    return name
+
+
 def _grant(key: str, value: object, _: Options) -> Action:
     if not is_mapping(value):
-        return Grant(_names(value, f"'{key}'"))
+        return Grant(((None, _names(value, f"'{key}'")),))
     unknown = set(value) - {p.value for p in Platform}
     if unknown or not value:
         raise TestFileError(
-            "grant takes permission names, or names per platform: {android: android.permission.CAMERA, ios: camera}"
+            f"grant takes permission names, or names per platform: {GRANT_PER_PLATFORM}"
             + (f"; got {', '.join(sorted(map(str, unknown)))}" if unknown else "")
         )
-    names = {str(p): _names(v, f"grant's {p}") for p, v in value.items()}
+    names = {Platform(str(p)): _names(v, f"grant's {p}") for p, v in value.items()}
     for name in names.get(Platform.ANDROID, ()):
-        if not name.startswith("android.permission."):
-            raise TestFileError(f"grant's android names are full, e.g. android.permission.{name.upper()}; got {name}")
-    return Grant(per_platform=tuple(sorted(names.items())))
+        full_android_permission(name)
+    return Grant(tuple(sorted(names.items())))
 
 
 def _names(value: object, what: str) -> tuple[str, ...]:

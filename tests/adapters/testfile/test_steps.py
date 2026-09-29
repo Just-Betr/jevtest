@@ -4,7 +4,7 @@ import pytest
 
 from jevtest.adapters.testfile.steps import ACTIONS, OPTIONS, label, parse_step
 from jevtest.domain.failures import TestFileError
-from jevtest.domain.kinds import Direction, Gesture, Orientation
+from jevtest.domain.kinds import Direction, Gesture, Orientation, Platform
 from jevtest.domain.steps import (
     Back,
     Background,
@@ -42,16 +42,20 @@ from jevtest.domain.steps import (
         ({"long_press": "Hold"}, Touch(Gesture.LONG_PRESS, "Hold")),
         ({"wait": 2}, Wait(2.0)),
         ({"wait": 300}, Wait(300.0)),
-        ({"grant": "camera"}, Grant(("camera",))),
-        ({"grant": ["photos", "camera"]}, Grant(("photos", "camera"))),
+        ({"grant": "camera"}, Grant(((None, ("camera",)),))),
+        ({"grant": ["photos", "camera"]}, Grant(((None, ("photos", "camera")),))),
         (
             {"grant": {"ios": "camera", "android": ["android.permission.CAMERA", "android.permission.RECORD_AUDIO"]}},
             Grant(
-                per_platform=(
-                    ("android", ("android.permission.CAMERA", "android.permission.RECORD_AUDIO")),
-                    ("ios", ("camera",)),
+                (
+                    (Platform.ANDROID, ("android.permission.CAMERA", "android.permission.RECORD_AUDIO")),
+                    (Platform.IOS, ("camera",)),
                 )
             ),
+        ),
+        (  # an app's own permission: Android records every permission with its package
+            {"grant": {"android": "com.example.app.SCAN"}},
+            Grant(((Platform.ANDROID, ("com.example.app.SCAN",)),)),
         ),
         ({"key": "enter"}, Key("enter")),
         ({"key": "menu"}, Key("menu")),
@@ -139,9 +143,13 @@ def test_options_where_they_apply(raw):
         ({"grant": {}}, "grant takes permission names, or names per platform"),
         ({"grant": {"windows": "x"}}, "or names per platform: .*; got windows"),
         (
-            {"grant": {"android": "CAMERA"}},
-            "grant's android names are full, e.g. android.permission.CAMERA; got CAMERA",
+            {"grant": {"android": "camera"}},
+            (
+                "^'camera' isn't a full Android permission name: write it with its package, e.g. "
+                r"android.permission.CAMERA \(names per platform: grant: \{android: android.permission.CAMERA, ios: camera\}\)$"
+            ),
         ),
+        ({"grant": {"android": ".SCAN"}}, "^'.SCAN' isn't a full Android permission name: .* android.permission.SCAN "),
         ({"grant": {"ios": 5}}, "grant's ios needs text"),
         ({"key": "bogus"}, r"Unknown key 'bogus'. Keys: backspace, .*; on Android also app_switch, .*, or a key code"),
         ({"key": "Enter"}, "Unknown key 'Enter'"),

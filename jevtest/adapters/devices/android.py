@@ -521,13 +521,8 @@ class AndroidDevice(BaseDevice):
         self.sh(f"cmd uimode night {'yes' if on else 'no'}")
 
     def grant(self, permissions: Sequence[str]) -> None:
-        """Grant the app runtime permissions, by their full names."""
+        """Grant the app runtime permissions, by their full names (the test file loader checks they're full)."""
         for permission in permissions:
-            if not permission.startswith("android.permission."):
-                raise DeviceError(
-                    f"'{permission}': give the full Android permission name, e.g. "
-                    f"android.permission.{permission.upper()}"
-                )
             try:
                 self.sh(f"pm grant {self.app_id} {permission}")
             except ToolFailed as e:

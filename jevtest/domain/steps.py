@@ -5,7 +5,7 @@ Each kind of action is its own type, so a step can only carry the values that ki
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
@@ -149,20 +149,18 @@ class DarkMode(_Action):
 
 @dataclass(frozen=True)
 class Grant(_Action):
-    """Grant the app runtime permissions: the same names on every platform, or names per platform.
+    """Grant the app runtime permissions.
 
     Each platform names permissions its own way (``android.permission.CAMERA``, ``camera``), so a file that runs
-    on both gives both: `per_platform` pairs each platform with its names.
+    on both gives the names per platform. `names` pairs a platform with its names; None stands for every platform.
     """
 
-    permissions: tuple[str, ...] = ()
-    per_platform: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    names: tuple[tuple[Platform | None, tuple[str, ...]], ...]
 
-    def names_on(self, platform: str) -> tuple[str, ...] | None:
-        """The permissions' names on `platform`; None when it has none there."""
-        if not self.per_platform:
-            return self.permissions
-        return dict(self.per_platform).get(platform)
+    def names_on(self, platform: Platform) -> tuple[str, ...] | None:
+        """The permissions' names on `platform`: its own, else those for every platform; None when it has none."""
+        given = dict(self.names)
+        return given.get(platform, given.get(None))
 
 
 @dataclass(frozen=True)
@@ -364,6 +362,17 @@ class Suite:
     variables: Mapping[str, str]
     includes: tuple[Path, ...] = ()
     settings: Settings = DEFAULTS
+
+    def steps(self) -> Iterator[tuple[str, Step]]:
+        """Every step the tests take, with the test that has it: each test's steps once, however many use it."""
+        tests, seen = list(self.tests), {t.name for t in self.tests}
+        while tests:
+            test = tests.pop(0)
+            for step in test.steps:
+                yield test.name, step
+                if isinstance(step.action, Use) and step.action.test not in seen:
+                    seen.add(step.action.test)
+                    tests.append(self.library[step.action.test])
 
 
 # --- where settings apply -------------------------------------------------------------------------------------

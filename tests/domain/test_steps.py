@@ -1,6 +1,8 @@
+from pathlib import Path
+
 import pytest
 
-from jevtest.domain.kinds import Direction, Gesture, Orientation
+from jevtest.domain.kinds import Direction, Gesture, Orientation, Platform
 from jevtest.domain.steps import (
     SETTING_SCOPES,
     Back,
@@ -25,8 +27,11 @@ from jevtest.domain.steps import (
     Scroll,
     ScrollTo,
     See,
+    Step,
     Stop,
+    Suite,
     Swipe,
+    Test,
     Touch,
     TypeText,
     Use,
@@ -52,7 +57,7 @@ EVERY_ACTION = [
     Location(1, 2),
     OpenUrl("u"),
     DarkMode(on=True),
-    Grant(("p",)),
+    Grant(((None, ("p",)),)),
     Network(on=False),
     Screenshot("s"),
     Launch(),
@@ -99,3 +104,26 @@ def test_every_action_says_what_it_is(action):
 )
 def test_each_setting_applies_where_it_means_something(name, action, checks, applies):
     assert SETTING_SCOPES[name].applies(action, checks) is applies
+
+
+def test_a_grant_has_names_per_platform_or_for_every_platform():
+    everywhere = Grant(((None, ("camera",)),))
+    assert everywhere.names_on(Platform.ANDROID) == everywhere.names_on(Platform.IOS) == ("camera",)
+    per = Grant(((Platform.IOS, ("camera",)),))
+    assert per.names_on(Platform.IOS) == ("camera",)
+    assert per.names_on(Platform.ANDROID) is None
+
+
+def test_a_suite_takes_each_tests_steps_once_however_many_use_it():
+    back, home = Step(Back()), Step(Home())
+    shared = Test("Shared", fresh=False, steps=(home,))
+    first = Test("First", fresh=True, steps=(back, Step(Use("Shared")), Step(Use("Shared"))))
+    second = Test("Second", fresh=True, steps=(Step(Use("Shared")),))
+    suite = Suite(Path("t.yaml"), {}, {}, (first, shared, second), {t.name: t for t in (first, shared, second)}, {})
+    assert [(name, step.action) for name, step in suite.steps()] == [
+        ("First", Back()),
+        ("First", Use("Shared")),
+        ("First", Use("Shared")),
+        ("Shared", Home()),
+        ("Second", Use("Shared")),
+    ]

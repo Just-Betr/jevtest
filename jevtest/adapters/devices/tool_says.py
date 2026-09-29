@@ -2,7 +2,7 @@
 
 jevtest drives adb, `am`, `pm`, `dumpsys`, `simctl` and XCUITest, and some of what it needs to know only shows in
 their text. Every such text jevtest recognises is here, each with where it was measured, so a tool that changes its
-wording is fixed in one place.
+wording is fixed in one place. (Structured output, JSON and plists, is read by `tool_output`.)
 """
 
 from __future__ import annotations

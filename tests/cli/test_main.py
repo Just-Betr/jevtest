@@ -675,20 +675,17 @@ def test_the_real_device_finder_asks_each_platform_and_claims_the_device(monkeyp
     assert claimed == ["serial-of-Pixel 9", "udid-of-iPhone 17", "udid-of-BH"]
 
 
-def test_a_network_step_in_a_file_that_runs_on_ios_is_an_error_before_the_run(tmp_path, monkeypatch, fakes, capsys):
+def test_a_step_a_platform_cant_run_is_an_error_before_any_device_is_touched(tmp_path, monkeypatch, fakes, capsys):
     spec_file(
         tmp_path,
         app="app: {android: a.apk, ios: a.zip}\n",
         device="device: {android: emulator-5554, ios: iPhone 17}\n",
-        tests="  - {name: T, fresh: true, steps: [back, {use: Offline}]}\n"
-        "  - {name: Offline, fresh: true, steps: [{network: false}]}\n",
+        tests="  - {name: T, fresh: true, steps: [back]}\n  - {name: Offline, fresh: true, steps: [{network: false}]}\n",
     )
     (tmp_path / "a.zip").write_text("")
     monkeypatch.chdir(tmp_path)
-    assert fakes.run("--test", "T") == 2
-    assert "t.yaml runs on iOS, where jevtest can't turn the network on or off, and test 'Offline'" in (
-        capsys.readouterr().err
-    )
+    assert fakes.run("--test", "T") == 2  # checked for the whole file, whichever tests run
+    assert "Test 'Offline': network: can't run on iOS" in capsys.readouterr().err
     assert fakes.devices == []
 
 
@@ -739,23 +736,6 @@ def test_asking_for_a_library_test_says_what_runs_it(tmp_path, monkeypatch, fake
 
 
 BOTH = {"app": "app: {android: a.apk, ios: a.zip}\n", "device": "device: {android: emulator-5554, ios: iPhone 17}\n"}
-
-
-@pytest.mark.parametrize(
-    ("grant", "message"),
-    [
-        ("camera", "runs on Android, where test 'T' grants 'camera': Android needs the full name"),
-        ("{android: android.permission.CAMERA}", "runs on ios, and test 'T' has a grant: with no ios permission"),
-    ],
-)
-def test_a_grant_must_name_its_permission_for_every_platform_before_the_run(
-    tmp_path, monkeypatch, fakes, capsys, grant, message
-):
-    spec_file(tmp_path, tests=f"  - {{name: T, fresh: true, steps: [{{grant: {grant}}}]}}\n", **BOTH)
-    (tmp_path / "a.zip").write_text("")
-    monkeypatch.chdir(tmp_path)
-    assert fakes.run() == 2
-    assert message in capsys.readouterr().err
 
 
 def test_each_platform_gets_its_own_names(tmp_path, monkeypatch, fakes):

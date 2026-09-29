@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- A `grant:` can name an app's own permission on Android (`com.example.app.SCAN`): any full name, with its package,
+  is accepted, as Android records every permission with one. Only `android.permission.…` names were before.
+- A step a platform can't run is an error when the file loads, for every test in it, not only those a `--test` picks:
+  `network:` or an Android-only `key:` (`home`, a key code, …) in a file that runs on iOS, and a `grant:` without names
+  for each platform. An Android-only key used to fail on iOS only when the step ran.
+- When the Android agent can't do a request, it says why (`Android agent /pixels: …`), instead of the run reporting
+  the agent as lost. The agent now takes which fields are editable from jevtest, so the two can't disagree.
+
 ## 0.9.7
 
 - iOS: `hide_keyboard` right after typing could type a `.` instead of closing the keyboard (seen in landscape on an

@@ -18,10 +18,10 @@ from jevtest.adapters.shapes import USER_TEXT, is_list, is_mapping
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
-from jevtest.domain.steps import Step, Suite, Test, Use
+from jevtest.domain.steps import KEYS, Action, Grant, Key, Network, Step, Suite, Test, Use
 from jevtest.domain.variables import VARIABLE, fill
 
-from .steps import parse_step
+from .steps import GRANT_PER_PLATFORM, full_android_permission, parse_step
 from .values import coherent, model, on_off, setting, text
 
 Document = Mapping[object, object]
@@ -200,9 +200,46 @@ def load(path: str | Path, env: Mapping[str, str]) -> Suite:
     shared = [t for lib, doc in libraries.items() for t in _tests(doc.get("tests"), lib.name, settings, problems)]
     _check_names(tests + shared, problems)
     problems.check(path.name)
-    return Suite(
+    suite = Suite(
         path, apps, devices, tuple(tests), {t.name: t for t in tests + shared}, variables, tuple(libraries), settings
     )
+    for test, step in suite.steps():
+        with problems.collect(f"Test '{test}': "):
+            _check_runs_on(step.action, list(apps))
+    problems.check(path.name)
+    return suite
+
+
+def _check_runs_on(action: Action | None, platforms: Sequence[Platform]) -> None:
+    """The action can run on every platform the file runs on.
+
+    Only the steps the file's tests take are checked: a library test may be Android only, and used only by files
+    that run on Android.
+
+    Raises:
+        TestFileError: It can't, and what to do instead.
+    """
+    elsewhere = "Put tests for one platform in a file whose `app:` has only that platform's build"
+    match action:
+        case Network() if Platform.IOS in platforms:
+            raise TestFileError(
+                f"network: can't run on iOS, where jevtest can't turn the network on or off. {elsewhere}"
+            )
+        case Key(name) if Platform.IOS in platforms and name not in KEYS:
+            raise TestFileError(f"key: {name} is Android only (iOS presses {', '.join(KEYS)}). {elsewhere}")
+        case Grant() as grant:
+            for platform in platforms:
+                names = grant.names_on(platform)
+                if names is None:
+                    raise TestFileError(
+                        f"grant: has no {platform} permission, and the file runs on {platform}. "
+                        f"Give it: grant: {GRANT_PER_PLATFORM}"
+                    )
+                if platform is Platform.ANDROID:
+                    for name in names:
+                        full_android_permission(name)
+        case _:
+            pass
 
 
 def _names(keys: Iterable[object]) -> str:
