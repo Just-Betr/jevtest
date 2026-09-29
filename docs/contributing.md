@@ -28,7 +28,7 @@ CI runs each of these on every push; pre-commit runs them before each commit.
 | Spelling | `uv run codespell` | Code and docs. |
 | Package | `uv build && uvx twine check --strict dist/*` | The wheel builds, its metadata is valid, and it runs installed on its own. |
 | Agents | CI only (needs the Android SDK and Xcode) | The Android agent compiles with every `javac` warning as an error and builds into an APK the way jevtest builds it; the iOS agent builds with Swift warnings as errors. |
-| Security | `uvx pip-audit`, `uvx zizmor` | No known vulnerability in a locked dependency; the GitHub workflows pass zizmor's pedantic audit, with every action pinned to a commit. |
+| Security | `uv export --locked --all-groups --no-emit-project --format requirements-txt > requirements.txt && uvx pip-audit --strict --disable-pip -r requirements.txt`, `uvx zizmor --persona=pedantic .github/workflows` | No known vulnerability in a locked dependency; the GitHub workflows pass zizmor's pedantic audit, with every action pinned to a commit. |
 | Docs | `uv run mkdocs build --strict` | No broken links or anchors. `uv run mkdocs serve` previews them at http://127.0.0.1:8000. |
 
 The unit tests need no device and no network: devices, the clock and Jev are faked, and the driver tests parse real screen captures from `tests/adapters/devices/fixtures/`. They run in a few seconds.
