@@ -2,6 +2,7 @@
 
 import json
 import plistlib
+import zipfile
 from base64 import b64encode
 from pathlib import Path
 
@@ -216,3 +217,16 @@ def test_other_agent_start_errors_pass_through(tmp_path, phone, monkeypatch):
     swap(monkeypatch, "start_process", fail)
     with pytest.raises(DeviceError, match="^xcodebuild exited before it was ready.$"):
         IOSDevice("BH", signed_app(tmp_path), PROGRESS)
+
+
+def test_an_ipa_is_unpacked_once_for_its_team_and_its_install(phone, tmp_path):
+    app = signed_app(tmp_path)
+    ipa = tmp_path / "Demo.ipa"
+    with zipfile.ZipFile(ipa, "w") as z:
+        for f in app.iterdir():
+            z.write(f, f"Payload/Demo.app/{f.name}")
+    d = IOSDevice("BH", ipa, PROGRESS)
+    assert d.install(ipa) == "dev.demo"
+    unpacked = list(Path(d._tmp.name).rglob("*.app"))
+    assert [p.relative_to(d._tmp.name).as_posix() for p in unpacked] == ["build-0/Payload/Demo.app"]
+    assert d.app_path == unpacked[0]

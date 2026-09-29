@@ -15,18 +15,18 @@ Exit codes: 0 all tests passed, 1 a test failed, 2 something needs fixing first,
 from __future__ import annotations
 
 import argparse
+import functools
 import signal
 import sys
-import tempfile
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from jevtest import __version__
 from jevtest.adapters.clock import SystemClock
-from jevtest.adapters.devices.android import AndroidDevice, check_awake, find_android
+from jevtest.adapters.devices.android import AndroidDevice
 from jevtest.adapters.devices.claim import Claims
+from jevtest.adapters.devices.finder import find_device
 from jevtest.adapters.devices.ios import IOSDevice
-from jevtest.adapters.devices.ios_tools import build_info, check_build, find_target
 from jevtest.adapters.jev.client import JevClient
 from jevtest.adapters.jev.lockfile import LockMode
 from jevtest.domain.failures import JevtestError
@@ -46,24 +46,8 @@ def make_device(platform: Platform, device: str, app: Path, progress: Callable[[
 CLAIMS = Claims()
 """The devices this process is testing: a second jevtest run can't use them at the same time."""
 
-
-def find_device(platform: Platform, device: str, app: Path) -> bool:
-    """Claim the one running device of `platform` called `device`; whether it's a real iPhone.
-
-    Raises:
-        DeviceError: No running device, or several, are called that; another jevtest run is using it; or `app` is
-            the wrong kind of build for it (a simulator build for an iPhone).
-    """
-    if platform is Platform.ANDROID:
-        serial = find_android(device)
-        check_awake(serial)  # asleep before the run: one clear error, not one failure per test
-        CLAIMS.claim(serial)
-        return False
-    target = find_target(device)
-    with tempfile.TemporaryDirectory() as tmp:
-        check_build(app, build_info(app, Path(tmp))[1], physical=target.physical, device=target.name)
-    CLAIMS.claim(target.udid)
-    return target.physical
+FIND_DEVICE: FindDevice = functools.partial(find_device, CLAIMS)
+"""Finds each device a file names, and claims it for this process."""
 
 
 def make_client(model: str, api_key: str | None) -> JevClient:
@@ -121,7 +105,7 @@ def main(
     argv: Sequence[str] | None = None,
     *,
     devices: MakeDevice = make_device,
-    find: FindDevice = find_device,
+    find: FindDevice = FIND_DEVICE,
     client: MakeClient = make_client,
     clock: Clock | None = None,
 ) -> int:

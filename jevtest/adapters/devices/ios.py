@@ -53,12 +53,12 @@ from .ios_tools import (
     app_bundle,
     app_team,
     build_agent_with_xcodebuild,
-    build_info,
     check_build,
     devicectl,
     find_target,
     free_port,
     http_post,
+    info_plist,
     provisioned_devices,
     simctl,
     xcode_team,
@@ -114,10 +114,11 @@ class IOSDevice(BaseDevice):
         self.app_id = ""
         self.agent_log = cache_dir() / f"ios-agent-{target.udid}.log"
         self.app_path: Path | None = None
+        self._unpacked: dict[Path, Path] = {}  # build -> its .app, unpacked once
         # agent call -> body that puts back what a step changed; "location" for a simulator's
         self._restore: Undo[dict[str, object]] = Undo(target.udid)
         try:
-            self.team = xcode_team(app_team(app_bundle(app, Path(self._tmp.name) / "team"))) if self.physical else ""
+            self.team = xcode_team(app_team(self._bundle(app))) if self.physical else ""
             self._start_agent()
             left = self._restore.left_by_a_stopped_run()
             if left:
@@ -282,7 +283,8 @@ class IOSDevice(BaseDevice):
     # --- lifecycle ----------------------------------------------------------------
     def install(self, app: Path) -> str:
         """Install a simulator or device build (an .app, or a .zip/.ipa containing one); return its bundle id."""
-        bundle, info = build_info(app, Path(self._tmp.name) / "app")
+        bundle = self._bundle(app)
+        info = info_plist(bundle)
         check_build(app, info, physical=self.physical, device=self.name)
         if "CFBundleIdentifier" not in info:
             raise DeviceError(f"{app.name} Info.plist has no CFBundleIdentifier")
@@ -290,6 +292,12 @@ class IOSDevice(BaseDevice):
         self.app_id = as_text(info["CFBundleIdentifier"], f"{app.name}'s bundle id")
         self._install_bundle()
         return self.app_id
+
+    def _bundle(self, app: Path) -> Path:
+        """The build's .app, unpacked from a .zip / .ipa the first time it's needed."""
+        if app not in self._unpacked:
+            self._unpacked[app] = app_bundle(app, Path(self._tmp.name) / f"build-{len(self._unpacked)}")
+        return self._unpacked[app]
 
     def _install_bundle(self) -> None:
         """Install the unpacked build."""

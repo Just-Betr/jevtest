@@ -4,7 +4,6 @@ import shutil
 import signal
 import threading
 import time
-import types
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -657,22 +656,6 @@ def test_module_entry_point(monkeypatch):
     with pytest.raises(SystemExit) as exit_info:
         runpy.run_module("jevtest", run_name="__main__")
     assert exit_info.value.code == 2
-
-
-def test_the_real_device_finder_asks_each_platform_and_claims_the_device(monkeypatch):
-    claimed: list[str] = []
-    monkeypatch.setattr(cli, "find_android", lambda d: f"serial-of-{d}")
-    monkeypatch.setattr(cli, "check_awake", lambda serial: None)
-    monkeypatch.setattr(
-        cli, "find_target", lambda d: types.SimpleNamespace(udid=f"udid-of-{d}", name=d, physical=d == "BH")
-    )
-    monkeypatch.setattr(cli.CLAIMS, "claim", claimed.append)
-    monkeypatch.setattr(cli, "build_info", lambda app, tmp: (app, {}))
-    monkeypatch.setattr(cli, "check_build", lambda app, info, physical, device: None)
-    assert cli.find_device(Platform.ANDROID, "Pixel 9", Path("a.apk")) is False
-    assert cli.find_device(Platform.IOS, "iPhone 17", Path("a.app")) is False
-    assert cli.find_device(Platform.IOS, "BH", Path("a.app")) is True
-    assert claimed == ["serial-of-Pixel 9", "udid-of-iPhone 17", "udid-of-BH"]
 
 
 def test_a_step_a_platform_cant_run_is_an_error_before_any_device_is_touched(tmp_path, monkeypatch, fakes, capsys):

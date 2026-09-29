@@ -9,6 +9,8 @@
   for each platform. An Android-only key used to fail on iOS only when the step ran.
 - When the Android agent can't do a request, it says why (`Android agent /pixels: …`), instead of the run reporting
   the agent as lost. The agent now takes which fields are editable from jevtest, so the two can't disagree.
+- An iOS `.zip` / `.ipa` build is unpacked once per device, not three times (to check it before the run, for its
+  team, and to install it): the check reads its Info.plist from inside the archive.
 
 ## 0.9.7
 

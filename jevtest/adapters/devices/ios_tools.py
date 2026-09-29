@@ -13,7 +13,7 @@ import urllib.request
 import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TypedDict
 
 from jevtest.domain.failures import DeviceError
@@ -220,27 +220,61 @@ def check_build(app: Path, info: Object, *, physical: bool, device: str) -> None
         raise DeviceError(f"{app.name} is built for {', '.join(platforms)}, not {where}. Use {how}.")
 
 
-def build_info(app: Path, workdir: Path) -> tuple[Path, Object]:
-    """The build's .app, and its Info.plist."""
-    bundle = app_bundle(app, workdir)
+def info_plist(app: Path) -> Object:
+    """A build's Info.plist: from an .app, or read from inside a .zip / .ipa without unpacking it.
+
+    Raises:
+        DeviceError: It isn't an iOS build, or has no readable Info.plist.
+    """
     try:
-        raw = (bundle / "Info.plist").read_bytes()
-    except OSError as e:
+        if _is_archive(app):
+            with zipfile.ZipFile(app) as z:
+                raw = z.read(f"{_app_in_archive(app, z.namelist())}/Info.plist")
+        else:
+            raw = (_app_dir(app) / "Info.plist").read_bytes()
+    except (OSError, KeyError) as e:
         raise DeviceError(f"{app.name} has no readable Info.plist ({e})") from None
-    return bundle, parse_plist(raw, f"{app.name}'s Info.plist")
+    return parse_plist(raw, f"{app.name}'s Info.plist")
 
 
-def app_bundle(app_path: Path, workdir: Path) -> Path:
-    """An .app directory from a .app, or a .zip / .ipa containing one."""
-    if app_path.suffix.lower() == ".app" and app_path.is_dir():
-        return app_path
-    if app_path.suffix.lower() in (".zip", ".ipa") and zipfile.is_zipfile(app_path):
-        with zipfile.ZipFile(app_path) as z:
-            z.extractall(workdir)
-        found = sorted(workdir.rglob("*.app"), key=lambda p: (len(p.parts), str(p)))
-        if found:
-            return found[0]
-    raise DeviceError(f"iOS needs an .app (or a .zip/.ipa containing one), got {app_path.name}")
+def app_bundle(app: Path, workdir: Path) -> Path:
+    """The build's .app: itself, or unpacked into `workdir` from a .zip / .ipa.
+
+    Raises:
+        DeviceError: It isn't an iOS build.
+    """
+    if not _is_archive(app):
+        return _app_dir(app)
+    with zipfile.ZipFile(app) as z:
+        inside = _app_in_archive(app, z.namelist())
+        z.extractall(workdir)
+    return workdir / inside
+
+
+NOT_A_BUILD = "iOS needs an .app (or a .zip/.ipa containing one), got {name}"
+
+
+def _is_archive(app: Path) -> bool:
+    return app.suffix.lower() in (".zip", ".ipa") and zipfile.is_zipfile(app)
+
+
+def _app_dir(app: Path) -> Path:
+    if app.suffix.lower() != ".app" or not app.is_dir():
+        raise DeviceError(NOT_A_BUILD.format(name=app.name))
+    return app
+
+
+def _app_in_archive(app: Path, names: list[str]) -> PurePosixPath:
+    """The .app a .zip / .ipa holds: the outermost (an .ipa's `Payload/X.app`, not an extension's .app inside it)."""
+    apps = {
+        PurePosixPath(*parts[: i + 1])
+        for parts in (PurePosixPath(n).parts for n in names)
+        for i, part in enumerate(parts)
+        if part.endswith(".app")
+    }
+    if not apps:
+        raise DeviceError(NOT_A_BUILD.format(name=app.name))
+    return min(apps, key=lambda p: (len(p.parts), str(p)))
 
 
 def http_post(url: str, body: Mapping[str, object], timeout: float, token: str) -> Object:

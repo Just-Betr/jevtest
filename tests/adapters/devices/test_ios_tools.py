@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from jevtest.adapters.devices import ios_tools
-from jevtest.adapters.devices.ios_tools import app_bundle
+from jevtest.adapters.devices.ios_tools import app_bundle, info_plist
 from jevtest.domain.failures import DeviceError
 from tests.adapters.devices.conftest import PHONE, SIMS, make_app, swap
 
@@ -76,8 +76,32 @@ def test_app_bundle_from_dir_zip_and_ipa(tmp_path):
         archive = tmp_path / name
         with zipfile.ZipFile(archive, "w") as z:
             z.write(app / "Info.plist", "Payload/Demo.app/Info.plist")
+            z.writestr("Payload/Demo.app/PlugIns/Share.appex/Watch.app/Info.plist", "an app inside the app")
         found = app_bundle(archive, tmp_path / f"w-{name}")
-        assert found.name == "Demo.app"
+        assert found == tmp_path / f"w-{name}" / "Payload" / "Demo.app"
+        assert (found / "Info.plist").is_file()
+
+
+def test_the_info_plist_is_read_from_inside_an_archive_without_unpacking_it(tmp_path):
+    app = make_app(tmp_path / "src", bundle_id="dev.zipped")
+    archive = tmp_path / "app.ipa"
+    with zipfile.ZipFile(archive, "w") as z:
+        z.write(app / "Info.plist", "Payload/Demo.app/Info.plist")
+        z.writestr("Payload/Demo.app/Watch/W.app/Info.plist", plistlib.dumps({"CFBundleIdentifier": "dev.watch"}))
+    before = set(tmp_path.rglob("*"))
+    assert info_plist(archive)["CFBundleIdentifier"] == "dev.zipped"  # the outer app's, not the watch app's
+    assert info_plist(app)["CFBundleIdentifier"] == "dev.zipped"
+    assert set(tmp_path.rglob("*")) == before
+
+
+def test_a_build_with_no_info_plist_says_so(tmp_path):
+    (tmp_path / "Bare.app").mkdir()
+    archive = tmp_path / "bare.zip"
+    with zipfile.ZipFile(archive, "w") as z:
+        z.writestr("Bare.app/binary", "x")
+    for build in (tmp_path / "Bare.app", archive):
+        with pytest.raises(DeviceError, match=f"^{build.name} has no readable Info.plist"):
+            info_plist(build)
 
 
 def test_app_bundle_rejects_bad_input(tmp_path):
@@ -88,6 +112,8 @@ def test_app_bundle_rejects_bad_input(tmp_path):
     for path in (tmp_path / "empty.zip", empty, tmp_path / "missing.app", tmp_path / "x.apk"):
         with pytest.raises(DeviceError, match="needs an .app"):
             app_bundle(path, tmp_path / "w")
+        with pytest.raises(DeviceError, match="needs an .app"):
+            info_plist(path)
 
 
 def test_http_post_roundtrip(monkeypatch):
