@@ -72,7 +72,7 @@ error: t.yaml has 2 problems:
 | `This screen and question are not in tests.lock.json, and --lock frozen only replays recorded decisions…` | An `expect:` (or a choice between exact matches) met a screen that wasn't recorded. Run `--lock record` and commit the lockfile. |
 | `Waited 10s until the 2nd of 2 button 'Delete' is on screen and stopped moving; the screen shows 1, the saved step was made with 2` | The app changed since the `do:` was worked out. Run `--lock record`: it works the goal out again from where the saved steps stopped fitting. |
 | `Jev HTTP 429: trying again in 0.5s (retry 1 of 4)` | Printed while TypeSafe is rate-limiting (429) or overloaded (529); jevtest retries, waiting as long as TypeSafe asks (up to a minute) or with backoff, and says so each time. |
-| `Jev HTTP 401: …` | Check the key. |
+| `Jev HTTP 401: …` | Check the key. The run stops there (exit 2): every question would be refused the same way. |
 
 ## Tests that fail
 

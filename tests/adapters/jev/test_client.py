@@ -9,7 +9,7 @@ from typing import Self
 import pytest
 
 from jevtest.adapters.jev.client import JevClient
-from jevtest.domain.failures import ModelError
+from jevtest.domain.failures import KeyRejected, ModelError
 
 MODEL = "jev-1.13.0"
 
@@ -146,7 +146,7 @@ def test_unreachable_after_retries():
 def test_client_errors_are_not_retried():
     j, slept = client(http_error(401, b"bad key"))
     with pytest.raises(
-        ModelError, match=r"HTTP 401: bad key \(check the key; Create a key at https://console.typesafe.ai/keys\)"
+        KeyRejected, match=r"HTTP 401: bad key \(check the key; Create a key at https://console.typesafe.ai/keys\)"
     ):
         j.ask("s", Q)
     assert not slept

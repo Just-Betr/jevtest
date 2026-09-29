@@ -15,7 +15,7 @@ from jevtest.adapters.devices._typing import override
 from jevtest.adapters.jev.client import JevClient, Reply
 from jevtest.cli import main as cli
 from jevtest.cli.run import slug
-from jevtest.domain.failures import DeviceError
+from jevtest.domain.failures import DeviceError, KeyRejected
 from jevtest.domain.kinds import Platform
 from jevtest.domain.screen import Screen
 from tests.conftest import FakeClock, FakeDevice, act, screen_with, yes
@@ -62,6 +62,8 @@ class FakeJevClient:
         if not self.answers:
             raise AssertionError(f"FakeJevClient ran out of answers; asked {list(questions)}")
         scripted = self.answers.pop(0)
+        if isinstance(scripted, Exception):
+            raise scripted
         answers = {qid: scripted.get(qid) or self._first_option(q) for qid, q in questions.items()}
         return Reply(answers, ms=7, served_by="jev-1.13.0", cost=0.0001)
 
@@ -788,3 +790,11 @@ def test_the_command_says_which_systems_it_runs_on_before_loading_anything(monke
         jevtest.cli.command()
     assert done.value.code == 0
     assert capsys.readouterr().out.strip() == jevtest.__version__
+
+
+def test_a_rejected_key_stops_the_run_instead_of_failing_each_test(project, fakes, capsys):
+    clients = fakes.script(KeyRejected("Jev HTTP 401: Cannot authenticate (check the key; Create a key at …)"))
+    assert fakes.run() == 2
+    assert "error: Jev HTTP 401: Cannot authenticate (check the key;" in capsys.readouterr().err
+    assert sum(len(c.requests) for c in clients) == 1  # no later test asked Jev again
+    assert all(d.closed for d in fakes.devices)  # the device was still put back and closed

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A rejected API key (Jev HTTP 401) stops the run with exit 2 and says to check the key; it failed each test in
+  turn with the same error, exit 1.
 - iOS starts its agent again before the next test when something stopped it, as Android does: every later test
   used to fail with `Lost the iOS agent`. Measured by killing the agent mid-test on the simulator and the iPhone:
   that test fails, the next ones pass.

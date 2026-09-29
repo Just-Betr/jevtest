@@ -34,3 +34,10 @@ class NotRecorded(ModelError):
 
 class StepFailed(JevtestError):
     """A step or check didn't get the result the test expects: the test fails, the run goes on."""
+
+
+class KeyRejected(JevtestError):
+    """Jev refused the API key.
+
+    Every question would be refused the same way, so the run stops rather than fail each test in turn.
+    """

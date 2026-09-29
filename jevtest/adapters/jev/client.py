@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Protocol, Self
 
 from jevtest.adapters.shapes import is_json_object, objects_by_key
-from jevtest.domain.failures import ModelError
+from jevtest.domain.failures import KeyRejected, ModelError
 
 from .wire import RawAnswers
 
@@ -111,6 +111,7 @@ class JevClient:
 
         Raises:
             ModelError: Jev couldn't be reached, refused the request, or answered a different set of questions.
+            KeyRejected: Jev refused the API key.
         """
         body = json.dumps({"model": self.model, "state": state, "questions": questions}).encode()
         started = time.monotonic()
@@ -159,8 +160,9 @@ class JevClient:
                     self._retry(f"HTTP {e.code}", attempt, _retry_after(e.headers.get("retry-after")))
                     attempt += 1
                     continue
-                hint = f" (check the key; {KEY_HELP})" if e.code == UNAUTHORIZED else ""
-                raise ModelError(f"Jev HTTP {e.code}: {_message(detail)}{hint}") from None
+                if e.code == UNAUTHORIZED:
+                    raise KeyRejected(f"Jev HTTP {e.code}: {_message(detail)} (check the key; {KEY_HELP})") from None
+                raise ModelError(f"Jev HTTP {e.code}: {_message(detail)}") from None
             except (urllib.error.URLError, TimeoutError) as e:
                 if not last:
                     self._retry(f"unreachable ({e})", attempt)

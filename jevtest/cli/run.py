@@ -28,7 +28,7 @@ from jevtest.adapters.testfile.loader import load
 from jevtest.application.brain import Brain
 from jevtest.application.planning import shard
 from jevtest.application.runner import TestRunner
-from jevtest.domain.failures import DeviceError, ModelError, TestFileError
+from jevtest.domain.failures import DeviceError, JevtestError, TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 from jevtest.domain.results import RunResult
@@ -245,7 +245,7 @@ class Runs:
 
 def _result(job: Job, outcome: JobResult | Exception) -> JobResult:
     """A job's result, or its error raised, naming the device (a jevtest error) or as it was (a bug)."""
-    if isinstance(outcome, TestFileError | DeviceError | ModelError):
+    if isinstance(outcome, JevtestError):
         raise type(outcome)(f"{job.tag}: {outcome}")
     if isinstance(outcome, Exception):
         raise outcome
