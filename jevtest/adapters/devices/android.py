@@ -103,23 +103,27 @@ class AndroidDevice(BaseDevice):
         self.port = 0
         self.agent: subprocess.Popen[str] | None = None
         self._restore: Undo[str] = Undo(self.serial)  # what -> shell command that puts back what a step changed
-        self._start_agent()
-        left = self._restore.left_by_a_stopped_run()
-        if left:
-            self._progress(f"putting back what a run that was stopped left changed: {Undo.described(left)}")
-            for command in left.values():
-                self.sh(str(command), check=False)
-            self._restore.clear()
+        self._start_agent(first=True)
 
     # --- agent -------------------------------------------------------------------
-    def _start_agent(self) -> None:
-        """Install the agent if it changed, then start it and forward a free local port to it."""
+    def _start_agent(self, *, first: bool = False) -> None:
+        """Install the agent if it changed, then start it and forward a free local port to it.
+
+        The `first` time, what a killed run left changed is put back once its agent is stopped, before this one
+        starts: stopping an agent resets the rotation state, and would undo a rotation put back before it.
+        """
         apk = build_agent(self._progress)
         version = apk.stem.rsplit("-", 1)[1]
         if f"versionName={version}" not in self.sh(f"dumpsys package {AGENT_ID} | grep versionName", check=False):
             self.sh(f"pm uninstall {AGENT_ID}", check=False)  # any older copy, whatever key signed it
             run([self.adb, "-s", self.serial, "install", str(apk)], timeout=120)
         self.sh(f"am force-stop {AGENT_ID}")  # a previous run's agent would hold the port
+        left = self._restore.left_by_a_stopped_run() if first else {}
+        if left:
+            self._progress(f"putting back what a run that was stopped left changed: {Undo.described(left)}")
+            for command in left.values():
+                self.sh(str(command), check=False)
+            self._restore.clear()
         self.port = int(run([self.adb, "-s", self.serial, "forward", "tcp:0", f"tcp:{AGENT_PORT}"]).strip())
         self.agent = start_process(
             [
@@ -429,8 +433,13 @@ class AndroidDevice(BaseDevice):
         # Locking the rotation turns auto-rotate off. The agent puts the device's rotation state back when it stops;
         # close() also puts back both settings, as they were before the first rotate.
         if "rotation" not in self._restore:
-            self._restore["rotation"] = (
-                f"{self._setting('system', 'user_rotation')}; {self._setting('system', 'accelerometer_rotation')}"
+            # The settings, and the window manager's own lock, which a stopped agent's rotation lock leaves set and
+            # which turns auto-rotate off again over the setting (measured); older Android lacks the command.
+            user = self.sh("settings get system user_rotation", check=False).strip()
+            auto = self.sh("settings get system accelerometer_rotation", check=False).strip()
+            lock = "wm user-rotation free" if auto == "1" else f"wm user-rotation lock {user if user.isdigit() else 0}"
+            self._restore["rotation"] = "; ".join(
+                (_put_back("user_rotation", user), _put_back("accelerometer_rotation", auto), lock)
             )
         if self._agent(f"/rotate?to={ROTATIONS[orientation]}") != "rotated":
             raise DeviceError(f"The device refused to turn the screen to {orientation}")
@@ -449,13 +458,6 @@ class AndroidDevice(BaseDevice):
             lambda: int(ET.fromstring(self._agent("/tree")).get("rotation", "0")) == ROTATIONS[orientation],
             f"The screen did not turn to {orientation}",
         )
-
-    def _setting(self, namespace: str, key: str) -> str:
-        """The shell command that puts an Android setting back to its current value."""
-        value = self.sh(f"settings get {namespace} {key}", check=False).strip()
-        if value in ("", "null"):
-            return f"settings delete {namespace} {key}"
-        return f"settings put {namespace} {key} {value}"
 
     def set_location(self, latitude: float, longitude: float) -> None:
         """Set the emulator's GPS location."""
@@ -503,3 +505,10 @@ class AndroidDevice(BaseDevice):
             )
         state = "enable" if on else "disable"
         self.sh(f"svc wifi {state}; svc data {state}")
+
+
+def _put_back(key: str, value: str) -> str:
+    """The shell command that sets the system setting `key` back to `value`, as read (``null``: it wasn't set)."""
+    if value in ("", "null"):
+        return f"settings delete system {key}"
+    return f"settings put system {key} {value}"

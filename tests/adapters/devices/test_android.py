@@ -386,7 +386,7 @@ def test_device_commands(drv, adb, agent):
     n = len(adb.shell())
     drv.close()  # everything the steps changed goes back to how it was
     assert adb.shell()[n:][-3:] == [
-        "settings put system user_rotation 0; settings put system accelerometer_rotation 1",
+        "settings put system user_rotation 0; settings put system accelerometer_rotation 1; wm user-rotation free",
         "cmd uimode night auto",
         "svc wifi enable; svc data disable",
     ]
@@ -412,7 +412,10 @@ def test_rotation_restores_the_users_auto_rotate(drv, adb, agent):
     drv.rotate("portrait")
     assert adb.shell().count("settings get system accelerometer_rotation") == 1  # remembered once
     drv.close()
-    assert adb.shell()[-1] == "settings delete system user_rotation; settings put system accelerometer_rotation 1"
+    assert (
+        adb.shell()[-1]
+        == "settings delete system user_rotation; settings put system accelerometer_rotation 1; wm user-rotation free"
+    )
 
 
 def test_rotate_returns_once_the_screen_has_turned(drv, adb, agent, slept):
