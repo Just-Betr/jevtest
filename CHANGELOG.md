@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Android 12 and older: jevtest took the app to be in the foreground always, since those versions print no
+  `topResumedActivity`: `home` then failed ("still in the foreground"), and a crash or a `do:` leaving the app went
+  unnoticed. It now reads `mResumedActivity` there (measured on Android 12, 13, 15 and 17).
+- Docs: which name finds a web page's text field depends on the WebView version (id on WebView 91, 146 and 153, label
+  on 124 and iOS, measured): the webviews guide has the table, and says to use `do:` across devices. Verified: the CI
+  guide's Android workflow runs as written on GitHub's Linux runners (Android 14 emulator).
+
 ## 0.9.5
 
 - A file listing a simulator and a real iPhone together ran the simulator's tests, then stopped with a setup error

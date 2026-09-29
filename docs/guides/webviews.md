@@ -44,14 +44,17 @@ HTML inside a WebView (`WKWebView` on iOS, `android.webkit.WebView` on Android) 
 
 For a WebView to be testable, its content needs to be accessible, which ordinary HTML is: button text, link text, `alt` text and `aria-label`s all come through.
 
-**Web fields are named differently on each platform** (measured on the demo page, Android WebView 153 and iOS 26):
+**Which name finds a web field depends on the WebView.** Measured on the demo page's `<label for="name">Your name</label><input id="name">`:
 
-| `<label for="name">Your name</label><input id="name">` | Android | iOS |
+| | `into: Your name` (the label) | `into: name` (the HTML `id`) |
 |---|---|---|
-| `into: Your name` (the label) | ✗ the label is separate text beside the field | ✓ |
-| `into: name` (the HTML `id`) | ✓ | ✗ |
+| Android 12, WebView 91 | ✗ | ✓ |
+| Android 15, WebView 124 | ✓ | ✗ |
+| Android 13, WebView 146 | ✗ | ✓ |
+| Android 17, WebView 153 | ✗ | ✓ |
+| iOS 26 | ✓ | ✗ |
 
-So the example types with `do:`, which sees the label next to the field on both. An `aria-label` on a checkbox or radio names it on both platforms (measured on the page's checkbox: `tap: I agree to the terms` works on each), but not a text field on Android WebView 153 ([Troubleshooting](../troubleshooting.md)).
+So no exact name works on every device, and a WebView update can change it. The example types with `do:`, which sees the label next to the field whatever the WebView reports. An `aria-label` names a checkbox or radio on both platforms (measured on the page's checkbox: `tap: I agree to the terms` works on each), but not a text field on WebView 153 ([Troubleshooting](../troubleshooting.md)).
 
 ## Native screens in a cross-platform app
 

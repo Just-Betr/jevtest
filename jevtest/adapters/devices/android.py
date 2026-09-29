@@ -70,7 +70,9 @@ DOUBLE_TAP_GAP = 0.1  # Android and Flutter ignore taps < 40 ms apart and > 300 
 DRAG_STEPS = 10  # finger positions along a drag
 DRAG_HOLD = 0.1  # seconds the finger rests before lifting, so nothing flings
 AGENT_START_TIMEOUT = 30
-TOP_ACTIVITY = re.compile(r"topResumedActivity=ActivityRecord\{\S+ \S+ ([\w.]+)/")
+TOP_ACTIVITY = re.compile(r"(?:topResumedActivity=|mResumedActivity: )ActivityRecord\{\S+ \S+ ([\w.]+)/")
+"""The activity on top: Android 13 and newer print `topResumedActivity=…`, 12 and older only `mResumedActivity: …`
+(measured on 12, 13, 15 and 17; each prints one of the two)."""
 PERMISSION_PROMPT = re.compile(r"com\.(google\.)?android\.permissioncontroller")
 AGENT_ID = "dev.jevtest.agent"
 AGENT_STOP_TIMEOUT = 10  # seconds for the agent to finish after /quit
@@ -307,7 +309,10 @@ class AndroidDevice(BaseDevice):
 
     def app_state(self) -> AppState:
         """Where the app is: running at all, and whether it or its own permission prompt is on top."""
-        out = self.sh(f"pidof {self.app_id}; dumpsys activity activities | grep -m1 topResumedActivity", check=False)
+        out = self.sh(
+            f"pidof {self.app_id}; dumpsys activity activities | grep -m1 -E 'topResumedActivity=|mResumedActivity: '",
+            check=False,
+        )
         if not re.match(r"\d+", out.strip()):
             return AppState.NOT_RUNNING
         top = TOP_ACTIVITY.search(out)

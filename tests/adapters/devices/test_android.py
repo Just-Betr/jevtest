@@ -149,6 +149,12 @@ def test_check_ready_reports_a_locked_or_sleeping_phone(drv, adb, reply, ready):
     [
         ("1234\n  topResumedActivity=ActivityRecord{1 u0 dev.demo/.MainActivity t9}\n", "foreground"),
         ("1234\n  topResumedActivity=ActivityRecord{1 u0 com.launcher/.Home t1}\n", "background"),
+        # Android 12 and older print only mResumedActivity (measured on 12)
+        (
+            "1234\n    mResumedActivity: ActivityRecord{2 u0 com.google.android.apps.nexuslauncher/.Nexus t11}\n",
+            "background",
+        ),
+        ("1234\n    mResumedActivity: ActivityRecord{2 u0 dev.demo/.MainActivity t34}\n", "foreground"),
         (
             (
                 "1234\n  topResumedActivity=ActivityRecord{2 u0 com.google.android.permissioncontroller/"
@@ -327,7 +333,7 @@ def test_keys(drv, adb):
         "input keyevent 82",
         "input keyevent 4",
         "input keyevent 3",
-        "pidof dev.demo; dumpsys activity activities | grep -m1 topResumedActivity",  # it has left the foreground
+        "pidof dev.demo; dumpsys activity activities | grep -m1 -E 'topResumedActivity=|mResumedActivity: '",
     ]
     with pytest.raises(DeviceError, match="Unknown key 'hyper'"):
         drv.key("hyper")
