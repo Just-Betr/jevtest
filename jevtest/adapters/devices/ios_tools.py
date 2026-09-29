@@ -6,6 +6,7 @@ Everything here runs on the Mac. `ios.IOSDevice` uses it.
 from __future__ import annotations
 
 import json
+import re
 import socket
 import tempfile
 import threading
@@ -14,7 +15,6 @@ import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import TypedDict
 
 from jevtest.domain.failures import DeviceError
 
@@ -39,58 +39,77 @@ def devicectl(*args: str, timeout: float = 300) -> Object:
         return as_object(dig(parse_json(out.read_text(), what), "result") or {}, what)
 
 
-def _runtime_version(runtime: str) -> tuple[int, ...]:
-    """``...SimRuntime.iOS-26-5`` as (26, 5), for sorting."""
-    return tuple(int(n) for n in runtime.rsplit("iOS-", 1)[-1].split("-") if n.isdigit())
+_IOS_RUNTIME = re.compile(r"com\.apple\.CoreSimulator\.SimRuntime\.iOS-(\d+(?:-\d+)*)")
+"""A simctl runtime identifier for iOS, and its version: ``com.apple.CoreSimulator.SimRuntime.iOS-26-5``."""
 
 
-class Simulator(TypedDict):
-    """An available simulator, as simctl lists it."""
-
-    udid: str
-    name: str
-    state: str
-    runtime: str
+def _ios_version(runtime: str) -> tuple[int, ...] | None:
+    """The iOS version a simctl runtime identifier names, e.g. (26, 5); None for another OS (watchOS, ...)."""
+    found = _IOS_RUNTIME.fullmatch(runtime)
+    return tuple(int(n) for n in found[1].split("-")) if found else None
 
 
-class Phone(TypedDict):
-    """A connected iPhone, as devicectl lists it."""
+@dataclass(frozen=True)
+class Simulator:
+    """An available iOS simulator, as simctl lists it."""
 
     udid: str
     name: str
+    booted: bool
+    version: tuple[int, ...]
+    """The iOS version it runs, e.g. (26, 5)."""
+
+    @property
+    def runs(self) -> str:
+        """What it runs, in words: ``iOS 26.5``."""
+        return "iOS " + ".".join(map(str, self.version))
+
+
+@dataclass(frozen=True)
+class Phone:
+    """A real iPhone paired with this Mac, as devicectl lists it."""
+
+    udid: str
+    name: str
+    connected: bool
+    """It has a live connection: plugged in (or on the network), unlocked since it was last locked."""
 
 
 def simulators() -> list[Simulator]:
-    """Available iOS simulators, newest runtime first, then by name."""
+    """Available iOS simulators (not watchOS, tvOS, ...), newest iOS first, then by name."""
     what = "simctl list devices"
     by_runtime = as_object(dig(parse_json(simctl("list", "devices", "available", "-j"), what), "devices"), what)
-    runtimes = sorted((r for r in by_runtime if ".iOS-" in r), key=_runtime_version, reverse=True)
-    return [
-        sim
-        for r in runtimes
-        for sim in sorted(
-            (_simulator(d, r) for d in as_list(by_runtime[r], what)), key=lambda d: (d["name"], d["udid"])
-        )
+    sims = [
+        _simulator(raw, version)
+        for runtime, listed in by_runtime.items()
+        if (version := _ios_version(runtime)) is not None
+        for raw in as_list(listed, what)
     ]
+    by_name = sorted(sims, key=lambda s: (s.name, s.udid))
+    return sorted(by_name, key=lambda s: s.version, reverse=True)  # a stable sort: by name within a version
 
 
-def _simulator(raw: object, runtime: str) -> Simulator:
+def _simulator(raw: object, version: tuple[int, ...]) -> Simulator:
     d = as_object(raw, "a simctl device")
-    return {
-        "udid": as_text(d.get("udid"), "a simulator's udid"),
-        "name": as_text(d.get("name"), "a simulator's name"),
-        "state": as_text(d.get("state"), "a simulator's state"),
-        "runtime": runtime.rsplit(".", 1)[-1],
-    }
+    return Simulator(
+        udid=as_text(d.get("udid"), "a simulator's udid"),
+        name=as_text(d.get("name"), "a simulator's name"),
+        booted=as_text(d.get("state"), "a simulator's state") == "Booted",
+        version=version,
+    )
 
 
-def phones(*, connected: bool = True) -> list[Phone]:
-    """Real iPhones paired with this Mac: those with a live connection, or (`connected` False) those without."""
+def phones() -> list[Phone]:
+    """Real iPhones paired with this Mac, connected or not."""
     listed = as_list(devicectl("list", "devices").get("devices", []), "devicectl's device list")
     return [
-        {"udid": text_at(d, "hardwareProperties", "udid"), "name": text_at(d, "deviceProperties", "name")}
+        Phone(
+            udid=text_at(d, "hardwareProperties", "udid"),
+            name=text_at(d, "deviceProperties", "name"),
+            connected=text_at(d, "connectionProperties", "tunnelState") == "connected",
+        )
         for d in listed
-        if _iphone(d) and (text_at(d, "connectionProperties", "tunnelState") == "connected") == connected
+        if _iphone(d)
     ]
 
 
@@ -117,15 +136,18 @@ def find_target(wanted: str) -> Target:
 
     jevtest never boots, opens or unlocks a device.
     """
-    running = _running_targets()
+    sims, iphones = simulators(), phones()
+    running = [Target(s.udid, s.name, physical=False, runs=s.runs) for s in sims if s.booted] + [
+        Target(p.udid, p.name, physical=True) for p in iphones if p.connected
+    ]
     matches = [t for t in running if wanted in (t.udid, t.name)]
     if not matches:
         # the name is right, but the device isn't ready: say what's wrong, rather than that there's no such device
-        if any(wanted in (p["udid"], p["name"]) for p in phones(connected=False)):
+        if any(wanted in (p.udid, p.name) for p in iphones):
             raise DeviceError(
                 f"The iPhone '{wanted}' is paired but not connected: plug it in with USB, unlock it and keep it awake"
             )
-        if any(wanted in (s["udid"], s["name"]) for s in simulators()):
+        if any(wanted in (s.udid, s.name) for s in sims):
             raise DeviceError(
                 f"The simulator '{wanted}' isn't booted: boot it (xcrun simctl boot \"{wanted}\"); jevtest never "
                 "boots devices"
@@ -138,16 +160,6 @@ def find_target(wanted: str) -> Target:
         listed = ", ".join(f"{t.udid} ({t.runs or 'an iPhone'})" for t in matches)
         raise DeviceError(f"Several devices are called '{wanted}' ({listed}): name one by its UDID")
     return matches[0]
-
-
-def _running_targets() -> list[Target]:
-    """The booted simulators, then the connected iPhones."""
-    sims = [
-        Target(d["udid"], d["name"], physical=False, runs=d["runtime"].replace("-", " ", 1).replace("-", "."))
-        for d in simulators()
-        if d["state"] == "Booted"
-    ]
-    return sims + [Target(d["udid"], d["name"], physical=True) for d in phones()]
 
 
 def xcode_team(team: str) -> str:

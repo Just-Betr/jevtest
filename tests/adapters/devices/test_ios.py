@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import time
 from pathlib import Path
@@ -7,8 +8,10 @@ import pytest
 
 from jevtest.adapters.devices.common import AgentRefused, ToolFailed, Undo
 from jevtest.adapters.devices.ios import IOSDevice
+from jevtest.adapters.devices.ios_tools import AGENT_SRC
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.screen import Element
+from jevtest.domain.steps import KEYS
 from tests.adapters.devices.conftest import make_app, swap
 from tests.conftest import PROGRESS
 
@@ -428,3 +431,11 @@ def test_a_key_passes_on_an_agent_failure_as_it_came(drv, env):
     env[1].replies["/tree"] = {"error": "Application is not running"}
     with pytest.raises(AgentRefused, match="^iOS agent /tree: Application is not running$"):
         drv.key("enter")
+
+
+def test_the_agent_presses_exactly_the_keys_a_test_file_can_name_on_ios():
+    """The Swift agent has its own table of key names: it must match `KEYS`, which the loader checks files against."""
+    swift = (AGENT_SRC / "AgentUITests" / "JevAgentUITests.swift").read_text()
+    table = re.search(r"let keys: \[String: String\] = \[(.*?)\]\n", swift, re.DOTALL)
+    assert table is not None
+    assert sorted(re.findall(r'"(\w+)":', table[1])) == sorted(KEYS)

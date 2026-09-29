@@ -16,11 +16,19 @@ from tests.adapters.devices.conftest import PHONE, SIMS, make_app, swap
 
 def test_simulators_sorted_newest_first(env):
     sims = ios_tools.simulators()
-    assert [(d["name"], d["runtime"]) for d in sims] == [
-        ("iPad Air", "iOS-26-5"),
-        ("iPhone 17", "iOS-26-5"),
-        ("iPhone 16", "iOS-18-0"),
+    assert [(d.name, d.runs) for d in sims] == [
+        ("iPad Air", "iOS 26.5"),
+        ("iPhone 17", "iOS 26.5"),
+        ("iPhone 16", "iOS 18.0"),
     ]
+    assert [d.version for d in sims] == [(26, 5), (26, 5), (18, 0)]  # numbers: iOS 9 would sort below 18
+
+
+def test_a_simulator_list_is_read_once_per_lookup_even_when_nothing_matches(env):
+    with pytest.raises(DeviceError, match="Running: "):
+        ios_tools.find_target("nothing")
+    assert sum("simctl list devices" in c for c in env[0].cmds) == 1
+    assert sum(c[:2] == ("list", "devices") for c in env.ctl.calls) == 1
 
 
 def test_uses_the_named_booted_simulator_and_never_boots_or_opens_one(env):
@@ -140,14 +148,17 @@ def test_http_post_roundtrip(monkeypatch):
     assert req.get_header("X-jevtest-token") == "t0k"  # the agent refuses a request without the run's token
 
 
-def test_phones_lists_connected_real_iphones(env):
+def test_phones_lists_paired_real_iphones_and_whether_each_is_connected(env):
     env.ctl.phones = [
         PHONE,
         dict(PHONE, connectionProperties={"tunnelState": "disconnected"}),  # not reachable now
         dict(PHONE, hardwareProperties={"reality": "simulated", "platform": "iOS", "udid": "S"}),
         dict(PHONE, hardwareProperties={"reality": "physical", "platform": "watchOS", "udid": "W"}),
     ]
-    assert ios_tools.phones() == [{"udid": "00008150-X", "name": "BH"}]
+    assert ios_tools.phones() == [
+        ios_tools.Phone("00008150-X", "BH", connected=True),
+        ios_tools.Phone("00008150-X", "BH", connected=False),
+    ]
 
 
 def test_a_paired_iphone_that_isnt_connected_says_so(env):
