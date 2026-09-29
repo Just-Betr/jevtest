@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A JUnit suite for a file in a folder is named with dots all the way (`jevtest.cart.checkout.android.Pixel 8`), not
+  with the folder's slash (`jevtest.cart/checkout…`), which CI report viewers show as part of a class name.
+- Docs: three troubleshooting messages now read exactly as jevtest prints them.
 - A `grant:` can name an app's own permission on Android (`com.example.app.SCAN`): any full name, with its package,
   is accepted, as Android records every permission with one. Only `android.permission.…` names were before.
 - A step a platform can't run is an error when the file loads, for every test in it, not only those a `--test` picks:

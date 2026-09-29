@@ -79,7 +79,7 @@ When several files run, each gets its own folder first: `results/<run>/checkout/
 
 ### `junit.xml`
 
-One `<testsuite>` per file, platform and device (named like `jevtest.checkout.android.Pixel 8`), one `<testcase>` per test. A failed test has a `<failure>` whose message is the reason (`see: Welcome back — Waited 2s until 'Welcome back' is on screen`) and whose body is the test's full log.
+One `<testsuite>` per file, platform and device (named like `jevtest.checkout.android.Pixel 8`; for a file in a folder, `jevtest.shop.checkout.android.Pixel 8`), one `<testcase>` per test. A failed test has a `<failure>` whose message is the reason (`see: Welcome back — Waited 2s until 'Welcome back' is on screen`) and whose body is the test's full log.
 
 ### `report.json`
 

@@ -17,7 +17,7 @@ error: t.yaml has 2 problems:
 | `Unknown step 'bakc'. A bare word must be one of back, clear_data, … for a plain-English goal write` `- do: bakc` | A typo, or a goal written without `do:`. |
 | `'wait' must be a number, got '2' (remove the quotes)` | Numbers are written without quotes. |
 | `'tap' needs text, got a number (to use 42 as text, put it in quotes)` | `tap: "42"`. |
-| `'scroll_to' needs direction: (up, down, left or right)` | Add `direction: down` to the step. |
+| ``'scroll_to' needs `direction:` (up, down, left or right)`` | Add `direction: down` to the step. |
 | `` `direction` belongs to scroll_to, not to tap `` | Options only go on the actions they apply to ([table](reference/steps.md#options)). |
 | `` `timeout` only applies to a step that waits (for its element, its checks, or a do:/scroll_to: condition) `` (or `interval`, `max_actions`, `max_scrolls`, `confidence`) | The setting means nothing on that step: remove it, or move it to the step it was meant for ([settings](reference/test-file.md#settings-optional)). |
 | `` `settle` is gone (jevtest 0.9): each step waits until what it needs is on screen; remove it `` | Remove `settle`: there's no waiting after an action any more. A step that needs longer gets `timeout:`. |
@@ -35,7 +35,7 @@ error: t.yaml has 2 problems:
 | `PASSWORD is set in the environment and in …/.env to different values: remove one of them` | jevtest won't pick one. |
 | `…/.env:3 is not a KEY=value line` | Fix or comment out (`#`) that line. |
 | `Tests use each other in a loop: A -> B -> A` | A `use:` cycle. |
-| `…/stray.yaml: no app: and not included by any test file` | In a folder run, every YAML must be a test file or an included library. |
+| ``…/stray.yaml: no `app:` and not included by any test file`` | In a folder run, every YAML must be a test file or an included library. |
 
 ## Devices
 
@@ -46,7 +46,7 @@ error: t.yaml has 2 problems:
 | `No booted simulator or connected iPhone called 'iPhone 16' (names are exact). Running: …` | No device has that name: use a listed one exactly. |
 | `The simulator 'iPhone 16e' isn't booted: boot it (xcrun simctl boot "iPhone 16e")` | Boot it: jevtest never boots devices. |
 | `The iPhone 'BH' is paired but not connected: plug it in with USB, unlock it and keep it awake` | The phone is asleep, locked or unplugged. |
-| `emulator-5554: another jevtest run (pid 1234) is testing it: wait for it to finish, or use another device` | Two runs can't share a device: the second would restart the app under the first. |
+| `android · emulator-5554: another jevtest run (pid 1234) is testing it: wait for it to finish, or use another device` | Two runs can't share a device: the second would restart the app under the first. |
 | `putting back what a run that was stopped left changed: dark mode, network` | Not an error: a run killed outright left those changed, and this one puts them back first. |
 | `can't put back rotation (another jevtest version changed it): set it by hand` | A run of another jevtest version was killed with that changed, and wrote down how to put it back in a way this version doesn't read. Set it back on the device yourself. |
 | `Several devices are called 'iPhone 17 Pro' (X, Y): name one by its UDID` | Use the UDID. |

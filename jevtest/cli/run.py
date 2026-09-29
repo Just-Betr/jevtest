@@ -109,6 +109,14 @@ def tag(*parts: str) -> str:
     return " · ".join(filter(None, parts))
 
 
+def junit_name(job: Job) -> str:
+    """A device run's JUnit suite name, e.g. ``jevtest.checkout.pay.android.Pixel 8``.
+
+    Dots go between the file's folders, the file, the platform and the device, as JUnit separates a package's parts.
+    """
+    return "jevtest." + job.tag.replace(" · ", ".").replace("/", ".")
+
+
 def slug(text: str) -> str:
     """`text` as a safe folder name."""
     return re.sub(r"[^A-Za-z0-9._-]+", "_", text).strip("_") or "device"
@@ -274,7 +282,7 @@ def run_command(
             options=options,
             make_client=make_client,
         )
-        suites += [JunitSuite("jevtest." + r.job.tag.replace(" · ", "."), r.result, r.logs) for r in done]
+        suites += [JunitSuite(junit_name(r.job), r.result, r.logs) for r in done]
     write_junit(out / "junit.xml", suites)
     return _report_all(suites, files=len(loaded), junit=out / "junit.xml")
 

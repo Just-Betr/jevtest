@@ -504,7 +504,7 @@ def test_running_a_folder(tmp_path, monkeypatch, fakes, capsys):
     assert (stamp / "login" / "android" / "emulator-5554" / "report.json").exists()
     assert (stamp / "cart" / "checkout" / "android" / "emulator-5554" / "report.json").exists()
     names = [s.attrib["name"] for s in ET.parse(stamp / "junit.xml").getroot()]
-    assert names == ["jevtest.cart/checkout.android.emulator-5554", "jevtest.login.android.emulator-5554"]
+    assert names == ["jevtest.cart.checkout.android.emulator-5554", "jevtest.login.android.emulator-5554"]
 
 
 def test_a_yaml_file_that_is_neither_run_nor_included_is_an_error(tmp_path, monkeypatch, fakes, capsys):
