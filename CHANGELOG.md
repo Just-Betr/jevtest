@@ -57,6 +57,18 @@
   field on Android 17's WebView reports the text too (measured: `secret1`), so an `expect:` answer recorded on such a
   screen was recorded with the password in it: `--lock frozen` says it isn't recorded, and `--lock record` records
   it again without it.
+- A tap on the barrier behind a dialog (Flutter's `Dismiss`, which a person taps outside the dialog to close it)
+  landed in the barrier's middle, on the dialog, and closed nothing. A touch on an element that fills the screen
+  goes to its point farthest from what's shown over it (measured: a web alert then closed on Android and iOS, 3 of 3
+  each).
+- A step looking for text the app reports but doesn't show, such as a web page's line below the screen, said only
+  that it isn't on screen. It says the app has it off screen, and to bring it on screen first.
+- A `do:` stuck tapping a button said to quote the values it types, which doesn't help where nothing is typed
+  (measured: tapping a web radio already chosen). It says so only when it's stuck on a text field.
+- A saved `do:` scroll was repeated on the screen as it was read, even while a page was still coming in, and a
+  scroll that went past the next step's element never came back (measured: a saved scroll on a web page ended at
+  its end, 1 run in 2). It's repeated on a screen that stopped moving, and at the end of the content without the
+  element, jevtest scrolls back the other way.
 
 ## 0.9.15
 

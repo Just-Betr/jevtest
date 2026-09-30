@@ -92,6 +92,17 @@ KEYBOARD_UP = (
 )
 """Added when what a step looks for isn't on screen and the keyboard is up."""
 
+OFF_SCREEN = "; the app has it off screen: bring it on screen first, e.g. with `scroll_to:`"
+"""Added when what a step looks for isn't on screen but the app reports it where the screen doesn't show it."""
+
+BACK = {
+    Direction.DOWN: Direction.UP,
+    Direction.UP: Direction.DOWN,
+    Direction.LEFT: Direction.RIGHT,
+    Direction.RIGHT: Direction.LEFT,
+}
+"""Each direction's opposite."""
+
 LEFT_CONFIRM = 4
 """Checks, `LEFT_INTERVAL` apart, that another app is still on top before the app counts as having left. A touch in
 Android 15's gesture strip puts the home screen on top for a moment while the phone decides whether it's a swipe home
@@ -410,7 +421,8 @@ class TestRunner:
             kinds = dict.fromkeys(e.kind for e in screen.elements if editable and not e.editable and e.says(wanted))
             if kinds:
                 return f"; what says '{target}' doesn't take text ({', '.join(kinds)})"
-            return self._near(wanted, pool(screen)) + (KEYBOARD_UP if screen.keyboard_visible else "")
+            off = OFF_SCREEN if screen.off_screen(wanted) else ""
+            return self._near(wanted, pool(screen)) + off + (KEYBOARD_UP if screen.keyboard_visible else "")
 
         what = "a text field" if editable else "an element"
         return self._wait_until(found, settings, f"{what} says '{target}' on screen and stopped moving", why)
@@ -487,7 +499,8 @@ class TestRunner:
         def why(screen: Screen) -> str:
             if not present:
                 return ""
-            return self._near(wanted, screen.elements) + (KEYBOARD_UP if screen.keyboard_visible else "")
+            off = OFF_SCREEN if screen.off_screen(wanted) else ""
+            return self._near(wanted, screen.elements) + off + (KEYBOARD_UP if screen.keyboard_visible else "")
 
         until = f"'{check.text}' is on screen" if present else f"'{check.text}' is gone"
         return self._wait_until(seen, settings, until, why) or None
@@ -634,7 +647,7 @@ class TestRunner:
                 assert_never(action)
 
     def _touch(self, gesture: Gesture, el: Element) -> None:
-        x, y = el.center
+        x, y = el.tap_point
         match gesture:
             case Gesture.TAP:
                 self.device.tap(x, y)
@@ -720,31 +733,35 @@ class TestRunner:
         return f"{plural(len(done) + len(steps), 'step')}, worked out by Jev"
 
     def _scroll_on(self, scroll: SavedStep, after: SavedStep | None, settings: Settings) -> None:
-        """After a saved scroll, scroll on the same way until the next saved step's element is on screen.
+        """After a saved scroll, scroll on until the next saved step's element is on screen, then back if need be.
 
-        A scroll's length isn't the app's: it changes with the screen and with jevtest (measured: two saved scrolls
-        that reached Item 30 stopped at Item 29 after jevtest's drags got shorter). The element counts as there as
-        `scroll_to:` counts it, clear of the screen's edges, or anywhere once the content stops moving.
+        On the same way first; at the end of the content without it, back the other way. A scroll's length isn't the
+        app's: it changes with the screen and with jevtest (measured: two saved scrolls that reached Item 30 stopped at
+        Item 29 after jevtest's drags got shorter), and a web page's content can report late, so a scroll goes by it
+        (measured: a saved scroll on a web page ended at its end, past the button the next step taps, 1 run in 2). The
+        element counts as there as `scroll_to:` counts it, clear of the screen's edges; each way stops at the end of the
+        content, or after `max_scrolls` scrolls.
         """
         target = after.target if after is not None else None
         if target is None or not scroll.action.startswith("scroll_"):
             return
         direction = Direction(scroll.action.removeprefix("scroll_"))
         screen = self._still_screen(settings)
-        for _ in range(settings.max_scrolls):
-            same = [el for el in screen.elements if el.kind == target.kind and self._name(el) == target.name]
-            if len(same) == target.count and screen.clear_of_edges(same[target.nth - 1]):
-                return
-            self.device.scroll(direction, screen=screen)
-            before, screen = screen, self._still_screen(settings)
-            if screen == before:  # the end of the content: the step after says what's missing
-                return
+        for way in (direction, BACK[direction]):
+            for _ in range(settings.max_scrolls):
+                same = [el for el in screen.elements if el.kind == target.kind and self._name(el) == target.name]
+                if len(same) == target.count and screen.clear_of_edges(same[target.nth - 1]):
+                    return
+                self.device.scroll(way, screen=screen)
+                before, screen = screen, self._still_screen(settings)
+                if screen == before:  # the end of the content that way
+                    break
 
     def _repeat(self, step: SavedStep, settings: Settings) -> None:
         """One saved step: `wait_until` its element is on screen (the same one of the same count), then act."""
         target = step.target
-        if target is None:
-            self._make(_page_move(step), self.device.screen(), settings)
+        if target is None:  # on a screen that stopped moving, as Jev's moves are: a page still loading takes no scroll
+            self._make(_page_move(step), self._still_screen(settings), settings)
             return
         found: list[int] = []  # how many elements have its kind and name, on the last screen read
         place = Stillness()  # where it is, and how it looks
@@ -800,7 +817,10 @@ class TestRunner:
             # the same move again on the screen it didn't change: a scroll that moves the list is progress
             no_effect = no_effect + 1 if last == (move.describe(), screen) else 0
             if no_effect == STUCK:
-                raise StepFailed(f"Stuck repeating: {move.describe()}, which changes nothing on the screen{cant_type}")
+                # quoting helps only where it's stuck on a field (measured: tapping a chosen radio got the hint)
+                on_field = isinstance(move, ElementMove) and move.element.editable
+                hint = cant_type if on_field else ""
+                raise StepFailed(f"Stuck repeating: {move.describe()}, which changes nothing on the screen{hint}")
             record.decisions.append(decision)
             if isinstance(move, WaitForScreen):  # still loading: wait_until it changes; nothing to save
                 self._wait_until(_changed_from(screen), settings, "the screen changed", lambda _: "")

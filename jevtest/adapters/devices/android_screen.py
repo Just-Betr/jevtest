@@ -65,7 +65,24 @@ def parse_screen(xml: str, size: Size) -> Screen:
         keyboard_visible=keyboard_up(root),
         keyboard_top=int(root.get("ime-top", "0")),
         system_bars=tuple(_bars(root.get("bars", ""))),
+        offscreen=_offscreen(root, width, height),
     )
+
+
+def _offscreen(root: ET.Element, width: int, height: int) -> tuple[str, ...]:
+    """What the app reports but doesn't show: the text of each node too little of which is on screen.
+
+    A web page reports its content below the screen with no size (measured on Android 17: `[0,0][0,0]` for a line
+    shown by a tap on a link at the bottom).
+    """
+    texts = (
+        one_line(_label(node.attrib))
+        for node in root.iter("node")
+        if node.get("package") != SYSTEM_UI
+        and not _true(node.attrib, "password")  # its text is the password, as typed (see `HIDDEN`)
+        and _bounds(node.get("bounds", ""), width, height) is None
+    )
+    return tuple(dict.fromkeys(t for t in texts if t))
 
 
 def keyboard_up(root: ET.Element) -> bool:

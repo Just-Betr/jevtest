@@ -159,6 +159,36 @@ def test_clear_of_edges_is_away_from_the_top_and_bottom_8_percent():
     assert not up.clear_of_edges(el(bounds=(0, 900, 10, 950)))
 
 
+def test_a_tap_on_a_barrier_behind_a_dialog_lands_off_the_dialog():
+    """Measured: Flutter's `Dismiss` barrier fills the screen, with an alert at its middle; a tap there stays on the
+    alert. The alert's box isn't reported, only what it holds."""
+    barrier = el("button", "Dismiss", clickable=True, bounds=(0, 142, 1080, 2424))
+    text, ok = el("text", "Hello", bounds=(236, 1120, 845, 1173)), el("button", "OK", bounds=(677, 1236, 845, 1362))
+    s = Screen(1080, 2424, (text, ok, barrier))
+    x, y = s.elements[2].tap_point
+    assert not (236 <= x < 845 and 1120 <= y < 1362)  # off the box around what the dialog holds
+    assert 2424 * 0.08 <= y <= 2424 * 0.92
+    assert s.elements[2].center == (540, 1283)  # its middle stays, for all but a touch on it
+    assert s.elements[1].tap_point == ok.center  # anything else is touched in its middle
+
+
+def test_a_barrier_is_tapped_in_its_middle_when_nothing_is_there():
+    barrier = el("button", "Dismiss", clickable=True, bounds=(0, 0, 1000, 2000))
+    top = el("text", "Title", bounds=(0, 100, 1000, 200))
+    assert Screen(1000, 2000, (barrier,)).elements[0].center == (500, 1000)  # nothing over it
+    assert Screen(1000, 2000, (top, barrier)).elements[1].center == (500, 1000)  # nothing over its middle
+    backdrop = el("image", "Backdrop", bounds=(0, 0, 1000, 2000))  # doesn't take taps
+    assert Screen(1000, 2000, (text := el("text", "Hi", bounds=(400, 900, 600, 1100)), backdrop)).elements[
+        1
+    ].center == (
+        500,
+        1000,
+    )
+    assert text.center == (500, 1000)
+    covered = el("text", "Everything", bounds=(0, 1, 1000, 1999))  # over every point it could use
+    assert Screen(1000, 2000, (covered, barrier)).elements[1].center == (500, 1000)
+
+
 def test_in_lane_is_the_middle_inside_the_lane_along_the_scroll():
     """Measured on an iPhone: a chip peeking in at a carousel's end, its middle past the carousel's end at 370."""
     s, carousel = Screen(402, 874), (32, 708, 370, 739)

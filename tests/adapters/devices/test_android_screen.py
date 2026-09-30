@@ -125,6 +125,20 @@ def test_a_password_fields_text_is_only_how_long_it_is():
     assert not any("hunter22" in e.label() for e in els)
 
 
+def test_what_the_app_reports_off_screen_is_kept_as_text_only():
+    """Measured on Android 17: a web page reports its content below the screen as `[0,0][0,0]`."""
+    xml = """<hierarchy rotation="0">
+      <node class="android.view.View" text="Show more" bounds="[63,2300][275,2400]"/>
+      <node class="android.view.View" text="Here is more content." bounds="[0,0][0,0]"/>
+      <node class="android.widget.EditText" text="secret1" password="true" bounds="[0,0][0,0]"/>
+      <node class="android.view.View" text="" bounds="[0,0][0,0]"/>
+    </hierarchy>"""
+    screen = parse_screen(xml, lambda _: (1080, 2424))
+    assert [e.text for e in screen.elements] == ["Show more"]
+    assert screen.offscreen == ("Here is more content.",)  # never a password's text
+    assert screen.off_screen("here is  more content.") and not screen.off_screen("Show more")
+
+
 def test_a_slider_is_kept_labelled_or_not_with_where_its_thumb_is():
     """A Compose Slider is a SeekBar with no label: it can still be swiped. A range elsewhere is no slider's."""
     xml = """<hierarchy rotation="0">

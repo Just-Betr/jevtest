@@ -54,6 +54,7 @@ class Element:
         adjustable: Whether it's moved by a drag along it, like a slider: iOS says so of sliders, steppers, picker
             wheels and page controls, and of a Flutter slider, which it otherwise reports as plain text.
         id: Its id on this screen (e1, e2, ...), assigned by `Screen`.
+        touch: Where a finger touches it, when not its middle (`Screen` sets it for a barrier behind a dialog).
     """
 
     kind: str
@@ -73,6 +74,7 @@ class Element:
     position: float | None = None
     adjustable: bool = False
     id: str = ""
+    touch: Point | None = None
 
     @property
     def slider(self) -> bool:
@@ -81,9 +83,14 @@ class Element:
 
     @property
     def center(self) -> Point:
-        """The middle of the element: where a tap lands."""
+        """The middle of the element: where a tap lands, unless it has a `touch` point (see `tap_point`)."""
         x1, y1, x2, y2 = self.bounds
         return (x1 + x2) // 2, (y1 + y2) // 2
+
+    @property
+    def tap_point(self) -> Point:
+        """Where a finger touches it: its `touch` point if it has one, else its middle."""
+        return self.touch if self.touch is not None else self.center
 
     @property
     def end(self) -> Point:
@@ -113,6 +120,12 @@ class Element:
         return f"{self.kind} '{name}'"
 
 
+FILLS = 0.9
+"""The share of the screen an element covers to be taken for a barrier behind a dialog (`Screen._clear_touch`)."""
+
+TOUCH_GRID = 12
+"""Into how many parts each way a barrier is divided, to find the point on it farthest from the dialog."""
+
 EDGE = 0.08
 """The share of the screen's height, at its top and at its bottom, that phones keep for their own gestures."""
 
@@ -139,6 +152,8 @@ class Screen:
         scrollers: Where content scrolls (a list, a carousel) that isn't an element of its own: an iOS scroll view
             with no label.
         bars: The app's own bars at the top and bottom (navigation and tab bars), which don't scroll.
+        offscreen: Texts the app reports but doesn't show, such as a web page's below the screen: not elements, as
+            nothing can be done with them where they are, only for the error when a step looks for one.
     """
 
     width: int
@@ -149,11 +164,51 @@ class Screen:
     system_bars: tuple[Bounds, ...] = ()
     scrollers: tuple[Bounds, ...] = ()
     bars: tuple[Bounds, ...] = ()
+    offscreen: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         """Number the elements. The caller's elements are left as they were: these are copies."""
-        numbered = tuple(dataclasses.replace(el, id=f"e{i}") for i, el in enumerate(self.elements, 1))
+        numbered = tuple(
+            dataclasses.replace(el, id=f"e{i}", touch=self._clear_touch(el)) for i, el in enumerate(self.elements, 1)
+        )
         object.__setattr__(self, "elements", numbered)
+
+    def _clear_touch(self, el: Element) -> Point | None:
+        """Where a tap on a barrier behind a dialog lands: off the dialog; None to keep the element's middle.
+
+        For an element that fills the screen, tappable or not as its platform says (iOS reports Flutter's barrier as
+        text): the point on it farthest from what's shown over it, clear of the top and bottom `EDGE`. Only a touch
+        on the element itself goes there; its middle stays where it is, for everything else.
+
+        A barrier's middle is on the dialog (measured: Flutter's `Dismiss` barrier, 1080x2424, with an alert at its
+        middle), where a tap doesn't reach it. The dialog's box isn't an element, only what it holds, so the box
+        around all of that stands for it, and the tap goes as far from it as the barrier allows. Only an element
+        that fills the screen: nothing that does is drawn over a dialog, while a smaller element may be, in either
+        order in the tree.
+        """
+        x1, y1, x2, y2 = el.bounds
+        if (x2 - x1) * (y2 - y1) < FILLS * self.width * self.height:
+            return None
+        over = [o.bounds for o in self.elements if o is not el and o.bounds != el.bounds]
+        if not over:
+            return None
+        bx1, by1 = min(b[0] for b in over), min(b[1] for b in over)
+        bx2, by2 = max(b[2] for b in over), max(b[3] for b in over)
+        mx, my = (x1 + x2) // 2, (y1 + y2) // 2
+        if not (bx1 <= mx < bx2 and by1 <= my < by2):  # its middle is clear of what's over it
+            return None
+        top, bottom = max(y1, round(self.height * EDGE)), min(y2, round(self.height * (1 - EDGE)))
+        steps = range(1, TOUCH_GRID)
+        points = [
+            (x1 + (x2 - x1) * i // TOUCH_GRID, top + (bottom - top) * j // TOUCH_GRID) for i in steps for j in steps
+        ]
+
+        def away(p: Point) -> int:  # how far outside the box around what's over it; 0 inside
+            dx, dy = max(bx1 - p[0], 0, p[0] - bx2), max(by1 - p[1], 0, p[1] - by2)
+            return dx * dx + dy * dy
+
+        best = max(points, key=away)
+        return best if away(best) > 0 else None
 
     @property
     def content_height(self) -> int:
@@ -260,6 +315,11 @@ class Screen:
     def shows(self, text: str) -> bool:
         """Whether an element says exactly `text` (see `Element.says`). Never a part of a longer text."""
         return any(el.says(text) for el in self.elements)
+
+    def off_screen(self, text: str) -> bool:
+        """Whether the app reports `text` somewhere the screen doesn't show (`folded`, as `Element.says`)."""
+        wanted = folded(one_line(text))
+        return bool(wanted) and any(folded(t) == wanted for t in self.offscreen)
 
     def near(self, text: str) -> tuple[str, ...]:
         """What the screen says that `text` may have meant, for the error when it isn't there. Never matched."""
