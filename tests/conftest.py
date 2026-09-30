@@ -140,10 +140,10 @@ class FakeDevice(BaseDevice):
     Time passes only through the runner's clock (each `interval` between two checks of a `wait_until`).
     """
 
-    def __init__(self, *screens: Screen, state=AppState.FOREGROUND):
+    def __init__(self, *screens: Screen, state: AppState | list[AppState] = AppState.FOREGROUND):
         self.screens = list(screens) or [login_screen()]
         self.calls: list[tuple[object, ...]] = []
-        self.state = AppState(state)
+        self.state = [AppState(x) for x in state] if isinstance(state, list) else AppState(state)  # a list: in turn
         self.fail: dict[str, Exception] = {}
         self.app_id = "dev.fake"
         self.clock: FakeClock | None = None  # set by the runner tests
@@ -177,6 +177,8 @@ class FakeDevice(BaseDevice):
     @override
     def app_state(self):
         self._rec("app_state")
+        if isinstance(self.state, list):
+            return self.state.pop(0) if len(self.state) > 1 else self.state[0]
         return self.state
 
     def resume(self):

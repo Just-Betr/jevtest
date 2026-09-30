@@ -497,6 +497,19 @@ def test_app_leaving_fails_the_step(tmp_path, clock, out, state, message):
     assert message in failure_of(res)
 
 
+def test_another_app_on_top_for_a_moment_is_not_leaving(tmp_path, clock, out):
+    """Measured on Android 15: a tap in the gesture strip put the home screen on top for 20-65 ms."""
+    blip = FakeDevice(state=[AppState.BACKGROUND, AppState.FOREGROUND])
+    res, d, _ = run1(tmp_path, clock, out, "back", device=blip)
+    assert res.status is Status.PASS and d.names().count("app_state") == 2 and clock.slept == [0.25]
+
+
+def test_the_app_has_left_when_another_stays_on_top(tmp_path, clock, out):
+    res, d, _ = run1(tmp_path, clock, out, "back", device=FakeDevice(state=AppState.BACKGROUND))
+    assert "left the foreground" in failure_of(res)
+    assert d.names().count("app_state") == 5 and clock.slept == [0.25] * 4  # checked for a second before failing
+
+
 def test_leaving_the_app_on_purpose_is_allowed(tmp_path, clock, out):
     res, _, _ = run1(
         tmp_path, clock, out, "home", {"open_url": "https://x"}, "stop", device=FakeDevice(state=AppState.BACKGROUND)

@@ -35,6 +35,10 @@
   does. It says so (measured with Compose: a search's result line, below the field, was behind the keyboard).
 - A misspelt step or test key (`tapp:`, `step:`, `hide_keybaord`) was reported as unknown, with nothing to say what
   was meant. The error names the known key it's closest to, when one is close: `tapp (did you mean tap?)`.
+- A tap near the bottom of an Android 15 screen, where the app is drawn under the gesture handle, failed the step
+  with "The app left the foreground": the phone puts the home screen on top for a moment while it decides whether the
+  touch is a swipe home (measured: 20-65 ms, then the app again). The app counts as having left only when another app
+  is still on top a second later.
 
 ## 0.9.15
 

@@ -92,6 +92,14 @@ KEYBOARD_UP = (
 )
 """Added when what a step looks for isn't on screen and the keyboard is up."""
 
+LEFT_CONFIRM = 4
+"""Checks, `LEFT_INTERVAL` apart, that another app is still on top before the app counts as having left. A touch in
+Android 15's gesture strip puts the home screen on top for a moment while the phone decides whether it's a swipe home
+(measured: 20-65 ms after a tap, then the app again)."""
+
+LEFT_INTERVAL = 0.25
+"""Seconds between the checks of `LEFT_CONFIRM`."""
+
 PICKER = "picker"
 """A picker wheel: typing into one turns it to that value (`Device.choose`)."""
 
@@ -435,8 +443,16 @@ class TestRunner:
         }.get(state, "")
 
     def _in_app(self, after: str) -> None:
-        """Fail unless the app is in the foreground (`after` says what just happened, for the message)."""
+        """Fail unless the app is in the foreground (`after` says what just happened, for the message).
+
+        Another app on top counts only if it's still there `LEFT_CONFIRM` checks later.
+        """
         state = self.device.app_state()
+        for _ in range(LEFT_CONFIRM):
+            if state is not AppState.BACKGROUND:
+                break
+            self.clock.sleep(LEFT_INTERVAL)
+            state = self.device.app_state()
         if state is AppState.NOT_RUNNING:
             raise StepFailed(f"The app is no longer running (crashed or closed){after}")
         if state is AppState.BACKGROUND:
