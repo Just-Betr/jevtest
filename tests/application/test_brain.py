@@ -24,6 +24,7 @@ def test_the_description_includes_only_meaningful_flags():
         300,
         (
             el("switch", "Wifi", checked=False, bounds=(0, 0, 10, 10)),
+            el("slider", "", position=0.25, bounds=(0, 140, 300, 160)),
             el(
                 "button",
                 "Go",
@@ -36,10 +37,16 @@ def test_the_description_includes_only_meaningful_flags():
             ),
         ),
     )
-    first, second = describe(s)
+    first, slider, second = describe(s)
     assert first == {"id": "e1", "type": "switch", "text": "Wifi", "position": "top-left", "checked": False}
-    assert second == {
+    assert slider == {
         "id": "e2",
+        "type": "slider",
+        "position": "middle-center",
+        "slider_at": "25% of the way from its left end to its right end",
+    }
+    assert second == {
+        "id": "e3",
         "type": "button",
         "text": "Go",
         "resource_id": "go",

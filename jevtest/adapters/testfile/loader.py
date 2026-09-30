@@ -18,7 +18,7 @@ from jevtest.adapters.shapes import is_list, is_mapping, read_user_text
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
-from jevtest.domain.steps import KEYS, Action, Grant, Key, Network, Step, Suite, Test, Use
+from jevtest.domain.steps import KEYS, Action, AutofillOff, Grant, Key, Network, Step, Suite, Test, Use
 from jevtest.domain.variables import VARIABLE, fill
 
 from .steps import CHECKS, GRANT_PER_PLATFORM, full_android_permission, parse_step
@@ -251,6 +251,8 @@ def _check_runs_on(action: Action | None, platforms: Sequence[Platform]) -> None
             raise TestFileError(
                 f"network: can't run on iOS, where jevtest can't turn the network on or off. {elsewhere}"
             )
+        case AutofillOff() if Platform.IOS in platforms:
+            raise TestFileError(f"autofill: can't run on iOS, where jevtest can't turn autofill off. {elsewhere}")
         case Key(name) if Platform.IOS in platforms and name not in KEYS:
             raise TestFileError(f"key: {name} is Android only (iOS presses {', '.join(KEYS)}). {elsewhere}")
         case Grant() as grant:

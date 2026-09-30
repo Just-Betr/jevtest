@@ -1,6 +1,6 @@
 # WebViews and native screens
 
-Apps are rarely one technology. jevtest reads what the operating system's accessibility layer reports, so **Flutter, native Android Views, UIKit, SwiftUI, React Native and in-app WebViews** all look the same to a test: elements with text, kinds and positions.
+Apps are rarely one technology. jevtest reads what the operating system's accessibility layer reports, so **Flutter, native Android Views, Jetpack Compose, UIKit, SwiftUI, React Native and in-app WebViews** all look the same to a test: elements with text, kinds and positions.
 
 ## In-app WebViews
 

@@ -250,10 +250,28 @@ final class JevAgentUITests: XCTestCase {
                 let barDone = app.buttons.matching(NSPredicate(format: "label == 'Done'")).allElementsBoundByIndex
                     .first { $0.isHittable && $0.frame.maxY <= top + 1 && $0.frame.maxY > top - Self.barHeight }
                 let hide = app.keyboards.buttons.matching(NSPredicate(format: "label == 'Hide keyboard'")).firstMatch
-                if let done = barDone { done.tap() } else if hide.exists { hide.tap() } else { app.typeText("\n") }
+                if let done = barDone { done.tap() } else if hide.exists { hide.tap() } else { return pressReturn(app) }
             }
         default:
             return ["error": "Unknown command \(path)"]
+        }
+        return ["ok": true]
+    }
+
+    /// Return, to close the keyboard. In a field of several lines it adds a line instead: that line is taken back
+    /// out, so closing the keyboard never changes the text, and the reply says so.
+    private func pressReturn(_ app: XCUIApplication) -> [String: Any] {
+        let field = app.descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == true")).firstMatch
+        func text() -> String? {
+            guard field.exists, let value = field.value as? String else { return nil }
+            return value == field.placeholderValue ? "" : value
+        }
+        let before = text()
+        app.typeText("\n")
+        if let before, let after = text(), after.count == before.count + 1,
+            after.filter({ $0 == "\n" }).count == before.filter({ $0 == "\n" }).count + 1 {
+            app.typeText(XCUIKeyboardKey.delete.rawValue)
+            return ["ok": true, "multiline": true]
         }
         return ["ok": true]
     }
@@ -276,6 +294,16 @@ final class JevAgentUITests: XCTestCase {
             return ["elements": [], "width": 0, "height": 0, "keyboard": false]
         }
         var out: [[String: Any]] = []
+        var sliders: [CGRect: CGFloat]?  // each slider's thumb position, 0 to 1, by frame: only elements have it
+        func position(_ s: XCUIElementSnapshot) -> CGFloat? {
+            if sliders == nil {
+                sliders = [:]
+                for slider in app.sliders.allElementsBoundByIndex {
+                    sliders?[slider.frame] = slider.normalizedSliderPosition
+                }
+            }
+            return sliders?[s.frame]
+        }
         func hasKeyboard(_ s: XCUIElementSnapshot) -> Bool {
             s.elementType == .keyboard || s.children.contains(where: hasKeyboard)
         }
@@ -294,6 +322,7 @@ final class JevAgentUITests: XCTestCase {
                 ]
                 if let v = s.value { d["value"] = "\(v)" }
                 if let p = s.placeholderValue { d["placeholder"] = p }
+                if s.elementType == .slider, let p = position(s) { d["position"] = p }
                 out.append(d)
             }
             s.children.forEach { walk($0, keyboardWindow: skip) }

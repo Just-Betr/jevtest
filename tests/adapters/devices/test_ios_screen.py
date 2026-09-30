@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from jevtest.adapters.devices.ios_screen import AgentTree, parse_tree
+from jevtest.adapters.devices.ios_screen import AgentElement, AgentTree, parse_tree
 
 FIX = Path(__file__).parent / "fixtures"
 
@@ -30,6 +30,48 @@ def test_parse_webview_tree():
     # WebKit marks every element "focused"; only a text field's focus means anything
     assert [e.kind for e in s.elements if e.focused] == ["text_field"]
     assert next(e for e in s.elements if e.kind == "text_field").editable
+
+
+def test_a_swiftui_toggle_is_its_labelled_switch_where_its_knob_is():
+    """XCUITest reports a SwiftUI Toggle as a labelled switch across its row holding the unlabelled switch a
+    finger turns (measured on iOS 26.5): it is kept once, as UIKit reports a switch beside its label."""
+    row: AgentElement = {"type": "switch", "label": "Newsletter", "value": "1", "x": 16, "y": 168, "w": 370, "h": 52}
+    text: AgentElement = {"type": "text", "label": "Newsletter", "x": 32, "y": 183, "w": 82, "h": 21}
+    knob: AgentElement = {"type": "switch", "label": "", "value": "1", "x": 309, "y": 180, "w": 63, "h": 28}
+    uikit: AgentElement = {"type": "switch", "label": "Wifi", "value": "0", "x": 309, "y": 300, "w": 51, "h": 31}
+    lone: AgentElement = {
+        "type": "switch",
+        "label": "",
+        "value": "0",
+        "x": 309,
+        "y": 400,
+        "w": 51,
+        "h": 31,
+    }  # in no row
+    s = parse_tree({"width": 402, "height": 874, "elements": [row, text, knob, uikit, lone]})
+    assert [(e.kind, e.text, e.bounds, e.checked) for e in s.elements] == [
+        ("switch", "Newsletter", (309, 180, 372, 208), True),
+        ("text", "Newsletter", (32, 183, 114, 204), None),
+        ("switch", "Wifi", (309, 300, 360, 331), False),
+        ("switch", "", (309, 400, 360, 431), False),
+    ]
+
+
+def test_a_slider_says_where_its_thumb_is():
+    """Only the agent knows: XCTest's position is exact even when the app says something else as the value."""
+    slider: AgentElement = {
+        "type": "slider",
+        "label": "Bass",
+        "value": "Soft",
+        "position": 0.2,
+        "x": 32,
+        "y": 400,
+        "w": 338,
+        "h": 31,
+    }
+    button: AgentElement = {"type": "button", "label": "Go", "x": 0, "y": 0, "w": 50, "h": 20}
+    s = parse_tree({"width": 402, "height": 874, "elements": [slider, button]})
+    assert [(e.text, e.position) for e in s.elements] == [("Bass: Soft", 0.2), ("Go", None)]
 
 
 def test_parse_rules():

@@ -72,6 +72,75 @@ def test_parse_rules():
     assert els[1].parts == ("Go", "Go now") and els[2].parts == ()
 
 
+def test_a_compose_text_field_is_named_by_the_label_inside_it():
+    """Compose reports a TextField as an EditText with no hint holding its label as a TextView, empty or filled
+    (measured with Material 3 on Android 17): the label is the field's hint, and not a text of its own."""
+    xml = """<hierarchy rotation="0">
+      <node class="android.widget.EditText" text="" hint="" clickable="true" bounds="[63,332][1017,500]">
+        <node class="android.view.View" text="" bounds="[63,353][1017,500]"/>
+        <node class="android.widget.TextView" text="Email address" bounds="[105,395][387,458]"/>
+        <node class="android.widget.TextView" text="Your work email" bounds="[105,470][387,490]"/>
+      </node>
+      <node class="android.widget.EditText" text="••••" password="true" clickable="true" bounds="[63,532][1017,700]">
+        <node class="android.widget.TextView" text="Password" bounds="[105,532][303,574]"/>
+      </node>
+      <node class="android.widget.EditText" text="" hint="Search" clickable="true" bounds="[63,732][1017,800]">
+        <node class="android.widget.TextView" text="Recent" bounds="[105,740][303,790]"/>
+      </node>
+      <node class="android.widget.EditText" text="" clickable="true" bounds="[63,832][1017,900]"/>
+    </hierarchy>"""
+    els = parse_hierarchy(ET.fromstring(xml), 1080, 2424)
+    assert [(e.kind, e.text, e.hint, e.value) for e in els] == [
+        ("text_field", "", "Email address", ""),
+        ("text", "Your work email", "", ""),  # only the first text inside is the label
+        ("password_field", "••••", "Password", "••••"),
+        ("text_field", "", "Search", ""),  # a hint of its own stays
+        ("text", "Recent", "", ""),
+        ("text_field", "", "", ""),
+    ]
+
+
+def test_a_slider_is_kept_labelled_or_not_with_where_its_thumb_is():
+    """A Compose Slider is a SeekBar with no label: it can still be swiped. A range elsewhere is no slider's."""
+    xml = """<hierarchy rotation="0">
+      <node class="android.widget.SeekBar" text="" position="0.5" bounds="[42,903][1038,1019]"/>
+      <node class="android.widget.SeekBar" content-desc="Brightness bar" position="0.3" bounds="[42,1528][1038,1575]"/>
+      <node class="android.widget.SeekBar" text="" bounds="[42,1600][1038,1650]"/>
+      <node class="android.widget.ProgressBar" content-desc="Loading" position="0.7" bounds="[42,1700][1038,1750]"/>
+    </hierarchy>"""
+    els = parse_hierarchy(ET.fromstring(xml), 1080, 2424)
+    assert [(e.kind, e.text, e.position) for e in els] == [
+        ("slider", "", 0.5),
+        ("slider", "Brightness bar", 0.3),
+        ("slider", "", None),  # an agent that doesn't say where its thumb is
+        ("progress", "Loading", None),
+    ]
+
+
+def test_what_a_system_bar_covers_is_left_out_of_where_an_element_is_touched():
+    """An app drawn under the status bar: a tap on a switch's middle there reached the status bar, not the switch
+    (measured on Android 17). What's left of each element is where it's touched; what's wholly under stays readable."""
+    xml = """<hierarchy rotation="0" bars="0,0,1080,142;0,2300,1080,2424;1000,142,1080,2300;0,142,40,2300">
+      <node class="android.widget.Switch" checkable="true" content-desc="Gift wrap" bounds="[853,105][975,176]"/>
+      <node class="android.widget.TextView" text="Title" bounds="[63,40][500,120]"/>
+      <node class="android.widget.Button" text="Next" clickable="true" bounds="[63,2250][500,2350]"/>
+      <node class="android.widget.Button" text="Side" clickable="true" bounds="[900,500][1050,600]"/>
+      <node class="android.widget.Button" text="Left" clickable="true" bounds="[20,700][200,800]"/>
+      <node class="android.widget.Button" text="Clear" clickable="true" bounds="[63,500][500,600]"/>
+    </hierarchy>"""
+    s = parse_screen(xml, lambda _: (1080, 2424))
+    assert [(e.text, e.bounds) for e in s.elements] == [
+        ("Gift wrap", (853, 142, 975, 176)),  # its top is under the status bar
+        ("Title", (63, 40, 500, 120)),  # wholly under it: read as it is, and never touched
+        ("Next", (63, 2250, 500, 2300)),  # its bottom is under a navigation bar
+        ("Side", (900, 500, 1000, 600)),  # its right is under a side bar (landscape)
+        ("Left", (40, 700, 200, 800)),  # its left is under one on the left (turned the other way)
+        ("Clear", (63, 500, 500, 600)),
+    ]
+    assert s.system_bars == ((0, 0, 1080, 142), (0, 2300, 1080, 2424), (1000, 142, 1080, 2300), (0, 142, 40, 2300))
+    assert [s.under_system_bar(e) for e in s.elements] == [False, True, False, False, False, False]
+
+
 def test_empty_webview_detection():
     assert has_empty_webview(EMPTY_WEB)
     assert not has_empty_webview(WEB)

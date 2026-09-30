@@ -77,6 +77,7 @@ AGENT_STOP_TIMEOUT = 10  # seconds for the agent to finish after /quit
 AGENT_PORT = 7912  # on the device; adb forwards a free local port to it
 AGENT_ERROR = "error: "
 """How the agent starts an answer to a request it couldn't do."""
+AUTOFILL_SERVICE = "autofill_service"  # the secure setting naming the autofill service; unset: none
 AGENT_CALL_TIMEOUT = 10  # seconds for one agent call to answer (it answers at once: this catches a lost agent)
 
 
@@ -198,7 +199,7 @@ class AndroidDevice(BaseDevice):
 
     @override
     def _put_back(self, entry: object) -> bool:
-        """Run the entry's shell command (rotation, dark mode, network).
+        """Run the entry's shell command (rotation, dark mode, network, autofill).
 
         Its exit code isn't checked: the rotation's ends with `wm user-rotation`, which older Android lacks (measured),
         and the settings before it still go back. Not reaching the device at all raises.
@@ -559,6 +560,19 @@ class AndroidDevice(BaseDevice):
         state = "enable" if on else "disable"
         self.sh(f"svc wifi {state}; svc data {state}")
 
+    def autofill_off(self) -> None:
+        """Turn off the autofill service; the device's own is put back on close.
+
+        A password manager (Google's, on a phone with a Google account) offers to save what a sign-in typed in a
+        sheet over the app, which stays up into the next test (measured on a Pixel 4a, Android 13).
+        """
+        self._undo.remember("autofill", self._autofill_put_back)
+        self.sh(f"settings delete secure {AUTOFILL_SERVICE}")
+
+    def _autofill_put_back(self) -> str:
+        """The shell command that puts the autofill service back as it is now."""
+        return _setting_command(AUTOFILL_SERVICE, self.sh(f"settings get secure {AUTOFILL_SERVICE}").strip(), "secure")
+
     def _network_put_back(self) -> str:
         """The shell command that puts Wi-Fi and mobile data back as they are now."""
         wifi = self.sh("settings get global wifi_on", check=False).strip() not in ("0", "")
@@ -566,8 +580,8 @@ class AndroidDevice(BaseDevice):
         return f"svc wifi {'enable' if wifi else 'disable'}; svc data {'enable' if data else 'disable'}"
 
 
-def _setting_command(key: str, value: str) -> str:
-    """The shell command that sets the system setting `key` back to `value`, as read (``null``: it wasn't set)."""
+def _setting_command(key: str, value: str, table: str = "system") -> str:
+    """The shell command that sets `key` in the settings `table` back to `value`, as read (``null``: it wasn't set)."""
     if value in ("", "null"):
-        return f"settings delete system {key}"
-    return f"settings put system {key} {value}"
+        return f"settings delete {table} {key}"
+    return f"settings put {table} {key} {value}"

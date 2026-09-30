@@ -454,10 +454,13 @@ class IOSDevice(BaseDevice):
 
     def hide_keyboard(self) -> None:
         """Close the keyboard, and wait until it's gone."""
-        self._call("/hide_keyboard")
+        multiline = self._call("/hide_keyboard").get("multiline") is True
         self.wait_until(
             lambda s: not s.keyboard_visible,
-            "The keyboard did not close (jevtest tapped Done, or pressed Return where there's no Done; "
+            "The keyboard did not close (the field takes several lines, so Return adds one, which jevtest took "
+            "back out, and there's no Done; on iOS only the app can close it then, e.g. on a tap outside the field)"
+            if multiline
+            else "The keyboard did not close (jevtest tapped Done, or pressed Return where there's no Done; "
             "on iOS only the app can close it then, e.g. on Return)",
         )
 
@@ -547,3 +550,7 @@ class IOSDevice(BaseDevice):
     def network(self, *, on: bool) -> None:
         """Not possible on iOS: always an error."""
         raise DeviceError(f"jevtest can't turn an iPhone's or simulator's network {'on' if on else 'off'}")
+
+    def autofill_off(self) -> None:
+        """Not possible on iOS: always an error."""
+        raise DeviceError("jevtest can't turn an iPhone's or simulator's autofill off")

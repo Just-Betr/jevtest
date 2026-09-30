@@ -24,6 +24,7 @@ from jevtest.domain.steps import (
     KEYS,
     SETTING_SCOPES,
     Action,
+    AutofillOff,
     Back,
     Background,
     Check,
@@ -157,6 +158,13 @@ def full_android_permission(name: str) -> str:
     return name
 
 
+def _autofill(key: str, value: object) -> Action:
+    """``autofill: off``: jevtest only turns autofill off, and puts the device's own back after the run."""
+    if on_off(value, f"'{key}'"):
+        raise TestFileError(f"'{key}' only turns autofill off (`{key}: off`): jevtest puts it back after the run")
+    return AutofillOff()
+
+
 def _grant(key: str, value: object, _: Options) -> Action:
     if not is_mapping(value):
         return Grant(((None, _names(value, f"'{key}'")),))
@@ -210,6 +218,7 @@ ACTIONS: Mapping[str, ActionSpec] = {
     "dark_mode": ActionSpec(lambda key, value, _: DarkMode(on_off(value, f"'{key}'"))),
     "grant": ActionSpec(_grant),
     "network": ActionSpec(lambda key, value, _: Network(on_off(value, f"'{key}'"))),
+    "autofill": ActionSpec(lambda key, value, _: _autofill(key, value)),
     "screenshot": _text_of(Screenshot),
     "launch": _bare(Launch()),
     "stop": _bare(Stop()),

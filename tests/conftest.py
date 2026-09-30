@@ -245,6 +245,9 @@ class FakeDevice(BaseDevice):
     def network(self, *, on):
         self._rec("network", on)
 
+    def autofill_off(self):
+        self._rec("autofill_off")
+
     @override
     def prepare_for_test(self):  # not logged: only matters when a test makes it fail
         if "prepare_for_test" in self.fail:

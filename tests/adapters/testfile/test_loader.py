@@ -468,6 +468,11 @@ FOR_ONE = "Put tests for one platform in a file whose `app:` has only that platf
     ("app", "step", "message"),
     [
         (BOTH, "{network: false}", f"^Test 'U': network: can't run on iOS, .* network on or off. {FOR_ONE}"),
+        (
+            BOTH,
+            "{autofill: off}",
+            f"^Test 'U': autofill: can't run on iOS, where jevtest can't turn autofill off. {FOR_ONE}",
+        ),
         (BOTH, "{key: home}", rf"^Test 'U': key: home is Android only \(iOS presses backspace, .*\). {FOR_ONE}"),
         (BOTH, "{key: '66'}", r"^Test 'U': key: 66 is Android only"),
         (

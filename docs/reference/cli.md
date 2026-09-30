@@ -54,7 +54,7 @@ Prune with the same devices you record on: decisions recorded on one device's sc
 | 143 | stopped by SIGTERM (a cancelled CI job) |
 | 129 | stopped by SIGHUP (the terminal closed) |
 
-A stopped run puts every device back (orientation, appearance, network, location) and says so: `stopped (SIGINT): devices put back; this run wrote no report`.
+A stopped run puts every device back (orientation, appearance, network, autofill, location) and says so: `stopped (SIGINT): devices put back; this run wrote no report`.
 
 ## Environment
 

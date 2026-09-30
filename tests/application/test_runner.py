@@ -161,6 +161,7 @@ def test_screenshot_failure_is_reported_not_raised(tmp_path, clock, out):
         ({"dark_mode": True}, ("dark_mode", True)),
         ({"grant": "CAMERA"}, ("grant", "CAMERA")),
         ({"network": False}, ("network", False)),
+        ({"autofill": False}, ("autofill_off",)),
         ({"swipe": "up"}, ("drag", 500, 1600, 500, 400)),
         ({"scroll": "down"}, ("drag", 500, 1600, 500, 400)),
     ],
@@ -269,6 +270,17 @@ def test_an_element_under_the_keyboard_is_never_touched(tmp_path, clock, out):
         "button 'Sign in' is under the keyboard: close it first with a `hide_keyboard` step"
     )
     assert "tap" not in d.names()  # a tap there would have typed a key
+
+
+def test_an_element_under_a_system_bar_is_never_touched(tmp_path, clock, out):
+    """A tap there would reach the status bar, not the app: it fails saying so, instead of passing and doing nothing."""
+    covered = login_screen(system_bars=((0, 0, 1000, 460),))
+    res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in", "timeout": 1}, device=FakeDevice(covered))
+    assert failure_of(res).endswith(
+        "button 'Sign in' is under a system bar, like the status bar, which takes a touch there instead of the app "
+        "(the app draws under it, so what it wants touched must be kept clear of the bars)"
+    )
+    assert "tap" not in d.names()
 
 
 def test_type_into_a_field_that_takes_the_keys_does_not_tap_it(tmp_path, clock, out):

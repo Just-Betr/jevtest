@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+- Tested on three apps built fresh for it, a SwiftUI shop on the simulator, and Jetpack Compose and React Native shops
+  on the emulator and the Pixel, each written as a user would from these docs. What didn't work now does:
+- Jetpack Compose text fields can be named by their label (`into: Email address`): Compose puts the label inside the
+  field, not as its hint, so `type:` said the label "doesn't take text".
+- A Compose `Slider` was missing from the screen: it has no text, so jevtest dropped it, and Jev couldn't move it.
+- A SwiftUI `Toggle` didn't switch on `tap:`: XCUITest reports it across its whole row, and a tap in the row's middle
+  does nothing. jevtest taps its knob.
+- `swipe:` `left` or `right` on a slider drags its thumb all the way to that end, on both platforms. It flicked across
+  the slider from beside the thumb, which an iOS slider ignores, and on Android set it to wherever the flick ended.
+  Jev is told each slider's position, so a `do:` goal can tell a slider is at its end. Its answers for a screen with a
+  slider are new ones: `--lock frozen` runs of such a screen need a `--lock record` run first.
+- React Native (checked on the emulator and the Pixel): what an app draws under Android's status bar can't be
+  touched there, and a tap on a switch whose middle was under it passed while doing nothing. jevtest touches the part
+  of an element outside the system bars; one wholly under a bar fails the step saying so.
+- `autofill: off`, Android only: on a phone with a Google account, "Save password to Google?" covered the app after
+  a sign-in, into the next test. It turns off the autofill service, and the device's own is put back after the run.
+- `hide_keyboard` in an iOS field of several lines (SwiftUI `TextField(axis: .vertical)`) typed a new line into it
+  before failing. It takes that line back out, and says why the keyboard stayed.
+
 ## 0.9.13
 
 - Docs checked claim by claim against real runs: screen-read times are measured ones (the Android figure was a third

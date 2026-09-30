@@ -381,6 +381,7 @@ def test_device_commands(drv, adb, agent):
     adb.rules["cmd uimode night"] = "Night mode: auto\n"
     adb.rules["settings get global wifi_on"] = "1\n"
     adb.rules["settings get global mobile_data"] = "0\n"
+    adb.rules["settings get secure autofill_service"] = "com.google.android.gms/.autofill.service.AutofillService\n"
     drv.rotate("landscape")
     drv.open_url("https://x.dev/a b")
     drv.dark_mode(on=True)
@@ -388,6 +389,7 @@ def test_device_commands(drv, adb, agent):
     drv.grant(["android.permission.CAMERA"])
     drv.network(on=False)
     drv.network(on=True)
+    drv.autofill_off()
     assert adb.shell() == [
         "settings get system user_rotation",
         "settings get system accelerometer_rotation",
@@ -401,14 +403,25 @@ def test_device_commands(drv, adb, agent):
         "settings get global mobile_data",
         "svc wifi disable; svc data disable",
         "svc wifi enable; svc data enable",
+        "settings get secure autofill_service",
+        "settings delete secure autofill_service",
     ]
     n = len(adb.shell())
     drv.close()  # everything the steps changed goes back to how it was
-    assert adb.shell()[n:][-3:] == [
+    assert adb.shell()[n:][-4:] == [
         "settings put system user_rotation 0; settings put system accelerometer_rotation 1; wm user-rotation free",
         "cmd uimode night auto",
         "svc wifi enable; svc data disable",
+        "settings put secure autofill_service com.google.android.gms/.autofill.service.AutofillService",
     ]
+
+
+def test_autofill_off_on_a_device_with_none_puts_back_none(drv, adb):
+    adb.rules["settings get secure autofill_service"] = "null\n"
+    drv.autofill_off()
+    n = len(adb.shell())
+    drv.close()
+    assert "settings delete secure autofill_service" in adb.shell()[n:]
 
 
 def test_unreadable_dark_mode_is_an_error_not_a_guess(drv, adb):
@@ -467,6 +480,14 @@ def test_swipe_and_scroll_geometry(drv, adb):
     drv.scroll(Direction.DOWN)
     assert adb.shell()[0].startswith("input motionevent DOWN 85 50;") and adb.shell()[0].endswith("UP 15 50")
     assert adb.shell()[-1].startswith("input motionevent DOWN 540 1939;") and adb.shell()[-1].endswith("UP 540 485")
+
+
+def test_a_swipe_on_a_slider_drags_its_thumb_slowly_on_to_the_screen_edge(drv, adb):
+    """As on iOS: from the thumb's middle (0.5 of a Compose slider 116 pixels tall), on past the slider's end."""
+    drv.swipe(Direction.RIGHT, element=Element("slider", bounds=(42, 903, 1038, 1019), position=0.5))
+    drv.swipe(Direction.LEFT, element=Element("slider", bounds=(42, 903, 1038, 1019), position=0.0))
+    assert adb.shell()[-2].startswith("input motionevent DOWN 540 961;") and adb.shell()[-2].endswith("UP 1079 961")
+    assert adb.shell()[-1].startswith("input motionevent DOWN 100 961;") and adb.shell()[-1].endswith("UP 0 961")
 
 
 # --- agent -----------------------------------------------------------------------------------------

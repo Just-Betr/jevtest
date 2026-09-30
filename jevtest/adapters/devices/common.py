@@ -334,8 +334,29 @@ class BaseDevice(ABC):
         wait_until(lambda: done(self.screen()), what)
 
     def swipe(self, direction: Direction, element: Element | None = None, screen: Screen | None = None) -> None:
-        """Finger swipe in `direction`, across an element or across the page."""
-        self.drag(*self._across(direction, element, screen))
+        """Finger swipe in `direction`, across an element or across the page; a slider's thumb, to that end."""
+        if element is not None and element.position is not None and direction in {Direction.LEFT, Direction.RIGHT}:
+            # A flick moves a slider an amount that varies from one run to the next (measured on iOS 26.5); a drag
+            # slow enough for the thumb to keep up with the finger takes it to the end every time.
+            self._scroll_drag(*self._thumb_to_end(direction, element, (screen or self.screen()).width))
+        else:
+            self.drag(*self._across(direction, element, screen))
+
+    @staticmethod
+    def _thumb_to_end(direction: Direction, slider: Element, width: int) -> tuple[int, int, int, int]:
+        """A drag from the middle of a horizontal slider's thumb to the screen's edge in `direction`.
+
+        The thumb moves only when the finger starts on it (an iOS slider ignores a drag beside it, and one on
+        the thumb's very edge). Its middle runs from half its width in from one end to half its width in from
+        the other. It is about as wide as the slider is tall (measured: 37 points wide on a 31-point SwiftUI
+        slider), and the finger lands on it whenever it is more than half that wide. The thumb trails the
+        finger by the distance a touch moves before it counts as a drag (measured: 9 points), so the finger goes
+        on past the slider's end, to the screen's edge.
+        """
+        x1, y1, x2, y2 = slider.bounds
+        inset = min(y2 - y1, x2 - x1) / 2
+        thumb = round(x1 + inset + (slider.position or 0) * (x2 - x1 - 2 * inset))
+        return thumb, (y1 + y2) // 2, width - 1 if direction == Direction.RIGHT else 0, (y1 + y2) // 2
 
     def _across(
         self, direction: Direction, element: Element | None, screen: Screen | None

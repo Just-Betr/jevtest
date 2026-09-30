@@ -36,7 +36,7 @@ Each takes one value or a list. A check waits until it holds: it reads the scree
 | `tap: target` | Taps the element. |
 | `double_tap: target` | Double-taps it. |
 | `long_press: target` | Presses and holds it. |
-| `swipe: up\|down\|left\|right` | Swipes across the screen, or on an element with `target:`. |
+| `swipe: up\|down\|left\|right` | Swipes across the screen, or on an element with `target:`. On a slider, `left` or `right` drags its thumb all the way to that end. |
 | `scroll: up\|down\|left\|right` | Scrolls the content: the finger moves across 60% of the screen (above the keyboard, if it's up), and the content moves as far, never flinging on. |
 | `scroll_to: text` | Scrolls in `direction:` (required) until an element says exactly the text, clear of the screen's top and bottom 8% (phones keep those edges for their own gestures, like the home swipe). Fails when the content stops moving (the end) or after `max_scrolls` (50 by default) without the text on screen. |
 
@@ -72,7 +72,7 @@ When nothing matches but a longer text contains the target, the step fails and l
 | `type: { text: "…", into: target }` | Taps the field, then types. Text is typed exactly as written, spaces included. Any text, on both platforms: `José`, `日本`, emoji. On Android, a line with letters beyond a US keyboard's goes in at the cursor all at once rather than key by key, and into a password field only while it's empty. |
 | `clear: target` | Erases a text field. |
 | `key: name` | Presses a key. On both platforms: `enter` (or `return`), `delete` (or `backspace`), `tab`, `escape`, `space`. On Android also `back`, `home`, `menu`, `search`, `app_switch`, `power`, `volume_up`, `volume_down`, `dpad_up`, `dpad_down`, `dpad_left`, `dpad_right`, `move_home`, `move_end`, or a key code number in quotes (`key: "67"`). Names are exact and checked when the file loads, as is an Android-only key in a file that also runs on iOS. iOS presses keys only into a field, so there the step waits until the keyboard is up. |
-| `hide_keyboard` | Closes the on-screen keyboard. |
+| `hide_keyboard` | Closes the on-screen keyboard. On iOS it taps the Done above the keyboard, else the keyboard's hide key, else presses Return; in a field of several lines, where Return adds a line and nothing else closes the keyboard, it fails and leaves the text as it was. |
 
 ### Navigation and app lifecycle
 
@@ -99,6 +99,7 @@ These change device state because the test asks for it. Anything jevtest changes
 | `location: [latitude, longitude]` | Sets the GPS location (Android emulator, iOS simulator, iPhone; not an Android phone). An iOS device goes back to its actual location at the end of the run; the Android emulator keeps it. |
 | `grant: permissions` | Grants runtime permissions, so the app never asks. One name, a list, or names per platform ([below](#grant-permission-names)). |
 | `network: on\|off` | Wi-Fi and mobile data. Android only: a file whose `app:` includes iOS and runs a test with `network:` is an error when it loads. |
+| `autofill: off` | Turns off Android's autofill service, so no password manager (Google's, on a phone with a Google account) covers the app offering to save what a sign-in typed. Only `off`: the device's own service is put back after the run. Android only, like `network:`. |
 
 ### `grant:` permission names
 

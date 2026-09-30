@@ -6,6 +6,7 @@ from jevtest.adapters.testfile.steps import ACTIONS, OPTIONS, label, parse_step
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Direction, Gesture, Orientation, Platform
 from jevtest.domain.steps import (
+    AutofillOff,
     Back,
     Background,
     DarkMode,
@@ -69,6 +70,7 @@ from jevtest.domain.steps import (
         ({"location": [37.7, -122.4]}, Location(37.7, -122.4)),
         ({"dark_mode": True}, DarkMode(True)),
         ({"network": False}, Network(False)),
+        ({"autofill": False}, AutofillOff()),
         ({"type": "hello"}, TypeText("hello")),
         ({"type": " two  spaces "}, TypeText(" two  spaces ")),  # typed exactly as written
         ({"type": ""}, TypeText("")),
@@ -165,6 +167,11 @@ def test_options_where_they_apply(raw):
         ({"location": [-91, 0]}, "^latitude must be from -90 to 90, got -91$"),
         ({"location": ["1", 0]}, "latitude must be a number"),
         ({"dark_mode": "light"}, r"'dark_mode' must be on or off \(true or false\), got 'light'"),
+        (
+            {"autofill": True},
+            r"^'autofill' only turns autofill off \(`autofill: off`\): jevtest puts it back after the run$",
+        ),
+        ({"autofill": "no"}, r"'autofill' must be on or off \(true or false\), got 'no'"),
         ({"type": None}, "'type' needs text .*got nothing"),
         ({"type": 5}, "'type' needs text .*got a number"),
         ({"type": {"txt": "a"}}, r"type has unknown keys: txt \(it takes text and into\)"),
@@ -242,6 +249,7 @@ def test_bad_steps_are_rejected(raw, message):
         ({"open_url": "app://x"}, "open_url: app://x"),
         ({"dark_mode": True}, "dark_mode: on"),
         ({"network": False}, "network: off"),
+        ({"autofill": False}, "autofill: off"),
         ({"grant": "p"}, "grant: p"),
         ({"screenshot": "s"}, "screenshot: s"),
         ({"tap": "Save", "timeout": 30, "see": "Saved"}, "tap: Save (timeout: 30)"),

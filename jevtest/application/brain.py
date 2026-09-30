@@ -46,8 +46,10 @@ ACTIONS = {
     "tap": "Tap (click, press, select, open, toggle) an element on the screen.",
     "double_tap": "Double tap an element. Only when the goal asks for a double tap.",
     "long_press": "Long press (press and hold) an element. Only when the goal asks to hold or long press.",
-    "swipe_left_on": "Swipe left on one element, e.g. to delete a list row or reveal its actions.",
-    "swipe_right_on": "Swipe right on one element.",
+    "swipe_left_on": "Swipe left on one element, e.g. to delete a list row or reveal its actions. On a slider, it "
+    "drags the slider all the way to its left end (its lowest).",
+    "swipe_right_on": "Swipe right on one element. On a slider, it drags the slider all the way to its right end "
+    "(its highest).",
     "type": "Type one of the goal's quoted values into a text field. It is added to any text already in the field: "
     "to replace that text, clear the field first.",
     "clear": "Erase the existing text in a text field, e.g. before typing a value that replaces it.",
@@ -94,18 +96,26 @@ def describe(screen: Screen) -> list[dict[str, object]]:
         if el.resource_id:
             d["resource_id"] = el.resource_id
         d["position"] = screen.region(el)
-        if not el.enabled:
-            d["enabled"] = False
-        if el.checked is not None:
-            d["checked"] = el.checked
-        if el.focused:
-            d["focused"] = True
-        if el.selected:
-            d["selected"] = True
-        if el.scrollable:
-            d["scrollable"] = True
-        out.append(d)
+        out.append(d | _state_of(el))
     return out
+
+
+def _state_of(el: Element) -> dict[str, object]:
+    """What state the element is in, where that's anything but the usual (enabled, unfocused, ...)."""
+    state: dict[str, object] = {}
+    if not el.enabled:
+        state["enabled"] = False
+    if el.checked is not None:
+        state["checked"] = el.checked
+    if el.position is not None:  # the app's own text may not say where the ends are
+        state["slider_at"] = f"{round(el.position * 100)}% of the way from its left end to its right end"
+    if el.focused:
+        state["focused"] = True
+    if el.selected:
+        state["selected"] = True
+    if el.scrollable:
+        state["scrollable"] = True
+    return state
 
 
 def _state(screen: Screen, **extra: object) -> State:

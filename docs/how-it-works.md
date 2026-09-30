@@ -104,4 +104,4 @@ jevtest never fills a gap for you:
 
 ## Never changing the app or the device
 
-jevtest tests the app as users get it. It doesn't turn off animations, speed anything up, grant permissions, or change device settings on its own. It installs your build and its own agent, and changes only what a step asks for (`rotate:`, `dark_mode:`, `network:`, `location:`), and it [puts those back](guides/real-devices.md#leaving-the-phone-as-it-was) at the end of the run (all but an Android emulator's location, which the emulator can't report).
+jevtest tests the app as users get it. It doesn't turn off animations, speed anything up, grant permissions, or change device settings on its own. It installs your build and its own agent, and changes only what a step asks for (`rotate:`, `dark_mode:`, `network:`, `autofill:`, `location:`), and it [puts those back](guides/real-devices.md#leaving-the-phone-as-it-was) at the end of the run (all but an Android emulator's location, which the emulator can't report).

@@ -7,6 +7,7 @@ wrapper-and-child pair XCUITest reports twice.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from typing import NotRequired, TypedDict
 
@@ -42,6 +43,7 @@ class AgentElement(TypedDict):
     enabled: NotRequired[bool]
     focused: NotRequired[bool]
     selected: NotRequired[bool]
+    position: NotRequired[float]
 
 
 class AgentTree(TypedDict):
@@ -65,10 +67,38 @@ def parse_tree(tree: AgentTree) -> Screen:
     return Screen(
         width=width,
         height=height,
-        elements=tuple(elements.values()),
+        elements=_one_switch_per_toggle(tuple(elements.values())),
         keyboard_visible=tree.get("keyboard", False),
         keyboard_top=int(tree.get("keyboard_top", 0)),
     )
+
+
+def _one_switch_per_toggle(elements: tuple[Element, ...]) -> tuple[Element, ...]:
+    """A SwiftUI Toggle reported once, as the labelled switch where its knob is.
+
+    XCUITest reports a SwiftUI Toggle as a labelled switch across its whole row, and inside it the unlabelled
+    switch a finger turns: a tap on the row's middle does nothing (measured on iOS 26.5). UIKit reports a switch
+    beside its label as just the knob, which a tap on the label's switch already reaches.
+    """
+    knob_of = {
+        i: knob
+        for i, row in enumerate(elements)
+        if row.kind == "switch"
+        and row.text
+        and (knob := next((k for k in elements if _is_knob_in(k, row)), None)) is not None
+    }
+    knobs = set(knob_of.values())
+    return tuple(
+        dataclasses.replace(el, bounds=knob_of[i].bounds) if i in knob_of else el
+        for i, el in enumerate(elements)
+        if el not in knobs
+    )
+
+
+def _is_knob_in(knob: Element, row: Element) -> bool:
+    """Whether `knob` is an unlabelled switch within `row`'s bounds."""
+    (x1, y1, x2, y2), (rx1, ry1, rx2, ry2) = knob.bounds, row.bounds
+    return knob.kind == "switch" and not knob.text and rx1 <= x1 and ry1 <= y1 and x2 <= rx2 and y2 <= ry2
 
 
 def _element(raw: AgentElement, width: int, height: int) -> Element | None:
@@ -97,6 +127,7 @@ def _element(raw: AgentElement, width: int, height: int) -> Element | None:
         focused=editable and raw.get("focused", False),  # web views mark everything focused
         selected=raw.get("selected", False),
         checked=_checked(kind, value),
+        position=raw.get("position"),
     )
 
 

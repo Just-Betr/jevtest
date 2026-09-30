@@ -49,6 +49,7 @@ class Element:
         checked: On or off for a switch or checkbox; None for anything that can't be checked.
         selected: Whether it is selected.
         value: A text field's current contents (what clearing it must delete).
+        position: Where a slider's thumb is, from 0 (its start) to 1 (its end); None when not known.
         id: Its id on this screen (e1, e2, ...), assigned by `Screen`.
     """
 
@@ -66,6 +67,7 @@ class Element:
     checked: bool | None = None
     selected: bool = False
     value: str = ""
+    position: float | None = None
     id: str = ""
 
     @property
@@ -116,6 +118,7 @@ class Screen:
         elements: The elements, in reading order. Each gets an id (e1, e2, ...) here.
         keyboard_visible: Whether the on-screen keyboard is up.
         keyboard_top: Where the keyboard starts (0 when there is none).
+        system_bars: Where the system draws over the app, like Android's status bar: a touch there is the phone's.
     """
 
     width: int
@@ -123,6 +126,7 @@ class Screen:
     elements: tuple[Element, ...] = ()
     keyboard_visible: bool = False
     keyboard_top: int = 0
+    system_bars: tuple[Bounds, ...] = ()
 
     def __post_init__(self) -> None:
         """Number the elements. The caller's elements are left as they were: these are copies."""
@@ -138,6 +142,11 @@ class Screen:
     def under_keyboard(self, el: Element) -> bool:
         """Whether the keyboard is over the point where a tap on the element lands: touching it would hit a key."""
         return el.center[1] >= self.content_height
+
+    def under_system_bar(self, el: Element) -> bool:
+        """Whether a system bar is over the point where a tap on the element lands: the phone would take the touch."""
+        x, y = el.center
+        return any(x1 <= x < x2 and y1 <= y < y2 for x1, y1, x2, y2 in self.system_bars)
 
     def clear_of_edges(self, el: Element) -> bool:
         """Whether the element's middle is clear of the top and bottom `EDGE` of the screen.

@@ -40,6 +40,7 @@ from jevtest.domain.screen import Element, Screen, near_names
 from jevtest.domain.settings import Settings
 from jevtest.domain.steps import (
     Action,
+    AutofillOff,
     Back,
     Background,
     Check,
@@ -84,6 +85,11 @@ STUCK = 2
 END_OF_CONTENT = 2
 """Scrolls in a row that must move nothing before `scroll_to:` calls it the end. One isn't enough: a real
 phone's web view sometimes ignores a single scroll."""
+
+UNDER_SYSTEM_BAR = (
+    "a system bar, like the status bar, which takes a touch there instead of the app (the app draws under it, "
+    "so what it wants touched must be kept clear of the bars)"
+)
 
 T = TypeVar("T")
 
@@ -359,7 +365,7 @@ class TestRunner:
         """
         wanted = self._value(target)
         asked: dict[Screen, Located | None] = {}  # Jev picks among exact matches once per screen
-        covered: list[Located] = []  # found, but under the keyboard: touching it would hit a key
+        covered: list[tuple[Located, str]] = []  # found, but under something a touch there would hit instead
         place = Stillness()  # where it is, and how it looks
 
         def pool(screen: Screen) -> Sequence[Element]:
@@ -373,13 +379,17 @@ class TestRunner:
             if located is None:
                 return None
             if screen.under_keyboard(located.element) and not (typing and screen.takes_keys(located.element)):
-                covered.append(located)
+                covered.append((located, "the keyboard: close it first with a `hide_keyboard` step"))
+                return None
+            if screen.under_system_bar(located.element):
+                covered.append((located, UNDER_SYSTEM_BAR))
                 return None
             return (located, screen) if self._still(located.element, place) else None
 
         def why(screen: Screen) -> str:
             if covered:
-                return f"; {covered[0].describe()} is under the keyboard: close it first with a `hide_keyboard` step"
+                located, under = covered[0]
+                return f"; {located.describe()} is under {under}"
             kinds = dict.fromkeys(e.kind for e in screen.elements if editable and not e.editable and e.says(wanted))
             if kinds:
                 return f"; what says '{target}' doesn't take text ({', '.join(kinds)})"
@@ -472,7 +482,7 @@ class TestRunner:
                 return f"saved {self._screenshot(name)}"
             case Back() | Home() | HideKeyboard() | Key() | Scroll() | OpenUrl():
                 self._navigate(action)
-            case Rotate() | Location() | DarkMode() | Grant() | Network():
+            case Rotate() | Location() | DarkMode() | Grant() | Network() | AutofillOff():
                 self._set_device(action)
             case Use():  # pragma: no cover - `use:` steps are run by _run_step
                 raise AssertionError("use: steps are not actions")
@@ -565,7 +575,7 @@ class TestRunner:
             case _:  # pragma: no cover - every navigation is handled above
                 assert_never(action)
 
-    def _set_device(self, action: Rotate | Location | DarkMode | Grant | Network) -> None:
+    def _set_device(self, action: Rotate | Location | DarkMode | Grant | Network | AutofillOff) -> None:
         """Change a device setting; the device puts each back at the end of the run."""
         d = self.device
         match action:
@@ -582,6 +592,8 @@ class TestRunner:
                 d.grant(names)
             case Network(on):
                 d.network(on=on)
+            case AutofillOff():
+                d.autofill_off()
             case _:  # pragma: no cover - every device setting is handled above
                 assert_never(action)
 

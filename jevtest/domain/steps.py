@@ -171,6 +171,11 @@ class Network(_Action):
 
 
 @dataclass(frozen=True)
+class AutofillOff(_Action):
+    """Turn off the autofill service: no password manager offers to save or fill what a test types."""
+
+
+@dataclass(frozen=True)
 class Screenshot(_Action):
     """Save a screenshot."""
 
@@ -243,6 +248,7 @@ Action = (
     | DarkMode
     | Grant
     | Network
+    | AutofillOff
     | Screenshot
     | Launch
     | Stop

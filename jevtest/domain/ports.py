@@ -140,8 +140,12 @@ class Device(Protocol):
         """Switch Wi-Fi and mobile data on or off. Put back when the device is closed."""
         ...
 
+    def autofill_off(self) -> None:
+        """Turn off the autofill service, a password manager offering to save what was typed. Put back when closed."""
+        ...
+
     def restore(self) -> None:
-        """Put back what steps changed (orientation, appearance, network, location).
+        """Put back what steps changed (orientation, appearance, network, autofill, location).
 
         Called before each fresh test, so one test's changes never leak into the next.
         """

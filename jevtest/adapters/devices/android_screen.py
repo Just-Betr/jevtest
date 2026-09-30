@@ -6,11 +6,12 @@ could care about, drops system UI and anything off screen or invisible, and name
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Mapping
 
-from jevtest.domain.screen import Element, Screen
+from jevtest.domain.screen import Bounds, Element, Screen
 from jevtest.domain.words import one_line
 
 KINDS: Mapping[str, str] = {
@@ -62,6 +63,7 @@ def parse_screen(xml: str, size: Size) -> Screen:
         elements=tuple(parse_hierarchy(root, width, height)),
         keyboard_visible=keyboard_up(root),
         keyboard_top=int(root.get("ime-top", "0")),
+        system_bars=tuple(_bars(root.get("bars", ""))),
     )
 
 
@@ -92,12 +94,63 @@ def has_empty_webview(xml: str) -> bool:
 
 def parse_hierarchy(root: ET.Element, width: int, height: int) -> list[Element]:
     """The elements a tester cares about, in document order."""
-    found = (_element(node.attrib, width, height) for node in root.iter("node"))
-    return [el for el in found if el is not None]
+    labels = _field_labels(root)
+    label_nodes = set(labels.values())
+    bars = _bars(root.get("bars", ""))
+    found = (
+        _element(node.attrib, width, height, field_label=labels[node].get("text", "") if node in labels else "")
+        for node in root.iter("node")
+        if node not in label_nodes
+    )
+    return [dataclasses.replace(el, bounds=_outside(el.bounds, bars)) for el in found if el is not None]
 
 
-def _element(a: Attributes, width: int, height: int) -> Element | None:
-    """One node of the tree, or None if it's system UI, off screen, or carries nothing a test could use."""
+def _bars(written: str) -> list[Bounds]:
+    """The system's windows over the app (``l,t,r,b;...``), like the status bar: a touch there is the system's."""
+    return [(x1, y1, x2, y2) for x1, y1, x2, y2 in (map(int, bar.split(",")) for bar in written.split(";") if bar)]
+
+
+def _outside(bounds: Bounds, bars: list[Bounds]) -> Bounds:
+    """The part of `bounds` a finger reaches: less any edge a bar lies across.
+
+    An app drawn edge to edge puts elements under the status bar, and a tap on an element's middle there reaches the
+    status bar, not the app (measured: a switch from y 105 to 176, under a status bar to y 142, didn't switch). An
+    element wholly under a bar keeps its bounds: it can still be read, and a touch on it fails as a person's would.
+    """
+    x1, y1, x2, y2 = bounds
+    for bx1, by1, bx2, by2 in bars:
+        if bx1 <= x1 and x2 <= bx2:  # across its width: trim its top or its bottom
+            if by1 <= y1 < by2 < y2:
+                y1 = by2
+            elif y1 < by1 < y2 <= by2:
+                y2 = by1
+        elif by1 <= y1 and y2 <= by2:  # down its height (a side bar in landscape): trim its left or its right
+            if bx1 <= x1 < bx2 < x2:
+                x1 = bx2
+            elif x1 < bx1 < x2 <= bx2:
+                x2 = bx1
+    return x1, y1, x2, y2
+
+
+def _field_labels(root: ET.Element) -> dict[ET.Element, ET.Element]:
+    """Each Compose text field's label: the first text inside a field with no hint of its own.
+
+    Compose reports a TextField as an EditText with no hint, holding its label as a TextView, whether the field is
+    empty or filled (measured with Material 3 on Android 17). The label is the field's hint, as a View's is.
+    """
+    return {
+        field: label
+        for field in root.iter("node")
+        if field.get("class", "").split(".")[-1] in EDITABLE and not field.get("hint")
+        if (label := next((n for n in field.iter("node") if n is not field and n.get("text")), None)) is not None
+    }
+
+
+def _element(a: Attributes, width: int, height: int, field_label: str = "") -> Element | None:
+    """One node of the tree, or None if it's system UI, off screen, or carries nothing a test could use.
+
+    `field_label` is a text field's label from inside it (`_field_labels`): its hint.
+    """
     bounds = None if a.get("package") == SYSTEM_UI else _bounds(a.get("bounds", ""), width, height)
     if bounds is None:
         return None
@@ -107,13 +160,14 @@ def _element(a: Attributes, width: int, height: int) -> Element | None:
     clickable = any(_true(a, name) for name in ("clickable", "long-clickable"))
     checkable = _true(a, "checkable") or cls in TOGGLES
     label, rid = _label(a), _resource_id(a)
-    if not any((label, editable, clickable, checkable, _true(a, "scrollable"), rid)):
-        return None  # nothing a test could find it by or do with it
+    slider = KINDS.get(cls) == "slider"
+    if not any((label, editable, clickable, checkable, slider, _true(a, "scrollable"), rid)):
+        return None  # nothing a test could find it by or do with it (a slider can be swiped, labelled or not)
     return Element(
         kind=_kind(cls, clickable=clickable, password=editable and _true(a, "password")),
         text=one_line(label),
         parts=_parts(a),
-        hint=a.get("hint", ""),
+        hint=a.get("hint", "") or field_label,
         resource_id=rid,
         bounds=bounds,
         enabled=a.get("enabled", "true") == "true",
@@ -124,6 +178,7 @@ def _element(a: Attributes, width: int, height: int) -> Element | None:
         checked=_true(a, "checked") if checkable else None,
         selected=_true(a, "selected"),
         value=text if editable else "",
+        position=float(a["position"]) if slider and "position" in a else None,
     )
 
 

@@ -32,7 +32,9 @@ import java.util.Set;
  *   am instrument -w -e port 7912 dev.jevtest.agent/.Agent
  * it keeps one UiAutomation connection open and answers on 127.0.0.1:port:
  *   GET /tree        -> the active window as uiautomator-style XML, plus ime="true|false",
- *                       ime-top="<y where the keyboard starts>" and package="..." on the root element
+ *                       ime-top="<y where the keyboard starts>", bars="l,t,r,b;..." (the system's windows
+ *                       over the app, like the status bar) and package="..." on the root element, and
+ *                       position="<0 to 1>" on a node with a range (a slider: where its thumb is)
  *   GET /rotate?to=R -> locks the screen to rotation R (0-3, as /tree reports it) through UiAutomation, which
  *                       works on every Android version (the user_rotation setting doesn't on some phones)
  *                       and puts the device's own rotation state back when the agent stops
@@ -250,13 +252,17 @@ public class Agent extends Instrumentation {
     private String tree(UiAutomation ui) {
         boolean ime = false;
         int imeTop = 0;  // where the keyboard starts: gestures on the page must stay above it
+        StringBuilder bars = new StringBuilder();  // the system's windows over the app: a touch there isn't the app's
         List<AccessibilityWindowInfo> windows = ui.getWindows();
         for (AccessibilityWindowInfo w : windows) {
+            Rect r = new Rect();
+            w.getBoundsInScreen(r);
             if (w.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
                 ime = true;
-                Rect r = new Rect();
-                w.getBoundsInScreen(r);
                 imeTop = r.top;
+            } else if (w.getType() == AccessibilityWindowInfo.TYPE_SYSTEM) {
+                bars.append(bars.length() == 0 ? "" : ";").append(r.left).append(',').append(r.top).append(',')
+                        .append(r.right).append(',').append(r.bottom);
             }
         }
         // The accessibility cache can miss a WebView's change events; never serve a stale tree.
@@ -268,6 +274,7 @@ public class Agent extends Instrumentation {
         sb.append("<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>");
         sb.append("<hierarchy rotation=\"").append(rotation()).append("\" ime=\"").append(ime)
                 .append("\" ime-top=\"").append(imeTop)
+                .append("\" bars=\"").append(bars)
                 .append("\" package=\"").append(root == null ? "" : esc(root.getPackageName())).append("\">");
         if (root != null) {
             node(root, 0, sb);
@@ -321,6 +328,11 @@ public class Agent extends Instrumentation {
                 .append(r.right).append(',').append(r.bottom).append("]\"");
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             sb.append(" hint=\"").append(esc(n.getHintText())).append('"');
+        }
+        AccessibilityNodeInfo.RangeInfo range = n.getRangeInfo();
+        if (range != null && range.getMax() > range.getMin()) {  // a slider's or progress bar's value, 0 to 1
+            float at = (range.getCurrent() - range.getMin()) / (range.getMax() - range.getMin());
+            sb.append(" position=\"").append(Math.max(0f, Math.min(1f, at))).append('"');
         }
         sb.append('>');
         for (int i = 0; i < n.getChildCount(); i++) {

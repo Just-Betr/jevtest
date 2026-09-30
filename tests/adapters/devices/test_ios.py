@@ -239,6 +239,38 @@ def test_a_scroll_drags_slowly_so_nothing_flings_on_and_a_swipe_flicks(drv, env)
     ]
 
 
+def test_a_swipe_on_a_slider_drags_its_thumb_slowly_on_to_the_screen_edge(drv, env):
+    """The finger starts on the thumb's middle (its thumb is about as wide as the slider is tall) and goes on
+    past the slider's end, since the thumb trails it; slowly, so the thumb keeps up (measured on iOS 26.5)."""
+    env[1].replies["/tree"] = {"width": 402, "height": 874, "elements": [], "keyboard": False}
+    half = Element(kind="slider", text="Volume: 50%", bounds=(32, 287, 370, 318), position=0.5)
+    full = Element(kind="slider", text="Bass: Loud", bounds=(32, 400, 370, 431), position=1.0)
+    drv.swipe("right", half)
+    drv.swipe("left", full)
+    drv.swipe("up", half)  # across it, as on any element: a slider moves only sideways
+    drags = [b for p, b in env[1].calls if p == "/drag"]
+    assert [(b["x1"], b["y1"], b["x2"], b["y2"], b["velocity"]) for b in drags] == [
+        (201, 302, 401, 302, 300),
+        (354, 415, 0, 415, 300),
+        (201, 311, 201, 293, 1500),
+    ]
+
+
+def test_hide_keyboard_in_a_field_of_several_lines_says_return_adds_a_line(drv, env, monkeypatch):
+    env[1].replies["/hide_keyboard"] = {"ok": True, "multiline": True}  # the agent took the new line back out
+    env[1].replies["/tree"] = {"width": 402, "height": 874, "elements": [], "keyboard": True}
+    ticks = iter([0, 1, 4])
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+    with pytest.raises(
+        DeviceError,
+        match=r"^The keyboard did not close \(the field takes several lines, so Return adds one, which jevtest "
+        r"took back out, and there's no Done; on iOS only the app can close it then, e\.g\. on a tap outside the "
+        r"field\) within 3 seconds$",
+    ):
+        drv.hide_keyboard()
+
+
 def test_simctl_device_commands(drv, env):
     env[1].replies["/state"] = {"state": 1}  # not running: nothing to start again
     drv.set_location(1.5, -2.5)
@@ -345,6 +377,11 @@ def test_typing_waits_until_the_keyboard_is_up(drv, env, slept):
     agent.replies["/tree"] = [plain, focused]  # right after the tap: not yet
     drv.type_text("x", at=(1, 1))
     assert [p for p, _ in agent.calls][-4:] == ["/tap", "/tree", "/tree", "/type"] and slept == [0.25]
+
+
+def test_autofill_off_is_not_supported(drv):
+    with pytest.raises(DeviceError, match="^jevtest can.t turn an iPhone.s or simulator.s autofill off$"):
+        drv.autofill_off()
 
 
 def test_network_is_not_supported(drv):
