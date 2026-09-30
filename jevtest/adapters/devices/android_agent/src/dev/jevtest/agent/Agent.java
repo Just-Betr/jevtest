@@ -9,6 +9,9 @@ import android.hardware.display.DisplayManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Display;
+import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
+import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 
@@ -26,6 +29,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * jevtest Android agent. Started with
@@ -54,6 +59,15 @@ import java.util.Set;
  */
 public class Agent extends Instrumentation {
     private int port = 7912;
+    /** The last toast's text, and when it was shown (uptime milliseconds): a toast isn't in any window the tree
+     *  reads, and Android says only that it was shown (one accessibility event), not when it goes. */
+    private volatile String toastText;
+    private volatile long toastShownAt;
+    /** How long after a toast is shown to look for its window: the longest measured was on screen 4.2 s. */
+    private static final long TOAST_LOOK_MS = 6000;
+    private static final Pattern TOAST_WINDOW = Pattern.compile(
+            "Window\\{\\w+ u\\d+ Toast\\}:(.*?)(?=\\n  Window #|\\z)", Pattern.DOTALL);
+    private static final Pattern FRAME = Pattern.compile(" frame=\\[(-?\\d+),(-?\\d+)\\]\\[(-?\\d+),(-?\\d+)\\]");
 
     @Override
     public void onCreate(Bundle arguments) {
@@ -72,6 +86,17 @@ public class Agent extends Instrumentation {
                 | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
                 | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
         ui.setServiceInfo(info);
+        ui.setOnAccessibilityEventListener(e -> {
+            if (e.getEventType() == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED
+                    && "android.widget.Toast".contentEquals(String.valueOf(e.getClassName()))) {
+                StringBuilder text = new StringBuilder();
+                for (CharSequence part : e.getText()) {
+                    text.append(text.length() == 0 ? "" : " ").append(part);
+                }
+                toastText = text.toString();
+                toastShownAt = SystemClock.uptimeMillis();
+            }
+        });
         try (ServerSocket server = new ServerSocket(port, 8, InetAddress.getByName("127.0.0.1"))) {
             Bundle ready = new Bundle();
             ready.putString("ready", "1");
@@ -279,8 +304,48 @@ public class Agent extends Instrumentation {
         if (root != null) {
             node(root, 0, sb);
         }
+        toast(ui, sb);
         sb.append("</hierarchy>");
         return sb.toString();
+    }
+
+    /**
+     * The toast on screen, as a node: its text from its accessibility event, its place from the window manager, and
+     * only while its window is visible (measured: a short toast 2.6 s, a long one 4.2 s after it was shown).
+     */
+    private void toast(UiAutomation ui, StringBuilder sb) {
+        String text = toastText;
+        if (text == null || SystemClock.uptimeMillis() - toastShownAt > TOAST_LOOK_MS) {
+            return;
+        }
+        Matcher window = TOAST_WINDOW.matcher(shell(ui, "dumpsys window windows"));
+        while (window.find()) {
+            String block = window.group(1);
+            Matcher frame = FRAME.matcher(block);
+            if (block.contains("isVisible=true") && frame.find()) {
+                sb.append("<node index=\"0\" text=\"").append(esc(text)).append("\" class=\"android.widget.Toast\"")
+                        .append(" package=\"android\" content-desc=\"\" bounds=\"[").append(frame.group(1)).append(',')
+                        .append(frame.group(2)).append("][").append(frame.group(3)).append(',').append(frame.group(4))
+                        .append("]\"></node>");
+                return;
+            }
+        }
+    }
+
+    /** What a shell command prints, run as the shell user through UiAutomation. */
+    private static String shell(UiAutomation ui, String command) {
+        StringBuilder out = new StringBuilder();
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(
+                new ParcelFileDescriptor.AutoCloseInputStream(ui.executeShellCommand(command)),
+                StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = in.readLine()) != null) {
+                out.append(line).append('\n');
+            }
+        } catch (Exception e) {
+            return "";  // no toast is reported, rather than one that may not be there
+        }
+        return out.toString();
     }
 
     private int rotation() {

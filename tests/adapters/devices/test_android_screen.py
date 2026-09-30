@@ -153,6 +153,17 @@ def test_what_a_system_bar_covers_is_left_out_of_where_an_element_is_touched():
     assert [s.under_system_bar(e) for e in s.elements] == [False, True, False, False, False, False]
 
 
+def test_a_toast_the_agent_saw_is_on_screen_where_its_window_is():
+    """A toast isn't in the app's window: the agent adds it, with its text and its window's place, while it shows."""
+    xml = """<hierarchy rotation="0" package="dev.demo">
+      <node class="android.widget.TextView" text="About" bounds="[0,200][1080,300]"/>
+      <node index="0" text="Saved to favourites" class="android.widget.Toast" package="android" content-desc=""
+            bounds="[295,2183][784,2298]"></node>
+    </hierarchy>"""
+    _, toast = parse_screen(xml, lambda _: (1080, 2424)).elements
+    assert (toast.kind, toast.text, toast.bounds) == ("toast", "Saved to favourites", (295, 2183, 784, 2298))
+
+
 def test_empty_webview_detection():
     assert has_empty_webview(EMPTY_WEB)
     assert not has_empty_webview(WEB)

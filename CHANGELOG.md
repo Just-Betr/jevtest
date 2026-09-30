@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Android toasts were never on screen for jevtest: a toast isn't in the app's window, so `see:` its text failed while
+  it showed. The agent notes the text Android announces when a toast shows, and reports it, where its window is,
+  for as long as that window is visible (measured on Android 17: a short toast 2.6 s, a long one 4.2 s), so a check
+  a moment after it's gone doesn't pass on it.
+
 ## 0.9.15
 
 - A Flutter slider on iOS couldn't be set to its ends: XCUITest reports it as plain text, so a swipe on it crossed

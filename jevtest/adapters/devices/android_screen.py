@@ -29,6 +29,7 @@ KINDS: Mapping[str, str] = {
     "ProgressBar": "progress",
     "Spinner": "dropdown",
     "WebView": "webview",
+    "Toast": "toast",
     "RecyclerView": "list",
     "ListView": "list",
     "ScrollView": "scroll_view",
