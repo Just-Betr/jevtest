@@ -302,6 +302,11 @@ final class JevAgentUITests: XCTestCase {
 
     /// The screen for the client, from one snapshot pass. The agent never waits: the client reads the
     /// screen when a step checks what it waits for.
+    private static func sameFrame(_ a: CGRect, _ b: CGRect) -> Bool {
+        abs(a.minX - b.minX) < 0.5 && abs(a.minY - b.minY) < 0.5 && abs(a.width - b.width) < 0.5
+            && abs(a.height - b.height) < 0.5
+    }
+
     private func tree(_ app: XCUIApplication) throws -> [String: Any] {
         guard app.state == .runningForeground else {
             return ["elements": [], "width": 0, "height": 0, "keyboard": false]
@@ -314,7 +319,9 @@ final class JevAgentUITests: XCTestCase {
             if sliders == nil {
                 sliders = app.sliders.allElementsBoundByIndex.map { ($0.frame, $0.normalizedSliderPosition) }
             }
-            return sliders?.first { $0.frame == s.frame }?.position
+            // Within half a point, not equal: an element's frame and its snapshot's can differ in the last bits of
+            // a fraction of a point (measured: in large text, a SwiftUI slider at y 412.333… matched none).
+            return sliders?.first { Self.sameFrame($0.frame, s.frame) }?.position
         }
         func hasKeyboard(_ s: XCUIElementSnapshot) -> Bool {
             s.elementType == .keyboard || s.children.contains(where: hasKeyboard)
@@ -337,7 +344,7 @@ final class JevAgentUITests: XCTestCase {
                     "label": s.label,
                     "x": f.origin.x, "y": f.origin.y, "w": f.size.width, "h": f.size.height,
                     "enabled": s.isEnabled, "selected": s.isSelected,
-                    "focused": s.hasFocus || (typingFrame != nil && s.frame == typingFrame),
+                    "focused": s.hasFocus || typingFrame.map { Self.sameFrame(s.frame, $0) } == true,
                 ]
                 if let v = s.value { d["value"] = "\(v)" }
                 if let p = s.placeholderValue { d["placeholder"] = p }

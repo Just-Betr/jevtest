@@ -47,6 +47,10 @@
 - A saved `do:` step that didn't fit said only that the app may have changed. It also says that a device showing the
   app differently (measured: Android 15's WebView names a web field `Your name` where Android 17's says `name`) needs
   a test file, and so a lockfile, of its own.
+- In large text, an iOS slider that names its value in words (`Soft`, not `20%`) was swiped from its middle, beside
+  its thumb, and didn't move (measured: a SwiftUI slider at 20% stayed there, 3 of 3). The agent found a slider's
+  thumb position by matching frames exactly, and in large text they have fractions of a point that differ in the
+  last bits. It matches within half a point, as it does to find the field that has the keyboard.
 
 ## 0.9.15
 
