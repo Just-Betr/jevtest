@@ -699,9 +699,10 @@ class TestRunner:
         saved = model.saved_steps(key)
         if saved is not None:
             try:
-                for step in saved:
+                for n, step in enumerate(saved, 1):
                     self._repeat(step, settings)
                     record.ran.append(step.describe())
+                    self._scroll_on(step, saved[n] if n < len(saved) else None, settings)
                 return f"{plural(len(saved), 'saved step')}"
             except StepFailed as e:
                 if model.replays_only:
@@ -714,6 +715,27 @@ class TestRunner:
         steps = self._work_out(goal, settings, record)
         model.save_steps(key, [*done, *steps])
         return f"{plural(len(done) + len(steps), 'step')}, worked out by Jev"
+
+    def _scroll_on(self, scroll: SavedStep, after: SavedStep | None, settings: Settings) -> None:
+        """After a saved scroll, scroll on the same way until the next saved step's element is on screen.
+
+        A scroll's length isn't the app's: it changes with the screen and with jevtest (measured: two saved scrolls
+        that reached Item 30 stopped at Item 29 after jevtest's drags got shorter). The element counts as there as
+        `scroll_to:` counts it, clear of the screen's edges, or anywhere once the content stops moving.
+        """
+        target = after.target if after is not None else None
+        if target is None or not scroll.action.startswith("scroll_"):
+            return
+        direction = Direction(scroll.action.removeprefix("scroll_"))
+        screen = self._still_screen(settings)
+        for _ in range(settings.max_scrolls):
+            same = [el for el in screen.elements if el.kind == target.kind and self._name(el) == target.name]
+            if len(same) == target.count and screen.clear_of_edges(same[target.nth - 1]):
+                return
+            self.device.scroll(direction, screen=screen)
+            before, screen = screen, self._still_screen(settings)
+            if screen == before:  # the end of the content: the step after says what's missing
+                return
 
     def _repeat(self, step: SavedStep, settings: Settings) -> None:
         """One saved step: `wait_until` its element is on screen (the same one of the same count), then act."""

@@ -39,6 +39,10 @@
   with "The app left the foreground": the phone puts the home screen on top for a moment while it decides whether the
   touch is a swipe home (measured: 20-65 ms, then the app again). The app counts as having left only when another app
   is still on top a second later.
+- A saved `do:` that scrolled could stop short when repeated: a scroll's length depends on the screen and on jevtest
+  (measured: two saved scrolls that reached Item 30 stopped at Item 29 once jevtest's drags got shorter), and the
+  failure blamed the app. After a saved scroll, jevtest scrolls on the same way until the next step's element is on
+  screen, stopping at the end of the content.
 
 ## 0.9.15
 

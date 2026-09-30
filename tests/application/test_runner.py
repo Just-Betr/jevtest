@@ -960,6 +960,42 @@ def test_a_saved_step_waits_until_its_element_is_on_screen(tmp_path, clock, out)
     assert res.status is Status.PASS and ("tap", 500, 450) in d.calls and clock.slept == [0.25] * 3
 
 
+ITEM_30 = "android · T · step 1 · Open Item 30"
+SCROLL_TO_30 = (SavedStep("scroll_down"), SavedStep("tap", Target("text", "Item 30")))
+
+
+def test_a_saved_scroll_scrolls_on_until_the_next_steps_element_is_there(tmp_path, clock, out):
+    """Measured: two saved scrolls that reached Item 30 stopped at Item 29 once jevtest's drags got shorter."""
+    d = FakeDevice(listed("Item 1"), *held(listed("Item 29"), listed("Item 30")))
+    model = FakeModel(saved={ITEM_30: SCROLL_TO_30}, frozen=True)
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Open Item 30"}, device=d, model=model)
+    assert res.status is Status.PASS and d.names().count("drag") == 2 and ("tap", 500, 940) in d.calls
+
+
+def test_a_saved_scroll_scrolls_no_further_when_the_element_is_there(tmp_path, clock, out):
+    d = FakeDevice(listed("Item 1"), *held(listed("Item 30")))
+    model = FakeModel(saved={ITEM_30: SCROLL_TO_30}, frozen=True)
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Open Item 30"}, device=d, model=model)
+    assert res.status is Status.PASS and d.names().count("drag") == 1
+
+
+def test_a_saved_scroll_stops_at_the_end_and_the_next_step_says_what_is_missing(tmp_path, clock, out):
+    d = FakeDevice(listed("Item 1"), *held(listed("Item 29")))
+    model = FakeModel(saved={ITEM_30: SCROLL_TO_30}, frozen=True)
+    res, d, _ = run1(tmp_path, clock, out, {"do": "Open Item 30", "timeout": 1}, device=d, model=model)
+    assert d.names().count("drag") == 2  # the saved one, and one that moved nothing
+    assert "text 'Item 30' is on screen and stopped moving (saved step 2 of 2" in failure_of(res)
+
+
+def test_a_saved_scroll_scrolls_on_at_most_max_scrolls_times(tmp_path, clock, out):
+    d = FakeDevice(listed("Item 1"), *held(listed("Item 28"), listed("Item 29")))
+    model = FakeModel(saved={ITEM_30: SCROLL_TO_30}, frozen=True)
+    step = parse_step({"do": "Open Item 30", "timeout": 1})
+    step = dataclasses.replace(step, settings=dataclasses.replace(step.settings, max_scrolls=1))  # set for the file
+    res, d, _ = run1(tmp_path, clock, out, device=d, model=model, tests=[Test("T", True, (step,))])
+    assert d.names().count("drag") == 2 and "saved step 2 of 2" in failure_of(res)
+
+
 def test_a_saved_step_takes_the_same_one_of_several_namesakes(tmp_path, clock, out):
     s = login_screen()
     twice = dataclasses.replace(
