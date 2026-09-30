@@ -1325,6 +1325,24 @@ def test_scroll_to_brings_an_element_clear_of_the_edges(tmp_path, clock, out):
     assert res.status is Status.PASS and res.steps[0].detail == "1 scroll"
 
 
+def test_scroll_to_brings_an_element_inside_the_list_it_is_in(tmp_path, clock, out):
+    """Measured with Compose, in large text: a slider at y 754-801 in a list ending at 765, its middle under a tab bar."""
+
+    def at(y: int) -> Screen:
+        return Screen(
+            1000,
+            2000,
+            (
+                el("list", scrollable=True, bounds=(0, 200, 1000, 1500)),
+                el("slider", "Volume", bounds=(0, y, 1000, y + 60)),
+            ),
+        )
+
+    d = FakeDevice(*held(at(1470), at(1200)))
+    res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Volume", "direction": "down"}, device=d)
+    assert res.status is Status.PASS and res.steps[0].detail == "1 scroll"
+
+
 def test_scroll_to_takes_an_element_at_an_edge_at_the_end_of_the_content(tmp_path, clock, out):
     d = FakeDevice(listed("Show more", y=1960))  # it never moves: the content ends there
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Show more", "direction": "down"}, device=d)

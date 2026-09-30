@@ -659,7 +659,9 @@ class TestRunner:
     def _scroll_to(self, text: str, direction: Direction, lane: Bounds | None, settings: Settings) -> str | None:
         """Scroll until an element says exactly the text where a tap reaches it, or it can't scroll further.
 
-        Where a tap reaches it: clear of the screen's edges, and inside `lane` (`Screen.in_lane`). It can't: the content
+        Where a tap reaches it: clear of the screen's edges, and inside `lane`, else the page (`Screen.in_lane`): a
+        scroller reports an element at its end with its middle past it, under what comes after, such as a tab bar
+        (measured with Compose, in large text: a slider at y 754-801 in a list ending at 765). It can't: the content
         stopped moving, or `max_scrolls` scrolls. Clear of the edges (`Screen.clear_of_edges`), as a person scrolls: an
         element just peeking in at the bottom sits on the phone's home-gesture strip, where a tap goes home. When it
         can't scroll further, an element on screen at an edge is where it is. After each scroll it waits until the
@@ -672,7 +674,7 @@ class TestRunner:
         while True:
             found = [el for el in screen.elements if el.says(wanted)]
             last = scrolls == settings.max_scrolls or unmoved == END_OF_CONTENT
-            if found and (last or any(screen.in_lane(el, lane, direction) for el in found)):
+            if found and (last or any(screen.in_lane(el, lane or screen.page, direction) for el in found)):
                 return plural(scrolls, "scroll") if scrolls else None
             if scrolls == settings.max_scrolls:
                 raise StepFailed(

@@ -23,7 +23,8 @@
   a moment after it's gone doesn't pass on it.
 - `scroll_to:` along a carousel stopped when the item just peeked in at its end, and the tap on it then missed
   (measured on an iPhone: a SwiftUI chip at x 354-402 in a carousel ending at 370). It scrolls on until the item's
-  middle is inside what it scrolls along.
+  middle is inside what it scrolls along. Without `along:`, the same holds for the page: in large text, a Compose
+  slider at y 754-801 in a list ending at 765 was taken as found, and the swipe on it landed on the tab bar.
 - A step on a focused text field could wait out its timeout for the field to stop moving: its blinking cursor made it
   look different at every other check (measured: a Flutter field on a Pixel, switching about every half second). How
   a text field is drawn no longer counts, as it already didn't for the screen as a whole.
