@@ -48,6 +48,10 @@
     clear of the keyboard and the app's bars.
   - With the keyboard up, an Android app in landscape keeps a strip of the screen, and Compose fields there lose
     their labels. A step that can't find what it names while the keyboard is up now says to close it first.
+- `grant: location` on an iOS simulator failed with `The simulator did not end the app after the permission
+  changed`: jevtest waited for the app to be ended, as it is for camera or photos, but location, location-always and
+  siri leave it running (measured, each service granted twice). It waits, and starts the app again, only for the
+  others. Permission prompts answered in tests, and `grant:`, checked on the Compose and SwiftUI apps.
 - `along:` for `scroll` and `scroll_to`: `scroll_to` dragged across the page, so a chip in a carousel was never found
   (`Scrolled right to the end`). `along: Tag 1` scrolls what that text is in.
 - `hide_keyboard` in an iOS field of several lines (SwiftUI `TextField(axis: .vertical)`) typed a new line into it

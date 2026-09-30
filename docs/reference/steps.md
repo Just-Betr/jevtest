@@ -128,7 +128,7 @@ Each platform names a permission its own way, so a file that runs on both gives 
 | Reminders | none | `reminders` |
 
 - **Android:** the full name, with its package (`android.permission.CAMERA`, or an app's own `com.example.app.SCAN`), and only a permission the app declares in its manifest and Android grants at run time. Anything else fails, saying why (`not a changeable permission type`).
-- **iOS simulator:** a service `xcrun simctl privacy` accepts. It accepts `camera` too, which its help doesn't list (measured with Xcode 27.0). The simulator ends an app whose permissions change, so jevtest starts it again, once for the whole list: put `grant:` first in a test.
+- **iOS simulator:** a service `xcrun simctl privacy` accepts. It accepts `camera` too, which its help doesn't list (measured with Xcode 27.0). Granting any service but `location`, `location-always` and `siri` ends a running app, even when nothing changes (measured), so jevtest then starts it again, once for the whole list: put `grant:` first in a test.
 - **A real iPhone** can't be granted permissions (Apple doesn't allow it). A file that runs on one and has a `grant:` is an error before the run: run that test on a simulator, or tap the permission prompt with a step instead.
 - A file that runs on both platforms with a `grant:` that doesn't name both is an error before the run.
 

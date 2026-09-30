@@ -79,6 +79,10 @@ def no_app_for_url(said: str) -> bool:
 PRIVACY_REFUSED = "Operation not permitted"
 """What `simctl privacy grant` says for a service it doesn't know (measured on iOS 26.5)."""
 
+PRIVACY_KEEPS_APP_RUNNING = frozenset({"location", "location-always", "siri"})
+"""The `simctl privacy grant` services that leave a running app running. Every other one ends the app within 0.11 s,
+even when the grant changes nothing (measured on iOS 26.5, each service granted twice to a running app)."""
+
 AUTOMATION_NOT_ALLOWED = "enabling automation mode"
 """In the agent's log when an iPhone didn't allow UI automation ("Timed out while enabling automation mode")."""
 

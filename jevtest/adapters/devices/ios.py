@@ -534,12 +534,13 @@ class IOSDevice(BaseDevice):
     def grant(self, permissions: Sequence[str]) -> None:
         """Grant simulator privacy services (photos, camera, ...). A real iPhone can't.
 
-        The simulator ends an app whose permissions change, even to what they were (measured: gone within
-        0.25 s), so a running app is started again once it's gone: once, after every grant.
+        The simulator ends a running app when most services are granted, even unchanged, and leaves it running for
+        a few (`PRIVACY_KEEPS_APP_RUNNING`): an app that was ended is started again once it's gone, after every grant.
         """
         if self.physical:
             raise DeviceError("A real iPhone can't pre-grant permissions: let the test tap the permission prompt")
-        running = self.app_state() is not AppState.NOT_RUNNING
+        ends = not set(permissions) <= says.PRIVACY_KEEPS_APP_RUNNING
+        running = ends and self.app_state() is not AppState.NOT_RUNNING
         # simctl services: all, calendar, contacts, location, location-always, photos, microphone, ...
         for permission in permissions:
             try:

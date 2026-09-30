@@ -287,6 +287,21 @@ def test_a_grant_starts_the_app_again_once_the_simulator_ended_it(drv, env, slep
     assert env[1].paths()[-1] == "/wait_foreground" and slept == [0.25]
 
 
+def test_a_grant_that_leaves_the_app_running_doesnt_wait_for_it_to_end(drv, env, slept):
+    """Location and Siri leave a running app running (measured); every other service ends it."""
+    drv.grant(["location", "location-always"])
+    tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
+    assert tails == ["privacy A grant location dev.demo", "privacy A grant location-always dev.demo"]
+    assert "/state" not in env[1].paths() and slept == []
+
+
+def test_a_grant_with_one_service_that_ends_the_app_starts_it_again(drv, env, slept):
+    env[1].replies["/state"] = [{"state": 4}, {"state": 1}]  # running; gone
+    drv.grant(["location", "camera"])
+    tails = [c.split("simctl ", 1)[1] for c in env[0].cmds]
+    assert tails[-1] == "launch A dev.demo"
+
+
 def test_a_grant_fails_if_the_simulator_never_ends_the_app(drv, env, monkeypatch):
     ticks = iter([0, 1, 4])
     monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
