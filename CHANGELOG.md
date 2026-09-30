@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- An iPhone that asked for its passcode to allow UI testing, with nobody there to answer, failed with
+  `xcodebuild exited before it was ready … TEST EXECUTE FAILED`, or XCUITest's `Not authorized for performing UI
+  testing actions` mid-run. Both say to unlock it and enter the passcode when it asks.
 - `distance:` on a swipe that meets a slider was ignored without a word: a left or right swipe takes a slider to its
   end. The step fails saying so.
 - Android toasts were never on screen for jevtest: a toast isn't in the app's window, so `see:` its text failed while

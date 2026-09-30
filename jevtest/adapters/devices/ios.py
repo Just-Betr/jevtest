@@ -186,7 +186,10 @@ class IOSDevice(BaseDevice):
                     env=env,
                 )
             except DeviceError as e:
-                if says.AUTOMATION_NOT_ALLOWED in self.agent_log.read_text(errors="replace"):
+                log = self.agent_log.read_text(errors="replace")
+                if says.ui_testing_not_authorized(log):
+                    raise DeviceError(self._not_authorized()) from e
+                if says.AUTOMATION_NOT_ALLOWED in log:
                     raise DeviceError(
                         f'{self.name} did not allow UI automation ("Timed out while enabling automation mode"). '
                         "Unlock it and keep the screen on, check Settings > Developer > Enable UI Automation is on, "
@@ -238,8 +241,17 @@ class IOSDevice(BaseDevice):
                     f"{self._log_tail()}"
                 ) from None
         if "error" in data:
+            if self.physical and says.ui_testing_not_authorized(str(data["error"])):
+                raise DeviceError(self._not_authorized())
             raise AgentRefused("iOS agent", path, str(data["error"]))
         return data
+
+    def _not_authorized(self) -> str:
+        """What to do when the iPhone asked to authenticate for UI testing and wasn't answered."""
+        return (
+            f"{self.name} asked for your passcode to allow UI testing, and it wasn't given: unlock it, enter the "
+            "passcode when it asks, keep it unlocked, and run again"
+        )
 
     @override
     def close(self) -> None:

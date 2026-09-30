@@ -93,6 +93,17 @@ def app_ended(said: str) -> bool:
     return "com.apple.dt.xctest.ui-testing.error Code=10001" in said
 
 
+UI_TESTING_NOT_AUTHORIZED = ("Authentication canceled", "Not authorized for performing UI testing actions")
+"""What XCUITest says when an iPhone asked to authenticate for UI testing and wasn't answered (measured on iOS 27:
+the agent's log, `The test runner failed to initialize for UI testing. (Underlying Error: Authentication canceled.
+Canceled by user.)`, and an agent call meanwhile, `… Not authorized for performing UI testing actions`)."""
+
+
+def ui_testing_not_authorized(said: str) -> bool:
+    """Whether `said` is XCUITest saying the iPhone didn't authorize UI testing (`UI_TESTING_NOT_AUTHORIZED`)."""
+    return any(text in said for text in UI_TESTING_NOT_AUTHORIZED)
+
+
 AUTOMATION_NOT_ALLOWED = "enabling automation mode"
 """In the agent's log when an iPhone didn't allow UI automation ("Timed out while enabling automation mode")."""
 

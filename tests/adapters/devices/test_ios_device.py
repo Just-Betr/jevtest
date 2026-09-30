@@ -187,6 +187,16 @@ def test_app_lifecycle_uses_devicectl_and_the_agent(dev, phone):
     assert [p for p, _ in phone[1].calls] == ["/wait_foreground", "/terminate", "/terminate", "/reset_permissions"]
 
 
+def test_a_call_the_phone_didnt_authorize_says_to_give_the_passcode(dev, phone):
+    """Measured on iOS 27: an agent call meanwhile says `… Not authorized for performing UI testing actions`."""
+    phone[1].replies["/reset_permissions"] = {
+        "error": "Error resetting authorization status for protected resource (XCTProtectedResourceContactsIdentifier). "
+        "Not authorized for performing UI testing actions."
+    }
+    with pytest.raises(DeviceError, match=r"^BH asked for your passcode to allow UI testing, and it wasn't given"):
+        dev.clear_data()
+
+
 def test_device_commands_go_through_the_agent(dev, phone, tmp_path):
     phone[0].cmds.clear()
     phone[1].replies["/screenshot"] = {"png": b64encode(b"PNG").decode()}
@@ -209,6 +219,23 @@ def test_device_commands_go_through_the_agent(dev, phone, tmp_path):
 def test_permissions_cannot_be_pregranted_on_a_phone(dev):
     with pytest.raises(DeviceError, match="can't pre-grant permissions"):
         dev.grant("camera")
+
+
+def test_a_phone_that_wasnt_given_its_passcode_for_ui_testing_says_so(tmp_path, phone, monkeypatch):
+    """Measured on iOS 27: the phone asked to authenticate UI testing, and the prompt went unanswered."""
+
+    def refuse(cmd, ready, log, timeout, env):
+        log.write_text(
+            "JevAgentUITests-Runner (13291) encountered an error (The test runner failed to initialize for UI testing. "
+            "(Underlying Error: Authentication canceled. Canceled by user.))\n** TEST EXECUTE FAILED **\n"
+        )
+        raise DeviceError("xcodebuild exited before it was ready.")
+
+    swap(monkeypatch, "start_process", refuse)
+    with pytest.raises(
+        DeviceError, match=r"^BH asked for your passcode to allow UI testing, and it wasn't given: unlock"
+    ):
+        IOSDevice("BH", signed_app(tmp_path), PROGRESS)
 
 
 def test_a_phone_that_refuses_ui_automation_says_what_to_do(tmp_path, phone, monkeypatch):
