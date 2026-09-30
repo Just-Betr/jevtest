@@ -78,6 +78,7 @@ error: t.yaml has 2 problems:
 ## Tests that fail
 
 - **`Waited 10s until an element says 'X' on screen and stopped moving`**: no element says exactly *X* within `timeout`. Check the failure screenshot; maybe it's below the fold (`scroll_to:` first) or labelled differently. If it ends `; the app is in the background` or `; the app isn't running`, an earlier step left the app.
+- **`…; the keyboard is up, and the app may not show it while it is …`**: added when what a step looks for isn't on screen and the keyboard is up. In landscape an Android keyboard leaves the app a strip, and fields there can lose their labels. Close it first with `hide_keyboard`, as a person would.
 - **`…; what says 'Sign in' doesn't take text (button)`**: `type: into:` or `clear:` named something that isn't a field.
 - **`Waited 10s until the keyboard is up (a field takes typed text); tap the field first, or name it with into:`**: `type:` without `into:` needs a field with the keyboard up.
 - **`…; text 'Gadget 1' is under a system bar, like the status bar, which takes a touch there instead of the app …`**: the app draws that element under Android's status bar (or navigation bar), where a finger reaches the phone, not the app. jevtest touches the part of an element outside the bars; this one has none. Keep what the app wants touched inside the safe area (in React Native, `SafeAreaView` from `react-native-safe-area-context`: the core one pads only on iOS).

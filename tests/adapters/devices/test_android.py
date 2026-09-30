@@ -244,9 +244,9 @@ def test_touch_commands(drv, adb):
     drv.drag(1, 2, 3, 4)
     drv._scroll_drag(1, 2, 3, 4)
     assert adb.shell()[:3] == ["input tap 1 2", "input tap 3 4; sleep 0.1; input tap 3 4", "input swipe 5 6 5 6 1500"]
-    swipe, scroll = adb.shell()[3].split("; "), adb.shell()[4].split("; ")
-    assert swipe[0] == scroll[0] == "input motionevent DOWN 1 2" and len(swipe) == 12
-    assert swipe[-2:] == ["input motionevent MOVE 3 4", "input motionevent UP 3 4"]  # lifted moving: a flick
+    swipe, scroll = adb.shell()[3], adb.shell()[4].split("; ")
+    assert swipe == "input swipe 1 2 3 4 150"  # lifted while moving, at the same speed every time: a flick
+    assert scroll[0] == "input motionevent DOWN 1 2" and len(scroll) == 13
     assert scroll[-2:] == ["sleep 0.1", "input motionevent UP 3 4"]  # held still before lifting: no fling
 
 
@@ -497,18 +497,20 @@ def test_a_swipe_inward_from_a_side_starts_clear_of_the_back_gesture(drv, adb):
     drv.swipe(Direction.LEFT, element=Element("text", bounds=(980, 0, 1080, 100)))
     drv.swipe(Direction.UP, element=Element("text", bounds=(0, 2300, 100, 2424)))  # home is up from the bottom
     drv.swipe(Direction.DOWN, element=Element("text", bounds=(0, 0, 100, 100)))  # the notifications, down from the top
-    right, left, up, down = [c for c in adb.shell() if c.startswith("input motionevent")]
-    assert right.startswith("input motionevent DOWN 162 50;") and right.endswith("UP 232 50")
-    assert left.startswith("input motionevent DOWN 918 50;") and left.endswith("UP 848 50")
-    assert up.startswith("input motionevent DOWN 50 2230;") and up.endswith("UP 50 2156")
-    assert down.startswith("input motionevent DOWN 50 194;") and down.endswith("UP 50 254")
+    assert [c for c in adb.shell() if c.startswith("input swipe")] == [
+        "input swipe 162 50 232 50 150",
+        "input swipe 918 50 848 50 150",
+        "input swipe 50 2230 50 2156 150",
+        "input swipe 50 194 50 254 150",
+    ]
 
 
 def test_swipe_and_scroll_geometry(drv, adb):
     drv.swipe(Direction.LEFT, element=Element("text", bounds=(0, 0, 100, 100)))
     drv.scroll(Direction.DOWN)
-    swipe, scroll = [c for c in adb.shell() if c.startswith("input motionevent")]
-    assert swipe.startswith("input motionevent DOWN 85 50;") and swipe.endswith("UP 15 50")  # outward: the app's
+    [swipe] = [c for c in adb.shell() if c.startswith("input swipe")]
+    [scroll] = [c for c in adb.shell() if c.startswith("input motionevent")]
+    assert swipe == "input swipe 85 50 15 50 150"  # outward from the edge: the app's
     assert scroll.startswith("input motionevent DOWN 540 1939;") and scroll.endswith("UP 540 485")
 
 

@@ -86,6 +86,12 @@ END_OF_CONTENT = 2
 """Scrolls in a row that must move nothing before `scroll_to:` calls it the end. One isn't enough: a real
 phone's web view sometimes ignores a single scroll."""
 
+KEYBOARD_UP = (
+    "; the keyboard is up, and the app may not show it while it is (in landscape, an Android keyboard leaves the app "
+    "a strip): close it first with a `hide_keyboard` step"
+)
+"""Added when what a step looks for isn't on screen and the keyboard is up."""
+
 PICKER = "picker"
 """A picker wheel: typing into one turns it to that value (`Device.choose`)."""
 
@@ -396,7 +402,7 @@ class TestRunner:
             kinds = dict.fromkeys(e.kind for e in screen.elements if editable and not e.editable and e.says(wanted))
             if kinds:
                 return f"; what says '{target}' doesn't take text ({', '.join(kinds)})"
-            return self._near(wanted, pool(screen))
+            return self._near(wanted, pool(screen)) + (KEYBOARD_UP if screen.keyboard_visible else "")
 
         what = "a text field" if editable else "an element"
         return self._wait_until(found, settings, f"{what} says '{target}' on screen and stopped moving", why)

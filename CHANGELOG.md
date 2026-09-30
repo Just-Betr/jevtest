@@ -42,6 +42,12 @@
     element's text matches on its own, as a label and value already did.
   - A slider that doesn't say where its thumb is (Flutter's on Android) is pressed in its middle and dragged to the
     end; a swipe on it flicked across it instead.
+- Landscape, with the Compose and SwiftUI apps turned sideways:
+  - A page scroll started at 80% of the screen's height, which in landscape was a Compose navigation bar: `scroll_to`
+    stopped at once, saying it had reached the end. A page scroll drags across the biggest thing that scrolls,
+    clear of the keyboard and the app's bars.
+  - With the keyboard up, an Android app in landscape keeps a strip of the screen, and Compose fields there lose
+    their labels. A step that can't find what it names while the keyboard is up now says to close it first.
 - `along:` for `scroll` and `scroll_to`: `scroll_to` dragged across the page, so a chip in a carousel was never found
   (`Scrolled right to the end`). `along: Tag 1` scrolls what that text is in.
 - `hide_keyboard` in an iOS field of several lines (SwiftUI `TextField(axis: .vertical)`) typed a new line into it

@@ -264,6 +264,23 @@ def test_tap_gives_up_after_timeout(tmp_path, clock, out):
     assert clock.now() <= 1
 
 
+def test_what_isnt_on_screen_with_the_keyboard_up_says_to_close_it(tmp_path, clock, out):
+    """In landscape an Android keyboard leaves the app a strip, and Compose drops field labels to fit it."""
+    typing = Screen(
+        2424,
+        1080,
+        (el("text_field", "a@b.c", editable=True, bounds=(205, 278, 2361, 292)),),
+        keyboard_visible=True,
+        keyboard_top=418,
+    )
+    res, _, _ = run1(tmp_path, clock, out, {"type": "pw", "into": "Password", "timeout": 1}, device=FakeDevice(typing))
+    assert failure_of(res).endswith(
+        "Waited 1s until a text field says 'Password' on screen and stopped moving; the keyboard is up, and the app may "
+        "not show it while it is (in landscape, an Android keyboard leaves the app a strip): close it first with a "
+        "`hide_keyboard` step"
+    )
+
+
 def test_an_element_under_the_keyboard_is_never_touched(tmp_path, clock, out):
     covered = login_screen(keyboard_visible=True, keyboard_top=300)
     res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in", "timeout": 1}, device=FakeDevice(covered))

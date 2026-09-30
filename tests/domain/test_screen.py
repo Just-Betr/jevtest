@@ -44,6 +44,21 @@ def test_the_page_is_the_screen_less_the_keyboard_and_the_apps_bars():
     assert (plain.page, bars.page, typing.page) == ((0, 0, 400, 800), (0, 176, 400, 730), (0, 176, 400, 500))
 
 
+def test_the_page_is_the_biggest_thing_that_scrolls_clear_of_bars_and_keyboard():
+    """A scroll from 80% of a landscape screen started on a Compose navigation bar: drag what scrolls instead."""
+    column = el("scroll_view", scrollable=True, bounds=(0, 300, 2424, 870))
+    chips = el("list", scrollable=True, bounds=(0, 400, 2424, 500))
+    assert Screen(2424, 1080, (column, chips)).page == (0, 300, 2424, 870)
+    # an iOS list with no label, under a navigation bar that overlaps it: clipped to below the bar
+    ios = Screen(402, 874, scrollers=((0, 0, 402, 874),), bars=((0, 62, 402, 176),))
+    assert ios.page == (0, 176, 402, 874)
+    # what scrolls is all under the keyboard: the page above the keyboard instead
+    low = Screen(
+        400, 800, (el("list", scrollable=True, bounds=(0, 600, 400, 800)),), keyboard_visible=True, keyboard_top=500
+    )
+    assert low.page == (0, 0, 400, 500)
+
+
 def test_lookups():
     s = login_screen()
     assert [e.id for e in s.elements] == ["e1", "e2", "e3"]

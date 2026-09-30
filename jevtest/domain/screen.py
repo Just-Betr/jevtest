@@ -108,6 +108,9 @@ class Element:
 EDGE = 0.08
 """The share of the screen's height, at its top and at its bottom, that phones keep for their own gestures."""
 
+MIN_LANE = 20
+"""The fewest points or pixels across that a drag along something can use: less, and the page is dragged instead."""
+
 SIDE_EDGE = 0.15
 """The share of the screen's width, at each side, where a swipe inward never starts: Android takes one as back
 (measured: from 78 of 1080 pixels at the default back sensitivity; twice that is kept clear, for a higher one), and
@@ -152,14 +155,23 @@ class Screen:
 
     @property
     def page(self) -> Bounds:
-        """Where the page's content is: the screen less the keyboard and the app's top and bottom bars.
+        """Where a drag across the page goes: across the biggest thing that scrolls, clear of the keyboard and bars.
 
-        A drag that starts on a navigation bar moves nothing (measured: a pull from a UIKit navigation bar with a
-        search field didn't refresh the list below it; the same pull from the list did).
+        Across the screen less the keyboard and the app's top and bottom bars when nothing says it scrolls. A drag
+        that starts on a bar moves nothing (measured: a pull from a UIKit navigation bar with a search field didn't
+        refresh the list below it, and a scroll from 80% of a landscape screen started on a Compose navigation bar),
+        and neither does one that starts on the keyboard.
         """
         top = max((b[3] for b in self.bars if b[1] < self.height / 3), default=0)
         bottom = min((b[1] for b in self.bars if b[3] > self.height * 2 / 3), default=self.height)
-        return 0, top, self.width, min(bottom, self.content_height)
+        x1, y1, x2, y2 = 0, top, self.width, min(bottom, self.content_height)
+        scrolling = [*(e.bounds for e in self.elements if e.scrollable), *self.scrollers]
+        if scrolling:
+            sx1, sy1, sx2, sy2 = max(scrolling, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
+            clipped = max(x1, sx1), max(y1, sy1), min(x2, sx2), min(y2, sy2)
+            if clipped[2] - clipped[0] > MIN_LANE and clipped[3] - clipped[1] > MIN_LANE:
+                return clipped
+        return x1, y1, x2, y2
 
     def under_keyboard(self, el: Element) -> bool:
         """Whether the keyboard is over the point where a tap on the element lands: touching it would hit a key."""

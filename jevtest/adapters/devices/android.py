@@ -71,6 +71,7 @@ ROTATIONS = {
 DOUBLE_TAP_GAP = 0.1  # Android and Flutter ignore taps < 40 ms apart and > 300 ms apart
 DRAG_STEPS = 10  # finger positions along a drag
 DRAG_HOLD = 0.1  # seconds the finger rests before lifting, so nothing flings
+SWIPE_TIME = 150  # milliseconds a swipe takes, start to lift: quick enough to fling what it moves
 AGENT_START_TIMEOUT = 30
 AGENT_ID = "dev.jevtest.agent"
 AGENT_STOP_TIMEOUT = 10  # seconds for the agent to finish after /quit
@@ -397,24 +398,22 @@ class AndroidDevice(BaseDevice):
     def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
         """A finger's swipe: press, move, and lift while still moving, as on iOS.
 
-        What it moves flings on: a pager turns, a list row swiped away goes.
+        What it moves flings on: a pager turns, a list row swiped away goes. `input swipe` moves through the points
+        between in a loop for `SWIPE_TIME`, so every swipe of a length has the same speed (a swipe made of shell
+        steps went as fast as the shell ran them, and a pager turned on some runs only).
         """
-        self._motion(x1, y1, x2, y2, hold=False)
+        self.sh(f"input swipe {x1} {y1} {x2} {y2} {SWIPE_TIME}")
 
     @override
     def _scroll_drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
-        """Press, move, hold still, lift: the content stops where the finger stops."""
-        self._motion(x1, y1, x2, y2, hold=True)
-
-    def _motion(self, x1: int, y1: int, x2: int, y2: int, *, hold: bool) -> None:
-        """Press, move in steps, and lift, after holding still (`DRAG_HOLD`) or while moving: one shell call.
-
-        A plain `input swipe` lifts while moving too, but in one step: an app sees no movement before the lift.
-        """
+        """Press, move in steps, hold still, lift: the content stops where the finger stops, and nothing flings."""
         steps = [(x1 + (x2 - x1) * i // DRAG_STEPS, y1 + (y2 - y1) * i // DRAG_STEPS) for i in range(1, DRAG_STEPS + 1)]
         moves = [f"input motionevent MOVE {x} {y}" for x, y in steps]
-        rest = [f"sleep {DRAG_HOLD}"] if hold else []
-        self.sh("; ".join([f"input motionevent DOWN {x1} {y1}", *moves, *rest, f"input motionevent UP {x2} {y2}"]))
+        self.sh(
+            "; ".join(
+                [f"input motionevent DOWN {x1} {y1}", *moves, f"sleep {DRAG_HOLD}", f"input motionevent UP {x2} {y2}"]
+            )
+        )
 
     def type_text(self, text: str, at: Point | None = None) -> None:
         """Type into the focused field, or first focus the field at `at`.
