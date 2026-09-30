@@ -26,6 +26,16 @@ def one_line(text: str) -> str:
     return " ".join(text.split())
 
 
+def lines(text: str) -> tuple[str, ...]:
+    """Each line of `text` that says something, as `one_line` reads it; none when it has only one.
+
+    An app that joins several texts into one element separates them with line breaks: Flutter reports a tab as
+    ``Form`` and ``Tab 2 of 3``, one line each.
+    """
+    found = tuple(one_line(line) for line in text.splitlines() if line.strip())
+    return found if len(found) > 1 else ()
+
+
 def plural(n: int, noun: str, many: str | None = None) -> str:
     """``1 file``, ``2 files``; `many` for a noun that doesn't just add an s (``entry``, ``entries``)."""
     return f"{n} {noun if n == 1 else many or noun + 's'}"

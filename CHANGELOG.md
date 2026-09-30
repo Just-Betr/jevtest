@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Tested on five apps built fresh for it, each written as a user would from these docs: SwiftUI and UIKit apps on the
-  simulator, Jetpack Compose and Material Views shops on the emulator, and a React Native shop on the emulator, the
+- Tested on six apps built fresh for it, each written as a user would from these docs: SwiftUI and UIKit apps on the
+  simulator, a second Flutter app on the emulator and the simulator, Jetpack Compose and Material Views shops on the emulator, and a React Native shop on the emulator, the
   Pixel and the simulator. What didn't
   work now does, and the toolkit guide says what each toolkit reports differently:
 - Jetpack Compose text fields can be named by their label (`into: Email address`): Compose puts the label inside the
@@ -36,6 +36,12 @@
     only a wheel's selected row, so no step could pick another.
   - Scrolling the page started on the navigation bar when it was tall (a search field in it), where a drag moves
     nothing: pull to refresh never refreshed. Page scrolls keep between the app's navigation and tab bars.
+- A second Flutter app (a drawer, bottom navigation, a form with validation, a dropdown, radio buttons, a slider, a
+  date picker, a page view, pull to refresh, swipe to dismiss) on the emulator and the simulator:
+  - `tap: Form` couldn't name a Flutter tab, reported as `Form` and `Tab 2 of 3` on two lines. Each line of an
+    element's text matches on its own, as a label and value already did.
+  - A slider that doesn't say where its thumb is (Flutter's on Android) is pressed in its middle and dragged to the
+    end; a swipe on it flicked across it instead.
 - `along:` for `scroll` and `scroll_to`: `scroll_to` dragged across the page, so a chip in a carousel was never found
   (`Scrolled right to the end`). `along: Tag 1` scrolls what that text is in.
 - `hide_keyboard` in an iOS field of several lines (SwiftUI `TextField(axis: .vertical)`) typed a new line into it

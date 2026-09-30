@@ -12,7 +12,7 @@ import re
 from typing import NotRequired, TypedDict
 
 from jevtest.domain.screen import Element, Screen
-from jevtest.domain.words import one_line
+from jevtest.domain.words import lines, one_line
 
 CONTAINERS = frozenset({"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"})
 """Container types that only matter when they carry a label or identifier."""
@@ -166,11 +166,13 @@ def _bounds(raw: AgentElement, width: int, height: int) -> tuple[int, int, int, 
 def _text(kind: str, label: str, value: str) -> tuple[str, tuple[str, ...]]:
     """The label, plus any value that says something the label doesn't (a web <select>'s choice, a field's text).
 
-    Returns the text as shown (``Email: a@b.c``) and, when it joins a label and a value, each on its own.
+    Returns the text as shown (``Email: a@b.c``) and its parts: the label and the value when it joins them, and
+    each line of either when it has several (`lines`).
     """
     shown = value.strip() and kind not in HIDDEN_VALUE and value.strip() != label.strip()
     if not shown:
-        return one_line(label), ()
+        return one_line(label), lines(label)
     if not label:
-        return one_line(value), ()
-    return one_line(f"{label}: {value}"), (one_line(label), one_line(value))
+        return one_line(value), lines(value)
+    both = (one_line(label), one_line(value), *lines(label), *lines(value))
+    return one_line(f"{label}: {value}"), tuple(dict.fromkeys(both))

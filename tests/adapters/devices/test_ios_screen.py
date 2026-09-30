@@ -100,6 +100,22 @@ def test_a_picker_wheel_takes_a_value():
     assert (e.kind, e.text, e.editable, e.value) == ("picker", "Red", True, "Red")
 
 
+def test_each_line_of_a_label_or_value_can_be_named_on_its_own():
+    tab: AgentElement = {"type": "button", "label": "Form\nTab 2 of 3", "x": 0, "y": 0, "w": 100, "h": 50}
+    card: AgentElement = {
+        "type": "other",
+        "label": "Order",
+        "value": "Paid\nShipped",
+        "x": 0,
+        "y": 60,
+        "w": 100,
+        "h": 50,
+    }
+    a, b = parse_tree({"width": 402, "height": 874, "elements": [tab, card]}).elements
+    assert (a.text, a.parts) == ("Form Tab 2 of 3", ("Form", "Tab 2 of 3"))
+    assert (b.text, b.parts) == ("Order: Paid Shipped", ("Order", "Paid Shipped", "Paid", "Shipped"))
+
+
 def test_parse_rules():
     data: AgentTree = {
         "width": 100,

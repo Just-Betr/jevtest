@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable, Mapping
 
 from jevtest.domain.screen import Bounds, Element, Screen
-from jevtest.domain.words import one_line
+from jevtest.domain.words import lines, one_line
 
 KINDS: Mapping[str, str] = {
     "EditText": "text_field",
@@ -205,9 +205,13 @@ def _label(a: Attributes) -> str:
 
 
 def _parts(a: Attributes) -> tuple[str, ...]:
-    """The text and the description on their own, when the element shows both (``Go (Go now)``)."""
+    """The texts an element is made of, each on its own.
+
+    Its text and description when it shows both (``Go (Go now)``), and each line of either when it has several.
+    """
     text, desc = a.get("text", ""), a.get("content-desc", "")
-    return (one_line(text), one_line(desc)) if text and desc and text != desc else ()
+    both = (one_line(text), one_line(desc)) if text and desc and text != desc else ()
+    return tuple(dict.fromkeys((*both, *lines(text), *lines(desc))))
 
 
 def _resource_id(a: Attributes) -> str:

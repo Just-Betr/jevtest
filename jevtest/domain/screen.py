@@ -37,8 +37,8 @@ class Element:
         kind: What it is: button, text_field, password_field, text, switch, checkbox, image, cell, ...
         text: What it shows, as one line: its label, content description or value, or several of them together.
         parts: The separate texts `text` is made of, when it's made of more than one: an iOS label and value
-            (``Email: a@b.c``), an Android text and content description (``Go (Go now)``). Each can be matched
-            on its own.
+            (``Email: a@b.c``), an Android text and content description (``Go (Go now)``), the lines of a text
+            with several (Flutter's tab ``Form`` / ``Tab 2 of 3``). Each can be matched on its own.
         hint: Placeholder or hint text.
         resource_id: The Android resource id or iOS accessibility identifier.
         bounds: Where it is on the screen.

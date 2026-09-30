@@ -477,6 +477,15 @@ def test_location_on_emulator_only(drv, adb):
 # --- shared helpers from the base class --------------------------------------------------------------
 
 
+def test_a_slider_that_doesnt_say_where_its_thumb_is_is_dragged_from_its_middle(drv, adb):
+    """Flutter's Android slider reports no range: every such slider measured jumps to where it's touched."""
+    drv.swipe(Direction.RIGHT, element=Element("slider", "50%, Rating", bounds=(42, 1150, 1038, 1276)))
+    [drag] = [c for c in adb.shell() if c.startswith("input motionevent")]
+    assert drag.startswith("input motionevent DOWN 540 1213;") and drag.endswith(
+        "sleep 0.1; input motionevent UP 1079 1213"
+    )
+
+
 def test_android_has_no_picker_wheels(drv):
     with pytest.raises(DeviceError, match=r"^Android has no picker wheels to turn to 'Blue': tap picker 'Size'"):
         drv.choose(Element("picker", "Size"), "Blue")

@@ -1,6 +1,6 @@
 import pytest
 
-from jevtest.domain.words import number_text, ordinal, plural
+from jevtest.domain.words import lines, number_text, ordinal, plural
 
 
 @pytest.mark.parametrize(
@@ -25,3 +25,11 @@ def test_ordinal(n, said):
 )  # fmt: skip
 def test_a_number_is_shown_as_written_never_rounded(value, said):
     assert number_text(value) == said
+
+
+def test_each_line_of_a_text_with_several_is_a_part_of_it():
+    """Flutter reports a tab as one element: its label, then its place, one line each."""
+    assert lines("Form\nTab 2 of 3") == ("Form", "Tab 2 of 3")
+    assert lines("  two   spaces \n\n  and more ") == ("two spaces", "and more")
+    assert lines("One line") == ()
+    assert lines("One line\n  \n") == ()

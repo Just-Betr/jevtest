@@ -72,6 +72,18 @@ def test_parse_rules():
     assert els[1].parts == ("Go", "Go now") and els[2].parts == ()
 
 
+def test_each_line_of_a_label_can_be_named_on_its_own():
+    """Flutter describes a tab as its label and its place on two lines: `tap: Form` names it."""
+    xml = """<hierarchy rotation="0">
+      <node class="android.view.View" clickable="true" content-desc="Form&#10;Tab 2 of 3" bounds="[0,0][100,100]"/>
+      <node class="android.widget.Button" text="Go" content-desc="Go now&#10;quickly" bounds="[0,0][100,100]"/>
+    </hierarchy>"""
+    tab, go = parse_hierarchy(ET.fromstring(xml), 1080, 2424)
+    assert (tab.text, tab.parts) == ("Form Tab 2 of 3", ("Form", "Tab 2 of 3"))
+    assert go.parts == ("Go", "Go now quickly", "Go now", "quickly")
+    assert tab.says("Form") and tab.says("Tab 2 of 3") and not tab.says("Tab")
+
+
 def test_a_compose_text_field_is_named_by_the_label_inside_it():
     """Compose reports a TextField as an EditText with no hint holding its label as a TextView, empty or filled
     (measured with Material 3 on Android 17): the label is the field's hint, and not a text of its own."""

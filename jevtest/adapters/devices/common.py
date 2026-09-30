@@ -346,7 +346,8 @@ class BaseDevice(ABC):
         A slider's thumb goes to that end.
         """
         s = screen or self.screen()
-        if element is not None and element.position is not None and direction in {Direction.LEFT, Direction.RIGHT}:
+        slider = element is not None and (element.position is not None or element.kind == "slider")
+        if element is not None and slider and direction in {Direction.LEFT, Direction.RIGHT}:
             # A flick moves a slider an amount that varies from one run to the next (measured on iOS 26.5); a drag
             # slow enough for the thumb to keep up with the finger takes it to the end every time.
             self._scroll_drag(*self._thumb_to_end(direction, element, s.width))
@@ -365,11 +366,13 @@ class BaseDevice(ABC):
         the other. It is about as wide as the slider is tall (measured: 37 points wide on a 31-point SwiftUI
         slider), and the finger lands on it whenever it is more than half that wide. The thumb trails the
         finger by the distance a touch moves before it counts as a drag (measured: 9 points), so the finger goes
-        on past the slider's end, to the screen's edge.
+        on past the slider's end, to the screen's edge. A slider that doesn't say where its thumb is (Flutter's on
+        Android) is pressed in its middle: every such slider measured jumps to where it's touched.
         """
         x1, y1, x2, y2 = slider.bounds
         inset = min(y2 - y1, x2 - x1) / 2
-        thumb = round(x1 + inset + (slider.position or 0) * (x2 - x1 - 2 * inset))
+        position = 0.5 if slider.position is None else slider.position
+        thumb = round(x1 + inset + position * (x2 - x1 - 2 * inset))
         return thumb, (y1 + y2) // 2, width - 1 if direction == Direction.RIGHT else 0, (y1 + y2) // 2
 
     def scroll(self, direction: Direction, screen: Screen | None = None, lane: Bounds | None = None) -> None:

@@ -51,6 +51,7 @@ Text is matched **exactly**: the whole text, never part of a longer text. Case d
 | its text, as shown | an iOS field showing `Email: a@b.c` | `Email: a@b.c` |
 | each part its text is made of | the same field | `Email`, and `a@b.c` |
 | | an Android button with text `Go` and description `Go now`, shown `Go (Go now)` | `Go (Go now)`, `Go`, `Go now` |
+| | a Flutter tab labelled `Form` and `Tab 2 of 3` on two lines, shown `Form Tab 2 of 3` | `Form Tab 2 of 3`, `Form`, `Tab 2 of 3` |
 | its hint (placeholder) | a field with the hint `Search` | `Search` |
 | its id (resource id or accessibility identifier) | `login_button` | `login_button` |
 
