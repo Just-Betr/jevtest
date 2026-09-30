@@ -12,6 +12,19 @@ def test_elements_are_numbered_and_the_callers_are_left_alone():
     assert s.elements[0].id == "e1" and original.id == ""
 
 
+def test_a_swipe_on_what_is_in_a_list_row_swipes_the_row():
+    """A finger swipes a row, not the text in it, which can be far narrower (iOS reports rows as cells)."""
+    outer = el("cell", bounds=(0, 0, 1000, 1000))
+    row = el("cell", bounds=(0, 400, 1000, 500))
+    milk = el("text", "Milk", bounds=(20, 420, 120, 480))
+    slider = el("slider", position=0.5, bounds=(20, 420, 980, 480))
+    alone = el("text", "Alone", bounds=(20, 1100, 120, 1180))
+    s = Screen(1000, 2000, (outer, row, milk, slider, alone))
+    assert s.row_of(s.elements[2]) == s.elements[1]  # the smallest cell holding its middle
+    assert s.row_of(s.elements[3]) == s.elements[3]  # a slider is swiped itself: its thumb moves
+    assert s.row_of(s.elements[4]) == s.elements[4]  # in no row
+
+
 def test_lookups():
     s = login_screen()
     assert [e.id for e in s.elements] == ["e1", "e2", "e3"]

@@ -133,9 +133,16 @@ def _scroll_to(key: str, value: object, options: Options) -> Action:
 
 
 def _swipe(key: str, value: object, options: Options) -> Action:
-    target = options.get("target")
-    return Swipe(choice(value, Direction, f"'{key}'"), None if target is None else text(target, "target"))
+    target, distance = options.get("target"), options.get("distance")
+    return Swipe(
+        choice(value, Direction, f"'{key}'"),
+        None if target is None else text(target, "target"),
+        None if distance is None else number(distance, "distance", MIN_SWIPE, MAX_SWIPE, "percent"),
+    )
 
+
+MIN_SWIPE, MAX_SWIPE = 10, 90
+"""A swipe's `distance`, in percent: less barely moves; more starts or ends on the edge, where phones take gestures."""
 
 GRANT_PER_PLATFORM = "{android: android.permission.CAMERA, ios: camera}"
 """How `grant:` names its permissions per platform, for error messages."""
@@ -207,7 +214,7 @@ ACTIONS: Mapping[str, ActionSpec] = {
     "clear": _text_of(Clear),
     "type": ActionSpec(_type, frozenset({"into"})),
     "scroll": ActionSpec(lambda key, value, _: Scroll(choice(value, Direction, f"'{key}'"))),
-    "swipe": ActionSpec(_swipe, frozenset({"target"})),
+    "swipe": ActionSpec(_swipe, frozenset({"target", "distance"})),
     "scroll_to": ActionSpec(_scroll_to, frozenset({"direction"})),
     "key": ActionSpec(_key),
     "wait": ActionSpec(lambda key, value, _: Wait(_seconds(key, value))),

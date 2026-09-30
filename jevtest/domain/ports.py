@@ -84,8 +84,17 @@ class Device(Protocol):
         """Press and hold a point."""
         ...
 
-    def swipe(self, direction: Direction, element: Element | None = None, screen: Screen | None = None) -> None:
-        """Swipe on an element, or across the part of the screen the keyboard doesn't cover."""
+    def swipe(
+        self,
+        direction: Direction,
+        element: Element | None = None,
+        screen: Screen | None = None,
+        distance: float | None = None,
+    ) -> None:
+        """Swipe on an element, or across the part of the screen the keyboard doesn't cover.
+
+        `distance` is how far the finger moves, in percent of that; None: `SWIPE_DISTANCE`'s.
+        """
         ...
 
     def scroll(self, direction: Direction, screen: Screen | None = None) -> None:

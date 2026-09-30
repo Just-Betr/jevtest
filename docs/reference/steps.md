@@ -36,7 +36,7 @@ Each takes one value or a list. A check waits until it holds: it reads the scree
 | `tap: target` | Taps the element. |
 | `double_tap: target` | Double-taps it. |
 | `long_press: target` | Presses and holds it. |
-| `swipe: up\|down\|left\|right` | Swipes across the screen, or on an element with `target:`. On a slider, `left` or `right` drags its thumb all the way to that end. |
+| `swipe: up\|down\|left\|right` | Swipes across the screen, or on an element with `target:`: on something in a list row, across the row, as a finger would. The finger moves 70% of the way across (60% up or down), or `distance:`. On a slider, `left` or `right` drags its thumb all the way to that end. |
 | `scroll: up\|down\|left\|right` | Scrolls the content: the finger moves across 60% of the screen (above the keyboard, if it's up), and the content moves as far, never flinging on. |
 | `scroll_to: text` | Scrolls in `direction:` (required) until an element says exactly the text, clear of the screen's top and bottom 8% (phones keep those edges for their own gestures, like the home swipe). Fails when the content stops moving (the end) or after `max_scrolls` (50 by default) without the text on screen. |
 
@@ -153,4 +153,5 @@ Each option belongs to certain actions; anywhere else it's an error.
 | `confidence: p` | steps with `expect` | How sure Jev must be for this step's `expect:` checks to pass (0.5 by default). |
 | `direction: up\|down\|left\|right` | `scroll_to` (required) | Which way to scroll. |
 | `target: text` | `swipe` | Swipe on this element instead of the whole screen. |
+| `distance: percent` | `swipe` | How far the finger moves, in percent of what it swipes (10 to 90). An iOS list row shows its swipe actions after up to half its width, and runs the first (Archive, Delete) after 60%: `distance: 40` to show them and tap one, the default 70 to run it. A row that's dismissed by a swipe (Flutter's `Dismissible`, Compose's `SwipeToDismissBox`) needs the default. |
 | `into: text` | `type` | The field to type into. Also written inside: `type: {text: …, into: …}`. |

@@ -546,12 +546,12 @@ class TestRunner:
                 # the device focuses the field; one that already takes the keys isn't tapped (see `takes_keys`)
                 d.type_text(self._value(text), at=None if screen.takes_keys(found.element) else found.element.center)
                 return f"into {found.describe()}"
-            case Swipe(direction, target):
+            case Swipe(direction, target, distance):
                 if target is None:
-                    d.swipe(direction)
+                    d.swipe(direction, distance=distance)
                     return None
-                found, _ = self._find(target, settings)
-                d.swipe(direction, element=found.element)
+                found, screen = self._find(target, settings)
+                d.swipe(direction, element=screen.row_of(found.element), distance=distance)
             case _:  # pragma: no cover - every element action is handled above
                 assert_never(action)
         return f"on {found.describe()}"
@@ -770,12 +770,13 @@ class TestRunner:
         d = self.device
         ready = isinstance(move, TypeInto) and screen.takes_keys(move.element)
         if isinstance(move, ElementMove) and not ready and screen.under_keyboard(move.element):
-            move = replace(move, element=self._uncovered(move.element, settings))
+            element, screen = self._uncovered(move.element, settings)
+            move = replace(move, element=element)
         match move:
             case TouchElement(gesture, element):
                 self._touch(gesture, element)
             case SwipeElement(direction, element):
-                d.swipe(direction, element=element)
+                d.swipe(direction, element=screen.row_of(element))
             case TypeInto(element, text):
                 d.type_text(self._value(text), at=None if ready else element.center)
             case ClearField(element):
@@ -802,14 +803,14 @@ class TestRunner:
             case _:  # pragma: no cover - every page move is handled above
                 assert_never(move)
 
-    def _uncovered(self, element: Element, settings: Settings) -> Element:
+    def _uncovered(self, element: Element, settings: Settings) -> tuple[Element, Screen]:
         """Close the keyboard over `element`, then `wait_until` it's on screen once, with the keyboard gone."""
         self.device.hide_keyboard()
         same = (element.kind, element.text, element.hint, element.resource_id)
 
-        def found(screen: Screen) -> Element | None:
+        def found(screen: Screen) -> tuple[Element, Screen] | None:
             matches = [el for el in screen.elements if (el.kind, el.text, el.hint, el.resource_id) == same]
-            return matches[0] if not screen.keyboard_visible and len(matches) == 1 else None
+            return (matches[0], screen) if not screen.keyboard_visible and len(matches) == 1 else None
 
         def why(screen: Screen) -> str:
             if screen.keyboard_visible:

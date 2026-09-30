@@ -163,6 +163,7 @@ def test_screenshot_failure_is_reported_not_raised(tmp_path, clock, out):
         ({"network": False}, ("network", False)),
         ({"autofill": False}, ("autofill_off",)),
         ({"swipe": "up"}, ("drag", 500, 1600, 500, 400)),
+        ({"swipe": "up", "distance": 20}, ("drag", 500, 1200, 500, 800)),
         ({"scroll": "down"}, ("drag", 500, 1600, 500, 400)),
     ],
 )
@@ -305,6 +306,16 @@ def test_swipe_on_element(tmp_path, clock, out):
     res, d, _ = run1(tmp_path, clock, out, {"swipe": "left", "target": "Sign in"})
     assert ("drag", 850, 450, 150, 450) in d.calls
     assert res.steps[0].detail == "on button 'Sign in'"
+
+
+def test_a_swipe_on_text_in_a_row_swipes_the_row_as_far_as_the_step_says(tmp_path, clock, out):
+    """Across 40% of the row an iOS row shows its actions; across the default 70% it runs the first one."""
+    rows = Screen(1000, 2000, (el("cell", bounds=(0, 400, 1000, 500)), el("text", "Milk", bounds=(20, 420, 120, 480))))
+    _, d, _ = run1(tmp_path, clock, out, {"swipe": "left", "target": "Milk", "distance": 40}, device=FakeDevice(rows))
+    assert ("drag", 700, 450, 300, 450) in d.calls
+    res, d, _ = run1(tmp_path, clock, out, {"swipe": "left", "target": "Milk"}, device=FakeDevice(rows))
+    assert ("drag", 850, 450, 150, 450) in d.calls
+    assert res.steps[0].detail == "on text 'Milk'"  # what the step named
 
 
 def test_clear_finds_a_text_field(tmp_path, clock, out):

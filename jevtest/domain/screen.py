@@ -143,6 +143,21 @@ class Screen:
         """Whether the keyboard is over the point where a tap on the element lands: touching it would hit a key."""
         return el.center[1] >= self.content_height
 
+    def row_of(self, el: Element) -> Element:
+        """What a swipe on `el` swipes: the list row it's in (the smallest cell holding its middle), else `el`.
+
+        A finger swipes a row, not the text in it, which can be far narrower. A slider is swiped itself.
+        """
+        if el.position is not None:
+            return el
+        x, y = el.center
+        rows = [
+            c
+            for c in self.elements
+            if c.kind == "cell" and c.bounds[0] <= x < c.bounds[2] and c.bounds[1] <= y < c.bounds[3]
+        ]
+        return min(rows, key=lambda c: (c.bounds[2] - c.bounds[0]) * (c.bounds[3] - c.bounds[1]), default=el)
+
     def under_system_bar(self, el: Element) -> bool:
         """Whether a system bar is over the point where a tap on the element lands: the phone would take the touch."""
         x, y = el.center

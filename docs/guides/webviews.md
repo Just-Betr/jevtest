@@ -60,6 +60,15 @@ So no exact name works on every device, and a WebView update can change it. On i
 
 The demo app is Flutter, with one screen built in native Android Views and UIKit (a text field, a switch, a native confirmation dialog and a real camera permission prompt). The same steps drive both.
 
+## What each toolkit reports
+
+Each toolkit tells the accessibility layer about its elements its own way, and a test names them as they're reported. Checked with a SwiftUI, a Jetpack Compose and a React Native app, each on the emulator or simulator and the Pixel:
+
+- **React Native on iOS** reads a pressable's texts as one element, as VoiceOver does: a row showing *Gadget 1* and *$2* is `Gadget 1, $2` there, and two texts on Android. A step that names one says `close but not exact: 'Gadget 1, $2'`: write the whole text in the iOS file.
+- **A control with no label** (a Compose `Switch` or `Slider` beside a `Text`, with nothing joining them) can't be named: the text beside it is only a text, and `tap:` on it taps the text. Describe the control instead (`do: Turn on the switch next to Dark theme`), or give it a label, which screen readers need too (`Modifier.toggleable` on the row, `contentDescription`, `accessibilityLabel`).
+- **A menu picker** (SwiftUI `Picker` with `.menu`) opens from its value, as with a finger: `tap: Vanilla`, not its label.
+- **Swipe actions** on an iOS list row show after a short swipe and run after a long one: `distance: 40` to show them, the default to run the first. See [`distance`](../reference/steps.md#options).
+
 ## System prompts
 
 Permission dialogs belong to the operating system, not the app. jevtest includes them in the screen (on iOS they come from SpringBoard, and the agent merges them in), so a test can check for one and answer it:
@@ -72,6 +81,8 @@ Permission dialogs belong to the operating system, not the app. jevtest includes
 ```
 
 A permission prompt the app asked for doesn't count as the app leaving the foreground.
+
+**Saving a password.** After a sign-in, the phone may offer to save the password over the app. On Android (a phone with a Google account) start the test with `autofill: off`. On iOS 26 the simulator asks every time a fresh install signs in, and hides the app from the screen until it's answered, so answer it: `tap: Not Now` (measured: asked in each of 15 fresh tests). jevtest can't turn iOS's AutoFill off.
 
 ## What jevtest can't see
 

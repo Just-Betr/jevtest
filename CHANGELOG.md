@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- Tested on three apps built fresh for it, a SwiftUI shop on the simulator, and Jetpack Compose and React Native shops
-  on the emulator and the Pixel, each written as a user would from these docs. What didn't work now does:
+- Tested on three apps built fresh for it, each written as a user would from these docs: a SwiftUI shop on the
+  simulator, a Jetpack Compose shop on the emulator and the Pixel, and a React Native shop on all three. What didn't
+  work now does, and the toolkit guide says what each toolkit reports differently:
 - Jetpack Compose text fields can be named by their label (`into: Email address`): Compose puts the label inside the
   field, not as its hint, so `type:` said the label "doesn't take text".
 - A Compose `Slider` was missing from the screen: it has no text, so jevtest dropped it, and Jev couldn't move it.
@@ -18,6 +19,9 @@
   of an element outside the system bars; one wholly under a bar fails the step saying so.
 - `autofill: off`, Android only: on a phone with a Google account, "Save password to Google?" covered the app after
   a sign-in, into the next test. It turns off the autofill service, and the device's own is put back after the run.
+- A swipe on a list row's text swiped only the text, so on iOS its length depended on how long the text was: a short
+  one showed the row's actions, a long one ran the first. It swipes the row. `distance:` sets how far: `distance: 40`
+  shows an iOS row's actions to tap one, the default 70 runs the first (measured: up to half the row shows them).
 - `hide_keyboard` in an iOS field of several lines (SwiftUI `TextField(axis: .vertical)`) typed a new line into it
   before failing. It takes that line back out, and says why the keyboard stayed.
 

@@ -16,6 +16,7 @@ from jevtest.adapters.shapes import is_json_object
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Direction
 from jevtest.domain.screen import Element, Screen
+from jevtest.domain.steps import SWIPE_DISTANCE
 
 from .cache import in_use_dir, unwritable
 
@@ -333,14 +334,20 @@ class BaseDevice(ABC):
         """
         wait_until(lambda: done(self.screen()), what)
 
-    def swipe(self, direction: Direction, element: Element | None = None, screen: Screen | None = None) -> None:
+    def swipe(
+        self,
+        direction: Direction,
+        element: Element | None = None,
+        screen: Screen | None = None,
+        distance: float | None = None,
+    ) -> None:
         """Finger swipe in `direction`, across an element or across the page; a slider's thumb, to that end."""
         if element is not None and element.position is not None and direction in {Direction.LEFT, Direction.RIGHT}:
             # A flick moves a slider an amount that varies from one run to the next (measured on iOS 26.5); a drag
             # slow enough for the thumb to keep up with the finger takes it to the end every time.
             self._scroll_drag(*self._thumb_to_end(direction, element, (screen or self.screen()).width))
         else:
-            self.drag(*self._across(direction, element, screen))
+            self.drag(*self._across(direction, element, screen, distance))
 
     @staticmethod
     def _thumb_to_end(direction: Direction, slider: Element, width: int) -> tuple[int, int, int, int]:
@@ -359,12 +366,12 @@ class BaseDevice(ABC):
         return thumb, (y1 + y2) // 2, width - 1 if direction == Direction.RIGHT else 0, (y1 + y2) // 2
 
     def _across(
-        self, direction: Direction, element: Element | None, screen: Screen | None
+        self, direction: Direction, element: Element | None, screen: Screen | None, distance: float | None = None
     ) -> tuple[int, int, int, int]:
-        """Where a swipe in `direction` starts and ends: across the element, or across the page.
+        """Where a swipe in `direction` starts and ends: `distance` percent across the element, or the page.
 
-        The page is the part of the screen the keyboard doesn't cover: a drag that starts on the keyboard moves
-        nothing.
+        None is `SWIPE_DISTANCE`'s. The page is the part of the screen the keyboard doesn't cover: a drag that
+        starts on the keyboard moves nothing.
         """
         if element is not None:
             x1, y1, x2, y2 = element.bounds
@@ -372,7 +379,8 @@ class BaseDevice(ABC):
             s = screen or self.screen()
             x1, y1, x2, y2 = 0, 0, s.width, s.content_height
         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-        dx, dy = int((x2 - x1) * 0.35), int((y2 - y1) * 0.3)
+        across, down = (distance, distance) if distance is not None else SWIPE_DISTANCE
+        dx, dy = int((x2 - x1) * across / 200), int((y2 - y1) * down / 200)
         moves = {
             Direction.UP: (cx, cy + dy, cx, cy - dy),
             Direction.DOWN: (cx, cy - dy, cx, cy + dy),

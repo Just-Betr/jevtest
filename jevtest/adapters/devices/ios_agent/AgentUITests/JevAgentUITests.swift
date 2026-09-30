@@ -294,15 +294,14 @@ final class JevAgentUITests: XCTestCase {
             return ["elements": [], "width": 0, "height": 0, "keyboard": false]
         }
         var out: [[String: Any]] = []
-        var sliders: [CGRect: CGFloat]?  // each slider's thumb position, 0 to 1, by frame: only elements have it
+        // Each slider's frame and thumb position, 0 to 1: only an element has the position, not its snapshot.
+        // (A list: CGRect is Hashable only from iOS 18.)
+        var sliders: [(frame: CGRect, position: CGFloat)]?
         func position(_ s: XCUIElementSnapshot) -> CGFloat? {
             if sliders == nil {
-                sliders = [:]
-                for slider in app.sliders.allElementsBoundByIndex {
-                    sliders?[slider.frame] = slider.normalizedSliderPosition
-                }
+                sliders = app.sliders.allElementsBoundByIndex.map { ($0.frame, $0.normalizedSliderPosition) }
             }
-            return sliders?[s.frame]
+            return sliders?.first { $0.frame == s.frame }?.position
         }
         func hasKeyboard(_ s: XCUIElementSnapshot) -> Bool {
             s.elementType == .keyboard || s.children.contains(where: hasKeyboard)

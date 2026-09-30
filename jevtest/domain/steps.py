@@ -71,12 +71,21 @@ class Scroll(_Action):
     direction: Direction
 
 
+SWIPE_DISTANCE = (70.0, 60.0)
+"""How far a swipe's finger moves unless a step says, in percent of what it swipes: left or right, and up or down."""
+
+
 @dataclass(frozen=True)
 class Swipe(_Action):
-    """Swipe across the screen, or on the element a target names."""
+    """Swipe across the screen, or on the element a target names.
+
+    Attributes:
+        distance: How far the finger moves, in percent of what it swipes across; None: `SWIPE_DISTANCE`'s.
+    """
 
     direction: Direction
     target: str | None = None
+    distance: float | None = None
 
 
 @dataclass(frozen=True)
