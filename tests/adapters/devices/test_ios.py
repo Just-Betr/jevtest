@@ -1,6 +1,8 @@
 import json
+import os
 import re
 import shutil
+import signal
 import time
 from pathlib import Path
 
@@ -46,6 +48,26 @@ def test_starts_agent_on_simulator(env):
     assert run_env["TEST_RUNNER_JEVTEST_TOKEN"] == d.token and len(d.token) >= 40  # random, per run
     assert run_env["TEST_RUNNER_JEVTEST_LOCAL_ONLY"] == "1"  # a simulator's agent listens on 127.0.0.1 only
     assert d.agent_log.name == "ios-agent-A.log"  # one per device, replaced each run: the cache never grows
+
+
+def test_an_agent_a_killed_run_left_is_stopped_before_starting_one(env, monkeypatch):
+    """Measured: `kill -9` on a run left its xcodebuild running the agent, its parent then launchd (pid 1)."""
+    left = "xcodebuild test-without-building -xctestrun /c/jevtest/ios-agent-1/Build/Products/a.xctestrun"
+    env.sim.rules["ps -axo"] = (
+        f"41 1 {left} -destination id=A\n42 1 {left} -destination id=B\n43 1 {left} -destination id=A"
+    )
+    signalled: list[tuple[int, int]] = []
+
+    def kill(pid: int, sig: int) -> None:
+        signalled.append((pid, sig))
+        if pid == 43:
+            raise ProcessLookupError  # it ended by itself in the meantime
+
+    monkeypatch.setattr(os, "kill", kill)
+    messages: list[str] = []
+    IOSDevice("A", Path("Demo.app"), messages.append)
+    assert signalled == [(41, signal.SIGTERM), (43, signal.SIGTERM)]  # this device's only
+    assert messages[:2] == [f"stopping the iOS agent a stopped run left running (pid {p})" for p in (41, 43)]
 
 
 def test_each_device_gets_its_own_token(env):

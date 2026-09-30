@@ -29,6 +29,7 @@ from .common import (
     AgentRefused,
     BaseDevice,
     Progress,
+    TimedOut,
     ToolFailed,
     Undo,
     no_app_opens,
@@ -70,7 +71,8 @@ ROTATIONS = {
 }
 DOUBLE_TAP_GAP = 0.1  # Android and Flutter ignore taps < 40 ms apart and > 300 ms apart
 DRAG_STEPS = 10  # finger positions along a drag
-DRAG_HOLD = 0.1  # seconds the finger rests before lifting, so nothing flings
+DRAG_STEP_MS = 20  # milliseconds between two of them
+DRAG_HOLD_MS = 100  # milliseconds the finger rests before lifting, so nothing flings
 SWIPE_TIME = 150  # milliseconds a swipe takes, start to lift: quick enough to fling what it moves
 AGENT_START_TIMEOUT = 30
 AGENT_ID = "dev.jevtest.agent"
@@ -103,6 +105,16 @@ def find_android(device: str) -> str:
     if not found:
         raise DeviceError("No Android device connected. Start an emulator or connect a phone (see `adb devices`).")
     return pick_device(device, found)
+
+
+def _where_focus_is(xml: str, before: Focus | None) -> str:
+    """Where the focus is, when the tapped field never got it: for the error, so it says what happened."""
+    now = focused_field(xml) if xml else None
+    if now is None:
+        return ": no text field has the focus, so the tap reached none"
+    if before is not None and now.path == before.path:
+        return ": the focus stayed on the field that had it before the tap, so the tap didn't reach the field"
+    return ": a text field has the focus, but the keyboard isn't up"
 
 
 class AndroidDevice(BaseDevice):
@@ -378,7 +390,10 @@ class AndroidDevice(BaseDevice):
             tree = self._agent("/tree")
             return typing_ready(tree, before, at)
 
-        wait_until(ready, "The text field did not get keyboard focus")
+        try:
+            wait_until(ready, "The text field did not get keyboard focus")
+        except TimedOut as e:
+            raise TimedOut(f"{e}{_where_focus_is(tree, before)}") from None
         return focused_field(tree)
 
     def tree(self) -> str:
@@ -433,14 +448,16 @@ class AndroidDevice(BaseDevice):
 
     @override
     def _scroll_drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
-        """Press, move in steps, hold still, lift: the content stops where the finger stops, and nothing flings."""
-        steps = [(x1 + (x2 - x1) * i // DRAG_STEPS, y1 + (y2 - y1) * i // DRAG_STEPS) for i in range(1, DRAG_STEPS + 1)]
-        moves = [f"input motionevent MOVE {x} {y}" for x, y in steps]
-        self.sh(
-            "; ".join(
-                [f"input motionevent DOWN {x1} {y1}", *moves, f"sleep {DRAG_HOLD}", f"input motionevent UP {x2} {y2}"]
-            )
-        )
+        """Press, move in steps, hold still, lift: the content stops where the finger stops, and nothing flings.
+
+        The agent sends the whole drag, each move `DRAG_STEP_MS` after the one before: sent with `input motionevent`,
+        one process each, the moves came tens of milliseconds apart, never the same, and a web page scrolled a
+        different distance each time for the same drag (measured on Android 17: 320 to 370 px; from the agent, 370
+        in 8 of 8).
+        """
+        path = f"/drag?x1={x1}&y1={y1}&x2={x2}&y2={y2}&steps={DRAG_STEPS}&step_ms={DRAG_STEP_MS}&hold_ms={DRAG_HOLD_MS}"
+        if self._agent(path) != "dragged":
+            raise DeviceError(f"The device refused a drag from ({x1}, {y1}) to ({x2}, {y2})")
 
     def type_text(self, text: str, at: Point | None = None) -> None:
         """Type into the focused field, or first focus the field at `at`: exactly the text given.

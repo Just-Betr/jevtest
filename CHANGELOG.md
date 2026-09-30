@@ -5,6 +5,21 @@
 - A simulator turned by `rotate:` could be left turned after the run, sideways or upside down: before the first turn
   it reports its orientation as unknown (measured: raw 0 on iOS 26.5), and putting back unknown turned nothing
   back. jevtest puts back the orientation the screen showed then, upright on a simulator never turned.
+- A run killed outright (`kill -9`) left its iOS agent running on the simulator or iPhone, its xcodebuild with no
+  run to own it, one more for each such run (measured: still running after the next run passed). The next run on
+  that device stops it first and says so, as it does an Android agent a run left.
+- An Android scroll could move a web page a different distance each time, so an `expect:` after it met a screen
+  not recorded, 3 runs in 5 with `--lock frozen` (measured: the same drag moved it 320 to 370 px). Each move of the
+  drag was an `adb shell input` process of its own, tens of milliseconds apart, never the same; jevtest's agent
+  now sends the whole drag, each move 20 ms after the one before, and the same drag moves the page the same
+  distance (8 of 8), and that `expect:` passed 5 of 5. An `expect:` answer recorded after such a scroll was
+  recorded for wherever that one landed: `--lock frozen` may say its screen isn't recorded, and one run with
+  `--lock record` records it for good.
+- `The text field did not get keyboard focus` said only that. It says what jevtest saw: no field with the focus, the
+  focus still on the field before the tap, or a focused field with no keyboard up.
+- The docs say what 0.9.16 does where they didn't: `tap:` on a barrier behind a dialog, a replay scrolling back after
+  going past, when another app counts as on top, the off-screen hint, when the quoting hint shows, a failed saved
+  step on a device that shows the app differently, and what happens when nobody enters an iPhone's passcode.
 
 ## 0.9.16
 

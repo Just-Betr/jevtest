@@ -11,8 +11,10 @@ The agent is the same on both. What differs is how jevtest gets to it:
 
 from __future__ import annotations
 
+import contextlib
 import os
 import secrets
+import signal
 import subprocess
 import tempfile
 from base64 import b64decode
@@ -37,6 +39,7 @@ from .common import (
     ToolFailed,
     Undo,
     no_app_opens,
+    run,
     start_process,
     stop_process,
     wait_until,
@@ -55,6 +58,7 @@ from .ios_tools import (
     free_port,
     http_post,
     info_plist,
+    orphaned_agents,
     provisioned_devices,
     remove_port_logs,
     simctl,
@@ -178,6 +182,7 @@ class IOSDevice(BaseDevice):
             xctestrun = self._build_agent(self._agent_build.path)
             builds.drop_older(keep=version)  # about 150 MB each
             remove_port_logs()
+            self._stop_orphaned_agents()
             try:
                 self.agent = start_process(
                     [
@@ -206,6 +211,16 @@ class IOSDevice(BaseDevice):
                 raise
         if self.physical:
             self.host = self._tunnel_host()
+
+    def _stop_orphaned_agents(self) -> None:
+        """Stop the agents a killed run left running on this device, as the Android agent's left one is stopped.
+
+        Asked to end (SIGTERM), xcodebuild stops the agent and exits (measured: in about a second).
+        """
+        for pid in orphaned_agents(run(["ps", "-axo", "pid=,ppid=,command="]), self.udid):
+            self._progress(f"stopping the iOS agent a stopped run left running (pid {pid})")
+            with contextlib.suppress(ProcessLookupError):  # it may have ended since
+                os.kill(pid, signal.SIGTERM)
 
     def _tunnel_host(self) -> str:
         """The phone's address on the USB tunnel Xcode keeps to it. Changes when the phone relocks."""

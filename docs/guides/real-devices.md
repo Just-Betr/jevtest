@@ -32,7 +32,7 @@ jevtest signs its own agent with **the same team that signed your app**, read fr
 
 **First run:** jevtest builds its agent, signs it with your team and registers the phone with that team (about a minute). Later runs reuse it. jevtest reaches the phone through the USB connection Xcode already keeps to it, so nothing else needs installing.
 
-**The phone may ask for its passcode.** When jevtest's agent starts, iOS can show an XCTest prompt asking for the passcode to allow UI automation. Enter it on the phone; the run waits for it. Apple doesn't let this be skipped, so be near the phone when a run starts.
+**The phone may ask for its passcode.** When jevtest's agent starts, iOS can show an XCTest prompt asking for the passcode to allow UI automation. Enter it on the phone; the run waits while the prompt is up. If nobody enters it, iOS cancels the prompt and the run fails saying the phone asked for its passcode and it wasn't given. Apple doesn't let this be skipped, so be near the phone when a run starts. A run killed outright can't stop its agent on the phone; the next run on that phone stops it first.
 
 **A touch on a permission prompt takes a minute?** Restart the iPhone. The agent log in `~/.cache/jevtest/` shows `App animations complete notification not received` when this happens.
 
@@ -44,7 +44,7 @@ jevtest never changes a device's settings to make testing easier: animations sta
 
 | Step | Put back at the end |
 |---|---|
-| `rotate:` | Android: auto-rotate and orientation. iOS: orientation. |
+| `rotate:` | Android: auto-rotate and orientation. iOS: orientation; a simulator never turned reports none, so it's put back the way its screen showed, upright. |
 | `dark_mode:` | Android and iOS: the appearance it had. |
 | `network:` | Android: Wi-Fi and mobile data as they were. |
 | `autofill:` | Android: the autofill service it had (Google's, say), or none. |

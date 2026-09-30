@@ -91,6 +91,7 @@ class AgentHttp:
             "/change": "changed",
             "/rotate": "rotated",
             "/touch_mode": "touch mode",
+            "/drag": "dragged",
             "/quit": "bye",
         }
         self.urls: list[str] = []

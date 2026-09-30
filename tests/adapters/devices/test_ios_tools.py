@@ -11,7 +11,7 @@ import pytest
 
 from jevtest.adapters.devices import ios_tools
 from jevtest.adapters.devices.common import ToolFailed
-from jevtest.adapters.devices.ios_tools import app_bundle, info_plist
+from jevtest.adapters.devices.ios_tools import app_bundle, info_plist, orphaned_agents
 from jevtest.domain.failures import DeviceError
 from tests.adapters.devices.conftest import PHONE, SIMS, make_app, swap
 
@@ -241,3 +241,22 @@ def test_ios_with_only_the_command_line_tools_says_to_install_and_select_xcode(m
     swap(monkeypatch, "run", lambda cmd, timeout, check=True: (_ for _ in ()).throw(ToolFailed(cmd, 1, "other")))
     with pytest.raises(ToolFailed):  # any other failure is passed on as it was
         ios_tools.simulators()
+
+
+def test_orphaned_agents_are_the_jevtest_agents_no_run_owns_on_that_device():
+    """Measured: `kill -9` on a run left its xcodebuild running, its parent then launchd (pid 1)."""
+    agent = (
+        "xcodebuild test-without-building -xctestrun /Users/me/.cache/jevtest/ios-agent-fb19/Build/Products/J.xctestrun"
+    )
+    ps = "\n".join(
+        [
+            f"60689     1 /Applications/Xcode.app/Contents/Developer/usr/bin/{agent} -destination id=SIM-A",
+            f"60700 60600 /Applications/Xcode.app/Contents/Developer/usr/bin/{agent} -destination id=SIM-A",  # a live run's
+            f"60701     1 /Applications/Xcode.app/Contents/Developer/usr/bin/{agent} -destination id=SIM-B",  # another device
+            "60702     1 xcodebuild test-without-building -xctestrun /tmp/theirs.xctestrun -destination id=SIM-A",
+            "  1     0 /sbin/launchd",
+            "",
+        ]
+    )
+    assert orphaned_agents(ps, "SIM-A") == [60689]
+    assert orphaned_agents("", "SIM-A") == []

@@ -26,18 +26,18 @@ Each takes one value or a list. A check waits until it holds: it reads the scree
 
 | Action | Does |
 |---|---|
-| `do: goal` | What a person would do, in plain English. The first run, Jev picks the steps (tap, double tap, long press, type, clear, swipe on an element, scroll, back, enter, hide the keyboard), each on a screen that stopped moving, until it judges the goal done; the steps are saved in the lockfile. Every later run repeats the saved steps, each waiting until its element is on screen. Values in `"quotes"` are what it may type. Fails if Jev says the goal is impossible from the screen, repeats an action that changes nothing on the screen, or needs more than `max_actions` (10 by default). |
+| `do: goal` | What a person would do, in plain English. The first run, Jev picks the steps (tap, double tap, long press, type, clear, swipe on an element, scroll, back, enter, hide the keyboard), each on a screen that stopped moving, until it judges the goal done; the steps are saved in the lockfile. Every later run repeats the saved steps, each waiting until its element is on screen (after a saved scroll, scrolling on until it is, since a scroll's length depends on the screen). Values in `"quotes"` are what it may type. Fails if Jev says the goal is impossible from the screen, repeats an action that changes nothing on the screen, or needs more than `max_actions` (10 by default). |
 | `use: test name` | Runs that test's steps here. |
 
 ### Touch
 
 | Action | Does |
 |---|---|
-| `tap: target` | Taps the element. |
+| `tap: target` | Taps the element, in its middle. An element that fills the screen, like the barrier behind a dialog (Flutter's `Dismiss`), is tapped as far as it can be from what's shown over it, which is what closes the dialog. |
 | `double_tap: target` | Double-taps it. |
 | `long_press: target` | Presses and holds it. |
 | `swipe: up\|down\|left\|right` | Swipes across the screen, or on an element with `target:`. On an element, it goes along the element's line across what it's in, as a finger would: its list row, pager or carousel (or just the element, in none), starting on the row, or on the element in a pager or carousel. It moves 70% of the way across (60% up or down), or `distance:`, and lifts while moving, a flick. It never starts where the phone takes a swipe inward as its own gesture (back from the outer 15% of the width, home from the bottom 8%, the notifications from the top 8%): it moves in instead. On a slider, `left` or `right` drags its thumb all the way to that end; so on anything iOS reports as adjustable (a Flutter slider, a page control), from its middle. |
-| `scroll: up\|down\|left\|right` | Scrolls the content: the finger moves across 60% of the biggest thing on screen that scrolls, clear of the keyboard, if it's up, and the app's navigation and tab bars, where a drag moves nothing (the screen less those, when nothing says it scrolls), and the content moves as far, never flinging on. With `along: text`, it scrolls what that text is in instead, such as a carousel, dragging along its line. |
+| `scroll: up\|down\|left\|right` | Scrolls the content: the finger moves across 60% of the biggest thing on screen that scrolls, clear of the keyboard, if it's up, and the app's navigation and tab bars, where a drag moves nothing (the screen less those, when nothing says it scrolls), and the content moves as far, never flinging on. On Android jevtest's agent sends the drag, each move the same time after the one before, so the same scroll moves the content the same distance every run. With `along: text`, it scrolls what that text is in instead, such as a carousel, dragging along its line. |
 | `scroll_to: text` | Scrolls in `direction:` (required) until an element says exactly the text, clear of the screen's top and bottom 8% (phones keep those edges for their own gestures, like the home swipe). Fails when the content stops moving (the end) or after `max_scrolls` (50 by default) without the text on screen. With `along: text` it scrolls what that text is in, such as a carousel: `scroll_to: Tag 18`, `direction: right`, `along: Tag 1`, until the element's middle is inside it too, where a tap reaches it, not just peeking in at its end. Without `along:`, the element's middle must be inside the page it scrolls (the biggest thing that scrolls), not behind a tab bar below it. |
 
 **Targets** are found by their exact text ([matching](#matching)): the step waits until an element says it, then acts. If several elements match, the one you can act on wins (a switch over its label); if that still leaves several, Jev chooses among those only, and the step says `(chosen by Jev among 2 exact matches)`. A target is never guessed: one no element says fails the step after 10 seconds (or the step's `timeout:`) with `Waited 10s until an element says '…' on screen`. To describe something instead (`the red delete icon`), use `do:`.
@@ -139,7 +139,7 @@ Each platform names a permission its own way, so a file that runs on both gives 
 | `wait: seconds` | Waits a fixed time, at most 300 seconds. Checks already wait for what they check, so this is rarely needed. |
 | `screenshot: name` | Waits until the screen stopped moving (so it isn't a frame of a launch or an animation), then saves a PNG into the results folder. To capture a particular screen, check for it first: `see:` on the step before. |
 
-After every action, the step fails if the app crashed or left the foreground (except after actions that are meant to leave it: `stop`, `clear_data`, `reinstall`, `home`, `open_url`).
+After every action, the step fails if the app crashed or left the foreground (except after actions that are meant to leave it: `stop`, `clear_data`, `reinstall`, `home`, `open_url`). Another app counts as on top only if it's still there a second later: a touch in Android's gesture strip puts the home screen on top for a moment while the phone decides whether it's a swipe home.
 
 ## Options
 

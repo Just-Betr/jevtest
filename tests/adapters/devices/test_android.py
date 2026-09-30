@@ -189,8 +189,7 @@ def test_page_scrolls_stay_above_the_keyboard(drv, adb, agent):
     s = drv.screen()
     assert s.keyboard_top == 1400
     drv.scroll("down", screen=s)
-    drag = adb.shell()[-1]
-    assert drag.startswith("input motionevent DOWN 540 1120;") and drag.endswith("UP 540 280")  # all above y=1400
+    assert agent.paths()[-1].startswith("/drag?x1=540&y1=1120&x2=540&y2=280&")  # all above y=1400
 
 
 def test_screen_in_landscape_swaps_size(drv, agent):
@@ -237,17 +236,16 @@ def test_screenshot(drv, adb, tmp_path):
 # --- touch & keys -------------------------------------------------------------------------------
 
 
-def test_touch_commands(drv, adb):
+def test_touch_commands(drv, adb, agent):
     drv.tap(1, 2)
     drv.double_tap(3, 4)
     drv.long_press(5, 6, seconds=1.5)
     drv.drag(1, 2, 3, 4)
     drv._scroll_drag(1, 2, 3, 4)
     assert adb.shell()[:3] == ["input tap 1 2", "input tap 3 4; sleep 0.1; input tap 3 4", "input swipe 5 6 5 6 1500"]
-    swipe, scroll = adb.shell()[3], adb.shell()[4].split("; ")
-    assert swipe == "input swipe 1 2 3 4 150"  # lifted while moving, at the same speed every time: a flick
-    assert scroll[0] == "input motionevent DOWN 1 2" and len(scroll) == 13
-    assert scroll[-2:] == ["sleep 0.1", "input motionevent UP 3 4"]  # held still before lifting: no fling
+    assert adb.shell()[3] == "input swipe 1 2 3 4 150"  # lifted while moving, at the same speed every time: a flick
+    # held still before lifting, so nothing flings; sent by the agent, each move the same time after the one before
+    assert agent.paths()[-1] == "/drag?x1=1&y1=2&x2=3&y2=4&steps=10&step_ms=20&hold_ms=100"
 
 
 FOCUSED = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"').replace(
@@ -303,11 +301,21 @@ def test_a_tap_on_the_field_that_has_focus_types_at_once(drv, agent, slept):
     assert slept == []
 
 
-def test_type_into_field_that_never_focuses(drv, adb, agent, monkeypatch):
+@pytest.mark.parametrize(
+    ("trees", "why"),
+    [
+        (LOGIN, "no text field has the focus, so the tap reached none"),
+        (FOCUSED, "the focus stayed on the field that had it before the tap, so the tap didn't reach the field"),
+        ([LOGIN] + [FOCUSED.replace(' ime="true"', "")] * 3, "a text field has the focus, but the keyboard isn't up"),
+    ],
+)
+def test_type_into_field_that_never_focuses_says_where_the_focus_is(drv, agent, monkeypatch, trees, why):
+    """Measured once on a Pixel: the tap on a password field left the focus on the email field."""
+    agent.replies["/tree"] = trees
     ticks = iter([0, 1, 4])
     monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
-    with pytest.raises(DeviceError, match="did not get keyboard focus"):
-        drv.type_text("hi", at=(540, 425))
+    with pytest.raises(DeviceError, match=f"^The text field did not get keyboard focus within 3 seconds: {why}$"):
+        drv.type_text("pw", at=(540, 600))
 
 
 def test_a_password_field_is_typed_key_by_key(drv, adb, agent):
@@ -556,13 +564,10 @@ def test_location_on_emulator_only(drv, adb):
 # --- shared helpers from the base class --------------------------------------------------------------
 
 
-def test_a_slider_that_doesnt_say_where_its_thumb_is_is_dragged_from_its_middle(drv, adb):
+def test_a_slider_that_doesnt_say_where_its_thumb_is_is_dragged_from_its_middle(drv, agent):
     """Flutter's Android slider reports no range: every such slider measured jumps to where it's touched."""
     drv.swipe(Direction.RIGHT, element=Element("slider", "50%, Rating", bounds=(42, 1150, 1038, 1276)))
-    [drag] = [c for c in adb.shell() if c.startswith("input motionevent")]
-    assert drag.startswith("input motionevent DOWN 540 1213;") and drag.endswith(
-        "sleep 0.1; input motionevent UP 1079 1213"
-    )
+    assert [p for p in agent.paths() if p.startswith("/drag")][-1].startswith("/drag?x1=540&y1=1213&x2=1079&y2=1213&")
 
 
 def test_android_has_no_picker_wheels(drv):
@@ -584,21 +589,21 @@ def test_a_swipe_inward_from_a_side_starts_clear_of_the_back_gesture(drv, adb):
     ]
 
 
-def test_swipe_and_scroll_geometry(drv, adb):
+def test_swipe_and_scroll_geometry(drv, adb, agent):
     drv.swipe(Direction.LEFT, element=Element("text", bounds=(0, 0, 100, 100)))
     drv.scroll(Direction.DOWN)
     [swipe] = [c for c in adb.shell() if c.startswith("input swipe")]
-    [scroll] = [c for c in adb.shell() if c.startswith("input motionevent")]
     assert swipe == "input swipe 85 50 15 50 150"  # outward from the edge: the app's
-    assert scroll.startswith("input motionevent DOWN 540 1939;") and scroll.endswith("UP 540 485")
+    assert agent.paths()[-1].startswith("/drag?x1=540&y1=1939&x2=540&y2=485&")
 
 
-def test_a_swipe_on_a_slider_drags_its_thumb_slowly_on_to_the_screen_edge(drv, adb):
+def test_a_swipe_on_a_slider_drags_its_thumb_slowly_on_to_the_screen_edge(drv, agent):
     """As on iOS: from the thumb's middle (0.5 of a Compose slider 116 pixels tall), on past the slider's end."""
     drv.swipe(Direction.RIGHT, element=Element("slider", bounds=(42, 903, 1038, 1019), position=0.5))
     drv.swipe(Direction.LEFT, element=Element("slider", bounds=(42, 903, 1038, 1019), position=0.0))
-    assert adb.shell()[-2].startswith("input motionevent DOWN 540 961;") and adb.shell()[-2].endswith("UP 1079 961")
-    assert adb.shell()[-1].startswith("input motionevent DOWN 100 961;") and adb.shell()[-1].endswith("UP 0 961")
+    drags = [p for p in agent.paths() if p.startswith("/drag")]
+    assert drags[-2].startswith("/drag?x1=540&y1=961&x2=1079&y2=961&")
+    assert drags[-1].startswith("/drag?x1=100&y1=961&x2=0&y2=961&")
 
 
 # --- agent -----------------------------------------------------------------------------------------
@@ -781,3 +786,9 @@ def test_a_request_the_agent_couldnt_do_says_why_rather_than_lost(drv, agent):
     agent.replies["/pixels"] = "error: java.lang.IllegalArgumentException: not x1,y1,x2,y2: 1,2"
     with pytest.raises(AgentRefused, match=r"^Android agent /pixels: java.lang.IllegalArgumentException: not x1"):
         drv.looks([Element("button", "OK", bounds=(10, 20, 110, 70))])
+
+
+def test_a_refused_drag_says_so(drv, agent):
+    agent.replies["/drag"] = "refused"
+    with pytest.raises(DeviceError, match=r"^The device refused a drag from \(1, 2\) to \(3, 4\)$"):
+        drv._scroll_drag(1, 2, 3, 4)

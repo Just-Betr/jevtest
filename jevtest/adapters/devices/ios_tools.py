@@ -242,9 +242,33 @@ def app_team(app: Path) -> str:
 AGENT_LOCK = threading.Lock()
 
 
+AGENT_BUILDS = "ios-agent-"
+"""How the agent's cached build folders start: part of the path xcodebuild runs it from."""
+
+
 def agent_builds(team: str) -> AgentBuilds:
     """The agent's cached builds: for simulators (`team` empty), or signed by `team` for its iPhones."""
-    return AgentBuilds("ios-agent-", f"-{team}" if team else "")
+    return AgentBuilds(AGENT_BUILDS, f"-{team}" if team else "")
+
+
+def orphaned_agents(processes: str, udid: str) -> list[int]:
+    """The agents a killed run left running on the device `udid`, from `ps -axo pid=,ppid=,command=`.
+
+    Killed outright (`kill -9`), a run can't stop the `xcodebuild` that runs its agent: it goes on running, the
+    agent with it (measured: parent then pid 1, still running a minute later). One of those is running jevtest's
+    agent build on that device, with no run left to own it.
+    """
+    found: list[int] = []
+    for line in processes.splitlines():
+        pid, ppid, command = ([*line.split(None, 2), "", ""])[:3]
+        if (
+            ppid == "1"
+            and "xcodebuild test-without-building" in command
+            and f"/{AGENT_BUILDS}" in command
+            and f"-destination id={udid}" in command
+        ):
+            found.append(int(pid))
+    return found
 
 
 def remove_port_logs() -> None:

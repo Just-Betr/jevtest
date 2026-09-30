@@ -9,6 +9,8 @@ import android.hardware.display.DisplayManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Display;
+import android.view.InputDevice;
+import android.view.MotionEvent;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.view.accessibility.AccessibilityEvent;
@@ -141,6 +143,11 @@ public class Agent extends Instrumentation {
                 return tree(ui);
             case "/pixels":
                 return pixels(ui, required(params, "rects"));
+            case "/drag":
+                return drag(ui, Integer.parseInt(required(params, "x1")), Integer.parseInt(required(params, "y1")),
+                        Integer.parseInt(required(params, "x2")), Integer.parseInt(required(params, "y2")),
+                        Integer.parseInt(required(params, "steps")), Integer.parseInt(required(params, "step_ms")),
+                        Integer.parseInt(required(params, "hold_ms")));
             case "/insert":
                 Set<String> fields = new HashSet<>(Arrays.asList(required(params, "fields").split(",")));
                 return insert(ui, required(params, "text"), fields);
@@ -181,6 +188,36 @@ public class Agent extends Instrumentation {
      * Insert text at the cursor of the field with input focus, as typing would: the field's text becomes what's
      * before the cursor (or selection), the text, and what's after, and the cursor goes after the text.
      */
+    /**
+     * A finger drag: down, `steps` moves `stepMs` apart to (x2, y2), still there for `holdMs`, then up; each event
+     * stamped as it's sent. From adb, each move is a process of its own, and the times between them vary by tens of
+     * milliseconds: a web page scrolled a different distance for the same drag (measured: 320 to 370 px).
+     */
+    private static String drag(UiAutomation ui, int x1, int y1, int x2, int y2, int steps, int stepMs, int holdMs)
+            throws InterruptedException {
+        long down = SystemClock.uptimeMillis();
+        if (!touch(ui, down, MotionEvent.ACTION_DOWN, x1, y1)) {
+            return "refused";
+        }
+        for (int i = 1; i <= steps; i++) {
+            Thread.sleep(stepMs);
+            touch(ui, down, MotionEvent.ACTION_MOVE, x1 + (x2 - x1) * i / (float) steps, y1 + (y2 - y1) * i / (float) steps);
+        }
+        Thread.sleep(holdMs);
+        touch(ui, down, MotionEvent.ACTION_UP, x2, y2);
+        return "dragged";
+    }
+
+    private static boolean touch(UiAutomation ui, long down, int action, float x, float y) {
+        MotionEvent e = MotionEvent.obtain(down, SystemClock.uptimeMillis(), action, x, y, 0);
+        e.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        try {
+            return ui.injectInputEvent(e, true);
+        } finally {
+            e.recycle();
+        }
+    }
+
     private static String insert(UiAutomation ui, String typed, Set<String> fields) {
         AccessibilityNodeInfo root = ui.getRootInActiveWindow();
         AccessibilityNodeInfo field = root == null ? null : root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
