@@ -53,7 +53,10 @@
   last bits. It matches within half a point, as it does to find the field that has the keyboard.
 - An Android password field's text went to Jev and into the output as the field reported it: a Views field reports
   it as typed (measured on Android 17), and React Native's shows its last character for a moment, which a
-  `${PASSWORD}` mask doesn't catch. Only its length goes on, as dots, which is all `clear:` needs.
+  `${PASSWORD}` mask doesn't catch. Only its length goes on, as dots, which is all `clear:` needs. A web password
+  field on Android 17's WebView reports the text too (measured: `secret1`), so an `expect:` answer recorded on such a
+  screen was recorded with the password in it: `--lock frozen` says it isn't recorded, and `--lock record` records
+  it again without it.
 
 ## 0.9.15
 
