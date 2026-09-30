@@ -83,6 +83,16 @@ PRIVACY_KEEPS_APP_RUNNING = frozenset({"location", "location-always", "siri"})
 """The `simctl privacy grant` services that leave a running app running. Every other one ends the app within 0.11 s,
 even when the grant changes nothing (measured on iOS 26.5, each service granted twice to a running app)."""
 
+
+def app_ended(said: str) -> bool:
+    """Whether the agent couldn't read the app because it ended meanwhile: XCTest's ui-testing error 10001.
+
+    Measured: `Error Domain=com.apple.dt.xctest.ui-testing.error Code=10001 "Application … is not running"`, from an
+    app that crashed on launch while the agent read it.
+    """
+    return "com.apple.dt.xctest.ui-testing.error Code=10001" in said
+
+
 AUTOMATION_NOT_ALLOWED = "enabling automation mode"
 """In the agent's log when an iPhone didn't allow UI automation ("Timed out while enabling automation mode")."""
 

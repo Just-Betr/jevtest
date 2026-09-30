@@ -346,7 +346,9 @@ class BaseDevice(ABC):
         A slider's thumb goes to that end.
         """
         s = screen or self.screen()
-        slider = element is not None and (element.position is not None or element.kind == "slider")
+        slider = element is not None and (
+            element.position is not None or element.kind == "slider" or element.adjustable
+        )
         if element is not None and slider and direction in {Direction.LEFT, Direction.RIGHT}:
             # A flick moves a slider an amount that varies from one run to the next (measured on iOS 26.5); a drag
             # slow enough for the thumb to keep up with the finger takes it to the end every time.
@@ -366,8 +368,9 @@ class BaseDevice(ABC):
         the other. It is about as wide as the slider is tall (measured: 37 points wide on a 31-point SwiftUI
         slider), and the finger lands on it whenever it is more than half that wide. The thumb trails the
         finger by the distance a touch moves before it counts as a drag (measured: 9 points), so the finger goes
-        on past the slider's end, to the screen's edge. A slider that doesn't say where its thumb is (Flutter's on
-        Android) is pressed in its middle: every such slider measured jumps to where it's touched.
+        on past the slider's end, to the screen's edge. A slider that doesn't say where its thumb is (Flutter's, on
+        either platform) is pressed in its middle: every such slider measured jumps to where it's touched (Flutter's on
+        iOS reached its end in 10 of 10 drags from there, where a swipe across it from 15% fell short on some).
         """
         x1, y1, x2, y2 = slider.bounds
         inset = min(y2 - y1, x2 - x1) / 2

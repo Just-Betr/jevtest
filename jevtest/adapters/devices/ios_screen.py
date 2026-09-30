@@ -52,6 +52,7 @@ class AgentElement(TypedDict):
     focused: NotRequired[bool]
     selected: NotRequired[bool]
     position: NotRequired[float]
+    adjustable: NotRequired[bool]
 
 
 class AgentTree(TypedDict):
@@ -140,6 +141,7 @@ def _element(raw: AgentElement, width: int, height: int) -> Element | None:
         selected=raw.get("selected", False),
         checked=_checked(kind, value),
         position=raw.get("position"),
+        adjustable=raw.get("adjustable", False),
     )
 
 

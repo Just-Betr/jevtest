@@ -371,8 +371,17 @@ class IOSDevice(BaseDevice):
     # --- observe --------------------------------------------------------------------
     @override
     def screen(self) -> Screen:
-        """What's on the screen now."""
-        return parse_tree(cast("AgentTree", self._call("/tree")))  # the agent's own JSON
+        """What's on the screen now; nothing of the app when it isn't running.
+
+        The agent answers so for an app that isn't in the foreground, and XCTest fails the read of one that ends while
+        it reads it: that too is nothing of the app.
+        """
+        try:
+            return parse_tree(cast("AgentTree", self._call("/tree")))  # the agent's own JSON
+        except DeviceError as e:
+            if not says.app_ended(str(e)):
+                raise
+            return parse_tree({"width": 0, "height": 0, "elements": []})
 
     def screenshot(self, path: Path) -> None:
         """Save a PNG of the screen."""

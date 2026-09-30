@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- A Flutter slider on iOS couldn't be set to its ends: XCUITest reports it as plain text, so a swipe on it crossed
+  15% to 85% of it and stopped short on some runs. iOS marks it adjustable, as it does sliders, steppers and page
+  controls, and jevtest now reads that: a left or right swipe on anything adjustable drags from its middle to that
+  end, which took Flutter's slider to its end 10 times out of 10 (a page control scrubs to its last page; a stepper
+  is left as it is).
+
+- An iOS app that ended while the agent read it failed the step with XCTest's own words (`iOS agent /tree: Error
+  Domain=com.apple.dt.xctest.ui-testing.error Code=10001 …`). It reads as nothing of the app, as one already gone
+  does, so the step says `; the app isn't running`. Troubleshooting says why an iOS 27 app ends at once (the scene
+  lifecycle it hasn't adopted), found with a second Flutter app on the iPhone, where its slider now passes too.
+
 ## 0.9.14
 
 - Tested on six apps built fresh for it, each written as a user would from these docs: SwiftUI and UIKit on the

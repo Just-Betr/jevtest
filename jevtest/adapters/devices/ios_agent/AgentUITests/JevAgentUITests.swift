@@ -342,6 +342,7 @@ final class JevAgentUITests: XCTestCase {
                 if let v = s.value { d["value"] = "\(v)" }
                 if let p = s.placeholderValue { d["placeholder"] = p }
                 if s.elementType == .slider, let p = position(s) { d["position"] = p }
+                if Self.adjustable(s) { d["adjustable"] = true }
                 out.append(d)
             }
             s.children.forEach { walk($0, keyboardWindow: skip) }
@@ -365,6 +366,16 @@ final class JevAgentUITests: XCTestCase {
         let strip = app.otherElements.matching(identifier: "Typing Predictions").firstMatch
         guard strip.exists, !strip.frame.isEmpty else { return keys }
         return min(keys, strip.frame.minY)
+    }
+
+    /// Whether the element is moved by a drag along it: UIKit's adjustable trait (0x1000), which sliders, steppers,
+    /// picker wheels and page controls carry, and a Flutter slider too, which XCUITest reports only as `.other`.
+    /// XCTest's snapshot has the traits but doesn't list them: read only where it has them, else not adjustable.
+    private static func adjustable(_ s: XCUIElementSnapshot) -> Bool {
+        guard let o = s as? NSObject, o.responds(to: NSSelectorFromString("traits")),
+            let traits = o.value(forKey: "traits") as? UInt64
+        else { return false }
+        return traits & 0x1000 != 0
     }
 
     private static func typeName(_ t: XCUIElement.ElementType) -> String {

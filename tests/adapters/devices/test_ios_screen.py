@@ -116,6 +116,24 @@ def test_each_line_of_a_label_or_value_can_be_named_on_its_own():
     assert (b.text, b.parts) == ("Order: Paid Shipped", ("Order", "Paid Shipped", "Paid", "Shipped"))
 
 
+def test_what_ios_says_is_adjustable_is_kept_as_moved_by_dragging_along_it():
+    """A Flutter slider is `.other` to XCUITest: only its adjustable trait says a drag moves it."""
+    rating: AgentElement = {
+        "type": "other",
+        "label": "Rating",
+        "value": "50%",
+        "adjustable": True,
+        "x": 16,
+        "y": 446,
+        "w": 370,
+        "h": 48,
+    }
+    label: AgentElement = {"type": "text", "label": "Rating: 3", "x": 16, "y": 494, "w": 370, "h": 20}
+    a, b = parse_tree({"width": 402, "height": 874, "elements": [rating, label]}).elements
+    assert (a.kind, a.text, a.adjustable, a.position) == ("text", "Rating: 50%", True, None)
+    assert b.adjustable is False
+
+
 def test_parse_rules():
     data: AgentTree = {
         "width": 100,

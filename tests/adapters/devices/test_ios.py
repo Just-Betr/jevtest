@@ -257,6 +257,16 @@ def test_a_swipe_on_a_slider_drags_its_thumb_slowly_on_to_the_screen_edge(drv, e
     ]
 
 
+def test_a_swipe_on_what_ios_says_is_adjustable_drags_from_its_middle_to_the_edge(drv, env):
+    """Flutter's iOS slider, reported as plain text: from its middle to the screen's edge it reached its end 10 of 10."""
+    env[1].replies["/tree"] = {"width": 402, "height": 874, "elements": [], "keyboard": False}
+    rating = Element(kind="text", text="Rating: 50%", bounds=(16, 446, 386, 494), adjustable=True)
+    drv.swipe("right", rating)
+    drv.swipe("left", rating)
+    drags = [(b["x1"], b["y1"], b["x2"], b["y2"], b["velocity"]) for p, b in env[1].calls if p == "/drag"]
+    assert drags == [(201, 470, 401, 470, 300), (201, 470, 0, 470, 300)]
+
+
 def test_hide_keyboard_in_a_field_of_several_lines_says_return_adds_a_line(drv, env, monkeypatch):
     env[1].replies["/hide_keyboard"] = {"ok": True, "multiline": True}  # the agent took the new line back out
     env[1].replies["/tree"] = {"width": 402, "height": 874, "elements": [], "keyboard": True}
@@ -413,6 +423,15 @@ def test_clear_fails_when_deleting_removes_nothing(drv, env):
     env[1].replies["/tree"] = [field_tree("stuck"), field_tree("stuck")]
     with pytest.raises(DeviceError, match="^Couldn't clear text_field 'stuck': deleting left 'stuck' in it$"):
         drv.clear_text(field)
+
+
+def test_an_app_that_ends_while_it_is_read_shows_nothing(drv, env):
+    """As the agent answers for an app that isn't in the foreground: the step then says the app isn't running."""
+    ended = 'Error Domain=com.apple.dt.xctest.ui-testing.error Code=10001 "Application dev.demo is not running"'
+    env[1].replies["/tree"] = [{"error": ended}, {"error": "something else"}]
+    assert drv.screen().elements == ()
+    with pytest.raises(DeviceError, match="something else"):
+        drv.screen()
 
 
 def test_a_picker_wheel_is_turned_by_xctest(drv, env):

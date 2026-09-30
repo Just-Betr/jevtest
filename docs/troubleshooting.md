@@ -91,7 +91,8 @@ error: t.yaml has 2 problems:
 - **`The app left the foreground after back`**: a `do:` move left the app (back on the first screen), so the goal stopped there.
 - **`Scrolled down to the end but never found 'X'`**: the text isn't in the list, or it's the other way (`direction: up`).
 - **`Stuck repeating: tap button 'Next', which changes nothing on the screen`**: Jev chose the same action again after it left the screen as it was, twice. The element may be disabled or covered. (Repeating an action that does change the screen, like scrolling down a long list, is fine.)
-- **`The app is no longer running (crashed or closed)`**: the app crashed. The log from `adb logcat` or the device's crash reports will say why.
+- **`The app is no longer running (crashed or closed)`**, or a step's wait ending **`; the app isn't running`**: the app crashed. The log from `adb logcat` or the device's crash reports will say why.
+- **On an iPhone with iOS 27, the app isn't running from the first step**, and its crash report (`xcrun devicectl device copy from --device <UDID> --domain-type systemCrashLogs --source / --destination crashes`) shows `UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`: iOS 27 ends an app that hasn't adopted the scene lifecycle when it's launched for testing (measured: the same build ran when opened by hand). Adopt it (a Flutter app: `FlutterSceneDelegate` in `Info.plist`, as the demo app does).
 - **`expect: … — Waited 10s until Jev judged it true of a screen that stopped moving; Jev says false (0.31)`**: Jev judged the statement false. Read the screenshot: it's usually right. If the statement is ambiguous, make it concrete, or use `see:` for exact text.
 
 ## Web pages on Android: fields with no name

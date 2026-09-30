@@ -51,6 +51,8 @@ class Element:
         selected: Whether it is selected.
         value: A text field's current contents (what clearing it must delete).
         position: Where a slider's thumb is, from 0 (its start) to 1 (its end); None when not known.
+        adjustable: Whether it's moved by a drag along it, like a slider: iOS says so of sliders, steppers, picker
+            wheels and page controls, and of a Flutter slider, which it otherwise reports as plain text.
         id: Its id on this screen (e1, e2, ...), assigned by `Screen`.
     """
 
@@ -69,6 +71,7 @@ class Element:
     selected: bool = False
     value: str = ""
     position: float | None = None
+    adjustable: bool = False
     id: str = ""
 
     @property
