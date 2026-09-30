@@ -1013,7 +1013,8 @@ def test_frozen_fails_when_the_saved_steps_element_is_not_there_as_saved(tmp_pat
     assert failure_of(res).endswith(
         "Waited 1s until the 2nd of 2 button 'Sign in' is on screen and stopped moving; the screen shows 1, the saved step "
         "was made with 2 (saved step 1 of 1: if the app changed since this do: was worked out, run --lock record to work "
-        "it out again from there)"
+        "it out again from there; if this device shows the app differently from the one it was worked out on, give it "
+        "a test file of its own, and so a lockfile of its own)"
     )
     assert "tap" not in d.names() and not model.asked
 

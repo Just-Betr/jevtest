@@ -43,6 +43,9 @@
   (measured: two saved scrolls that reached Item 30 stopped at Item 29 once jevtest's drags got shorter), and the
   failure blamed the app. After a saved scroll, jevtest scrolls on the same way until the next step's element is on
   screen, stopping at the end of the content.
+- A saved `do:` step that didn't fit said only that the app may have changed. It also says that a device showing the
+  app differently (measured: Android 15's WebView names a web field `Your name` where Android 17's says `name`) needs
+  a test file, and so a lockfile, of its own.
 
 ## 0.9.15
 

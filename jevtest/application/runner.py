@@ -709,7 +709,8 @@ class TestRunner:
                     n = len(record.ran) + 1
                     raise StepFailed(
                         f"{e} (saved step {n} of {len(saved)}: if the app changed since this do: was worked out, run "
-                        "--lock record to work it out again from there)"
+                        "--lock record to work it out again from there; if this device shows the app differently from "
+                        "the one it was worked out on, give it a test file of its own, and so a lockfile of its own)"
                     ) from None
         done = saved[: len(record.ran)] if saved else ()
         steps = self._work_out(goal, settings, record)
