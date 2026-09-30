@@ -90,6 +90,7 @@ class AgentHttp:
             "/idle": "idle",
             "/change": "changed",
             "/rotate": "rotated",
+            "/touch_mode": "touch mode",
             "/quit": "bye",
         }
         self.urls: list[str] = []

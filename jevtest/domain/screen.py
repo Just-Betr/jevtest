@@ -221,6 +221,19 @@ class Screen:
         margin = self.height * EDGE
         return margin <= el.center[1] <= self.content_height - margin
 
+    def in_lane(self, el: Element, lane: Bounds | None, direction: Direction) -> bool:
+        """Whether the element's middle is clear of the screen's edges and inside the `lane` being scrolled along.
+
+        Clear of the edges as `clear_of_edges`; inside the lane in the direction of the scroll. A carousel reports an
+        item peeking in at its end with its middle past the carousel's own end (measured on an iPhone: a SwiftUI chip at
+        x 354-402 in a carousel ending at 370), where a tap on it misses. Only in the direction of the scroll: a lane up
+        and down is only as wide as what it was found by.
+        """
+        x, y = el.center
+        across = direction in {Direction.LEFT, Direction.RIGHT}
+        inside = lane is None or (lane[0] <= x < lane[2] if across else lane[1] <= y < lane[3])
+        return inside and self.clear_of_edges(el)
+
     def takes_keys(self, el: Element) -> bool:
         """Whether typing now goes into the element without a tap: it has focus and the keyboard is up.
 

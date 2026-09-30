@@ -73,16 +73,49 @@ def keyboard_up(root: ET.Element) -> bool:
     return root.get("ime") == "true"
 
 
-def typing_ready(xml: str) -> bool:
-    """Whether typed keys will land: the keyboard is up and a text field has focus.
+Focus = tuple[tuple[int, ...], tuple[int, int, int, int] | None, bool]
+"""The focused text field: where it is in the tree (its path of child indexes), its bounds, and whether it's a
+password field."""
+
+
+def focused_field(xml: str) -> Focus | None:
+    """The text field that has input focus, or None.
 
     Read from the whole tree, not the screen's elements: with the keyboard up in landscape, a web page can scroll
     the focused field until nothing of it is left on screen, and it still takes the keys.
     """
+
+    def walk(node: ET.Element, path: tuple[int, ...]) -> Focus | None:
+        for i, child in enumerate(node.findall("node")):
+            here = (*path, i)
+            if child.get("focused") == "true" and child.get("class", "").split(".")[-1] in EDITABLE:
+                numbers = BOUNDS.findall(child.get("bounds", ""))
+                x1, y1, x2, y2 = map(int, numbers) if len(numbers) == len("xyxy") else (0, 0, 0, 0)
+                return here, (x1, y1, x2, y2), child.get("password") == "true"
+            found = walk(child, here)
+            if found is not None:
+                return found
+        return None
+
+    return walk(ET.fromstring(xml), ())
+
+
+def typing_ready(xml: str, before: Focus | None = None, tapped: tuple[int, int] | None = None) -> bool:
+    """Whether typed text will land in the field just tapped: the keyboard is up and that field has focus.
+
+    `before` is the field that had focus before the tap at `tapped`. A tap on another field moves the focus a moment
+    later, so until it has, the text would go into the field before (measured: a password put in at once landed in
+    the email field). Where the field is in the tree tells them apart, as its place on screen can't: the keyboard
+    slides up and the app scrolls the focused field out from under the tap.
+    """
     root = ET.fromstring(xml)
-    return keyboard_up(root) and any(
-        node.get("focused") == "true" and node.get("class", "").split(".")[-1] in EDITABLE for node in root.iter("node")
-    )
+    now = focused_field(xml)
+    if not keyboard_up(root) or now is None:
+        return False
+    if before is None or now[0] != before[0]:
+        return True
+    x1, y1, x2, y2 = before[1] or (0, 0, 0, 0)
+    return tapped is not None and x1 <= tapped[0] < x2 and y1 <= tapped[1] < y2  # it tapped the field with focus
 
 
 def has_empty_webview(xml: str) -> bool:

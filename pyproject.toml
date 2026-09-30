@@ -176,4 +176,4 @@ exclude_also = ["if __name__ == .__main__.:"]
 
 [tool.codespell]
 skip = "*.lock,*.lock.json,*.json,*.xml,*.png,*.pbxproj,gradlew.bat,./site,./.venv,./demo_app/build,./demo_app/ios/Pods,./test_dont_checkin"
-ignore-words-list = "bakc,pressenter,nd"  # a deliberate typo in the error examples; PressEnter; 2nd
+ignore-words-list = "bakc,pressenter,nd,wrold"  # deliberate typos in the error examples and the autocorrect measurement; PressEnter; 2nd

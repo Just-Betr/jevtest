@@ -22,7 +22,7 @@ from jevtest.domain.screen import Element, Point, Screen
 
 from . import tool_says as says
 from ._typing import override
-from .android_screen import EDITABLE, has_empty_webview, keyboard_up, parse_screen, typing_ready
+from .android_screen import EDITABLE, Focus, focused_field, has_empty_webview, keyboard_up, parse_screen, typing_ready
 from .android_tools import aapt2_path, adb_path, build_agent, bundletool_path, devices, http_get, pick_device
 from .cache import cache_dir
 from .common import (
@@ -136,7 +136,7 @@ class AndroidDevice(BaseDevice):
             installed = self.sh(f"dumpsys package {AGENT_ID} | grep versionName", check=False)
             if f"versionName={apk.version}" not in installed:
                 self.sh(f"pm uninstall {AGENT_ID}", check=False)  # any older copy, whatever key signed it
-                run([self.adb, "-s", self.serial, "install", str(apk.path)], timeout=120)
+                self._install([self.adb, "-s", self.serial, "install", str(apk.path)], timeout=120)
 
     def _stop_old_agent(self) -> None:
         """Stop an agent a previous run left running: it would hold the port."""
@@ -234,7 +234,7 @@ class AndroidDevice(BaseDevice):
         if suffix == ".apk":
             self.app_id = run([aapt2_path(), "dump", "packagename", str(app)]).strip()
             # No -g: permissions start ungranted, like a real install. Use a `grant:` step to pre-grant.
-            run([self.adb, "-s", self.serial, "install", "-r", "-t", str(app)], timeout=300)
+            self._install([self.adb, "-s", self.serial, "install", "-r", "-t", str(app)], timeout=300)
         elif suffix == ".aab":
             self._install_bundle(app)
         else:
@@ -270,13 +270,30 @@ class AndroidDevice(BaseDevice):
                 ],
                 timeout=600,
             )
-            run(
+            self._install(
                 [bundletool, "install-apks", "--apks", str(apks), "--device-id", self.serial, "--adb", self.adb],
                 timeout=300,
             )
 
+    def _install(self, cmd: list[str], timeout: float) -> None:
+        """Run an install command; a device out of room says so, and what to do.
+
+        Raises:
+            DeviceError: The install failed; for a full device, a message saying to free room on it.
+        """
+        try:
+            run(cmd, timeout=timeout)
+        except ToolFailed as e:
+            if says.OUT_OF_ROOM not in e.output:
+                raise
+            raise DeviceError(
+                f"{self.serial} has no room to install the app ({says.OUT_OF_ROOM}): free some space on it, by "
+                "uninstalling apps you don't need, or wiping an emulator's data, and run again"
+            ) from None
+
     def launch(self) -> None:
-        """Start the app's launcher activity and wait until it's shown."""
+        """Start the app's launcher activity, in touch mode (see `_press`), and wait until it's shown."""
+        self._agent("/touch_mode")  # a key pressed on the device, not by jevtest, can have left touch mode too
         self._am_start(f"-n {self.activity}", f"start {self.activity}")
 
     def resume(self) -> None:
@@ -346,13 +363,23 @@ class AndroidDevice(BaseDevice):
         return AppState.BACKGROUND
 
     # --- observe ---------------------------------------------------------------
-    def _wait_for_typing(self) -> None:
-        """Wait until a text field has focus and the keyboard is up.
+    def _focus_field(self, at: Point) -> Focus | None:
+        """Tap the field at `at`, wait until it has the focus and the keyboard is up (`typing_ready`), and return it.
 
-        Keys sent before the keyboard is connected are dropped. Not "the field under the tap": on a real phone
-        the keyboard slides up and the app scrolls the focused field out from under it.
+        Keys sent before the keyboard is connected are dropped, and text sent before the focus moves goes into the
+        field that had it.
         """
-        wait_until(lambda: typing_ready(self._agent("/tree")), "The text field did not get keyboard focus")
+        before = focused_field(self._agent("/tree"))
+        self.tap(*at)
+        tree = ""
+
+        def ready() -> bool:
+            nonlocal tree
+            tree = self._agent("/tree")
+            return typing_ready(tree, before, at)
+
+        wait_until(ready, "The text field did not get keyboard focus")
+        return focused_field(tree)
 
     def tree(self) -> str:
         """The UI hierarchy XML.
@@ -416,18 +443,23 @@ class AndroidDevice(BaseDevice):
         )
 
     def type_text(self, text: str, at: Point | None = None) -> None:
-        """Type into the focused field, or first focus the field at `at`.
+        """Type into the focused field, or first focus the field at `at`: exactly the text given.
 
-        ASCII is typed key by key (`adb shell input text`). A line with any other letter (`José`, `日本`) is put in at
-        the cursor by the agent: `input text` types only the keys of a US keyboard.
+        The agent puts each line in at the cursor. Typed key by key through the keyboard, text changes where the field
+        asks the keyboard to capitalize or correct it (measured: in React Native's default field, `zebra` became
+        `Zebra`, and `hello wrold` became `hello world` on Enter). A password field is typed key by key, as a keyboard
+        neither capitalizes nor corrects a password, and text put in at once can be lost there (measured: with Google's
+        autofill service on, a Compose password field on Android 13 stayed empty). `input text` types only the keys of
+        a US keyboard, so a password with other letters is put in by the agent, which works only while it's empty.
         """
-        if at:  # focus the field, then wait until it has focus and the keyboard is up
-            self.tap(*at)
-            self._wait_for_typing()
+        field = self._focus_field(at) if at else focused_field(self._agent("/tree"))
+        password = field is not None and field[2]
         for i, line in enumerate(text.split("\n")):
             if i:
                 self.key("enter")  # newlines become Enter presses
-            if not line.isascii():
+            if not line:
+                continue
+            if not (password and line.isascii()):
                 answer = self._agent(
                     f"/insert?text={urllib.parse.quote(line, safe='')}&fields={','.join(sorted(EDITABLE))}"
                 )
@@ -437,22 +469,30 @@ class AndroidDevice(BaseDevice):
             # `input text` types %s as a space and has no escape for it, so each piece ends right after a % and no
             # piece holds a %s of the text's own; spaces are then written as %s (measured).
             pieces = re.findall(r"[^%]*%|[^%]+", line)
-            if pieces:
-                self.sh("; ".join("input text " + shlex.quote(p.replace(" ", "%s")) for p in pieces))
+            self.sh("; ".join("input text " + shlex.quote(p.replace(" ", "%s")) for p in pieces))
 
     def clear_text(self, element: Element) -> None:
         """Erase a text field: put the cursor after its text, then delete exactly what is there."""
-        self.tap(*element.end)
-        self._wait_for_typing()
+        self._focus_field(element.end)
         if element.value:
-            self.sh("input keyevent 123 " + " ".join(["67"] * len(element.value)))
+            self._press("123 " + " ".join(["67"] * len(element.value)))
 
     def key(self, name: str) -> None:
         """Press a named key, or an Android key code given as a number."""
         code = KEYCODES.get(name)
         if code is None and not name.isdigit():
             raise DeviceError(f"Unknown key '{name}'. Known: {', '.join(sorted(KEYCODES))}, or a key code number")
-        self.sh(f"input keyevent {code if code is not None else name}")
+        self._press(str(code if code is not None else name))
+
+    def _press(self, codes: str) -> None:
+        """Press keys by their key codes, then put the device back in touch mode.
+
+        `input keyevent` presses a hardware key, which takes the device out of touch mode, as a person using the
+        touchscreen never does: then a launch focuses the app's first field and brings up the keyboard (measured on
+        Android 17: the keyboard covered a landscape login screen).
+        """
+        self.sh(f"input keyevent {codes}")
+        self._agent("/touch_mode")
 
     def back(self) -> None:
         """Press Back."""

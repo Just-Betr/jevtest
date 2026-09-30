@@ -281,6 +281,17 @@ def test_what_isnt_on_screen_with_the_keyboard_up_says_to_close_it(tmp_path, clo
     )
 
 
+def test_a_see_that_fails_with_the_keyboard_up_says_to_close_it(tmp_path, clock, out):
+    """Measured with Compose: a search's result line, under the field, was behind the keyboard until it closed."""
+    typing = login_screen(keyboard_visible=True, keyboard_top=300)
+    res, _, _ = run1(tmp_path, clock, out, {"see": "Searched for blue", "timeout": 1}, device=FakeDevice(typing))
+    assert failure_of(res).endswith(
+        "'Searched for blue' is on screen; the keyboard is up, and the app may not show it "
+        "while it is (in landscape, an Android keyboard leaves the app a strip): close it "
+        "first with a `hide_keyboard` step"
+    )
+
+
 def test_an_element_under_the_keyboard_is_never_touched(tmp_path, clock, out):
     covered = login_screen(keyboard_visible=True, keyboard_top=300)
     res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in", "timeout": 1}, device=FakeDevice(covered))
@@ -1247,6 +1258,14 @@ def test_an_element_is_touched_only_once_it_is_drawn_the_same_twice(tmp_path, cl
     d.drawn = ["faint", "fainter", "solid", "solid"]
     res, d, _ = run1(tmp_path, clock, out, {"tap": "Sign in"}, device=d)
     assert res.status is Status.PASS and d.names().count("looks") == 4 and clock.slept == [0.25] * 3
+
+
+def test_a_text_field_is_touched_whatever_its_blinking_cursor_does(tmp_path, clock, out):
+    """Measured: a focused Flutter field on a Pixel looked one of two ways, switching about every half second."""
+    d = FakeDevice(login_screen())
+    d.drawn = ["caret", "no caret"]
+    res, d, _ = run1(tmp_path, clock, out, {"type": "hi", "into": "Email"}, device=d)
+    assert res.status is Status.PASS and "looks" not in d.names()
 
 
 def test_scroll_to_brings_an_element_clear_of_the_edges(tmp_path, clock, out):

@@ -53,6 +53,7 @@ error: t.yaml has 2 problems:
 | `Lost the Android agent during /tree …` / `Lost the iOS agent during /state …; the next test starts it again`, then `the iOS agent had stopped: starting it again` | Something stopped jevtest's agent (another UI automation tool, Xcode, a simulator hiccup): that test fails and the next one starts the agent again. On an iPhone, check it's unlocked and plugged in. |
 | `… is asleep or locked: unlock it` / `BH is locked: unlock it and keep it unlocked during the run` | Unlock the phone; consider a longer screen timeout while testing. |
 | `BH asked for your passcode to allow UI testing, and it wasn't given: unlock it, enter the passcode when it asks, …` | The iPhone asked to authenticate UI testing and nobody answered (XCUITest: `Authentication canceled`, `Not authorized for performing UI testing actions`). Unlock it, enter the passcode when it asks, keep it unlocked. |
+| `emulator-5554 has no room to install the app (INSUFFICIENT_STORAGE): free some space on it, …` | The device is full. Uninstall apps you don't need, or wipe an emulator's data (Device Manager > Wipe Data). |
 | `The app is signed by team ABCDE12345, which is not signed into Xcode (signed in: …)` | jevtest signs its agent with your app's team: add that team's Apple Account in Xcode > Settings > Accounts. |
 | `Runner.app is not signed for a real iPhone (it has no provisioning profile)` | Build the app for the device, signed with your team. |
 | `Runner.app is built for iPhoneSimulator, not a real iPhone (BH)…` | Build for the device, signed with your team. |

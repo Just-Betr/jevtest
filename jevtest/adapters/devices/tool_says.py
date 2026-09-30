@@ -68,6 +68,11 @@ def declared(permission: str, dumpsys_package: str) -> bool:
     return re.search(rf"^\s*{re.escape(permission)}\s*$", dumpsys_package, re.MULTILINE) is not None
 
 
+OUT_OF_ROOM = "INSUFFICIENT_STORAGE"
+"""In `adb install`'s failure when the device has no room (measured: `Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE:
+Failed to override installation location]`, an emulator with 663 MB free)."""
+
+
 # --- iOS --------------------------------------------------------------------------------------------------------
 
 

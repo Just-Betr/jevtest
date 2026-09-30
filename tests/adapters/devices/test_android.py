@@ -257,22 +257,50 @@ FOCUSED = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime=
     'bounds="[63,352][1017,499]"',
 )
 
+PASSWORD_FOCUSED = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"').replace(
+    'focused="false" scrollable="false" long-clickable="false" password="true" selected="false" '
+    'bounds="[63,531][1017,678]"',
+    'focused="true" scrollable="false" long-clickable="false" password="true" selected="false" '
+    'bounds="[63,531][1017,678]"',
+)
+
 
 def test_type_into_field_waits_for_focus_and_keyboard(drv, adb, agent, slept):
+    """Text is put in by the agent, exactly as written, once the tapped field has focus and the keyboard is up."""
     assert FOCUSED != LOGIN
-    agent.replies["/tree"] = [LOGIN, FOCUSED]  # right after the tap: not yet focused; then ready
+    agent.replies["/tree"] = [LOGIN, LOGIN, FOCUSED]  # before the tap; right after it, not yet focused; then ready
+    agent.replies["/insert"] = "inserted"
     drv.type_text("hi", at=(540, 425))
-    assert [c for c in adb.shell() if c.startswith("input")] == ["input tap 540 425", "input text hi"]
-    assert agent.paths() == ["/tree", "/tree"] and slept == [0.25]
+    assert [c for c in adb.shell() if c.startswith("input")] == ["input tap 540 425"]  # no keys: the agent put it in
+    assert agent.paths() == ["/tree", "/tree", "/tree", "/insert?text=hi&fields=AutoCompleteTextView,EditText"]
+    assert slept == [0.25]
 
 
 def test_a_focused_field_scrolled_to_nothing_by_the_keyboard_still_takes_keys(drv, adb, agent):
     """Measured on a Pixel 4a on its side: the web page put the focused field at the keyboard's edge, 0 px tall."""
     squeezed = FOCUSED.replace('bounds="[63,352][1017,499]"', 'bounds="[66,345][2139,345]"')
     assert squeezed != FOCUSED
-    agent.replies["/tree"] = squeezed
+    agent.replies["/tree"] = [LOGIN, squeezed]
+    agent.replies["/insert"] = "inserted"
     drv.type_text("hi", at=(540, 425))
-    assert [c for c in adb.shell() if c.startswith("input")] == ["input tap 540 425", "input text hi"]
+    assert agent.paths()[-1] == "/insert?text=hi&fields=AutoCompleteTextView,EditText"
+
+
+def test_text_waits_until_the_focus_has_left_the_field_before(drv, adb, agent, slept):
+    """Measured: a password put in at once, right after the tap on its field, landed in the email field, which
+    still had the focus. Where the field is in the tree tells them apart: its place on screen can move."""
+    agent.replies["/tree"] = [FOCUSED, FOCUSED, PASSWORD_FOCUSED]  # email focused; still; then the password field
+    drv.type_text("pw", at=(540, 600))
+    assert agent.paths() == ["/tree", "/tree", "/tree"]
+    assert adb.shell() == ["input tap 540 600", "input text pw"]  # typed only once the password field has the focus
+    assert slept == [0.25]
+
+
+def test_a_tap_on_the_field_that_has_focus_types_at_once(drv, agent, slept):
+    agent.replies["/tree"] = FOCUSED
+    agent.replies["/insert"] = "inserted"
+    drv.type_text("more", at=(540, 425))  # inside the email field, which has the focus
+    assert slept == []
 
 
 def test_type_into_field_that_never_focuses(drv, adb, agent, monkeypatch):
@@ -282,9 +310,13 @@ def test_type_into_field_that_never_focuses(drv, adb, agent, monkeypatch):
         drv.type_text("hi", at=(540, 425))
 
 
-def test_type_text_escapes(drv, adb):
-    """`input text` types %s as a space, with no escape: a piece ends after each %, so the text's own %s survives."""
+def test_a_password_field_is_typed_key_by_key(drv, adb, agent):
+    """Measured: with Google's autofill service on, a Compose password field on Android 13 stayed empty when the agent
+    put text in; typed, it takes it, and a keyboard neither capitalizes nor corrects a password. `input text` types %s
+    as a space, with no escape: a piece ends after each %, so the text's own %s survives."""
+    agent.replies["/tree"] = PASSWORD_FOCUSED
     drv.type_text("50% off & more\nline2 %s")
+    assert not [p for p in agent.paths() if p.startswith("/insert")]
     assert adb.shell() == [
         "input text 50%; input text '%soff%s&%smore'",
         "input keyevent 66",
@@ -292,20 +324,58 @@ def test_type_text_escapes(drv, adb):
     ]
 
 
-def test_type_text_blank_lines_are_just_enter(drv, adb):
+def test_type_text_blank_lines_are_just_enter(drv, adb, agent):
+    agent.replies["/insert"] = "inserted"
     drv.type_text("a\n\nb")
-    assert adb.shell() == ["input text a", "input keyevent 66", "input keyevent 66", "input text b"]
+    assert adb.shell() == ["input keyevent 66", "input keyevent 66"]
+    assert [p for p in agent.paths() if p.startswith("/insert")] == [
+        "/insert?text=a&fields=AutoCompleteTextView,EditText",
+        "/insert?text=b&fields=AutoCompleteTextView,EditText",
+    ]
 
 
-def test_letters_adb_cant_type_are_put_in_by_the_agent(drv, adb, agent):
-    """`input text` types only a US keyboard's keys: a line with any other letter goes to the agent, whole."""
+def test_text_is_put_in_by_the_agent_exactly_as_written(drv, adb, agent):
+    """Typed key by key, a keyboard capitalizes and corrects where the field asks (measured: in React Native's default
+    field `zebra` became `Zebra`): every line goes to the agent, whole, any letters."""
     agent.replies["/insert"] = "inserted"
     drv.type_text("José + Zoë 日本\nplain 50%")
     # the agent decides what's a text field by jevtest's own list, so both agree
-    assert agent.paths()[-1] == (
-        "/insert?text=Jos%C3%A9%20%2B%20Zo%C3%AB%20%E6%97%A5%E6%9C%AC&fields=AutoCompleteTextView,EditText"
-    )
-    assert adb.shell() == ["input keyevent 66", "input text plain%s50%"]  # ASCII lines still key by key
+    assert agent.paths() == [
+        "/tree",  # which field has the focus, and whether it's a password field
+        "/insert?text=Jos%C3%A9%20%2B%20Zo%C3%AB%20%E6%97%A5%E6%9C%AC&fields=AutoCompleteTextView,EditText",
+        "/touch_mode",  # after the Enter
+        "/insert?text=plain%2050%25&fields=AutoCompleteTextView,EditText",
+    ]
+    assert adb.shell() == ["input keyevent 66"]
+
+
+def test_non_us_letters_go_into_a_password_field_by_the_agent(drv, adb, agent):
+    """`input text` types only the keys of a US keyboard, so the agent puts them in: it can, while the field is empty."""
+    agent.replies["/tree"] = PASSWORD_FOCUSED
+    agent.replies["/insert"] = "inserted"
+    drv.type_text("Zoë")
+    assert agent.paths()[-1] == "/insert?text=Zo%C3%AB&fields=AutoCompleteTextView,EditText"
+    assert adb.shell() == []
+
+
+def test_non_us_letters_into_a_password_field_with_text_say_why(drv, agent):
+    agent.replies["/tree"] = PASSWORD_FOCUSED
+    agent.replies["/insert"] = "a password field hides its text, so text can only be put into it while it's empty"
+    with pytest.raises(DeviceError, match="^Couldn't type 'Zoë': a password field hides its text"):
+        drv.type_text("Zoë")
+
+
+def test_a_device_with_no_room_says_to_free_some(drv, adb):
+    full = "adb: failed to install x.apk: Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Failed to override installation"
+    adb.rules["install -r -t"] = ToolFailed(["adb", "install"], 1, full)
+    with pytest.raises(DeviceError, match=r"^emulator-5554 has no room to install the app \(INSUFFICIENT_STORAGE\): "):
+        drv.install(Path("x.apk"))
+
+
+def test_another_install_failure_is_as_it_came(drv, adb):
+    adb.rules["install -r -t"] = ToolFailed(["adb", "install"], 1, "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]")
+    with pytest.raises(ToolFailed, match="INSTALL_FAILED_UPDATE_INCOMPATIBLE"):
+        drv.install(Path("x.apk"))
 
 
 def test_text_the_agent_couldnt_put_in_says_why(drv, agent):
@@ -357,12 +427,21 @@ def test_hide_keyboard_only_presses_back_when_open(drv, adb, agent, ime, pressed
     assert ("input keyevent 4" in adb.shell()) is pressed
 
 
+def test_a_key_puts_the_device_back_in_touch_mode(drv, adb, agent):
+    """Measured on Android 17: `input keyevent` takes the device out of touch mode, where the next launch focuses
+    the app's first field and brings up the keyboard."""
+    drv.key("enter")
+    drv.launch()
+    assert adb.shell()[0] == "input keyevent 66"
+    assert agent.paths() == ["/touch_mode", "/touch_mode"]  # after the key, and before a launch
+
+
 def test_hide_keyboard_waits_until_the_keyboard_is_gone(drv, adb, agent, slept):
     """Back only starts closing it: a screen read right after can still show the keyboard, or half of it."""
     up = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"')
     agent.replies["/tree"] = [up, up, up, LOGIN]
     drv.hide_keyboard()
-    assert agent.paths() == ["/tree"] * 4 and slept == [0.25, 0.25]
+    assert agent.paths() == ["/tree", "/touch_mode", "/tree", "/tree", "/tree"] and slept == [0.25, 0.25]
 
 
 def test_hide_keyboard_fails_when_the_keyboard_stays(drv, adb, agent, monkeypatch):

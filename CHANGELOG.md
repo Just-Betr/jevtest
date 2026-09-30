@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Typed text could reach an Android app changed: typed key by key, the keyboard capitalized and corrected it where
+  the field asked, sometimes only when Enter was pressed, after `see:` had checked it (measured: in React Native's
+  default field, `zebra` became `Zebra`, `hello wrold` became `hello world`). Text goes in at the cursor, exactly as
+  written. A password field is typed key by key, as a keyboard doesn't change a password, and text put in at once
+  can be lost there (measured: with Google's autofill service on, a Compose password field on Android 13 stayed
+  empty); a password with letters beyond a US keyboard's goes in at once, which works while the field is empty.
+- Typing into a field just tapped could start before the focus had moved to it, and go into the field that had it
+  (measured: a password put in at once landed in the email field). Typing and `clear:` wait until the tapped field
+  has the focus, told apart by where it is in the view tree, which a scroll doesn't change.
+- A device with no room to install said only what `adb install` did. It says to free some space.
 - An iPhone that asked for its passcode to allow UI testing, with nobody there to answer, failed with
   `xcodebuild exited before it was ready … TEST EXECUTE FAILED`, or XCUITest's `Not authorized for performing UI
   testing actions` mid-run. Both say to unlock it and enter the passcode when it asks.
@@ -11,6 +21,18 @@
   it showed. The agent notes the text Android announces when a toast shows, and reports it, where its window is,
   for as long as that window is visible (measured on Android 17: a short toast 2.6 s, a long one 4.2 s), so a check
   a moment after it's gone doesn't pass on it.
+- `scroll_to:` along a carousel stopped when the item just peeked in at its end, and the tap on it then missed
+  (measured on an iPhone: a SwiftUI chip at x 354-402 in a carousel ending at 370). It scrolls on until the item's
+  middle is inside what it scrolls along.
+- A step on a focused text field could wait out its timeout for the field to stop moving: its blinking cursor made it
+  look different at every other check (measured: a Flutter field on a Pixel, switching about every half second). How
+  a text field is drawn no longer counts, as it already didn't for the screen as a whole.
+- After a key press (`key:`, `clear:`, `hide_keyboard`) an Android 17 device stayed out of touch mode, where the next
+  launch focuses the app's first field and brings up the keyboard, which a person using the touchscreen never sees
+  (measured: the keyboard covered a landscape login screen, failing the next test). jevtest puts the device back in
+  touch mode after each key press, and before a launch.
+- A `see:` that failed with the keyboard up didn't say it may be hiding the text, as a step looking for an element
+  does. It says so (measured with Compose: a search's result line, below the field, was behind the keyboard).
 
 ## 0.9.15
 

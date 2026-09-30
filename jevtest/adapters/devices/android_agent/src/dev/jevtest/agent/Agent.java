@@ -144,6 +144,12 @@ public class Agent extends Instrumentation {
             case "/insert":
                 Set<String> fields = new HashSet<>(Arrays.asList(required(params, "fields").split(",")));
                 return insert(ui, required(params, "text"), fields);
+            case "/touch_mode":
+                // a key sent with `input keyevent` is a hardware key: it takes the device out of touch mode, where a
+                // launch focuses the first field and brings up the keyboard (measured on Android 17; `input text`
+                // leaves touch mode as it is)
+                setInTouchMode(true);
+                return "touch mode";
             case "/rotate":
                 return ui.setRotation(Integer.parseInt(required(params, "to"))) ? "rotated" : "refused";
             default:

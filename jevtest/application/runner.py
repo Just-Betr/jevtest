@@ -411,9 +411,11 @@ class TestRunner:
         """Whether `element` is where it was, and looks as it did, at the previous check.
 
         How it looks matters where its bounds can't show it moving (a system dialog fading in on Android reports its
-        final bounds at once).
+        final bounds at once), but not for a text field: its blinking cursor never stops moving (measured: a focused
+        Flutter field on a Pixel looked one of two ways, switching about every half second), as in `_drawn`.
         """
-        return place.still((element.kind, element.text, element.bounds, self.device.looks((element,))))
+        looks = "" if element.editable else self.device.looks((element,))
+        return place.still((element.kind, element.text, element.bounds, looks))
 
     def _check_app(self, action: Action) -> None:
         """Fail if the app crashed or left the foreground during the action."""
@@ -467,7 +469,9 @@ class TestRunner:
             return "" if screen.shows(wanted) == present else None
 
         def why(screen: Screen) -> str:
-            return self._near(wanted, screen.elements) if present else ""
+            if not present:
+                return ""
+            return self._near(wanted, screen.elements) + (KEYBOARD_UP if screen.keyboard_visible else "")
 
         until = f"'{check.text}' is on screen" if present else f"'{check.text}' is gone"
         return self._wait_until(seen, settings, until, why) or None
@@ -637,13 +641,14 @@ class TestRunner:
         return along
 
     def _scroll_to(self, text: str, direction: Direction, lane: Bounds | None, settings: Settings) -> str | None:
-        """Scroll until an element says exactly the text, clear of the screen's edges, or it can't scroll further.
+        """Scroll until an element says exactly the text where a tap reaches it, or it can't scroll further.
 
-        It can't: the content stopped moving, or `max_scrolls` scrolls. Clear of the edges (`Screen.clear_of_edges`),
-        as a person scrolls: an element just peeking in at the bottom sits on the phone's home-gesture strip, where
-        a tap goes home. When it can't scroll further, an element on screen at an edge is where it is. After each
-        scroll it waits until the screen stopped moving (a scroll glides on for a moment). It drags along `lane`,
-        found before the first scroll moved what it was found by, else across the page.
+        Where a tap reaches it: clear of the screen's edges, and inside `lane` (`Screen.in_lane`). It can't: the content
+        stopped moving, or `max_scrolls` scrolls. Clear of the edges (`Screen.clear_of_edges`), as a person scrolls: an
+        element just peeking in at the bottom sits on the phone's home-gesture strip, where a tap goes home. When it
+        can't scroll further, an element on screen at an edge is where it is. After each scroll it waits until the
+        screen stopped moving (a scroll glides on for a moment). It drags along `lane`, found before the first scroll
+        moved what it was found by, else across the page.
         """
         wanted = self._value(text)
         screen = self._still_screen(settings)  # a page still sliding in isn't what there is to scroll
@@ -651,7 +656,7 @@ class TestRunner:
         while True:
             found = [el for el in screen.elements if el.says(wanted)]
             last = scrolls == settings.max_scrolls or unmoved == END_OF_CONTENT
-            if found and (last or any(screen.clear_of_edges(el) for el in found)):
+            if found and (last or any(screen.in_lane(el, lane, direction) for el in found)):
                 return plural(scrolls, "scroll") if scrolls else None
             if scrolls == settings.max_scrolls:
                 raise StepFailed(

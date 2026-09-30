@@ -159,6 +159,18 @@ def test_clear_of_edges_is_away_from_the_top_and_bottom_8_percent():
     assert not up.clear_of_edges(el(bounds=(0, 900, 10, 950)))
 
 
+def test_in_lane_is_the_middle_inside_the_lane_along_the_scroll():
+    """Measured on an iPhone: a chip peeking in at a carousel's end, its middle past the carousel's end at 370."""
+    s, carousel = Screen(402, 874), (32, 708, 370, 739)
+    peeking, shown = el(bounds=(354, 708, 402, 739)), el(bounds=(200, 708, 260, 739))
+    assert not s.in_lane(peeking, carousel, Direction.RIGHT) and s.in_lane(shown, carousel, Direction.RIGHT)
+    assert s.in_lane(peeking, None, Direction.RIGHT)  # no lane: only the screen's edges
+    column = (100, 100, 150, 800)  # up and down, a lane is as wide as what it was found by: only its height counts
+    assert s.in_lane(el(bounds=(0, 300, 400, 340)), column, Direction.DOWN)
+    assert not s.in_lane(el(bounds=(100, 790, 150, 830)), column, Direction.DOWN)
+    assert not s.in_lane(el(bounds=(200, 10, 260, 40)), carousel, Direction.LEFT)  # inside, but at the top edge
+
+
 def test_element_label_and_points():
     assert Element("button", "OK", bounds=(0, 0, 10, 20)).center == (5, 10)
     assert Element("text_field", bounds=(0, 0, 100, 20)).end == (92, 10)  # just inside the right edge
