@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.17
 
 - A simulator turned by `rotate:` could be left turned after the run, sideways or upside down: before the first turn
   it reports its orientation as unknown (measured: raw 0 on iOS 26.5), and putting back unknown turned nothing
