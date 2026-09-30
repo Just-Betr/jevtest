@@ -15,7 +15,7 @@ from typing import Protocol
 from jevtest.adapters.shapes import is_json_object
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Direction
-from jevtest.domain.screen import EDGE, SIDE_EDGE, Element, Screen
+from jevtest.domain.screen import EDGE, SIDE_EDGE, Bounds, Element, Screen
 from jevtest.domain.steps import SWIPE_DISTANCE
 
 from .cache import in_use_dir, unwritable
@@ -341,13 +341,20 @@ class BaseDevice(ABC):
         screen: Screen | None = None,
         distance: float | None = None,
     ) -> None:
-        """Finger swipe in `direction`, across an element or across the page; a slider's thumb, to that end."""
+        """Finger swipe in `direction`: on an element, along what it's in (`Screen.swiped`); else across the page.
+
+        A slider's thumb goes to that end.
+        """
+        s = screen or self.screen()
         if element is not None and element.position is not None and direction in {Direction.LEFT, Direction.RIGHT}:
             # A flick moves a slider an amount that varies from one run to the next (measured on iOS 26.5); a drag
             # slow enough for the thumb to keep up with the finger takes it to the end every time.
-            self._scroll_drag(*self._thumb_to_end(direction, element, (screen or self.screen()).width))
+            self._scroll_drag(*self._thumb_to_end(direction, element, s.width))
+        elif element is not None:
+            lane, on = s.swiped(element, direction)
+            self.drag(*_across(direction, lane, s, distance, on=on))
         else:
-            self.drag(*self._across(direction, element, screen, distance))
+            self.drag(*_across(direction, _page(s), s, distance))
 
     @staticmethod
     def _thumb_to_end(direction: Direction, slider: Element, width: int) -> tuple[int, int, int, int]:
@@ -365,33 +372,7 @@ class BaseDevice(ABC):
         thumb = round(x1 + inset + (slider.position or 0) * (x2 - x1 - 2 * inset))
         return thumb, (y1 + y2) // 2, width - 1 if direction == Direction.RIGHT else 0, (y1 + y2) // 2
 
-    def _across(
-        self, direction: Direction, element: Element | None, screen: Screen | None, distance: float | None = None
-    ) -> tuple[int, int, int, int]:
-        """Where a swipe in `direction` starts and ends: `distance` percent across the element, or the page.
-
-        None is `SWIPE_DISTANCE`'s. The page is the part of the screen the keyboard doesn't cover: a drag that
-        starts on the keyboard moves nothing.
-        """
-        s = screen or self.screen()
-        x1, y1, x2, y2 = element.bounds if element is not None else (0, 0, s.width, s.content_height)
-        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-        across, down = (distance, distance) if distance is not None else SWIPE_DISTANCE
-        dx, dy = int((x2 - x1) * across / 200), int((y2 - y1) * down / 200)
-        moves = {
-            Direction.UP: (cx, cy + dy, cx, cy - dy),
-            Direction.DOWN: (cx, cy - dy, cx, cy + dy),
-            Direction.LEFT: (cx + dx, cy, cx - dx, cy),
-            Direction.RIGHT: (cx - dx, cy, cx + dx, cy),
-        }
-        sx, sy, ex, ey = moves[Direction(direction)]
-        # Never from where the phone takes the swipe for its own gesture (back, home, the notifications): the
-        # whole swipe moves in, as far as it goes.
-        x_in = _inward(sx, s.width, SIDE_EDGE) if direction in {Direction.LEFT, Direction.RIGHT} else 0
-        y_in = _inward(sy, s.height, EDGE) if direction in {Direction.UP, Direction.DOWN} else 0
-        return sx + x_in, sy + y_in, ex + x_in, ey + y_in
-
-    def scroll(self, direction: Direction, screen: Screen | None = None, lane: Element | None = None) -> None:
+    def scroll(self, direction: Direction, screen: Screen | None = None, lane: Bounds | None = None) -> None:
         """Scroll so more of the content in `direction` comes into view: the finger moves the other way.
 
         Across the page, or along `lane`: a carousel scrolls when a finger drags along it, not across the page.
@@ -402,10 +383,54 @@ class BaseDevice(ABC):
             Direction.LEFT: Direction.RIGHT,
             Direction.RIGHT: Direction.LEFT,
         }
-        self._scroll_drag(*self._across(finger[Direction(direction)], lane, screen))
+        s = screen or self.screen()
+        self._scroll_drag(*_across(finger[Direction(direction)], lane or _page(s), s))
 
 
-def _inward(start: int, size: int, edge: float) -> int:
-    """How far a swipe starting at `start` must move to start clear of the `edge` share at each end of `size`."""
-    low, high = round(size * edge), round(size * (1 - edge))
-    return low - start if start < low else high - start if start > high else 0
+def _page(screen: Screen) -> Bounds:
+    """The part of the screen the keyboard doesn't cover: a drag that starts on the keyboard moves nothing."""
+    return 0, 0, screen.width, screen.content_height
+
+
+def _across(
+    direction: Direction, over: Bounds, screen: Screen, distance: float | None = None, on: Bounds | None = None
+) -> tuple[int, int, int, int]:
+    """Where a swipe in `direction` starts and ends: `distance` percent across `over` (None: `SWIPE_DISTANCE`'s).
+
+    The finger goes down on `on`, what the swipe is on, when that's narrower than `over` (a row's text, a list
+    row that doesn't fill the list): the swipe keeps its length. It never starts where the phone would take it for
+    its own gesture (`_clear_of_edge_gestures`), and it ends on the screen.
+    """
+    x1, y1, x2, y2 = over
+    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+    across, down = (distance, distance) if distance is not None else SWIPE_DISTANCE
+    dx, dy = int((x2 - x1) * across / 200), int((y2 - y1) * down / 200)
+    moves = {
+        Direction.UP: (cx, cy + dy, cx, cy - dy),
+        Direction.DOWN: (cx, cy - dy, cx, cy + dy),
+        Direction.LEFT: (cx + dx, cy, cx - dx, cy),
+        Direction.RIGHT: (cx - dx, cy, cx + dx, cy),
+    }
+    sx, sy, ex, ey = moves[Direction(direction)]
+    if on is not None:
+        ox1, oy1, ox2, oy2 = on
+        nx, ny = min(max(sx, ox1), ox2 - 1), min(max(sy, oy1), oy2 - 1)
+        sx, sy, ex, ey = nx, ny, ex + nx - sx, ey + ny - sy
+    mx, my = _clear_of_edge_gestures(direction, sx, sy, screen)
+    sx, sy, ex, ey = sx + mx, sy + my, ex + mx, ey + my
+    return sx, sy, min(max(ex, 0), screen.width - 1), min(max(ey, 0), screen.height - 1)
+
+
+def _clear_of_edge_gestures(direction: Direction, x: int, y: int, screen: Screen) -> tuple[int, int]:
+    """How far a swipe from (`x`, `y`) in `direction` must move so the phone doesn't take it as its own gesture.
+
+    A phone takes a swipe inward from an edge: Android's back from either side, iOS's back from the left, home from
+    the bottom and the notifications from the top. A swipe outward is the app's, however near the edge it starts.
+    """
+    w, h = screen.width, screen.height
+    return {
+        Direction.RIGHT: (max(0, round(w * SIDE_EDGE) - x), 0),
+        Direction.LEFT: (min(0, round(w * (1 - SIDE_EDGE)) - x), 0),
+        Direction.UP: (0, min(0, round(h * (1 - EDGE)) - y)),
+        Direction.DOWN: (0, max(0, round(h * EDGE) - y)),
+    }[Direction(direction)]

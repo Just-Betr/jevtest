@@ -395,16 +395,26 @@ class AndroidDevice(BaseDevice):
 
     @override
     def drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
-        """Press, move, hold still, lift: every drag moves the content as far as the finger, so a scroll too."""
-        # Press, move in steps, hold still, lift: the content stops where the finger stops. A plain
-        # `input swipe` lifts while moving, so the content flings on and a scroll lands anywhere.
+        """A finger's swipe: press, move, and lift while still moving, as on iOS.
+
+        What it moves flings on: a pager turns, a list row swiped away goes.
+        """
+        self._motion(x1, y1, x2, y2, hold=False)
+
+    @override
+    def _scroll_drag(self, x1: int, y1: int, x2: int, y2: int) -> None:
+        """Press, move, hold still, lift: the content stops where the finger stops."""
+        self._motion(x1, y1, x2, y2, hold=True)
+
+    def _motion(self, x1: int, y1: int, x2: int, y2: int, *, hold: bool) -> None:
+        """Press, move in steps, and lift, after holding still (`DRAG_HOLD`) or while moving: one shell call.
+
+        A plain `input swipe` lifts while moving too, but in one step: an app sees no movement before the lift.
+        """
         steps = [(x1 + (x2 - x1) * i // DRAG_STEPS, y1 + (y2 - y1) * i // DRAG_STEPS) for i in range(1, DRAG_STEPS + 1)]
         moves = [f"input motionevent MOVE {x} {y}" for x, y in steps]
-        self.sh(
-            "; ".join(
-                [f"input motionevent DOWN {x1} {y1}", *moves, f"sleep {DRAG_HOLD}", f"input motionevent UP {x2} {y2}"]
-            )
-        )
+        rest = [f"sleep {DRAG_HOLD}"] if hold else []
+        self.sh("; ".join([f"input motionevent DOWN {x1} {y1}", *moves, *rest, f"input motionevent UP {x2} {y2}"]))
 
     def type_text(self, text: str, at: Point | None = None) -> None:
         """Type into the focused field, or first focus the field at `at`.

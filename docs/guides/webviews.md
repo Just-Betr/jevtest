@@ -62,7 +62,7 @@ The demo app is Flutter, with one screen built in native Android Views and UIKit
 
 ## What each toolkit reports
 
-Each toolkit tells the accessibility layer about its elements its own way, and a test names them as they're reported. Checked with a SwiftUI, a Jetpack Compose and a React Native app, each on the emulator or simulator and the Pixel:
+Each toolkit tells the accessibility layer about its elements its own way, and a test names them as they're reported. Checked with a SwiftUI, a Jetpack Compose, a Material Views and a React Native app:
 
 - **React Native on iOS** reads a pressable's texts as one element, as VoiceOver does: a row showing *Gadget 1* and *$2* is `Gadget 1, $2` there, and two texts on Android. A step that names one says `close but not exact: 'Gadget 1, $2'`: write the whole text in the iOS file.
 - **A control with no label** (a Compose `Switch` or `Slider` beside a `Text`, with nothing joining them) can't be named: the text beside it is only a text, and `tap:` on it taps the text. Describe the control instead (`do: Turn on the switch next to Dark theme`), or give it a label, which screen readers need too (`Modifier.toggleable` on the row, `contentDescription`, `accessibilityLabel`).

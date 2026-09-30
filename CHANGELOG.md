@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- Tested on three apps built fresh for it, each written as a user would from these docs: a SwiftUI shop on the
-  simulator, a Jetpack Compose shop on the emulator and the Pixel, and a React Native shop on all three. What didn't
+- Tested on four apps built fresh for it, each written as a user would from these docs: a SwiftUI shop on the
+  simulator, Jetpack Compose and Material Views shops on the emulator, and a React Native shop on the emulator, the
+  Pixel and the simulator. What didn't
   work now does, and the toolkit guide says what each toolkit reports differently:
 - Jetpack Compose text fields can be named by their label (`into: Email address`): Compose puts the label inside the
   field, not as its hint, so `type:` said the label "doesn't take text".
@@ -24,7 +25,11 @@
   shows an iOS row's actions to tap one, the default 70 runs the first (measured: up to half the row shows them).
 - A swipe on something in a pager or carousel crossed only that element, too short to turn a page, and one near
   the screen's side started where Android takes the swipe as back, closing the app. A swipe goes along its line across
-  what the element is in, and never starts in the outer 15% of the width or the top and bottom 8% of the height.
+  what the element is in, starts on it, and never starts a swipe inward from the outer 15% of the width or the top and
+  bottom 8% of the height.
+- An Android swipe held still before lifting, so nothing flung on: a `RecyclerView` row's swipe-to-delete and a
+  `ViewPager2` page needed more than half the list's width. It lifts while moving, a flick, as on iOS; scrolls still
+  hold still, so the content stops where the finger does.
 - `along:` for `scroll` and `scroll_to`: `scroll_to` dragged across the page, so a chip in a carousel was never found
   (`Scrolled right to the end`). `along: Tag 1` scrolls what that text is in.
 - `hide_keyboard` in an iOS field of several lines (SwiftUI `TextField(axis: .vertical)`) typed a new line into it

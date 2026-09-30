@@ -242,10 +242,12 @@ def test_touch_commands(drv, adb):
     drv.double_tap(3, 4)
     drv.long_press(5, 6, seconds=1.5)
     drv.drag(1, 2, 3, 4)
+    drv._scroll_drag(1, 2, 3, 4)
     assert adb.shell()[:3] == ["input tap 1 2", "input tap 3 4; sleep 0.1; input tap 3 4", "input swipe 5 6 5 6 1500"]
-    drag = adb.shell()[3].split("; ")
-    assert drag[0] == "input motionevent DOWN 1 2" and len(drag) == 13
-    assert drag[-2:] == ["sleep 0.1", "input motionevent UP 3 4"]  # held still before lifting: no fling
+    swipe, scroll = adb.shell()[3].split("; "), adb.shell()[4].split("; ")
+    assert swipe[0] == scroll[0] == "input motionevent DOWN 1 2" and len(swipe) == 12
+    assert swipe[-2:] == ["input motionevent MOVE 3 4", "input motionevent UP 3 4"]  # lifted moving: a flick
+    assert scroll[-2:] == ["sleep 0.1", "input motionevent UP 3 4"]  # held still before lifting: no fling
 
 
 FOCUSED = LOGIN.replace('<hierarchy rotation="0"', '<hierarchy rotation="0" ime="true"').replace(
@@ -475,12 +477,24 @@ def test_location_on_emulator_only(drv, adb):
 # --- shared helpers from the base class --------------------------------------------------------------
 
 
+def test_a_swipe_inward_from_a_side_starts_clear_of_the_back_gesture(drv, adb):
+    """Android takes a swipe inward from either side as back (measured: from 78 of 1080 pixels): it starts 15% in."""
+    drv.swipe(Direction.RIGHT, element=Element("text", bounds=(0, 0, 100, 100)))
+    drv.swipe(Direction.LEFT, element=Element("text", bounds=(980, 0, 1080, 100)))
+    drv.swipe(Direction.UP, element=Element("text", bounds=(0, 2300, 100, 2424)))  # home is up from the bottom
+    drv.swipe(Direction.DOWN, element=Element("text", bounds=(0, 0, 100, 100)))  # the notifications, down from the top
+    right, left, up, down = [c for c in adb.shell() if c.startswith("input motionevent")]
+    assert right.startswith("input motionevent DOWN 162 50;") and right.endswith("UP 232 50")
+    assert left.startswith("input motionevent DOWN 918 50;") and left.endswith("UP 848 50")
+    assert up.startswith("input motionevent DOWN 50 2230;") and up.endswith("UP 50 2156")
+    assert down.startswith("input motionevent DOWN 50 194;") and down.endswith("UP 50 254")
+
+
 def test_swipe_and_scroll_geometry(drv, adb):
     drv.swipe(Direction.LEFT, element=Element("text", bounds=(0, 0, 100, 100)))
     drv.scroll(Direction.DOWN)
     swipe, scroll = [c for c in adb.shell() if c.startswith("input motionevent")]
-    # its start would be where Android takes a sideways swipe as back: the swipe moves in, 15% of the width
-    assert swipe.startswith("input motionevent DOWN 162 50;") and swipe.endswith("UP 92 50")
+    assert swipe.startswith("input motionevent DOWN 85 50;") and swipe.endswith("UP 15 50")  # outward: the app's
     assert scroll.startswith("input motionevent DOWN 540 1939;") and scroll.endswith("UP 540 485")
 
 

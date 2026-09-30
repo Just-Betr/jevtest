@@ -36,7 +36,7 @@ from jevtest.domain.kinds import AppState, Direction, Gesture, Platform, Status
 from jevtest.domain.model import ModelCall
 from jevtest.domain.ports import Clock, Device, RunListener
 from jevtest.domain.results import CheckResult, RunResult, StepResult, TestResult
-from jevtest.domain.screen import Element, Screen, near_names
+from jevtest.domain.screen import Bounds, Element, Screen, near_names
 from jevtest.domain.settings import Settings
 from jevtest.domain.steps import (
     Action,
@@ -551,7 +551,7 @@ class TestRunner:
                     d.swipe(direction, distance=distance)
                     return None
                 found, screen = self._find(target, settings)
-                d.swipe(direction, element=screen.swiped(found.element, direction), screen=screen, distance=distance)
+                d.swipe(direction, element=found.element, screen=screen, distance=distance)
             case _:  # pragma: no cover - every element action is handled above
                 assert_never(action)
         return f"on {found.describe()}"
@@ -609,18 +609,16 @@ class TestRunner:
 
     def _scrolling(self, action: Scroll | ScrollTo, settings: Settings) -> str | None:
         """Scroll the page, or along what a text is in; `scroll_to` until it finds its text."""
-        lane = self._lane(action.along, action.direction, settings) if action.along is not None else None
+        lane, along = None, None
+        if action.along is not None:  # found once: scrolling moves it away
+            found, screen = self._find(action.along, settings)
+            lane, along = screen.swiped(found.element, action.direction)[0], f"along {found.describe()}"
         if isinstance(action, ScrollTo):
             return self._scroll_to(action.text, action.direction, lane, settings)
         self.device.scroll(action.direction, lane=lane)
-        return None if lane is None else f"along {lane.label()}"
+        return along
 
-    def _lane(self, along: str, direction: Direction, settings: Settings) -> Element:
-        """Where to drag to scroll what `along` is in: along its line, across its scroller (`Screen.swiped`)."""
-        found, screen = self._find(along, settings)
-        return screen.swiped(found.element, direction)
-
-    def _scroll_to(self, text: str, direction: Direction, lane: Element | None, settings: Settings) -> str | None:
+    def _scroll_to(self, text: str, direction: Direction, lane: Bounds | None, settings: Settings) -> str | None:
         """Scroll until an element says exactly the text, clear of the screen's edges, or it can't scroll further.
 
         It can't: the content stopped moving, or `max_scrolls` scrolls. Clear of the edges (`Screen.clear_of_edges`),
@@ -788,7 +786,7 @@ class TestRunner:
             case TouchElement(gesture, element):
                 self._touch(gesture, element)
             case SwipeElement(direction, element):
-                d.swipe(direction, element=screen.swiped(element, direction), screen=screen)
+                d.swipe(direction, element=element, screen=screen)
             case TypeInto(element, text):
                 d.type_text(self._value(text), at=None if ready else element.center)
             case ClearField(element):

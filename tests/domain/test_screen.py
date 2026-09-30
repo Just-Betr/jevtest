@@ -26,12 +26,14 @@ def test_a_swipe_goes_along_its_line_across_the_row_or_scroller_it_is_in():
     s = Screen(1000, 2000, (outer, row, milk, slider, pager, page, chip, alone), scrollers=((30, 1490, 970, 1560),))
     _, _, milk, slider, _, page, chip, alone = s.elements
     left, up = Direction.LEFT, Direction.UP
-    assert s.swiped(milk, left).bounds == (0, 420, 1000, 480)  # along its line, across the smallest cell
-    assert s.swiped(milk, up).bounds == (20, 400, 120, 500)  # up and down: along its column
-    assert s.swiped(page, left).bounds == (0, 1200, 1000, 1250)
-    assert s.swiped(chip, left).bounds == (30, 1500, 970, 1550)
-    assert s.swiped(slider, left) == slider  # a slider is swiped itself: its thumb moves
-    assert s.swiped(alone, left) == alone  # in nothing that scrolls
+    # along its line across the smallest cell, from anywhere on it (a row takes a touch anywhere)
+    assert s.swiped(milk, left) == ((0, 420, 1000, 480), (0, 420, 1000, 480))
+    assert s.swiped(milk, up) == ((20, 400, 120, 500), (20, 400, 120, 500))  # up and down: along its column
+    # across a scroller, from on the element: that's the item the finger moves
+    assert s.swiped(page, left) == ((0, 1200, 1000, 1250), page.bounds)
+    assert s.swiped(chip, left) == ((30, 1500, 970, 1550), chip.bounds)
+    assert s.swiped(slider, left) == (slider.bounds, slider.bounds)  # a slider is swiped itself: its thumb moves
+    assert s.swiped(alone, left) == (alone.bounds, alone.bounds)  # in nothing that scrolls
 
 
 def test_lookups():

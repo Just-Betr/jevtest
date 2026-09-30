@@ -14,7 +14,7 @@ from .decisions import SavedStep
 from .kinds import AppState, Direction, Orientation
 from .model import Answer, ModelCall, Question, State
 from .results import CheckResult, StepResult, TestResult
-from .screen import Element, Point, Screen
+from .screen import Bounds, Element, Point, Screen
 from .steps import Test
 
 
@@ -97,7 +97,7 @@ class Device(Protocol):
         """
         ...
 
-    def scroll(self, direction: Direction, screen: Screen | None = None, lane: Element | None = None) -> None:
+    def scroll(self, direction: Direction, screen: Screen | None = None, lane: Bounds | None = None) -> None:
         """Scroll the content so more of it in `direction` comes into view: the page's, or `lane`'s.
 
         `lane` is where a finger drags along a carousel, say (`Screen.swiped`).
