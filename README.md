@@ -55,7 +55,7 @@ Results: results/20260928-161344/android/emulator-5554
 - **Tests read like the spec.** One action, then what should be true. `do:` takes a plain-English goal; `tap:`, `type:`, `swipe:`, `scroll_to:` and 22 more give exact control.
 - **Deterministic.** Every Jev decision is recorded in a lockfile. The same screen always gets the same answer; `--lock frozen` replays a run exactly, with no network and no API key.
 - **Nothing assumed.** No default device, no guessing what a typo meant, and settings with good defaults and strict limits. The whole test file is checked before a device is touched, and every problem is reported at once with what to fix.
-- **Real apps, real phones.** Android emulators and phones, iOS simulators and iPhones. Native, Flutter, React Native and **in-app WebViews**, driven the same way. Animations stay on, and what a step changes on the device (orientation, dark mode, network, an iOS location) is put back.
+- **Real apps, real phones.** Android emulators and phones, iOS simulators and iPhones. Native, Flutter, React Native and **in-app WebViews**, driven the same way. Animations stay on, and what a step changes on the device (orientation, dark mode, network, autofill, an iOS location) is put back.
 - **Wait until, or fail.** Each step waits until what it needs is on screen, up to its timeout, then fails saying what it waited for. No sleeps.
 - **Built for scale and CI.** `${SECRETS}` from `.env` or CI, shared test libraries, whole folders in one command, several devices at once, JUnit XML, JSON reports and failure screenshots.
 
@@ -80,7 +80,7 @@ A small agent on the device reads the accessibility tree in milliseconds. jevtes
 
 ## Status
 
-New, and tested end to end on a Flutter demo app with native and web screens: the Android emulator (API 37), a Pixel 4a (Android 13), iOS simulators (iOS 26) and an iPhone 17 (iOS 27).
+New, and tested end to end on a Flutter demo app with native and web screens: the Android emulator (API 37), a Pixel 4a (Android 13), iOS simulators (iOS 26) and an iPhone 17 (iOS 27). Also on six apps written to test it, on the emulator and simulators: SwiftUI, UIKit, Jetpack Compose, Android Views, React Native and a second Flutter app.
 
 Built to a high bar: a [clean architecture](https://just-betr.github.io/jevtest/architecture/) whose layer rules are checked on every commit; strict mypy and strict pyright with no `Any`; every ruff rule; no function above a complexity of 10; 100% line and branch coverage in random order, with Hypothesis properties on every input jevtest reads; dependencies audited and every CI action pinned to a commit. Issues and pull requests are welcome; see [Contributing](https://just-betr.github.io/jevtest/contributing/).
 

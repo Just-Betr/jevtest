@@ -89,4 +89,4 @@ Jev is TypeSafe's decision model: it reads text and **chooses from the options j
 
 ## Status
 
-jevtest is new. It is tested end to end on a Flutter demo app with native and web screens, on the Android emulator (API 37), a Pixel 4a (Android 13), iOS simulators (iOS 26) and an iPhone 17 (iOS 27), with 100% line and branch coverage in its unit tests. Issues and pull requests are welcome.
+jevtest is new. It is tested end to end on a Flutter demo app with native and web screens, on the Android emulator (API 37), a Pixel 4a (Android 13), iOS simulators (iOS 26) and an iPhone 17 (iOS 27), and on six apps written to test it (SwiftUI, UIKit, Jetpack Compose, Android Views, React Native and a second Flutter app) on the emulator and simulators, with 100% line and branch coverage in its unit tests. Issues and pull requests are welcome.
