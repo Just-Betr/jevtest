@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.15
 
 - A Flutter slider on iOS couldn't be set to its ends: XCUITest reports it as plain text, so a swipe on it crossed
   15% to 85% of it and stopped short on some runs. iOS marks it adjustable, as it does sliders, steppers and page
