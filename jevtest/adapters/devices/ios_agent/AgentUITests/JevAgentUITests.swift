@@ -319,6 +319,12 @@ final class JevAgentUITests: XCTestCase {
         func hasKeyboard(_ s: XCUIElementSnapshot) -> Bool {
             s.elementType == .keyboard || s.children.contains(where: hasKeyboard)
         }
+        // The field typing goes into: a snapshot's hasFocus is the focus engine's (tvOS), not the keyboard's.
+        let keyboardUp = app.keyboards.count > 0
+        let typingInto = keyboardUp
+            ? app.descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == true")).firstMatch
+            : nil
+        let typingFrame = typingInto.flatMap { $0.exists ? $0.frame : nil }
         func walk(_ s: XCUIElementSnapshot, keyboardWindow: Bool) {
             // The keyboard's window (keys, suggestion strip, emoji and dictation buttons) is not
             // the app's UI: noise for Jev. Whether it is up is reported as "keyboard" below.
@@ -330,7 +336,8 @@ final class JevAgentUITests: XCTestCase {
                     "identifier": s.identifier,
                     "label": s.label,
                     "x": f.origin.x, "y": f.origin.y, "w": f.size.width, "h": f.size.height,
-                    "enabled": s.isEnabled, "selected": s.isSelected, "focused": s.hasFocus,
+                    "enabled": s.isEnabled, "selected": s.isSelected,
+                    "focused": s.hasFocus || (typingFrame != nil && s.frame == typingFrame),
                 ]
                 if let v = s.value { d["value"] = "\(v)" }
                 if let p = s.placeholderValue { d["placeholder"] = p }
@@ -343,10 +350,21 @@ final class JevAgentUITests: XCTestCase {
         let reply: [String: Any] = [
             "elements": out,
             "width": app.frame.size.width, "height": app.frame.size.height,
-            "keyboard": app.keyboards.count > 0,
-            "keyboard_top": app.keyboards.count > 0 ? app.keyboards.firstMatch.frame.minY : 0,
+            "keyboard": keyboardUp,
+            "keyboard_top": keyboardUp ? Self.keyboardTop(app) : 0,
         ]
         return reply
+    }
+
+    /// Where the keyboard starts: its suggestion strip sits above the keys (measured on iOS 26.5: the strip from 539
+    /// points, the keys from 583), and a touch on the strip picks a suggestion, not what the app shows beneath it.
+    /// Queried by its identifier, which isn't translated, as an element: its frame is then in the app's turned
+    /// coordinates, where the keyboard window's snapshot gives the screen's unturned ones.
+    private static func keyboardTop(_ app: XCUIApplication) -> CGFloat {
+        let keys = app.keyboards.firstMatch.frame.minY
+        let strip = app.otherElements.matching(identifier: "Typing Predictions").firstMatch
+        guard strip.exists, !strip.frame.isEmpty else { return keys }
+        return min(keys, strip.frame.minY)
     }
 
     private static func typeName(_ t: XCUIElement.ElementType) -> String {

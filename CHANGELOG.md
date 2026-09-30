@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.9.14
 
-- Tested on six apps built fresh for it, each written as a user would from these docs: SwiftUI and UIKit apps on the
-  simulator, a second Flutter app on the emulator and the simulator, Jetpack Compose and Material Views shops on the emulator, and a React Native shop on the emulator, the
-  Pixel and the simulator. What didn't
-  work now does, and the toolkit guide says what each toolkit reports differently:
+- Tested on six apps built fresh for it, each written as a user would from these docs: SwiftUI and UIKit on the
+  simulator; Jetpack Compose, Material Views and React Native on the emulator and the Pixel (React Native on the
+  simulator too); a second Flutter app on the emulator, the Pixel and the simulator. The demo suites pass on all four
+  devices. What didn't work now does, and the toolkit guide says what each toolkit reports differently:
 - Jetpack Compose text fields can be named by their label (`into: Email address`): Compose puts the label inside the
   field, not as its hint, so `type:` said the label "doesn't take text".
 - A Compose `Slider` was missing from the screen: it has no text, so jevtest dropped it, and Jev couldn't move it.
@@ -29,8 +29,9 @@
   what the element is in, starts on it, and never starts a swipe inward from the outer 15% of the width or the top and
   bottom 8% of the height.
 - An Android swipe held still before lifting, so nothing flung on: a `RecyclerView` row's swipe-to-delete and a
-  `ViewPager2` page needed more than half the list's width. It lifts while moving, a flick, as on iOS; scrolls still
-  hold still, so the content stops where the finger does.
+  `ViewPager2` page needed more than half the list's width. It lifts while moving, a flick, as on iOS, in a timed
+  `input swipe` (150 ms), so every swipe of a length has the same speed; scrolls still hold still, so the content
+  stops where the finger does.
 - A UIKit app (a table with a search bar, swipe actions, pull to refresh, an action sheet, a picker wheel, a stepper):
   - `type:` into an iOS picker wheel turns it to the value, and a `do:` goal can with a quoted value: XCUITest shows
     only a wheel's selected row, so no step could pick another.
@@ -52,6 +53,14 @@
   changed`: jevtest waited for the app to be ended, as it is for camera or photos, but location, location-always and
   siri leave it running (measured, each service granted twice). It waits, and starts the app again, only for the
   others. Permission prompts answered in tests, and `grant:`, checked on the Compose and SwiftUI apps.
+- `clear:` on iOS could leave part of the text: XCUITest drops some of many deletes typed at once (measured: 7 of 11
+  landed). It reads the field again and deletes what's left until it's empty, and fails, saying what's left, if
+  deleting removes nothing.
+- The iOS keyboard's suggestion strip counted as the app's screen: a field under it was tapped through the strip,
+  typing a suggestion (`I'm`, `My`) into the app. The keyboard starts at the strip (measured: the strip from 539
+  points, the keys from 583), so such a field says to close the keyboard first. And the field that has the keyboard's
+  focus is known on iOS too, so typing into it again doesn't tap it.
+- Clearing and retyping checked on six apps: Compose, Material Views, React Native, Flutter, SwiftUI and UIKit.
 - `along:` for `scroll` and `scroll_to`: `scroll_to` dragged across the page, so a chip in a carousel was never found
   (`Scrolled right to the end`). `along: Tag 1` scrolls what that text is in.
 - `hide_keyboard` in an iOS field of several lines (SwiftUI `TextField(axis: .vertical)`) typed a new line into it

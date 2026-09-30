@@ -423,11 +423,27 @@ class IOSDevice(BaseDevice):
             raise DeviceError(f"Can't turn {picker.label()} to '{value}': {e}") from None
 
     def clear_text(self, element: Element) -> None:
-        """Erase a text field: put the cursor after its text, then delete exactly what is there."""
+        """Erase a text field: put the cursor after its text, then delete what is there until nothing is.
+
+        XCUITest drops some of many deletes typed at once (measured: 7 of 11 landed in a UIKit field, 6 of 11 on
+        another run), so the field is read again after each round, and a round that deletes nothing is an error.
+
+        Raises:
+            DeviceError: The field keeps text that deleting doesn't remove.
+        """
         self.tap(*element.end)
         self._wait_for_keyboard()
-        if element.value:
-            self._call("/key", key="delete", count=len(element.value))
+        left = element.value
+        while left:
+            self._call("/key", key="delete", count=len(left))
+            now = self._value_at(element)
+            if len(now) >= len(left):
+                raise DeviceError(f"Couldn't clear {element.label()}: deleting left '{now}' in it")
+            left = now
+
+    def _value_at(self, field: Element) -> str:
+        """The text now in the field where `field` was (a field doesn't move while the keyboard is up)."""
+        return next((e.value for e in self.screen().elements if e.editable and e.bounds == field.bounds), "")
 
     def _wait_for_keyboard(self) -> None:
         """`wait_until` the keyboard is up after tapping a field.

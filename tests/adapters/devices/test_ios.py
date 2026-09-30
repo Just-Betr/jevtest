@@ -212,6 +212,7 @@ def test_agent_commands(drv, env):
         ("/tap", {"x": 8, "y": 5}),
         ("/tree", {}),
         ("/key", {"key": "delete", "count": 3}),
+        ("/tree", {}),  # read again: the field is empty
         ("/tree", {}),  # a key goes into a field: the keyboard is up
         ("/key", {"key": "enter"}),
         ("/back", {}),
@@ -392,6 +393,26 @@ def test_typing_waits_until_the_keyboard_is_up(drv, env, slept):
     agent.replies["/tree"] = [plain, focused]  # right after the tap: not yet
     drv.type_text("x", at=(1, 1))
     assert [p for p, _ in agent.calls][-4:] == ["/tap", "/tree", "/tree", "/type"] and slept == [0.25]
+
+
+def field_tree(value: str) -> dict[str, object]:
+    field = {"type": "text_field", "value": value, "x": 0, "y": 100, "w": 300, "h": 40, "focused": True}
+    return {"width": 402, "height": 874, "elements": [field], "keyboard": True, "keyboard_top": 500}
+
+
+def test_clear_deletes_again_what_xcuitest_dropped(drv, env):
+    """XCUITest drops some of many deletes typed at once (measured: 7 of 11 landed): read, delete again."""
+    field = Element("text_field", "hello world", value="hello world", editable=True, bounds=(0, 100, 300, 140))
+    env[1].replies["/tree"] = [field_tree("hello world"), field_tree("hell"), field_tree("")]
+    drv.clear_text(field)
+    assert [b["count"] for p, b in env[1].calls if p == "/key"] == [11, 4]
+
+
+def test_clear_fails_when_deleting_removes_nothing(drv, env):
+    field = Element("text_field", "stuck", value="stuck", editable=True, bounds=(0, 100, 300, 140))
+    env[1].replies["/tree"] = [field_tree("stuck"), field_tree("stuck")]
+    with pytest.raises(DeviceError, match="^Couldn't clear text_field 'stuck': deleting left 'stuck' in it$"):
+        drv.clear_text(field)
 
 
 def test_a_picker_wheel_is_turned_by_xctest(drv, env):
