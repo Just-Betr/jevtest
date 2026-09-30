@@ -359,6 +359,28 @@ def test_what_a_step_changed_is_put_back_on_close(drv, env):
     assert sim.cmds[-1].endswith("simctl location A clear")
 
 
+@pytest.mark.parametrize(
+    ("reported", "size", "put_back"),
+    [
+        (0, (402, 874), 1),  # unknown, the screen upright: portrait
+        (5, (874, 402), 3),  # face up, the screen sideways: landscape, as `rotate: landscape` turns it
+        (2, (402, 874), 2),  # upside down is an orientation: put back as it was
+    ],
+)
+def test_the_orientation_put_back_is_one_the_screen_can_have(drv, env, reported, size, put_back):
+    """Measured: a simulator never turned reports unknown (raw 0), and putting that back left it turned."""
+    agent = env[1]
+    screen = {"width": size[0], "height": size[1], "elements": [], "keyboard": False}
+    agent.replies["/rotate"] = {"raw": reported}
+    agent.replies["/tree"] = [screen, {**screen, "width": 874, "height": 402}]  # before, then turned
+    drv.rotate("landscape")
+    agent.calls.clear()
+    drv.close()
+    assert ("/rotate", {"raw": put_back}) in [
+        (p, {k: v for k, v in b.items() if k != "bundle_id"}) for p, b in agent.calls
+    ]
+
+
 def test_nothing_changed_nothing_put_back(drv, env):
     env[1].calls.clear()
     drv.close()

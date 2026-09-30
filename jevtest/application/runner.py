@@ -95,14 +95,6 @@ KEYBOARD_UP = (
 OFF_SCREEN = "; the app has it off screen: bring it on screen first, e.g. with `scroll_to:`"
 """Added when what a step looks for isn't on screen but the app reports it where the screen doesn't show it."""
 
-BACK = {
-    Direction.DOWN: Direction.UP,
-    Direction.UP: Direction.DOWN,
-    Direction.LEFT: Direction.RIGHT,
-    Direction.RIGHT: Direction.LEFT,
-}
-"""Each direction's opposite."""
-
 LEFT_CONFIRM = 4
 """Checks, `LEFT_INTERVAL` apart, that another app is still on top before the app counts as having left. A touch in
 Android 15's gesture strip puts the home screen on top for a moment while the phone decides whether it's a swipe home
@@ -739,23 +731,29 @@ class TestRunner:
         app's: it changes with the screen and with jevtest (measured: two saved scrolls that reached Item 30 stopped at
         Item 29 after jevtest's drags got shorter), and a web page's content can report late, so a scroll goes by it
         (measured: a saved scroll on a web page ended at its end, past the button the next step taps, 1 run in 2). The
-        element counts as there as `scroll_to:` counts it, clear of the screen's edges; each way stops at the end of the
-        content, or after `max_scrolls` scrolls.
+        element counts as there once it's clear of the screen's edges, and no further: a replay keeps as close as it
+        can to the screens it was recorded on, as an `expect:` answer is recorded for its screen (measured: requiring
+        it inside the page, as `scroll_to:` does, scrolled a saved goal further and met an `expect:` screen not
+        recorded). Each way stops at the end of the content, or after `max_scrolls` scrolls.
         """
         target = after.target if after is not None else None
         if target is None or not scroll.action.startswith("scroll_"):
             return
         direction = Direction(scroll.action.removeprefix("scroll_"))
         screen = self._still_screen(settings)
-        for way in (direction, BACK[direction]):
+        for way in (direction, direction.opposite):
             for _ in range(settings.max_scrolls):
-                same = [el for el in screen.elements if el.kind == target.kind and self._name(el) == target.name]
+                same = self._namesakes(screen, target)
                 if len(same) == target.count and screen.clear_of_edges(same[target.nth - 1]):
                     return
                 self.device.scroll(way, screen=screen)
                 before, screen = screen, self._still_screen(settings)
                 if screen == before:  # the end of the content that way
                     break
+
+    def _namesakes(self, screen: Screen, target: Target) -> list[Element]:
+        """The elements on the screen a saved step's target could be: its kind and name, in screen order."""
+        return [el for el in screen.elements if el.kind == target.kind and self._name(el) == target.name]
 
     def _repeat(self, step: SavedStep, settings: Settings) -> None:
         """One saved step: `wait_until` its element is on screen (the same one of the same count), then act."""
@@ -767,7 +765,7 @@ class TestRunner:
         place = Stillness()  # where it is, and how it looks
 
         def match(screen: Screen) -> tuple[Element, Screen] | None:
-            same = [el for el in screen.elements if el.kind == target.kind and self._name(el) == target.name]
+            same = self._namesakes(screen, target)
             found[:] = [len(same)]
             if len(same) != target.count:
                 place.forget()

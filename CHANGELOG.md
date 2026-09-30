@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- A simulator turned by `rotate:` could be left turned after the run, sideways or upside down: before the first turn
+  it reports its orientation as unknown (measured: raw 0 on iOS 26.5), and putting back unknown turned nothing
+  back. jevtest puts back the orientation the screen showed then, upright on a simulator never turned.
+
 ## 0.9.16
 
 - Typed text could reach an Android app changed: typed key by key, the keyboard capitalized and corrected it where

@@ -10,6 +10,7 @@ import dataclasses
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Mapping
+from typing import NamedTuple
 
 from jevtest.domain.screen import Bounds, Element, Screen
 from jevtest.domain.words import lines, one_line
@@ -90,9 +91,15 @@ def keyboard_up(root: ET.Element) -> bool:
     return root.get("ime") == "true"
 
 
-Focus = tuple[tuple[int, ...], tuple[int, int, int, int] | None, bool]
-"""The focused text field: where it is in the tree (its path of child indexes), its bounds, and whether it's a
-password field."""
+class Focus(NamedTuple):
+    """The text field that has input focus."""
+
+    path: tuple[int, ...]
+    """Where it is in the tree: its path of child indexes, which a scroll doesn't change."""
+    bounds: Bounds
+    """Where it is on screen."""
+    password: bool
+    """Whether it's a password field."""
 
 
 def focused_field(xml: str) -> Focus | None:
@@ -108,7 +115,7 @@ def focused_field(xml: str) -> Focus | None:
             if child.get("focused") == "true" and child.get("class", "").split(".")[-1] in EDITABLE:
                 numbers = BOUNDS.findall(child.get("bounds", ""))
                 x1, y1, x2, y2 = map(int, numbers) if len(numbers) == len("xyxy") else (0, 0, 0, 0)
-                return here, (x1, y1, x2, y2), child.get("password") == "true"
+                return Focus(here, (x1, y1, x2, y2), child.get("password") == "true")
             found = walk(child, here)
             if found is not None:
                 return found
@@ -129,9 +136,9 @@ def typing_ready(xml: str, before: Focus | None = None, tapped: tuple[int, int] 
     now = focused_field(xml)
     if not keyboard_up(root) or now is None:
         return False
-    if before is None or now[0] != before[0]:
+    if before is None or now.path != before.path:
         return True
-    x1, y1, x2, y2 = before[1] or (0, 0, 0, 0)
+    x1, y1, x2, y2 = before.bounds
     return tapped is not None and x1 <= tapped[0] < x2 and y1 <= tapped[1] < y2  # it tapped the field with focus
 
 

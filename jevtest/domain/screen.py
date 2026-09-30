@@ -276,7 +276,7 @@ class Screen:
         margin = self.height * EDGE
         return margin <= el.center[1] <= self.content_height - margin
 
-    def in_lane(self, el: Element, lane: Bounds | None, direction: Direction) -> bool:
+    def in_lane(self, el: Element, lane: Bounds, direction: Direction) -> bool:
         """Whether the element's middle is clear of the screen's edges and inside the `lane` being scrolled along.
 
         Clear of the edges as `clear_of_edges`; inside the lane in the direction of the scroll. A carousel reports an
@@ -286,7 +286,7 @@ class Screen:
         """
         x, y = el.center
         across = direction in {Direction.LEFT, Direction.RIGHT}
-        inside = lane is None or (lane[0] <= x < lane[2] if across else lane[1] <= y < lane[3])
+        inside = lane[0] <= x < lane[2] if across else lane[1] <= y < lane[3]
         return inside and self.clear_of_edges(el)
 
     def takes_keys(self, el: Element) -> bool:

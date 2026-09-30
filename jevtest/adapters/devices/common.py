@@ -380,14 +380,8 @@ class BaseDevice(ABC):
 
         Across the page, or along `lane`: a carousel scrolls when a finger drags along it, not across the page.
         """
-        finger = {
-            Direction.DOWN: Direction.UP,
-            Direction.UP: Direction.DOWN,
-            Direction.LEFT: Direction.RIGHT,
-            Direction.RIGHT: Direction.LEFT,
-        }
         s = screen or self.screen()
-        self._scroll_drag(*_across(finger[Direction(direction)], lane or s.page, s))
+        self._scroll_drag(*_across(Direction(direction).opposite, lane or s.page, s))
 
 
 def _across(

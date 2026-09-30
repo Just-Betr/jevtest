@@ -453,7 +453,7 @@ class AndroidDevice(BaseDevice):
         a US keyboard, so a password with other letters is put in by the agent, which works only while it's empty.
         """
         field = self._focus_field(at) if at else focused_field(self._agent("/tree"))
-        password = field is not None and field[2]
+        password = field is not None and field.password
         for i, line in enumerate(text.split("\n")):
             if i:
                 self.key("enter")  # newlines become Enter presses

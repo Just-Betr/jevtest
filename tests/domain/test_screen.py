@@ -194,7 +194,7 @@ def test_in_lane_is_the_middle_inside_the_lane_along_the_scroll():
     s, carousel = Screen(402, 874), (32, 708, 370, 739)
     peeking, shown = el(bounds=(354, 708, 402, 739)), el(bounds=(200, 708, 260, 739))
     assert not s.in_lane(peeking, carousel, Direction.RIGHT) and s.in_lane(shown, carousel, Direction.RIGHT)
-    assert s.in_lane(peeking, None, Direction.RIGHT)  # no lane: only the screen's edges
+    assert s.in_lane(peeking, (0, 0, 402, 874), Direction.RIGHT)  # the whole screen: only its edges count
     column = (100, 100, 150, 800)  # up and down, a lane is as wide as what it was found by: only its height counts
     assert s.in_lane(el(bounds=(0, 300, 400, 340)), column, Direction.DOWN)
     assert not s.in_lane(el(bounds=(100, 790, 150, 830)), column, Direction.DOWN)

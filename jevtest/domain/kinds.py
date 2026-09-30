@@ -28,6 +28,16 @@ class Direction(StrEnum):
     LEFT = "left"
     RIGHT = "right"
 
+    @property
+    def opposite(self) -> Direction:
+        """The other way along the same line."""
+        return {
+            Direction.UP: Direction.DOWN,
+            Direction.DOWN: Direction.UP,
+            Direction.LEFT: Direction.RIGHT,
+            Direction.RIGHT: Direction.LEFT,
+        }[self]
+
 
 class Orientation(StrEnum):
     """A device orientation."""

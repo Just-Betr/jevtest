@@ -91,6 +91,14 @@ APP_STATES = {
 runningForeground), as jevtest's app states."""
 
 
+PORTRAIT, LANDSCAPE_LEFT = 1, 3
+"""UIDeviceOrientation's raw values for upright and for `rotate: landscape` (landscapeLeft)."""
+
+SCREEN_ORIENTATIONS = frozenset({1, 2, 3, 4})
+"""The UIDeviceOrientation raw values that turn the screen: portrait, upside down, landscape left and right. The
+others (unknown, face up, face down) say nothing about which way the screen is turned."""
+
+
 class IOSDevice(BaseDevice):
     """A booted iOS simulator or a connected iPhone, driven through jevtest's XCUITest agent.
 
@@ -515,7 +523,7 @@ class IOSDevice(BaseDevice):
     # --- device -----------------------------------------------------------------------
     def rotate(self, orientation: Orientation) -> None:
         """Rotate the device; the orientation is put back on close."""
-        self._remember_agent_setting("rotation", "/rotate")
+        self._undo.remember("rotation", lambda: {"call": "/rotate", "body": {"raw": self._orientation_now()}})
         self._call("/rotate", orientation=orientation)
         wide = orientation in (Orientation.LANDSCAPE, Orientation.LANDSCAPE_RIGHT)
         try:
@@ -525,6 +533,19 @@ class IOSDevice(BaseDevice):
                 f"{e}: does the app allow it? (UISupportedInterfaceOrientations in its Info.plist; iPhone apps "
                 "usually leave out portrait_upside_down)"
             ) from None
+
+    def _orientation_now(self) -> int:
+        """The device's orientation, to put back: as XCUITest reports it, or as the screen shows it, if it says none.
+
+        A simulator never turned reports `unknown` (measured: raw 0 on iOS 26.5), and putting back `unknown` left it
+        turned (measured: in landscape; seen upside down). The screen then says which way it is, and a simulator starts
+        upright: portrait when it's taller than wide, else landscape as `rotate: landscape` turns it.
+        """
+        raw = self._call("/rotate")["raw"]
+        if isinstance(raw, int) and raw in SCREEN_ORIENTATIONS:
+            return raw
+        s = self.screen()
+        return LANDSCAPE_LEFT if s.width > s.height else PORTRAIT
 
     def set_location(self, latitude: float, longitude: float) -> None:
         """Simulate a GPS location; it's cleared on close, so the device uses its actual location again.
