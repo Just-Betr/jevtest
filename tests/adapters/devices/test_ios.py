@@ -379,6 +379,15 @@ def test_typing_waits_until_the_keyboard_is_up(drv, env, slept):
     assert [p for p, _ in agent.calls][-4:] == ["/tap", "/tree", "/tree", "/type"] and slept == [0.25]
 
 
+def test_a_picker_wheel_is_turned_by_xctest(drv, env):
+    wheel = Element(kind="picker", text="Red", bounds=(25, 213, 377, 504))
+    drv.choose(wheel, "Blue")
+    assert env[1].calls[-1] == ("/adjust", {"x": 201, "y": 358, "value": "Blue", "bundle_id": "dev.demo"})
+    env[1].replies["/adjust"] = {"error": "the wheel shows 'Red', not 'Brown'"}
+    with pytest.raises(DeviceError, match=r"^Can't turn picker 'Red' to 'Brown': .*the wheel shows 'Red', not 'Brown'"):
+        drv.choose(wheel, "Brown")
+
+
 def test_autofill_off_is_not_supported(drv):
     with pytest.raises(DeviceError, match="^jevtest can.t turn an iPhone.s or simulator.s autofill off$"):
         drv.autofill_off()

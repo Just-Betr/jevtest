@@ -62,12 +62,14 @@ The demo app is Flutter, with one screen built in native Android Views and UIKit
 
 ## What each toolkit reports
 
-Each toolkit tells the accessibility layer about its elements its own way, and a test names them as they're reported. Checked with a SwiftUI, a Jetpack Compose, a Material Views and a React Native app:
+Each toolkit tells the accessibility layer about its elements its own way, and a test names them as they're reported. Checked with a SwiftUI, a UIKit, a Jetpack Compose, a Material Views and a React Native app:
 
 - **React Native on iOS** reads a pressable's texts as one element, as VoiceOver does: a row showing *Gadget 1* and *$2* is `Gadget 1, $2` there, and two texts on Android. A step that names one says `close but not exact: 'Gadget 1, $2'`: write the whole text in the iOS file.
 - **A control with no label** (a Compose `Switch` or `Slider` beside a `Text`, with nothing joining them) can't be named: the text beside it is only a text, and `tap:` on it taps the text. Describe the control instead (`do: Turn on the switch next to Dark theme`), or give it a label, which screen readers need too (`Modifier.toggleable` on the row, `contentDescription`, `accessibilityLabel`).
 - **A menu picker** (SwiftUI `Picker` with `.menu`) opens from its value, as with a finger: `tap: Vanilla`, not its label.
-- **Swipe actions** on an iOS list row show after a short swipe and run after a long one: `distance: 40` to show them, the default to run the first. See [`distance`](../reference/steps.md#options).
+- **Swipe actions** on an iOS list row show after a short swipe and run after a long one: `distance: 40` to show them, `distance: 90` to run the first. See [`distance`](../reference/steps.md#options).
+- **A picker wheel** (UIKit `UIPickerView`) shows XCUITest only its selected row, so its other rows can't be tapped by name: `type: Blue` with `into:` naming the wheel turns it, and a `do:` goal can with a quoted value (`do: Choose "Blue" in the Color wheel`).
+- **A control stretched wider than it's drawn** (a UIKit stepper or date picker filling a stack view) is reported at the stretched size, and a tap lands in its middle, where nothing may be drawn. XCUITest's own tap does the same. Let such controls keep their own size.
 
 ## System prompts
 

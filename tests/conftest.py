@@ -248,6 +248,9 @@ class FakeDevice(BaseDevice):
     def autofill_off(self):
         self._rec("autofill_off")
 
+    def choose(self, picker, value):
+        self._rec("choose", picker.text, value)
+
     @override
     def prepare_for_test(self):  # not logged: only matters when a test makes it fail
         if "prepare_for_test" in self.fail:

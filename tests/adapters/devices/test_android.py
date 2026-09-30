@@ -477,6 +477,11 @@ def test_location_on_emulator_only(drv, adb):
 # --- shared helpers from the base class --------------------------------------------------------------
 
 
+def test_android_has_no_picker_wheels(drv):
+    with pytest.raises(DeviceError, match=r"^Android has no picker wheels to turn to 'Blue': tap picker 'Size'"):
+        drv.choose(Element("picker", "Size"), "Blue")
+
+
 def test_a_swipe_inward_from_a_side_starts_clear_of_the_back_gesture(drv, adb):
     """Android takes a swipe inward from either side as back (measured: from 78 of 1080 pixels): it starts 15% in."""
     drv.swipe(Direction.RIGHT, element=Element("text", bounds=(0, 0, 100, 100)))

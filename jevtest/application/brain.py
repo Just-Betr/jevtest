@@ -51,7 +51,7 @@ ACTIONS = {
     "swipe_right_on": "Swipe right on one element. On a slider, it drags the slider all the way to its right end "
     "(its highest).",
     "type": "Type one of the goal's quoted values into a text field. It is added to any text already in the field: "
-    "to replace that text, clear the field first.",
+    "to replace that text, clear the field first. Into a picker wheel, it turns the wheel to that value.",
     "clear": "Erase the existing text in a text field, e.g. before typing a value that replaces it.",
     "scroll_down": "Scroll down: the element the goal needs is not in `screen` and may be further down "
     "(or under the keyboard).",

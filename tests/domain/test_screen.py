@@ -36,6 +36,14 @@ def test_a_swipe_goes_along_its_line_across_the_row_or_scroller_it_is_in():
     assert s.swiped(alone, left) == (alone.bounds, alone.bounds)  # in nothing that scrolls
 
 
+def test_the_page_is_the_screen_less_the_keyboard_and_the_apps_bars():
+    """A drag that starts on a navigation bar moves nothing: page drags keep to the page between the bars."""
+    plain = Screen(400, 800)
+    bars = Screen(400, 800, bars=((0, 60, 400, 176), (0, 730, 400, 800)))
+    typing = Screen(400, 800, bars=((0, 60, 400, 176), (0, 730, 400, 800)), keyboard_visible=True, keyboard_top=500)
+    assert (plain.page, bars.page, typing.page) == ((0, 0, 400, 800), (0, 176, 400, 730), (0, 176, 400, 500))
+
+
 def test_lookups():
     s = login_screen()
     assert [e.id for e in s.elements] == ["e1", "e2", "e3"]

@@ -388,8 +388,8 @@ class BaseDevice(ABC):
 
 
 def _page(screen: Screen) -> Bounds:
-    """The part of the screen the keyboard doesn't cover: a drag that starts on the keyboard moves nothing."""
-    return 0, 0, screen.width, screen.content_height
+    """Where a drag across the page goes: `Screen.page`, clear of the keyboard and the app's bars."""
+    return screen.page
 
 
 def _across(

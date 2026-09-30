@@ -411,6 +411,17 @@ class IOSDevice(BaseDevice):
             self._wait_for_keyboard()
         self._call("/type", text=text)
 
+    def choose(self, picker: Element, value: str) -> None:
+        """Turn the picker wheel at `picker` to `value` (XCTest's own way: the wheel shows only its selected row).
+
+        Raises:
+            DeviceError: No wheel is there, or it has no such value.
+        """
+        try:
+            self._call("/adjust", x=picker.center[0], y=picker.center[1], value=value)
+        except DeviceError as e:
+            raise DeviceError(f"Can't turn {picker.label()} to '{value}': {e}") from None
+
     def clear_text(self, element: Element) -> None:
         """Erase a text field: put the cursor after its text, then delete exactly what is there."""
         self.tap(*element.end)

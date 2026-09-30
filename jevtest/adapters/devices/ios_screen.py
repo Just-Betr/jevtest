@@ -17,6 +17,9 @@ from jevtest.domain.words import one_line
 CONTAINERS = frozenset({"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"})
 """Container types that only matter when they carry a label or identifier."""
 
+BARS = frozenset({"navigation_bar", "tab_bar"})
+"""The app's bars, which don't scroll: a drag across the page starts clear of them (`Screen.bars`)."""
+
 SCROLLERS = frozenset({"list", "scroll_view"})
 """Container types whose content scrolls: a swipe or scroll along one crosses it (`Screen.scrollers`)."""
 
@@ -25,6 +28,8 @@ HIDDEN_VALUE = frozenset({"switch", "password_field"})
 
 TOUCHABLE = frozenset({"button", "cell", "link", "switch", "tab", "menu_item", "segmented_control", "dropdown"})
 EDITABLE = frozenset({"text_field", "password_field", "text_area"})
+TAKES_A_VALUE = EDITABLE | {"picker"}
+"""What `type:` puts a value into: a field, or a picker wheel, which it turns to the value."""
 SWITCH_ON = frozenset({"1", "true"})
 SCROLL_INDICATOR = re.compile(r"^(Vertical|Horizontal) scroll bar\b")
 MIN_SIZE = 2
@@ -68,11 +73,13 @@ def parse_tree(tree: AgentTree) -> Screen:
         if el is not None:  # XCUITest often reports a wrapper and its child: keep the first
             elements.setdefault((el.kind, el.text, el.bounds), el)
     scrollers = (_bounds(raw, width, height) for raw in tree["elements"] if raw["type"] in SCROLLERS)
+    bars = (_bounds(raw, width, height) for raw in tree["elements"] if raw["type"] in BARS)
     return Screen(
         width=width,
         height=height,
         elements=_one_switch_per_toggle(tuple(elements.values())),
         scrollers=tuple(dict.fromkeys(b for b in scrollers if b is not None)),
+        bars=tuple(dict.fromkeys(b for b in bars if b is not None)),
         keyboard_visible=tree.get("keyboard", False),
         keyboard_top=int(tree.get("keyboard_top", 0)),
     )
@@ -117,7 +124,7 @@ def _element(raw: AgentElement, width: int, height: int) -> Element | None:
     identifier = raw.get("identifier", "")
     if kind in CONTAINERS and not (text or identifier):
         return None
-    editable = kind in EDITABLE
+    editable = kind in TAKES_A_VALUE
     return Element(
         kind="text" if kind == "other" else kind,
         text=text,

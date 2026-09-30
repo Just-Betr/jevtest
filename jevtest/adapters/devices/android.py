@@ -570,6 +570,10 @@ class AndroidDevice(BaseDevice):
         state = "enable" if on else "disable"
         self.sh(f"svc wifi {state}; svc data {state}")
 
+    def choose(self, picker: Element, value: str) -> None:
+        """Not on Android, which has no picker wheels (a dropdown opens a list to tap): always an error."""
+        raise DeviceError(f"Android has no picker wheels to turn to '{value}': tap {picker.label()}, then the choice")
+
     def autofill_off(self) -> None:
         """Turn off the autofill service; the device's own is put back on close.
 

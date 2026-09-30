@@ -175,6 +175,19 @@ final class JevAgentUITests: XCTestCase {
             point(target, body["x1"], body["y1"]).press(
                 forDuration: 0.05, thenDragTo: point(target, body["x2"], body["y2"]),
                 withVelocity: XCUIGestureVelocity(CGFloat(velocity)), thenHoldForDuration: hold)
+        case "/adjust":
+            // A picker wheel shows only its selected value to XCUITest: its other rows can't be tapped by name.
+            // XCTest turns it to a value the way a finger spinning it would.
+            let at = CGPoint(x: (body["x"] as? Double) ?? 0, y: (body["y"] as? Double) ?? 0)
+            let value = (body["value"] as? String) ?? ""
+            guard let wheel = app.pickerWheels.allElementsBoundByIndex.first(where: { $0.frame.contains(at) }) else {
+                return ["error": "no picker wheel there"]
+            }
+            wheel.adjust(toPickerWheelValue: value)
+            let now = (wheel.value as? String) ?? ""
+            if now != value {
+                return ["error": "the wheel shows '\(now)', not '\(value)'"]
+            }
         case "/type":
             app.typeText((body["text"] as? String) ?? "")
         case "/key":

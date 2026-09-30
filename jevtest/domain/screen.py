@@ -43,7 +43,7 @@ class Element:
         resource_id: The Android resource id or iOS accessibility identifier.
         bounds: Where it is on the screen.
         enabled: Whether it responds to input.
-        editable: Whether it takes typed text.
+        editable: Whether it takes typed text; an iOS picker wheel takes a value to turn to.
         clickable: Whether it responds to a tap.
         scrollable: Whether its content scrolls.
         focused: Whether it has input focus.
@@ -127,6 +127,7 @@ class Screen:
         system_bars: Where the system draws over the app, like Android's status bar: a touch there is the phone's.
         scrollers: Where content scrolls (a list, a carousel) that isn't an element of its own: an iOS scroll view
             with no label.
+        bars: The app's own bars at the top and bottom (navigation and tab bars), which don't scroll.
     """
 
     width: int
@@ -136,6 +137,7 @@ class Screen:
     keyboard_top: int = 0
     system_bars: tuple[Bounds, ...] = ()
     scrollers: tuple[Bounds, ...] = ()
+    bars: tuple[Bounds, ...] = ()
 
     def __post_init__(self) -> None:
         """Number the elements. The caller's elements are left as they were: these are copies."""
@@ -147,6 +149,17 @@ class Screen:
         """The height not covered by the keyboard: where page gestures belong."""
         covered = self.keyboard_visible and 0 < self.keyboard_top < self.height
         return self.keyboard_top if covered else self.height
+
+    @property
+    def page(self) -> Bounds:
+        """Where the page's content is: the screen less the keyboard and the app's top and bottom bars.
+
+        A drag that starts on a navigation bar moves nothing (measured: a pull from a UIKit navigation bar with a
+        search field didn't refresh the list below it; the same pull from the list did).
+        """
+        top = max((b[3] for b in self.bars if b[1] < self.height / 3), default=0)
+        bottom = min((b[1] for b in self.bars if b[3] > self.height * 2 / 3), default=self.height)
+        return 0, top, self.width, min(bottom, self.content_height)
 
     def under_keyboard(self, el: Element) -> bool:
         """Whether the keyboard is over the point where a tap on the element lands: touching it would hit a key."""

@@ -108,6 +108,10 @@ class Device(Protocol):
         """Type into the focused field, or first focus the field at `at`."""
         ...
 
+    def choose(self, picker: Element, value: str) -> None:
+        """Turn the picker wheel `picker` to `value`, as a finger spinning it would."""
+        ...
+
     def clear_text(self, element: Element) -> None:
         """Erase a text field."""
         ...

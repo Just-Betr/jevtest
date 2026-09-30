@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Tested on four apps built fresh for it, each written as a user would from these docs: a SwiftUI shop on the
+- Tested on five apps built fresh for it, each written as a user would from these docs: SwiftUI and UIKit apps on the
   simulator, Jetpack Compose and Material Views shops on the emulator, and a React Native shop on the emulator, the
   Pixel and the simulator. What didn't
   work now does, and the toolkit guide says what each toolkit reports differently:
@@ -22,7 +22,8 @@
   a sign-in, into the next test. It turns off the autofill service, and the device's own is put back after the run.
 - A swipe on a list row's text swiped only the text, so on iOS its length depended on how long the text was: a short
   one showed the row's actions, a long one ran the first. It swipes the row. `distance:` sets how far: `distance: 40`
-  shows an iOS row's actions to tap one, the default 70 runs the first (measured: up to half the row shows them).
+  shows an iOS row's actions to tap one, `distance: 90` runs the first (measured: SwiftUI rows run it from 60% of
+  their width, UIKit rows from 80%).
 - A swipe on something in a pager or carousel crossed only that element, too short to turn a page, and one near
   the screen's side started where Android takes the swipe as back, closing the app. A swipe goes along its line across
   what the element is in, starts on it, and never starts a swipe inward from the outer 15% of the width or the top and
@@ -30,6 +31,11 @@
 - An Android swipe held still before lifting, so nothing flung on: a `RecyclerView` row's swipe-to-delete and a
   `ViewPager2` page needed more than half the list's width. It lifts while moving, a flick, as on iOS; scrolls still
   hold still, so the content stops where the finger does.
+- A UIKit app (a table with a search bar, swipe actions, pull to refresh, an action sheet, a picker wheel, a stepper):
+  - `type:` into an iOS picker wheel turns it to the value, and a `do:` goal can with a quoted value: XCUITest shows
+    only a wheel's selected row, so no step could pick another.
+  - Scrolling the page started on the navigation bar when it was tall (a search field in it), where a drag moves
+    nothing: pull to refresh never refreshed. Page scrolls keep between the app's navigation and tab bars.
 - `along:` for `scroll` and `scroll_to`: `scroll_to` dragged across the page, so a chip in a carousel was never found
   (`Scrolled right to the end`). `along: Tag 1` scrolls what that text is in.
 - `hide_keyboard` in an iOS field of several lines (SwiftUI `TextField(axis: .vertical)`) typed a new line into it

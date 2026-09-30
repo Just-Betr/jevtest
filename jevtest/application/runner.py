@@ -86,6 +86,9 @@ END_OF_CONTENT = 2
 """Scrolls in a row that must move nothing before `scroll_to:` calls it the end. One isn't enough: a real
 phone's web view sometimes ignores a single scroll."""
 
+PICKER = "picker"
+"""A picker wheel: typing into one turns it to that value (`Device.choose`)."""
+
 UNDER_SYSTEM_BAR = (
     "a system bar, like the status bar, which takes a touch there instead of the app (the app draws under it, "
     "so what it wants touched must be kept clear of the bars)"
@@ -543,8 +546,12 @@ class TestRunner:
                     d.type_text(self._value(text))
                     return None
                 found, screen = self._find(into, settings, editable=True, typing=True)
-                # the device focuses the field; one that already takes the keys isn't tapped (see `takes_keys`)
-                d.type_text(self._value(text), at=None if screen.takes_keys(found.element) else found.element.center)
+                if found.element.kind == PICKER:
+                    d.choose(found.element, self._value(text))
+                else:  # the device focuses the field; one that already takes the keys isn't tapped (`takes_keys`)
+                    d.type_text(
+                        self._value(text), at=None if screen.takes_keys(found.element) else found.element.center
+                    )
                 return f"into {found.describe()}"
             case Swipe(direction, target, distance):
                 if target is None:
@@ -787,6 +794,8 @@ class TestRunner:
                 self._touch(gesture, element)
             case SwipeElement(direction, element):
                 d.swipe(direction, element=element, screen=screen)
+            case TypeInto(element, text) if element.kind == PICKER:
+                d.choose(element, self._value(text))
             case TypeInto(element, text):
                 d.type_text(self._value(text), at=None if ready else element.center)
             case ClearField(element):

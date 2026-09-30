@@ -318,6 +318,23 @@ def test_a_swipe_on_text_in_a_row_swipes_the_row_as_far_as_the_step_says(tmp_pat
     assert res.steps[0].detail == "on text 'Milk'"  # what the step named
 
 
+def picker_screen() -> Screen:
+    return Screen(1000, 2000, (el("picker", "Red", editable=True, bounds=(0, 400, 1000, 800)),))
+
+
+def test_type_into_a_picker_wheel_turns_it(tmp_path, clock, out):
+    res, d, _ = run1(tmp_path, clock, out, {"type": "Blue", "into": "Red"}, device=FakeDevice(picker_screen()))
+    assert res.status is Status.PASS and res.steps[0].detail == "into picker 'Red'"
+    assert ("choose", "Red", "Blue") in d.calls and "type_text" not in d.names()
+
+
+def test_jev_turns_a_picker_wheel_by_typing_into_it(tmp_path, clock, out):
+    model = FakeModel(act("type", field="e1", value="v0"), act("done"))
+    res, d, _ = run1(tmp_path, clock, out, {"do": 'Choose "Blue"'}, model=model, device=FakeDevice(picker_screen()))
+    assert res.status is Status.PASS, (res.steps[0].detail, res.failure)
+    assert ("choose", "Red", "Blue") in d.calls
+
+
 def test_clear_finds_a_text_field(tmp_path, clock, out):
     _, d, _ = run1(tmp_path, clock, out, {"clear": "Email"})
     assert ("clear_text", "Email") in d.calls

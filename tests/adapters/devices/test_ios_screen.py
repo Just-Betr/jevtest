@@ -85,6 +85,21 @@ def test_scroll_views_with_no_label_are_kept_only_as_where_content_scrolls():
     assert s.scrollers == ((0, 0, 402, 874), (32, 739, 370, 773))
 
 
+def test_the_apps_bars_are_kept_as_where_the_page_is_not():
+    nav: AgentElement = {"type": "navigation_bar", "label": "", "x": 0, "y": 62, "w": 402, "h": 114}
+    tabs: AgentElement = {"type": "tab_bar", "label": "Tab Bar", "x": 0, "y": 791, "w": 402, "h": 83}
+    s = parse_tree({"width": 402, "height": 874, "elements": [nav, tabs]})
+    assert s.bars == ((0, 62, 402, 176), (0, 791, 402, 874))
+    assert s.page == (0, 176, 402, 791)
+
+
+def test_a_picker_wheel_takes_a_value():
+    """XCUITest reports only a wheel's selected value: `type:` turns it (`Device.choose`), so it takes a value."""
+    wheel: AgentElement = {"type": "picker", "label": "", "value": "Red", "x": 25, "y": 213, "w": 352, "h": 291}
+    [e] = parse_tree({"width": 402, "height": 874, "elements": [wheel]}).elements
+    assert (e.kind, e.text, e.editable, e.value) == ("picker", "Red", True, "Red")
+
+
 def test_parse_rules():
     data: AgentTree = {
         "width": 100,
