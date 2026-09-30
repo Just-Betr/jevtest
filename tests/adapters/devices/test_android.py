@@ -478,8 +478,10 @@ def test_location_on_emulator_only(drv, adb):
 def test_swipe_and_scroll_geometry(drv, adb):
     drv.swipe(Direction.LEFT, element=Element("text", bounds=(0, 0, 100, 100)))
     drv.scroll(Direction.DOWN)
-    assert adb.shell()[0].startswith("input motionevent DOWN 85 50;") and adb.shell()[0].endswith("UP 15 50")
-    assert adb.shell()[-1].startswith("input motionevent DOWN 540 1939;") and adb.shell()[-1].endswith("UP 540 485")
+    swipe, scroll = [c for c in adb.shell() if c.startswith("input motionevent")]
+    # its start would be where Android takes a sideways swipe as back: the swipe moves in, 15% of the width
+    assert swipe.startswith("input motionevent DOWN 162 50;") and swipe.endswith("UP 92 50")
+    assert scroll.startswith("input motionevent DOWN 540 1939;") and scroll.endswith("UP 540 485")
 
 
 def test_a_swipe_on_a_slider_drags_its_thumb_slowly_on_to_the_screen_edge(drv, adb):

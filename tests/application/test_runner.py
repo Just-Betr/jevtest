@@ -366,6 +366,29 @@ def test_scroll_to_scrolls_until_the_text_is_on_screen(tmp_path, clock, out):
     assert not model.asked  # matched in code, never by the model
 
 
+def carousel(*tags: str) -> Screen:
+    """A screen with a carousel of chips across it, at height 1500 of 2000."""
+    chips = tuple(el("button", t, bounds=(50 + 150 * i, 1520, 150 + 150 * i, 1580)) for i, t in enumerate(tags))
+    return Screen(1000, 2000, (el("list", scrollable=True, bounds=(0, 1500, 1000, 1600)), *chips))
+
+
+def test_scroll_along_a_carousel_drags_along_its_line(tmp_path, clock, out):
+    """A carousel scrolls when a finger drags along it: across the carousel, at the height of what's in it."""
+    res, d, _ = run1(tmp_path, clock, out, {"scroll": "right", "along": "Tag 1"}, device=FakeDevice(carousel("Tag 1")))
+    assert res.status is Status.PASS and res.steps[0].detail == "along button 'Tag 1'"
+    assert ("drag", 850, 1550, 150, 1550) in d.calls
+
+
+def test_scroll_to_along_a_carousel_finds_the_lane_once(tmp_path, clock, out):
+    """The lane is found by `along` before the first scroll, which scrolls it away."""
+    start = carousel("Tag 1", "Tag 2")  # read while `along` is found, and again before the first scroll
+    d = FakeDevice(*held(start, start, carousel("Tag 7", "Tag 8"), carousel("Tag 17", "Tag 18")))
+    step = {"scroll_to": "Tag 18", "direction": "right", "along": "Tag 1"}
+    res, d, _ = run1(tmp_path, clock, out, step, device=d)
+    assert res.status is Status.PASS and res.steps[0].detail == "2 scrolls"
+    assert [c for c in d.calls if c[0] == "drag"] == [("drag", 850, 1550, 150, 1550)] * 2
+
+
 def test_scroll_to_already_on_screen(tmp_path, clock, out):
     res, d, _ = run1(tmp_path, clock, out, {"scroll_to": "Sign in", "direction": "down"})
     assert res.status is Status.PASS and res.steps[0].detail is None and "drag" not in d.names()

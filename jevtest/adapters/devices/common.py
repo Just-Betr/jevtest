@@ -15,7 +15,7 @@ from typing import Protocol
 from jevtest.adapters.shapes import is_json_object
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.kinds import AppState, Direction
-from jevtest.domain.screen import Element, Screen
+from jevtest.domain.screen import EDGE, SIDE_EDGE, Element, Screen
 from jevtest.domain.steps import SWIPE_DISTANCE
 
 from .cache import in_use_dir, unwritable
@@ -373,11 +373,8 @@ class BaseDevice(ABC):
         None is `SWIPE_DISTANCE`'s. The page is the part of the screen the keyboard doesn't cover: a drag that
         starts on the keyboard moves nothing.
         """
-        if element is not None:
-            x1, y1, x2, y2 = element.bounds
-        else:
-            s = screen or self.screen()
-            x1, y1, x2, y2 = 0, 0, s.width, s.content_height
+        s = screen or self.screen()
+        x1, y1, x2, y2 = element.bounds if element is not None else (0, 0, s.width, s.content_height)
         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
         across, down = (distance, distance) if distance is not None else SWIPE_DISTANCE
         dx, dy = int((x2 - x1) * across / 200), int((y2 - y1) * down / 200)
@@ -387,14 +384,28 @@ class BaseDevice(ABC):
             Direction.LEFT: (cx + dx, cy, cx - dx, cy),
             Direction.RIGHT: (cx - dx, cy, cx + dx, cy),
         }
-        return moves[Direction(direction)]
+        sx, sy, ex, ey = moves[Direction(direction)]
+        # Never from where the phone takes the swipe for its own gesture (back, home, the notifications): the
+        # whole swipe moves in, as far as it goes.
+        x_in = _inward(sx, s.width, SIDE_EDGE) if direction in {Direction.LEFT, Direction.RIGHT} else 0
+        y_in = _inward(sy, s.height, EDGE) if direction in {Direction.UP, Direction.DOWN} else 0
+        return sx + x_in, sy + y_in, ex + x_in, ey + y_in
 
-    def scroll(self, direction: Direction, screen: Screen | None = None) -> None:
-        """Scroll so more of the content in `direction` comes into view: the finger moves the other way."""
+    def scroll(self, direction: Direction, screen: Screen | None = None, lane: Element | None = None) -> None:
+        """Scroll so more of the content in `direction` comes into view: the finger moves the other way.
+
+        Across the page, or along `lane`: a carousel scrolls when a finger drags along it, not across the page.
+        """
         finger = {
             Direction.DOWN: Direction.UP,
             Direction.UP: Direction.DOWN,
             Direction.LEFT: Direction.RIGHT,
             Direction.RIGHT: Direction.LEFT,
         }
-        self._scroll_drag(*self._across(finger[Direction(direction)], None, screen))
+        self._scroll_drag(*self._across(finger[Direction(direction)], lane, screen))
+
+
+def _inward(start: int, size: int, edge: float) -> int:
+    """How far a swipe starting at `start` must move to start clear of the `edge` share at each end of `size`."""
+    low, high = round(size * edge), round(size * (1 - edge))
+    return low - start if start < low else high - start if start > high else 0

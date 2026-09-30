@@ -17,6 +17,9 @@ from jevtest.domain.words import one_line
 CONTAINERS = frozenset({"other", "navigation_bar", "tab_bar", "list", "scroll_view", "webview"})
 """Container types that only matter when they carry a label or identifier."""
 
+SCROLLERS = frozenset({"list", "scroll_view"})
+"""Container types whose content scrolls: a swipe or scroll along one crosses it (`Screen.scrollers`)."""
+
 HIDDEN_VALUE = frozenset({"switch", "password_field"})
 """Types whose value is shown some other way: a switch's as on/off, a secure field's is bullets."""
 
@@ -64,10 +67,12 @@ def parse_tree(tree: AgentTree) -> Screen:
         el = _element(raw, width, height)
         if el is not None:  # XCUITest often reports a wrapper and its child: keep the first
             elements.setdefault((el.kind, el.text, el.bounds), el)
+    scrollers = (_bounds(raw, width, height) for raw in tree["elements"] if raw["type"] in SCROLLERS)
     return Screen(
         width=width,
         height=height,
         elements=_one_switch_per_toggle(tuple(elements.values())),
+        scrollers=tuple(dict.fromkeys(b for b in scrollers if b is not None)),
         keyboard_visible=tree.get("keyboard", False),
         keyboard_top=int(tree.get("keyboard_top", 0)),
     )

@@ -6,6 +6,7 @@ import dataclasses
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from .kinds import Direction
 from .words import nfc, one_line
 
 Bounds = tuple[int, int, int, int]
@@ -107,6 +108,11 @@ class Element:
 EDGE = 0.08
 """The share of the screen's height, at its top and at its bottom, that phones keep for their own gestures."""
 
+SIDE_EDGE = 0.15
+"""The share of the screen's width, at each side, where a swipe never starts: Android takes a sideways swipe that
+starts there as back (measured: 78 of 1080 pixels at the default back sensitivity; twice that is kept clear, for a
+higher one), and iOS a rightward one at the left edge."""
+
 
 @dataclass(frozen=True)
 class Screen:
@@ -119,6 +125,8 @@ class Screen:
         keyboard_visible: Whether the on-screen keyboard is up.
         keyboard_top: Where the keyboard starts (0 when there is none).
         system_bars: Where the system draws over the app, like Android's status bar: a touch there is the phone's.
+        scrollers: Where content scrolls (a list, a carousel) that isn't an element of its own: an iOS scroll view
+            with no label.
     """
 
     width: int
@@ -127,6 +135,7 @@ class Screen:
     keyboard_visible: bool = False
     keyboard_top: int = 0
     system_bars: tuple[Bounds, ...] = ()
+    scrollers: tuple[Bounds, ...] = ()
 
     def __post_init__(self) -> None:
         """Number the elements. The caller's elements are left as they were: these are copies."""
@@ -143,20 +152,30 @@ class Screen:
         """Whether the keyboard is over the point where a tap on the element lands: touching it would hit a key."""
         return el.center[1] >= self.content_height
 
-    def row_of(self, el: Element) -> Element:
-        """What a swipe on `el` swipes: the list row it's in (the smallest cell holding its middle), else `el`.
+    def swiped(self, el: Element, direction: Direction) -> Element:
+        """What a swipe on `el` goes across: along its own line, as far as the smallest row or scroller holding it.
 
-        A finger swipes a row, not the text in it, which can be far narrower. A slider is swiped itself.
+        That is the smallest list row (a cell) or scrolling container holding it; `el` itself when it's in none. A
+        finger swipes a row, a pager or a carousel, not just the text on it, which can be far narrower: a pager turns
+        only after half its width (measured with Compose). A slider is swiped itself: its thumb moves.
         """
         if el.position is not None:
             return el
         x, y = el.center
-        rows = [
-            c
-            for c in self.elements
-            if c.kind == "cell" and c.bounds[0] <= x < c.bounds[2] and c.bounds[1] <= y < c.bounds[3]
+        holders = [
+            b
+            for b in (
+                *(c.bounds for c in self.elements if c != el and (c.kind == "cell" or c.scrollable)),
+                *self.scrollers,
+            )
+            if b[0] <= x < b[2] and b[1] <= y < b[3]
         ]
-        return min(rows, key=lambda c: (c.bounds[2] - c.bounds[0]) * (c.bounds[3] - c.bounds[1]), default=el)
+        if not holders:
+            return el
+        hx1, hy1, hx2, hy2 = min(holders, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
+        x1, y1, x2, y2 = el.bounds
+        sideways = direction in {Direction.LEFT, Direction.RIGHT}
+        return dataclasses.replace(el, bounds=(hx1, y1, hx2, y2) if sideways else (x1, hy1, x2, hy2))
 
     def under_system_bar(self, el: Element) -> bool:
         """Whether a system bar is over the point where a tap on the element lands: the phone would take the touch."""

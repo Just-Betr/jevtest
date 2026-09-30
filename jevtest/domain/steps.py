@@ -66,9 +66,14 @@ class TypeText(_Action):
 
 @dataclass(frozen=True)
 class Scroll(_Action):
-    """Scroll the content."""
+    """Scroll the content.
+
+    Attributes:
+        along: Scroll what this text is in (a carousel, say), dragging along its line; None: the page.
+    """
 
     direction: Direction
+    along: str | None = None
 
 
 SWIPE_DISTANCE = (70.0, 60.0)
@@ -90,10 +95,15 @@ class Swipe(_Action):
 
 @dataclass(frozen=True)
 class ScrollTo(_Action):
-    """Scroll until the text is on screen."""
+    """Scroll until the text is on screen.
+
+    Attributes:
+        along: Scroll what this text is in (a carousel, say), dragging along its line; None: the page.
+    """
 
     text: str
     direction: Direction
+    along: str | None = None
 
 
 KEYS = ("backspace", "delete", "enter", "escape", "return", "space", "tab")

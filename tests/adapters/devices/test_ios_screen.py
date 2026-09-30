@@ -74,6 +74,17 @@ def test_a_slider_says_where_its_thumb_is():
     assert [(e.text, e.position) for e in s.elements] == [("Bass: Soft", 0.2), ("Go", None)]
 
 
+def test_scroll_views_with_no_label_are_kept_only_as_where_content_scrolls():
+    """A SwiftUI horizontal ScrollView is reported with no label: not an element, but a carousel to scroll along."""
+    carousel: AgentElement = {"type": "scroll_view", "label": "", "x": 32, "y": 739, "w": 338, "h": 34}
+    table: AgentElement = {"type": "list", "label": "", "x": 0, "y": 0, "w": 402, "h": 874}
+    offscreen: AgentElement = {"type": "scroll_view", "label": "", "x": 0, "y": 900, "w": 402, "h": 100}
+    chip: AgentElement = {"type": "button", "label": "Tag 1", "x": 32, "y": 739, "w": 63, "h": 34}
+    s = parse_tree({"width": 402, "height": 874, "elements": [table, carousel, carousel, offscreen, chip]})
+    assert [e.text for e in s.elements] == ["Tag 1"]
+    assert s.scrollers == ((0, 0, 402, 874), (32, 739, 370, 773))
+
+
 def test_parse_rules():
     data: AgentTree = {
         "width": 100,

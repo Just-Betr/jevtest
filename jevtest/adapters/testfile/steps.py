@@ -126,10 +126,19 @@ def _type(_: str, value: object, options: Options) -> Action:
     return TypeText(value, None if into is None else text(into, "into"))  # typed exactly as written
 
 
+def _scroll(key: str, value: object, options: Options) -> Action:
+    return Scroll(choice(value, Direction, f"'{key}'"), _along(options))
+
+
 def _scroll_to(key: str, value: object, options: Options) -> Action:
     if "direction" not in options:
         raise TestFileError("'scroll_to' needs `direction:` (up, down, left or right)")
-    return ScrollTo(text(value, f"'{key}'"), choice(options["direction"], Direction, "direction"))
+    return ScrollTo(text(value, f"'{key}'"), choice(options["direction"], Direction, "direction"), _along(options))
+
+
+def _along(options: Options) -> str | None:
+    along = options.get("along")
+    return None if along is None else text(along, "along")
 
 
 def _swipe(key: str, value: object, options: Options) -> Action:
@@ -213,9 +222,9 @@ ACTIONS: Mapping[str, ActionSpec] = {
     "long_press": ActionSpec(_touch),
     "clear": _text_of(Clear),
     "type": ActionSpec(_type, frozenset({"into"})),
-    "scroll": ActionSpec(lambda key, value, _: Scroll(choice(value, Direction, f"'{key}'"))),
+    "scroll": ActionSpec(_scroll, frozenset({"along"})),
     "swipe": ActionSpec(_swipe, frozenset({"target", "distance"})),
-    "scroll_to": ActionSpec(_scroll_to, frozenset({"direction"})),
+    "scroll_to": ActionSpec(_scroll_to, frozenset({"direction", "along"})),
     "key": ActionSpec(_key),
     "wait": ActionSpec(lambda key, value, _: Wait(_seconds(key, value))),
     "background": ActionSpec(lambda key, value, _: Background(_seconds(key, value))),

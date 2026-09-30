@@ -78,6 +78,8 @@ from jevtest.domain.steps import (
         ({"type": {"text": "a", "into": "Email"}}, TypeText("a", "Email")),
         ({"type": {"text": "a"}}, TypeText("a")),
         ({"scroll_to": "Item 3", "direction": "down"}, ScrollTo("Item 3", Direction.DOWN)),
+        ({"scroll_to": "Tag 18", "direction": "right", "along": "Tag 1"}, ScrollTo("Tag 18", Direction.RIGHT, "Tag 1")),
+        ({"scroll": "left", "along": "Tag 1"}, Scroll(Direction.LEFT, "Tag 1")),
     ],
 )
 def test_actions_parse(raw, action):

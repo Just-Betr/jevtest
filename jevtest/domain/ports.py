@@ -97,8 +97,11 @@ class Device(Protocol):
         """
         ...
 
-    def scroll(self, direction: Direction, screen: Screen | None = None) -> None:
-        """Scroll the content so more of it in `direction` comes into view."""
+    def scroll(self, direction: Direction, screen: Screen | None = None, lane: Element | None = None) -> None:
+        """Scroll the content so more of it in `direction` comes into view: the page's, or `lane`'s.
+
+        `lane` is where a finger drags along a carousel, say (`Screen.swiped`).
+        """
         ...
 
     def type_text(self, text: str, at: Point | None = None) -> None:

@@ -473,14 +473,14 @@ class TestRunner:
                 return self._on_element(action, step.settings)
             case Wait() | Background():
                 self._pause(action)
-            case ScrollTo(text, direction):
-                return self._scroll_to(text, direction, step.settings)
+            case Scroll() | ScrollTo():
+                return self._scrolling(action, step.settings)
             case Do(goal):
                 return self._do(goal, step.settings, record)
             case Screenshot(name):
                 self._still_screen(step.settings)  # not a frame of the app still drawing or sliding in
                 return f"saved {self._screenshot(name)}"
-            case Back() | Home() | HideKeyboard() | Key() | Scroll() | OpenUrl():
+            case Back() | Home() | HideKeyboard() | Key() | OpenUrl():
                 self._navigate(action)
             case Rotate() | Location() | DarkMode() | Grant() | Network() | AutofillOff():
                 self._set_device(action)
@@ -551,12 +551,12 @@ class TestRunner:
                     d.swipe(direction, distance=distance)
                     return None
                 found, screen = self._find(target, settings)
-                d.swipe(direction, element=screen.row_of(found.element), distance=distance)
+                d.swipe(direction, element=screen.swiped(found.element, direction), screen=screen, distance=distance)
             case _:  # pragma: no cover - every element action is handled above
                 assert_never(action)
         return f"on {found.describe()}"
 
-    def _navigate(self, action: Back | Home | HideKeyboard | Key | Scroll | OpenUrl) -> None:
+    def _navigate(self, action: Back | Home | HideKeyboard | Key | OpenUrl) -> None:
         """Move around the app or the system: one device call each."""
         d = self.device
         match action:
@@ -568,8 +568,6 @@ class TestRunner:
                 d.hide_keyboard()
             case Key(name):
                 d.key(name)
-            case Scroll(direction):
-                d.scroll(direction)
             case OpenUrl(url):
                 d.open_url(self._value(url))
             case _:  # pragma: no cover - every navigation is handled above
@@ -609,13 +607,27 @@ class TestRunner:
             case _:  # pragma: no cover - every gesture is handled above
                 assert_never(gesture)
 
-    def _scroll_to(self, text: str, direction: Direction, settings: Settings) -> str | None:
+    def _scrolling(self, action: Scroll | ScrollTo, settings: Settings) -> str | None:
+        """Scroll the page, or along what a text is in; `scroll_to` until it finds its text."""
+        lane = self._lane(action.along, action.direction, settings) if action.along is not None else None
+        if isinstance(action, ScrollTo):
+            return self._scroll_to(action.text, action.direction, lane, settings)
+        self.device.scroll(action.direction, lane=lane)
+        return None if lane is None else f"along {lane.label()}"
+
+    def _lane(self, along: str, direction: Direction, settings: Settings) -> Element:
+        """Where to drag to scroll what `along` is in: along its line, across its scroller (`Screen.swiped`)."""
+        found, screen = self._find(along, settings)
+        return screen.swiped(found.element, direction)
+
+    def _scroll_to(self, text: str, direction: Direction, lane: Element | None, settings: Settings) -> str | None:
         """Scroll until an element says exactly the text, clear of the screen's edges, or it can't scroll further.
 
         It can't: the content stopped moving, or `max_scrolls` scrolls. Clear of the edges (`Screen.clear_of_edges`),
         as a person scrolls: an element just peeking in at the bottom sits on the phone's home-gesture strip, where
         a tap goes home. When it can't scroll further, an element on screen at an edge is where it is. After each
-        scroll it waits until the screen stopped moving (a scroll glides on for a moment).
+        scroll it waits until the screen stopped moving (a scroll glides on for a moment). It drags along `lane`,
+        found before the first scroll moved what it was found by, else across the page.
         """
         wanted = self._value(text)
         screen = self._still_screen(settings)  # a page still sliding in isn't what there is to scroll
@@ -630,7 +642,7 @@ class TestRunner:
                     f"Scrolled {direction} {plural(scrolls, 'time')} (max_scrolls) but never found '{text}'"
                     f"{self._near(wanted, screen.elements)}"
                 )
-            self.device.scroll(direction, screen=screen)
+            self.device.scroll(direction, screen=screen, lane=lane)
             before, screen = screen, self._still_screen(settings)
             scrolls, unmoved = scrolls + 1, (unmoved + 1 if screen == before else 0)
             if unmoved == END_OF_CONTENT and not screen.shows(wanted):
@@ -776,7 +788,7 @@ class TestRunner:
             case TouchElement(gesture, element):
                 self._touch(gesture, element)
             case SwipeElement(direction, element):
-                d.swipe(direction, element=screen.row_of(element))
+                d.swipe(direction, element=screen.swiped(element, direction), screen=screen)
             case TypeInto(element, text):
                 d.type_text(self._value(text), at=None if ready else element.center)
             case ClearField(element):

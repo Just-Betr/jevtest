@@ -2,6 +2,7 @@ import dataclasses
 
 import pytest
 
+from jevtest.domain.kinds import Direction
 from jevtest.domain.screen import Element, Screen
 from tests.conftest import el, login_screen
 
@@ -12,17 +13,25 @@ def test_elements_are_numbered_and_the_callers_are_left_alone():
     assert s.elements[0].id == "e1" and original.id == ""
 
 
-def test_a_swipe_on_what_is_in_a_list_row_swipes_the_row():
-    """A finger swipes a row, not the text in it, which can be far narrower (iOS reports rows as cells)."""
+def test_a_swipe_goes_along_its_line_across_the_row_or_scroller_it_is_in():
+    """A finger swipes a row, a pager or a carousel, not just the text on it, which can be far narrower."""
     outer = el("cell", bounds=(0, 0, 1000, 1000))
     row = el("cell", bounds=(0, 400, 1000, 500))
     milk = el("text", "Milk", bounds=(20, 420, 120, 480))
     slider = el("slider", position=0.5, bounds=(20, 420, 980, 480))
-    alone = el("text", "Alone", bounds=(20, 1100, 120, 1180))
-    s = Screen(1000, 2000, (outer, row, milk, slider, alone))
-    assert s.row_of(s.elements[2]) == s.elements[1]  # the smallest cell holding its middle
-    assert s.row_of(s.elements[3]) == s.elements[3]  # a slider is swiped itself: its thumb moves
-    assert s.row_of(s.elements[4]) == s.elements[4]  # in no row
+    pager = el("other", scrollable=True, bounds=(0, 1100, 1000, 1400))  # Android: a scrolling container
+    page = el("text", "Help page", bounds=(40, 1200, 240, 1250))
+    chip = el("button", "Tag 1", bounds=(40, 1500, 140, 1550))  # in an iOS scroll view with no label
+    alone = el("text", "Alone", bounds=(20, 1700, 120, 1780))
+    s = Screen(1000, 2000, (outer, row, milk, slider, pager, page, chip, alone), scrollers=((30, 1490, 970, 1560),))
+    _, _, milk, slider, _, page, chip, alone = s.elements
+    left, up = Direction.LEFT, Direction.UP
+    assert s.swiped(milk, left).bounds == (0, 420, 1000, 480)  # along its line, across the smallest cell
+    assert s.swiped(milk, up).bounds == (20, 400, 120, 500)  # up and down: along its column
+    assert s.swiped(page, left).bounds == (0, 1200, 1000, 1250)
+    assert s.swiped(chip, left).bounds == (30, 1500, 970, 1550)
+    assert s.swiped(slider, left) == slider  # a slider is swiped itself: its thumb moves
+    assert s.swiped(alone, left) == alone  # in nothing that scrolls
 
 
 def test_lookups():
