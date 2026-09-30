@@ -33,6 +33,8 @@
   touch mode after each key press, and before a launch.
 - A `see:` that failed with the keyboard up didn't say it may be hiding the text, as a step looking for an element
   does. It says so (measured with Compose: a search's result line, below the field, was behind the keyboard).
+- A misspelt step or test key (`tapp:`, `step:`, `hide_keybaord`) was reported as unknown, with nothing to say what
+  was meant. The error names the known key it's closest to, when one is close: `tapp (did you mean tap?)`.
 
 ## 0.9.15
 

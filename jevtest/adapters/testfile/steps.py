@@ -12,7 +12,8 @@ action *is* (whether it finds an element, waits for the screen, may leave the ap
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+import difflib
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass
 
 from jevtest.adapters.shapes import is_list, is_mapping
@@ -278,6 +279,11 @@ def parse_step(raw: object, settings: Settings = DEFAULTS) -> Step:
     return Step(action, checks, _settings(action, checks, options, settings), label(key, value, options))
 
 
+NEAR_KEY = 0.75
+"""How alike an unknown key and a known one must be (difflib's ratio) for the error to suggest it: `tapp` and `tap`
+are 0.86, `hide_keybaord` and `hide_keyboard` 0.92; `see` and `scroll` 0.22."""
+
+
 def _step_keys(raw: Mapping[object, object]) -> dict[str, object]:
     """The step with its keys as text, after checking each is one a step can have, with one action at most."""
     _reject_unknown_keys(raw)
@@ -299,16 +305,26 @@ def _reject_unknown_keys(raw: Mapping[object, object]) -> None:
     known = ACTIONS.keys() | CHECKS.keys() | OPTIONS
     unknown = [k for k in raw if not isinstance(k, str) or k not in known]
     if unknown:
-        raise TestFileError(f"Step {raw!r} has unknown keys: {', '.join(sorted(map(str, unknown)))}")
+        raise TestFileError(f"Step {raw!r} has unknown keys: {unknown_names(unknown, known)}")
+
+
+def unknown_names(keys: Iterable[object], known: Collection[str]) -> str:
+    """The unknown keys, each with the known one it's closest to, if one is close: ``tapp (did you mean tap?)``."""
+    said: list[str] = []
+    for key in sorted(map(str, keys)):
+        near = difflib.get_close_matches(key, sorted(known), n=1, cutoff=NEAR_KEY)
+        said.append(f"{key} (did you mean {near[0]}?)" if near else key)
+    return ", ".join(said)
 
 
 def _bare_word(raw: str, settings: Settings) -> Step:
     if not raw.strip():
         raise TestFileError("Empty step")
     if raw not in BARE_WORDS:
+        near = difflib.get_close_matches(raw.strip(), BARE_WORDS, n=1, cutoff=NEAR_KEY)
         raise TestFileError(
-            f"Unknown step {raw!r}. A bare word must be one of {', '.join(BARE_WORDS)}; "
-            f"for a plain-English goal write `- do: {raw.strip()}`"
+            f"Unknown step {raw!r}{f' (did you mean {near[0]}?)' if near else ''}. A bare word must be one of "
+            f"{', '.join(BARE_WORDS)}; for a plain-English goal write `- do: {raw.strip()}`"
         )
     return Step(ACTIONS[raw].parse(raw, None, {}), settings=settings, label=raw)
 

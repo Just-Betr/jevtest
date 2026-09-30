@@ -80,7 +80,7 @@ A small agent on the device reads the accessibility tree in milliseconds. jevtes
 
 ## Status
 
-New, and tested end to end on a Flutter demo app with native and web screens: the Android emulator (API 37), a Pixel 4a (Android 13), iOS simulators (iOS 26) and an iPhone 17 (iOS 27). Also on six apps written to test it, on the emulator and simulators: SwiftUI, UIKit, Jetpack Compose, Android Views, React Native and a second Flutter app.
+New, and tested end to end on a Flutter demo app with native and web screens: Android emulators (API 37 and API 35), a Pixel 4a (Android 13), iOS simulators (iOS 26) and an iPhone 17 (iOS 27). Also on six apps written to test it: SwiftUI, UIKit, Jetpack Compose, Android Views, React Native and a second Flutter app, on the emulators and simulators; the Android ones on the Pixel, and SwiftUI, UIKit and Flutter on the iPhone.
 
 Built to a high bar: a [clean architecture](https://just-betr.github.io/jevtest/architecture/) whose layer rules are checked on every commit; strict mypy and strict pyright with no `Any`; every ruff rule; no function above a complexity of 10; 100% line and branch coverage in random order, with Hypothesis properties on every input jevtest reads; dependencies audited and every CI action pinned to a commit. Issues and pull requests are welcome; see [Contributing](https://just-betr.github.io/jevtest/contributing/).
 

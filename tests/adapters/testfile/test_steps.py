@@ -122,10 +122,11 @@ def test_options_where_they_apply(raw):
     ("raw", "message"),
     [
         ("", "Empty step"),
-        ("bakc", r"Unknown step 'bakc'.*one of back, .*write `- do: bakc`"),
-        ("Sign in", r"write `- do: Sign in`"),
+        ("bakc", r"Unknown step 'bakc' \(did you mean back\?\)\. .*one of back, .*write `- do: bakc`"),
+        ("Sign in", r"^Unknown step 'Sign in'\. .*write `- do: Sign in`"),  # like no bare word: no guess
         (["a"], "action word or a mapping"),
-        ({"tap": "x", "bogus": 1}, "unknown keys: bogus"),
+        ({"tap": "x", "bogus": 1}, "unknown keys: bogus$"),  # like no key: no guess
+        ({"tapp": "x"}, r"unknown keys: tapp \(did you mean tap\?\)$"),
         ({"tap": "x", "do": "y"}, "more than one action"),
         ({"timeout": 3}, "no action or check"),
         ({"back": "now"}, "'back' takes no value, got 'now'"),

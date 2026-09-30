@@ -21,7 +21,7 @@ from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
 from jevtest.domain.steps import KEYS, Action, AutofillOff, Grant, Key, Network, Step, Suite, Test, Use
 from jevtest.domain.variables import VARIABLE, fill
 
-from .steps import CHECKS, GRANT_PER_PLATFORM, full_android_permission, parse_step
+from .steps import CHECKS, GRANT_PER_PLATFORM, full_android_permission, parse_step, unknown_names
 from .values import coherent, model, on_off, setting, text
 
 Document = Mapping[object, object]
@@ -380,7 +380,10 @@ def _test(raw: object, where: str, settings: Settings, problems: Problems) -> Te
     name = text(raw["name"], f"{where}: name")
     unknown = raw.keys() - TEST_KEYS
     if unknown:
-        raise TestFileError(f"Test '{name}' has unknown keys: {_names(unknown)}")
+        raise TestFileError(
+            f"Test '{name}' has unknown keys: {unknown_names(unknown, TEST_KEYS)} "
+            f"(a test has {', '.join(sorted(TEST_KEYS))})"
+        )
     written = raw["steps"]
     if not is_list(written) or not written:
         raise TestFileError(f"Test '{name}' needs at least one step")

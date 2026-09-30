@@ -174,6 +174,10 @@ def test_bad_settings_are_rejected(tmp_path, settings, message):
         (minimal(tests="  - {name: T, fresh: true, steps: []}\n"), "at least one step"),
         (minimal(tests="  - {name: T, fresh: true, steps: [back], tags: [x]}\n"), "unknown keys: tags"),
         (
+            minimal(tests="  - {name: T, fresh: true, steps: [back], step: []}\n"),
+            r"unknown keys: step \(did you mean steps\?\) \(a test has fresh, name, steps\)",
+        ),
+        (
             minimal(tests="  - {name: T, fresh: true, steps: [{wait: x}]}\n"),
             r"Test 'T', step 1: 'wait' must be a number, got 'x'$",
         ),
