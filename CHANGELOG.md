@@ -51,6 +51,9 @@
   its thumb, and didn't move (measured: a SwiftUI slider at 20% stayed there, 3 of 3). The agent found a slider's
   thumb position by matching frames exactly, and in large text they have fractions of a point that differ in the
   last bits. It matches within half a point, as it does to find the field that has the keyboard.
+- An Android password field's text went to Jev and into the output as the field reported it: a Views field reports
+  it as typed (measured on Android 17), and React Native's shows its last character for a moment, which a
+  `${PASSWORD}` mask doesn't catch. Only its length goes on, as dots, which is all `clear:` needs.
 
 ## 0.9.15
 

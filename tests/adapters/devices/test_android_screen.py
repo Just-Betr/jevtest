@@ -112,6 +112,19 @@ def test_a_compose_text_field_is_named_by_the_label_inside_it():
     ]
 
 
+def test_a_password_fields_text_is_only_how_long_it_is():
+    """Measured on Android 17: a Views password field reported its text as typed; React Native's shows its last
+    character for a moment. Neither goes to Jev or into the output, only the length that `clear:` deletes."""
+    xml = """<hierarchy rotation="0">
+      <node class="android.widget.EditText" text="hunter22" password="true" hint="Password" bounds="[0,0][900,100]"/>
+      <node class="android.widget.EditText" text="•••••2" password="true" hint="PIN" bounds="[0,200][900,300]"/>
+      <node class="android.widget.EditText" text="plain" password="false" hint="Name" bounds="[0,400][900,500]"/>
+    </hierarchy>"""
+    els = parse_hierarchy(ET.fromstring(xml), 1080, 2424)
+    assert [(e.text, e.value) for e in els] == [("••••••••", "••••••••"), ("••••••", "••••••"), ("plain", "plain")]
+    assert not any("hunter22" in e.label() for e in els)
+
+
 def test_a_slider_is_kept_labelled_or_not_with_where_its_thumb_is():
     """A Compose Slider is a SeekBar with no label: it can still be swiped. A range elsewhere is no slider's."""
     xml = """<hierarchy rotation="0">

@@ -180,6 +180,12 @@ def _field_labels(root: ET.Element) -> dict[ET.Element, ET.Element]:
     }
 
 
+HIDDEN = "•"
+"""What a password field's every character is reported as. Android can report its text as typed (measured on
+Android 17: a Views password field said `wrong pass`), and React Native's shows its last character for a moment; the
+screen goes to Jev and into the output, where only the number of characters is needed, for `clear:`."""
+
+
 def _element(a: Attributes, width: int, height: int, field_label: str = "") -> Element | None:
     """One node of the tree, or None if it's system UI, off screen, or carries nothing a test could use.
 
@@ -189,8 +195,10 @@ def _element(a: Attributes, width: int, height: int, field_label: str = "") -> E
     if bounds is None:
         return None
     cls = a.get("class", "").split(".")[-1]
-    text = a.get("text", "")
     editable = cls in EDITABLE
+    if editable and _true(a, "password"):
+        a = {**a, "text": HIDDEN * len(a.get("text", ""))}  # only how long it is: what a person sees there
+    text = a.get("text", "")
     clickable = any(_true(a, name) for name in ("clickable", "long-clickable"))
     checkable = _true(a, "checkable") or cls in TOGGLES
     label, rid = _label(a), _resource_id(a)
