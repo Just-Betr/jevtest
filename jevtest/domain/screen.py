@@ -75,6 +75,11 @@ class Element:
     id: str = ""
 
     @property
+    def slider(self) -> bool:
+        """Whether a left or right swipe on it takes a thumb to that end: a slider, or what iOS says is adjustable."""
+        return self.position is not None or self.kind == "slider" or self.adjustable
+
+    @property
     def center(self) -> Point:
         """The middle of the element: where a tap lands."""
         x1, y1, x2, y2 = self.bounds

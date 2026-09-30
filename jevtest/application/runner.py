@@ -564,6 +564,11 @@ class TestRunner:
                     d.swipe(direction, distance=distance)
                     return None
                 found, screen = self._find(target, settings)
+                if distance is not None and found.element.slider and direction in {Direction.LEFT, Direction.RIGHT}:
+                    raise StepFailed(
+                        f"`distance` doesn't apply to {found.describe()}: a left or right swipe on a slider takes it "
+                        "all the way to that end"
+                    )
                 d.swipe(direction, element=found.element, screen=screen, distance=distance)
             case _:  # pragma: no cover - every element action is handled above
                 assert_never(action)

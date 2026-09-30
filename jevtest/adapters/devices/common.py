@@ -346,10 +346,7 @@ class BaseDevice(ABC):
         A slider's thumb goes to that end.
         """
         s = screen or self.screen()
-        slider = element is not None and (
-            element.position is not None or element.kind == "slider" or element.adjustable
-        )
-        if element is not None and slider and direction in {Direction.LEFT, Direction.RIGHT}:
+        if element is not None and element.slider and direction in {Direction.LEFT, Direction.RIGHT}:
             # A flick moves a slider an amount that varies from one run to the next (measured on iOS 26.5); a drag
             # slow enough for the thumb to keep up with the finger takes it to the end every time.
             self._scroll_drag(*self._thumb_to_end(direction, element, s.width))
@@ -357,7 +354,7 @@ class BaseDevice(ABC):
             lane, on = s.swiped(element, direction)
             self.drag(*_across(direction, lane, s, distance, on=on))
         else:
-            self.drag(*_across(direction, _page(s), s, distance))
+            self.drag(*_across(direction, s.page, s, distance))
 
     @staticmethod
     def _thumb_to_end(direction: Direction, slider: Element, width: int) -> tuple[int, int, int, int]:
@@ -390,12 +387,7 @@ class BaseDevice(ABC):
             Direction.RIGHT: Direction.LEFT,
         }
         s = screen or self.screen()
-        self._scroll_drag(*_across(finger[Direction(direction)], lane or _page(s), s))
-
-
-def _page(screen: Screen) -> Bounds:
-    """Where a drag across the page goes: `Screen.page`, clear of the keyboard and the app's bars."""
-    return screen.page
+        self._scroll_drag(*_across(finger[Direction(direction)], lane or s.page, s))
 
 
 def _across(

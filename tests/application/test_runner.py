@@ -352,6 +352,17 @@ def test_jev_turns_a_picker_wheel_by_typing_into_it(tmp_path, clock, out):
     assert ("choose", "Red", "Blue") in d.calls
 
 
+def test_distance_on_a_slider_fails_saying_a_swipe_takes_it_to_the_end(tmp_path, clock, out):
+    """Silently ignoring `distance` there would hide a test that doesn't do what it says."""
+    s = Screen(1000, 2000, (el("slider", "Volume", position=0.5, bounds=(0, 400, 1000, 450)),))
+    step = {"swipe": "right", "target": "Volume", "distance": 40}
+    res, d, _ = run1(tmp_path, clock, out, step, device=FakeDevice(s))
+    assert failure_of(res).endswith(
+        "`distance` doesn't apply to slider 'Volume': a left or right swipe on a slider takes it all the way to that end"
+    )
+    assert "drag" not in d.names()
+
+
 def test_clear_finds_a_text_field(tmp_path, clock, out):
     _, d, _ = run1(tmp_path, clock, out, {"clear": "Email"})
     assert ("clear_text", "Email") in d.calls

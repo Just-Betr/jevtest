@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `distance:` on a swipe that meets a slider was ignored without a word: a left or right swipe takes a slider to its
+  end. The step fails saying so.
 - Android toasts were never on screen for jevtest: a toast isn't in the app's window, so `see:` its text failed while
   it showed. The agent notes the text Android announces when a toast shows, and reports it, where its window is,
   for as long as that window is visible (measured on Android 17: a short toast 2.6 s, a long one 4.2 s), so a check
