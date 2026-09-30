@@ -34,7 +34,7 @@ tests:
 
 ```console
 $ jevtest run login.yaml --lock frozen --out results
-jevtest 0.9.15 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: frozen
+jevtest 0.9.16 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: frozen
 
 ▶ Sign in
   ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.6s) — 3 saved steps

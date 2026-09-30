@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.16
 
 - Typed text could reach an Android app changed: typed key by key, the keyboard capitalized and corrected it where
   the field asked, sometimes only when Enter was pressed, after `see:` had checked it (measured: in React Native's
