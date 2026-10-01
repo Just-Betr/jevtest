@@ -123,14 +123,12 @@ class Element:
 FILLS = 0.9
 """The share of the screen an element covers to be taken for a barrier behind a dialog (`Screen._clear_touch`)."""
 
-TOUCH_GRID = 12
-"""Into how many parts each way a barrier is divided, to find the point on it farthest from the dialog."""
-
 EDGE = 0.08
 """The share of the screen's height, at its top and at its bottom, that phones keep for their own gestures."""
 
 MIN_LANE = 20
-"""The fewest points or pixels across that a drag along something can use: less, and the page is dragged instead."""
+"""The fewest points or pixels across that a drag along something can use (less, and the page is dragged instead),
+and that a strip of a barrier needs to take a tap clear of its dialog."""
 
 SIDE_EDGE = 0.15
 """The share of the screen's width, at each side, where a swipe inward never starts: Android takes one as back
@@ -177,14 +175,18 @@ class Screen:
         """Where a tap on a barrier behind a dialog lands: off the dialog; None to keep the element's middle.
 
         For an element that fills the screen, tappable or not as its platform says (iOS reports Flutter's barrier as
-        text): the point on it farthest from what's shown over it, clear of the top and bottom `EDGE`. Only a touch
-        on the element itself goes there; its middle stays where it is, for everything else.
+        text): the middle of the widest strip of it clear of what's shown over it, at least `MIN_LANE` across. Only a
+        touch on the element itself goes there; its middle stays where it is, for everything else.
 
         A barrier's middle is on the dialog (measured: Flutter's `Dismiss` barrier, 1080x2424, with an alert at its
         middle), where a tap doesn't reach it. The dialog's box isn't an element, only what it holds, so the box
-        around all of that stands for it, and the tap goes as far from it as the barrier allows. Only an element
-        that fills the screen: nothing that does is drawn over a dialog, while a smaller element may be, in either
-        order in the tree.
+        around all of that stands for it. Only an element that fills the screen: nothing that does is drawn over a
+        dialog, while a smaller element may be, in either order in the tree.
+
+        A strip may reach the bottom of the barrier, but not into the top `EDGE`: iOS reports a Flutter dialog as
+        text over the whole safe area, and only the strip below that is clear (measured on an iPhone 17 Pro, 402x874,
+        the dialog 62 to 840: a tap at 857 dismissed it, one at 31, on the status bar, which iOS doesn't report,
+        didn't). Android already leaves its system bars out of an element's bounds.
         """
         x1, y1, x2, y2 = el.bounds
         if (x2 - x1) * (y2 - y1) < FILLS * self.width * self.height:
@@ -197,18 +199,10 @@ class Screen:
         mx, my = (x1 + x2) // 2, (y1 + y2) // 2
         if not (bx1 <= mx < bx2 and by1 <= my < by2):  # its middle is clear of what's over it
             return None
-        top, bottom = max(y1, round(self.height * EDGE)), min(y2, round(self.height * (1 - EDGE)))
-        steps = range(1, TOUCH_GRID)
-        points = [
-            (x1 + (x2 - x1) * i // TOUCH_GRID, top + (bottom - top) * j // TOUCH_GRID) for i in steps for j in steps
-        ]
-
-        def away(p: Point) -> int:  # how far outside the box around what's over it; 0 inside
-            dx, dy = max(bx1 - p[0], 0, p[0] - bx2), max(by1 - p[1], 0, p[1] - by2)
-            return dx * dx + dy * dy
-
-        best = max(points, key=away)
-        return best if away(best) > 0 else None
+        top = max(y1, round(self.height * EDGE))
+        strips = [(x1, top, x2, by1), (x1, by2, x2, y2), (x1, top, bx1, y2), (bx2, top, x2, y2)]  # above, below, sides
+        across, (sx1, sy1, sx2, sy2) = max((min(s[2] - s[0], s[3] - s[1]), s) for s in strips)
+        return ((sx1 + sx2) // 2, (sy1 + sy2) // 2) if across >= MIN_LANE else None
 
     @property
     def content_height(self) -> int:

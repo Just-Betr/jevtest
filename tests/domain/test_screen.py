@@ -172,6 +172,15 @@ def test_a_tap_on_a_barrier_behind_a_dialog_lands_off_the_dialog():
     assert s.elements[1].tap_point == ok.center  # anything else is touched in its middle
 
 
+def test_a_barrier_under_a_dialog_over_the_safe_area_is_tapped_below_it():
+    """Measured on an iPhone 17 Pro: iOS reports a Flutter dialog as text over the whole safe area, 62 to 840; a tap at
+    857 dismissed it, one at 31, on the status bar, didn't."""
+    dialog = el("text", "Scan Receipts", bounds=(0, 62, 402, 840))
+    button = el("text", "Sign In or Create Account", bounds=(48, 652, 354, 700))
+    barrier = el("text", "Dismiss", bounds=(0, 0, 402, 874))
+    assert Screen(402, 874, (dialog, button, barrier)).elements[2].tap_point == (201, 857)
+
+
 def test_a_barrier_is_tapped_in_its_middle_when_nothing_is_there():
     barrier = el("button", "Dismiss", clickable=True, bounds=(0, 0, 1000, 2000))
     top = el("text", "Title", bounds=(0, 100, 1000, 200))

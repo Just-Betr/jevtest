@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Beside each screenshot is a `.txt` list of the screen's elements, each with the names a step can find it by
+  (`tap:`, `see:`, `into:`). Writing steps for an app meant guessing names from the picture; text that wraps, or a
+  card the app reports as one element, doesn't read as it looks.
+- On iOS, `tap: Dismiss` on a Flutter dialog's barrier tapped the dialog, and nothing closed: iOS reports a
+  Flutter dialog as text over the whole safe area, so no part of the barrier inside the top and bottom 8% of the
+  screen was clear of it, and the tap went to the barrier's middle (measured in a real app's account dialog). A tap
+  on a barrier goes to the middle of the widest strip of it clear of what's over it, which may reach the bottom
+  of the screen (measured: a tap at 857 of 874 points dismissed it, one on the status bar didn't).
+- A comma inside `[ ]` or `{ }` ends the value, so `see: [Welcome back,, Guest]` failed to load with YAML's
+  "expected the node content, but found ','". The error now says to quote the value or write the list one item
+  per line.
+
 ## 0.9.18
 
 - A `do:` whose button was off screen could stay stuck tapping the nearest one on screen: Jev sees only what's on

@@ -464,6 +464,12 @@ def test_tabs_get_a_hint(tmp_path):
         load(write(tmp_path, "app: a.apk\ntests:\n\t- name: T\n"), {})
 
 
+def test_a_comma_inside_a_flow_list_gets_a_hint(tmp_path):
+    body = "app: a.apk\ntests:\n  - name: T\n    steps:\n      - see: [Welcome back,, Guest]\n"
+    with pytest.raises(TestFileError, match="or write the list one item per line$"):
+        load(write(tmp_path, body), {})
+
+
 BOTH = "app: {android: a.apk, ios: x.zip}\ndevice: {android: Pixel, ios: iPhone 17}\n"
 FOR_ONE = "Put tests for one platform in a file whose `app:` has only that platform's build$"
 

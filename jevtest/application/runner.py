@@ -7,6 +7,7 @@ screenshots it is asked to take.
 
 from __future__ import annotations
 
+import contextlib
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
@@ -91,6 +92,9 @@ KEYBOARD_UP = (
     "a strip): close it first with a `hide_keyboard` step"
 )
 """Added when what a step looks for isn't on screen and the keyboard is up."""
+
+ELEMENTS_HEADER = "# What was on the screen, as steps name it: any one name finds the element (tap:, see:, into:)."
+"""The first line of the element list saved beside each screenshot."""
 
 OFF_SCREEN = "; the app has it off screen: bring it on screen first, e.g. with `scroll_to:`"
 """Added when what a step looks for isn't on screen but the app reports it where the screen doesn't show it."""
@@ -338,6 +342,7 @@ class TestRunner:
         return fill(text, self.suite.variables)
 
     def _screenshot(self, name: str) -> str:
+        """Save a screenshot, and beside it what's on the screen as steps name it (`ELEMENTS_HEADER`)."""
         self._shots += 1
         safe = re.sub(r"[^\w-]+", "_", name)[:60].strip("_") or "screen"
         path = self.screenshots / f"{self._shots:03d}_{safe}.png"
@@ -345,7 +350,17 @@ class TestRunner:
             self.device.screenshot(path)
         except DeviceError as e:
             return f"(screenshot failed: {e})"
+        with contextlib.suppress(DeviceError):  # the picture is what was asked for; the list helps write the test
+            path.with_suffix(".txt").write_text(self._elements_text(self.device.screen()))
         return path.name
+
+    def _elements_text(self, screen: Screen) -> str:
+        """One line per element: its kind, then each name a step can find it by (`Element.names`), masked."""
+        lines = [ELEMENTS_HEADER]
+        for el in screen.elements:
+            names = " | ".join(f"'{self._masked(n)}'" for n in el.names()) or "(no name)"
+            lines.append(f"{el.kind:<14} {names}")
+        return "\n".join(lines) + "\n"
 
     def _near(self, text: str, elements: Sequence[Element]) -> str:
         """The close-but-not-exact texts on screen, for an error. Never matched: shown so the test can be fixed."""

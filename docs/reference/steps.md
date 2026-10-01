@@ -33,7 +33,7 @@ Each takes one value or a list. A check waits until it holds: it reads the scree
 
 | Action | Does |
 |---|---|
-| `tap: target` | Taps the element, in its middle. An element that fills the screen, like the barrier behind a dialog (Flutter's `Dismiss`), is tapped as far as it can be from what's shown over it, which is what closes the dialog. |
+| `tap: target` | Taps the element, in its middle. An element that fills the screen, like the barrier behind a dialog (Flutter's `Dismiss`), is tapped in the middle of the widest strip of it clear of what's shown over it, which is what closes the dialog. |
 | `double_tap: target` | Double-taps it. |
 | `long_press: target` | Presses and holds it. |
 | `swipe: up\|down\|left\|right` | Swipes across the screen, or on an element with `target:`. On an element, it goes along the element's line across what it's in, as a finger would: its list row, pager or carousel (or just the element, in none), starting on the row, or on the element in a pager or carousel. It moves 70% of the way across (60% up or down), or `distance:`, and lifts while moving, a flick. It never starts where the phone takes a swipe inward as its own gesture (back from the outer 15% of the width, home from the bottom 8%, the notifications from the top 8%): it moves in instead. On a slider, `left` or `right` drags its thumb all the way to that end; so on anything iOS reports as adjustable (a Flutter slider, a page control), from its middle. |

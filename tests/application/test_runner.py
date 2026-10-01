@@ -210,13 +210,30 @@ def test_screenshot_step(tmp_path, clock, out):
     assert (tmp_path / "001_home_page.png").exists()
 
 
+def test_a_screenshot_has_the_screens_elements_beside_it_as_steps_name_them(tmp_path, clock, out):
+    """A test is written with the names the phone reports, which a picture doesn't show (Flutter's `Form Tab 2 of 3`)."""
+    screen = Screen(1000, 2000, (el("button", "Welcome, a@b.c", bounds=(0, 0, 10, 10)), el("progress")))
+    run1(tmp_path, clock, out, {"screenshot": "home"}, device=FakeDevice(screen), variables={"E": "a@b.c"})
+    assert (tmp_path / "001_home.txt").read_text().splitlines()[1:] == [
+        "button         'Welcome, ${E}'",  # values masked, as everywhere else
+        "progress       (no name)",
+    ]
+
+
+def test_a_screen_that_cant_be_read_still_gets_its_screenshot(tmp_path, clock, out):
+    d = FakeDevice()
+    d.fail["screen"] = DeviceError("agent gone")
+    runner, d, _ = make(tmp_path, clock, out, "back", device=d)
+    assert runner._screenshot("x") == "001_x.png" and not (tmp_path / "001_x.txt").exists()
+
+
 def test_screenshot_waits_until_the_screen_stopped_moving(tmp_path, clock, out):
     splash, app = Screen(1000, 2000, ()), login_screen()
     d = FakeDevice(splash, app, app)  # a fresh launch: the splash, then the app drawn
     res, d, _ = run1(tmp_path, clock, out, {"screenshot": "home"}, device=d)
     assert res.status is Status.PASS
     reads = [n for n in d.names()[4:] if n not in ("looks", "app_state")]
-    assert reads == ["screen", "screen", "screen", "screenshot"]
+    assert reads == ["screen", "screen", "screen", "screenshot", "screen"]  # the last: the element list beside it
 
 
 def test_screenshot_names_keep_letters_of_any_script(tmp_path, clock, out):
@@ -942,7 +959,9 @@ def test_unchanged_screen_is_not_rejudged(tmp_path, clock, out):
     assert failure_of(res).endswith(
         "Waited 5s until Jev judged it true of a screen that stopped moving; Jev says false (0.10)"
     )
-    assert len(model.asked) == 1 and d.names().count("screen") == 21  # every 0.25 s for 5 s
+    assert (
+        len(model.asked) == 1 and d.names().count("screen") == 22
+    )  # every 0.25 s for 5 s, and the failure's element list
 
 
 # --- saved do: steps ---------------------------------------------------------------------------

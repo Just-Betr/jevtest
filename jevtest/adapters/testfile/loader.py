@@ -90,6 +90,10 @@ COLON_NOT_ALLOWED = "mapping values are not allowed here"
 TAB = "found character '\\t' that cannot start any token"
 """PyYAML's problem for a tab in indentation."""
 
+FLOW_GOT_COMMA = "expected the node content, but found ','"
+"""PyYAML's problem for a comma where a value should be, inside `{ }` or `[ ]`: a value ending in a comma (measured:
+`[Welcome back,, Guest]`, PyYAML 6)."""
+
 FLOW_GOT_BRACE = re.compile(r"expected ',' or '[}\]]', but got '\{'")
 """PyYAML's problem for a `{` inside `{ }` or `[ ]`: an unquoted ``${NAME}`` there (all measured, PyYAML 6)."""
 
@@ -105,6 +109,11 @@ def _hint(error: yaml.YAMLError, lines: Sequence[str]) -> str:
             return f"\nOn line {at}, a step with checks under it needs a colon after its action: `- {word[1]}:`"
     if error.problem == TAB:
         return "\nIndent with spaces: YAML doesn't allow tabs"
+    if error.problem == FLOW_GOT_COMMA:
+        return (
+            '\nInside { } or [ ], a comma ends a value: quote a value with a comma in it, ["Welcome back,", Guest], '
+            "or write the list one item per line"
+        )
     if FLOW_GOT_BRACE.fullmatch(error.problem) and at < len(lines) and "${" in lines[at]:
         return (
             '\nA value starting with ${ must be quoted inside { } or [ ]: {android: "${PHONE}"}, '
