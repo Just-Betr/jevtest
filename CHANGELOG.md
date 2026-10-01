@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.18
 
 - A `do:` whose button was off screen could stay stuck tapping the nearest one on screen: Jev sees only what's on
   screen (measured: "On the web page, trigger the alert and dismiss it" tapped Say hello again and again, the alert
