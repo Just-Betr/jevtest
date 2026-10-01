@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.19
 
 - Beside each screenshot is a `.txt` list of the screen's elements, each with the names a step can find it by
   (`tap:`, `see:`, `into:`). Writing steps for an app meant guessing names from the picture; text that wraps, or a
