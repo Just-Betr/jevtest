@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Installing an Android app over a copy signed with another key (a debug build from another computer) failed with
+  adb's raw output. It now says the installed copy has to be uninstalled first, and that this deletes its data,
+  which is why jevtest never does it.
+
 ## 0.9.20
 
 - A plugged-in iPhone left idle for a few seconds failed every run with "paired but not connected": jevtest took

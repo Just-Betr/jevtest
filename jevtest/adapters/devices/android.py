@@ -148,7 +148,7 @@ class AndroidDevice(BaseDevice):
             installed = self.sh(f"dumpsys package {AGENT_ID} | grep versionName", check=False)
             if f"versionName={apk.version}" not in installed:
                 self.sh(f"pm uninstall {AGENT_ID}", check=False)  # any older copy, whatever key signed it
-                self._install([self.adb, "-s", self.serial, "install", str(apk.path)], timeout=120)
+                self._install([self.adb, "-s", self.serial, "install", str(apk.path)], AGENT_ID, timeout=120)
 
     def _stop_old_agent(self) -> None:
         """Stop an agent a previous run left running: it would hold the port."""
@@ -246,7 +246,7 @@ class AndroidDevice(BaseDevice):
         if suffix == ".apk":
             self.app_id = run([aapt2_path(), "dump", "packagename", str(app)]).strip()
             # No -g: permissions start ungranted, like a real install. Use a `grant:` step to pre-grant.
-            self._install([self.adb, "-s", self.serial, "install", "-r", "-t", str(app)], timeout=300)
+            self._install([self.adb, "-s", self.serial, "install", "-r", "-t", str(app)], self.app_id, timeout=300)
         elif suffix == ".aab":
             self._install_bundle(app)
         else:
@@ -284,24 +284,32 @@ class AndroidDevice(BaseDevice):
             )
             self._install(
                 [bundletool, "install-apks", "--apks", str(apks), "--device-id", self.serial, "--adb", self.adb],
+                self.app_id,
                 timeout=300,
             )
 
-    def _install(self, cmd: list[str], timeout: float) -> None:
-        """Run an install command; a device out of room says so, and what to do.
+    def _install(self, cmd: list[str], package: str, timeout: float) -> None:
+        """Run an install command for `package`; a device out of room, or an app signed with another key, says so.
 
         Raises:
-            DeviceError: The install failed; for a full device, a message saying to free room on it.
+            DeviceError: The install failed; for a full device, or an app installed signed with another key, a
+                message saying what to do.
         """
         try:
             run(cmd, timeout=timeout)
         except ToolFailed as e:
-            if says.OUT_OF_ROOM not in e.output:
-                raise
-            raise DeviceError(
-                f"{self.serial} has no room to install the app ({says.OUT_OF_ROOM}): free some space on it, by "
-                "uninstalling apps you don't need, or wiping an emulator's data, and run again"
-            ) from None
+            if says.OUT_OF_ROOM in e.output:
+                raise DeviceError(
+                    f"{self.serial} has no room to install the app ({says.OUT_OF_ROOM}): free some space on it, by "
+                    "uninstalling apps you don't need, or wiping an emulator's data, and run again"
+                ) from None
+            if says.OTHER_KEY in e.output:
+                raise DeviceError(
+                    f"{package} is installed on {self.serial} signed with another key ({says.OTHER_KEY}), so this "
+                    f"build can't replace it: uninstall it (adb -s {self.serial} uninstall {package}; that "
+                    "deletes its data, so jevtest never does it), or test on another device"
+                ) from None
+            raise
 
     def launch(self) -> None:
         """Start the app's launcher activity, in touch mode (see `_press`), and wait until it's shown."""

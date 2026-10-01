@@ -72,6 +72,11 @@ OUT_OF_ROOM = "INSUFFICIENT_STORAGE"
 """In `adb install`'s failure when the device has no room (measured: `Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE:
 Failed to override installation location]`, an emulator with 663 MB free)."""
 
+OTHER_KEY = "INSTALL_FAILED_UPDATE_INCOMPATIBLE"
+"""In `adb install`'s failure when the app is installed signed with another key (measured: `Failure
+[INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package com.gigscanner.android signatures do not match newer version;
+ignoring!]`, a debug build from another computer installed on a phone)."""
+
 
 # --- iOS --------------------------------------------------------------------------------------------------------
 

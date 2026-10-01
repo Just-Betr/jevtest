@@ -380,9 +380,20 @@ def test_a_device_with_no_room_says_to_free_some(drv, adb):
         drv.install(Path("x.apk"))
 
 
+def test_an_app_installed_signed_with_another_key_says_to_uninstall_it(drv, adb):
+    """Measured: a debug build from another computer, installed on a phone."""
+    other = (
+        "adb: failed to install x.apk: Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package com.example.app "
+        "signatures do not match newer version; ignoring!]"
+    )
+    adb.rules["install -r -t"] = ToolFailed(["adb", "install"], 1, other)
+    with pytest.raises(DeviceError, match=r"signed with another key \(INSTALL_FAILED_UPDATE_INCOMPATIBLE\), so "):
+        drv.install(Path("x.apk"))
+
+
 def test_another_install_failure_is_as_it_came(drv, adb):
-    adb.rules["install -r -t"] = ToolFailed(["adb", "install"], 1, "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]")
-    with pytest.raises(ToolFailed, match="INSTALL_FAILED_UPDATE_INCOMPATIBLE"):
+    adb.rules["install -r -t"] = ToolFailed(["adb", "install"], 1, "Failure [INSTALL_FAILED_VERSION_DOWNGRADE]")
+    with pytest.raises(ToolFailed, match="INSTALL_FAILED_VERSION_DOWNGRADE"):
         drv.install(Path("x.apk"))
 
 
