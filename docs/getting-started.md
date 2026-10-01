@@ -82,7 +82,7 @@ jevtest run tests.yaml --lock record --out results
 Both flags are required, so every run says how it treats the lockfile and where its results go.
 
 ```console
-jevtest 0.9.22 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: record
+jevtest 0.10.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: record
 
 ▶ App opens on the sign-in screen
   ✓ expect: The sign in screen is showing — Jev 0.98

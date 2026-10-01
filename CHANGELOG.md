@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.0
 
 - `jevtest inspect APP --device NAME --out DIR` shows what's on the app's screen as steps name it, for writing
   tests: it starts the app, waits until the screen stopped moving, and saves it, again each time you press Enter.

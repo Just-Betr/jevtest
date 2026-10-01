@@ -34,7 +34,7 @@ tests:
 
 ```console
 $ jevtest run login.yaml --lock frozen --out results
-jevtest 0.9.22 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: frozen
+jevtest 0.10.0 · android · emulator-5554 · dev.jevtest.jevtest_demo · jev-1.13.0 · lockfile: frozen
 
 ▶ Sign in
   ✓ do: Sign in with email "${DEMO_EMAIL}" and password "${DEMO_PASSWORD}" (2.6s) — 3 saved steps
@@ -57,6 +57,7 @@ Results: results/20260928-161344/android/emulator-5554
 - **Nothing assumed.** No default device, no guessing what a typo meant, and settings with good defaults and strict limits. The whole test file is checked before a device is touched, and every problem is reported at once with what to fix.
 - **Real apps, real phones.** Android emulators and phones, iOS simulators and iPhones. Native, Flutter, React Native and **in-app WebViews**, driven the same way. Animations stay on, and what a step changes on the device (orientation, dark mode, network, autofill, an iOS location) is put back.
 - **Wait until, or fail.** Each step waits until what it needs is on screen, up to its timeout, then fails saying what it waited for. No sleeps.
+- **See what to name.** `jevtest inspect` starts the app and saves each screen with every element boxed on the screenshot, the names steps can use, and a JSON dump for agents writing tests.
 - **Built for scale and CI.** `${SECRETS}` from `.env` or CI, shared test libraries, whole folders in one command, several devices at once, JUnit XML, JSON reports and failure screenshots.
 
 ## Install
@@ -72,6 +73,7 @@ You also need the platform tools for your apps: the Android SDK and a JDK, and/o
 ```bash
 jevtest run tests.yaml --lock record --out results     # asks Jev about new screens, records the answers
 jevtest run tests/ --lock frozen --out results         # a whole folder, replayed exactly from the lockfiles
+jevtest inspect app.apk --device emulator-5554 --out inspect   # see each screen as steps name it
 ```
 
 ## How it works
