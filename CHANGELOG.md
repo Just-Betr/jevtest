@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- A plugged-in iPhone left idle for a few seconds failed every run with "paired but not connected": jevtest took
+  only a live connection for connected, and the Mac drops it while the phone is idle (measured: `devicectl` lists
+  it `wired`, its connection `disconnected`). An iPhone plugged in with USB is found; starting the agent brings
+  the connection back (measured: 12 of 12 tests passed on an iPhone 17 found that way).
+
 ## 0.9.19
 
 - Beside each screenshot is a `.txt` list of the screen's elements, each with the names a step can find it by

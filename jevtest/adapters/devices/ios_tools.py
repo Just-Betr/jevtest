@@ -100,7 +100,12 @@ class Phone:
     udid: str
     name: str
     connected: bool
-    """It has a live connection: plugged in (or on the network), unlocked since it was last locked."""
+    """Plugged in with USB, or with a live connection over the network.
+
+    A plugged-in iPhone left idle is listed with its connection down (measured: ``tunnelState`` ``disconnected``,
+    ``transportType`` ``wired``, seconds after a run, on an unlocked iPhone 17 with iOS 27): starting the agent brings
+    it back up. A locked one is found too, and starting the agent says it's locked.
+    """
 
 
 def simulators() -> list[Simulator]:
@@ -134,7 +139,8 @@ def phones() -> list[Phone]:
         Phone(
             udid=text_at(d, "hardwareProperties", "udid"),
             name=text_at(d, "deviceProperties", "name"),
-            connected=text_at(d, "connectionProperties", "tunnelState") == "connected",
+            connected=text_at(d, "connectionProperties", "tunnelState") == "connected"
+            or text_at(d, "connectionProperties", "transportType") == "wired",
         )
         for d in listed
         if _iphone(d)

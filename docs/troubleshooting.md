@@ -45,7 +45,7 @@ error: t.yaml has 2 problems:
 | `Several connected Android devices are called 'Pixel 4a' (A1, B2): name one by its serial` | Two identical phones: use serials. |
 | `No booted simulator or connected iPhone called 'iPhone 16' (names are exact). Running: …` | No device has that name: use a listed one exactly. |
 | `The simulator 'iPhone 16e' isn't booted: boot it (xcrun simctl boot "iPhone 16e")` | Boot it: jevtest never boots devices. |
-| `The iPhone 'BH' is paired but not connected: plug it in with USB, unlock it and keep it awake` | The phone is asleep, locked or unplugged. |
+| `The iPhone 'BH' is paired but not connected: plug it in with USB, unlock it and keep it awake` | The phone isn't plugged in with USB (and isn't reachable over the network). A plugged-in phone is found even while it's idle; it must still be unlocked for the run. |
 | `android · emulator-5554: another jevtest run (pid 1234) is testing it: wait for it to finish, or use another device` | Two runs can't share a device: the second would restart the app under the first. |
 | `putting back what a run that was stopped left changed: dark mode, network` | Not an error: a run killed outright left those changed, and this one puts them back first. |
 | `stopping the iOS agent a stopped run left running (pid 62281)` | Not an error: a run killed outright couldn't stop its agent on the simulator or iPhone, and this one stops it first, as it does an Android agent a run left. |

@@ -154,12 +154,14 @@ def test_phones_lists_paired_real_iphones_and_whether_each_is_connected(env):
     env.ctl.phones = [
         PHONE,
         dict(PHONE, connectionProperties={"tunnelState": "disconnected"}),  # not reachable now
+        dict(PHONE, connectionProperties={"tunnelState": "disconnected", "transportType": "wired"}),  # plugged in, idle
         dict(PHONE, hardwareProperties={"reality": "simulated", "platform": "iOS", "udid": "S"}),
         dict(PHONE, hardwareProperties={"reality": "physical", "platform": "watchOS", "udid": "W"}),
     ]
     assert ios_tools.phones() == [
         ios_tools.Phone("00008150-X", "BH", connected=True),
         ios_tools.Phone("00008150-X", "BH", connected=False),
+        ios_tools.Phone("00008150-X", "BH", connected=True),
     ]
 
 
