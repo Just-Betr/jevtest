@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.22
 
 - On Android, a system dialog in front of the app couldn't be tapped: jevtest took every system window for a bar
   over the app, the dialog's own window too, so each of its buttons was "under a system bar" (measured: Android 17's
