@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.21
 
 - Installing an Android app over a copy signed with another key (a debug build from another computer) failed with
   adb's raw output. It now says the installed copy has to be uninstalled first, and that this deletes its data,
