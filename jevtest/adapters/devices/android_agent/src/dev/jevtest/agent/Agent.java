@@ -328,7 +328,9 @@ public class Agent extends Instrumentation {
             if (w.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
                 ime = true;
                 imeTop = r.top;
-            } else if (w.getType() == AccessibilityWindowInfo.TYPE_SYSTEM) {
+            } else if (w.getType() == AccessibilityWindowInfo.TYPE_SYSTEM && !w.isActive()) {
+                // The active window is the one read below: a system dialog in front (Android's "isn't 16 KB
+                // compatible" notice) is the screen, not something over it.
                 bars.append(bars.length() == 0 ? "" : ";").append(r.left).append(',').append(r.top).append(',')
                         .append(r.right).append(',').append(r.bottom);
             }

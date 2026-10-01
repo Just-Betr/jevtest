@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- On Android, a system dialog in front of the app couldn't be tapped: jevtest took every system window for a bar
+  over the app, the dialog's own window too, so each of its buttons was "under a system bar" (measured: Android 17's
+  "This app isn't 16 KB compatible" notice, whose `Don't Show Again` timed out). The window being read is the
+  screen, not something over it; `tap: Don't Show Again` now closes it.
+
 ## 0.9.21
 
 - Installing an Android app over a copy signed with another key (a debug build from another computer) failed with
