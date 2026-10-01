@@ -28,7 +28,7 @@ Each layer hands the next one plain, immutable domain types:
 - The **loader** (adapter) turns YAML into a `Suite` of typed `Step`s: one class per action (`Touch`, `TypeText`, `ScrollTo`, …), so a step can only carry what its action needs.
 - A **device** (adapter) turns the agent's XML or JSON into a frozen `Screen` of `Element`s. The wire format never leaves the adapter.
 - The **brain** (application) asks typed `Choice` and `YesNo` questions. The **Jev adapter** turns them into Jev's JSON, checks every answer against the options offered, and returns `Picked` and `Probability` answers.
-- The **runner** (application) returns `RunResult`, `TestResult`, `StepResult` and `CheckResult` records, and reports progress through the `RunListener` port. The **console** (cli) renders them; the **report adapters** write them as JUnit and JSON.
+- The **runner** (application) returns `RunResult`, `TestResult`, `StepResult` and `CheckResult` records, and reports progress through the `RunListener` port. The **console** (cli) renders them; the **report adapters** write them as JUnit and JSON, and the notes beside each screenshot as text, JSON and a page.
 
 ## Errors
 
@@ -47,6 +47,7 @@ class DecisionModel(Protocol): # Jev behind its lockfile
 
 class Clock(Protocol): ...     # time, so tests run instantly
 class RunListener(Protocol): ...  # told what happens as tests run
+class ScreenNotesWriter(Protocol): ...  # saves what was on a screen beside its screenshot
 ```
 
 The application depends only on these. `jevtest.cli.main` wires real implementations to them, and the tests wire fakes. That is why every layer is tested without the layer below it: the runner against a `FakeDevice` and a `FakeModel`, the device adapters against recorded agent output, the Jev adapter against a fake HTTP opener.
