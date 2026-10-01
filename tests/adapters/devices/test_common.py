@@ -44,6 +44,11 @@ def test_timeout():
         run(py("import time; time.sleep(5)"), timeout=0.2)
 
 
+def test_a_tool_gets_no_input_so_it_cant_take_what_is_typed_to_jevtest():
+    """Measured: adb, run from `jevtest inspect` with Enter and q piped in, read them, and inspect saw no input."""
+    assert run(py("import sys; print(repr(sys.stdin.read()))")).strip() == "''"
+
+
 # --- agents: start on their ready signal, stop cleanly ------------------------------------------
 
 
@@ -61,6 +66,20 @@ def test_start_process_returns_when_ready(tmp_path):
     finally:
         stop_process(proc)
     assert proc.poll() is not None
+
+
+def test_a_helper_gets_no_input(tmp_path):
+    log = tmp_path / "agent.log"
+    proc = start_process(
+        py("import sys; print('read', repr(sys.stdin.read()), 'READY', flush=True); import time; time.sleep(30)"),
+        ready="READY",
+        log=log,
+        timeout=10,
+    )
+    try:
+        assert "read '' READY" in log.read_text()
+    finally:
+        stop_process(proc)
 
 
 def test_start_process_reports_an_early_exit(tmp_path):

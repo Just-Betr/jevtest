@@ -1,6 +1,7 @@
 """The ``jevtest`` command, and the composition root: the one place that picks real implementations.
 
     jevtest run PATH... --lock MODE --out DIR [--test NAME] [--prune-lock] [-v]
+    jevtest inspect APP --device NAME --out DIR [--once]
 
 A test file says which app to test on which device(s); jevtest runs its tests on each platform it lists. A
 folder runs every test file in it; any other YAML in it must be a library one of those files includes. Several
@@ -33,6 +34,7 @@ from jevtest.domain.failures import JevtestError
 from jevtest.domain.kinds import Platform
 from jevtest.domain.ports import Clock, Device
 
+from .inspect import InspectOptions, inspect_command
 from .run import FindDevice, MakeClient, MakeDevice, RunOptions, run_command
 
 
@@ -89,6 +91,16 @@ def parser() -> argparse.ArgumentParser:
         help="after a run of every test where every test passed, drop the saved steps and answers it didn't use",
     )
     r.add_argument("-v", "--verbose", action="store_true", help="print every Jev question and answer")
+    i = sub.add_parser(
+        "inspect",
+        help="start the app and save its screen with the names steps can use, again each time you press Enter",
+    )
+    i.add_argument("app", metavar="APP", help="the build: .apk/.aab for Android, .app/.zip/.ipa for iOS")
+    i.add_argument("--device", required=True, metavar="NAME", help="the running device, named as in a test file")
+    i.add_argument(
+        "--out", required=True, metavar="DIR", help="where to save (each inspect adds a timestamped folder in it)"
+    )
+    i.add_argument("--once", action="store_true", help="save the screen once and stop: for scripts and agents")
     return p
 
 
@@ -115,12 +127,25 @@ def main(
     find: FindDevice = FIND_DEVICE,
     client: MakeClient = make_client,
     clock: Clock | None = None,
+    read_line: Callable[[str], str] = input,
 ) -> int:
     """Run the command line; return the exit code.
 
     The keyword arguments are the implementations to use; tests pass fakes.
     """
     args = parser().parse_args(argv)
+    if args.cmd == "inspect":
+        return _guarded(
+            lambda: inspect_command(
+                InspectOptions(Path(args.app), args.device, Path(args.out), once=args.once),
+                devices,
+                find,
+                clock=clock or SystemClock(),
+                read_line=read_line,
+                say=print,
+            ),
+            "devices put back",
+        )
     options = RunOptions(
         tuple(args.paths),
         LockMode(args.lock),
@@ -130,15 +155,23 @@ def main(
         prune_lock=args.prune_lock,
         verbose=args.verbose,
     )
+    return _guarded(
+        lambda: run_command(options, devices, client, clock or SystemClock(), find),
+        "devices put back; this run wrote no report",
+    )
+
+
+def _guarded(command: Callable[[], int], stopped: str) -> int:
+    """Run a command: an error is exit code 2, a stop signal 128 + it, and the devices are released either way."""
     previous = {s: signal.signal(s, _stop) for s in STOP_SIGNALS if signal.getsignal(s) is signal.SIG_DFL}
     try:
-        return run_command(options, devices, client, clock or SystemClock(), find)
+        return command()
     except JevtestError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
     except KeyboardInterrupt as e:
         signum = e.signum if isinstance(e, Stopped) else signal.SIGINT
-        print(f"\nstopped ({signal.Signals(signum).name}): devices put back; this run wrote no report", file=sys.stderr)
+        print(f"\nstopped ({signal.Signals(signum).name}): {stopped}", file=sys.stderr)
         return 128 + signum
     finally:
         CLAIMS.release()

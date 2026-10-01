@@ -22,6 +22,7 @@ from jevtest.adapters.jev.lockfile import JevAsker, LockedModel, LockMode
 from jevtest.adapters.reports.json_report import write_report
 from jevtest.adapters.reports.junit import Suite as JunitSuite
 from jevtest.adapters.reports.junit import write_junit
+from jevtest.adapters.reports.screen_notes import ScreenNotesFiles
 from jevtest.adapters.testfile.discovery import find_test_files
 from jevtest.adapters.testfile.env import read_env
 from jevtest.adapters.testfile.loader import load
@@ -194,6 +195,7 @@ class Runs:
                 platform=job.platform,
                 clock=self.clock,
                 listener=listener,
+                notes=ScreenNotesFiles(),
             ).run()
         finally:
             self._close(device)
@@ -272,7 +274,7 @@ def run_command(
     _check_options(loaded, options)
     _check_iphone_grants(loaded, _find_devices(loaded, find_device))
     root = Path(os.path.commonpath([f.parent for f in files]))
-    out = _results_folder(options.out, time.strftime("%Y%m%d-%H%M%S"))
+    out = results_folder(options.out, time.strftime("%Y%m%d-%H%M%S"))
     runs = Runs(make_device, clock, verbose=options.verbose)
     suites: list[JunitSuite] = []
     for suite, env in loaded:  # one file at a time; its devices at the same time
@@ -329,7 +331,7 @@ def _check_options(loaded: Loaded, options: RunOptions) -> None:
             )
 
 
-def _results_folder(parent: Path, stamp: str) -> Path:
+def results_folder(parent: Path, stamp: str) -> Path:
     """A new folder for this run's results, made before any device is touched.
 
     One that can't be made would lose the whole run. Another run that started in the same second has `stamp`, so

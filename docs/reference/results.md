@@ -97,13 +97,18 @@ Everything about one device's run:
 
 The step that fails a test gets a screenshot, numbered in the order taken and named after the test: `001_FAIL_Check_fails.png`. `screenshot: name` steps save one too (`002_home.png`), once the screen has stopped moving.
 
-Beside each screenshot is a text file of the same name (`001_FAIL_Check_fails.txt`) listing every element on that screen, one per line: its kind, then each name a step can find it by (`tap:`, `see:`, `into:`), any one of which works:
+Beside each screenshot are notes of the same name, on what was on that screen as steps name it: every element, with each name a step can find it by (`tap:`, `see:`, `into:`), any one of which works. Copy a name from them rather than guessing from the picture: text that wraps on screen, or a card that reads as one element, shows here as the app reports it. A `${NAME}` value on screen is written as its name, as in the reports. When the screen couldn't be read, the screenshot is saved without notes. [`jevtest inspect`](cli.md#inspect) saves the same, for a screen you reach by hand.
+
+| File | For | What |
+|---|---|---|
+| `001_FAIL_Check_fails.txt` | reading | One line per element: its kind, then its names. A name more than one element has says how many: a step with it may find either, so use a name of its own where it has one. |
+| `001_FAIL_Check_fails.html` | looking | The screenshot with a box around each element and the list beside it. Pointing at a box shows its names; clicking one copies a step that finds it (`tap: 'Sign in'`, or `type: { text: '...', into: 'Email' }` for a field). |
+| `001_FAIL_Check_fails.json` | agents | The screen's size and whether the keyboard is up, then each element in reading order: `kind`, `names`, `find_by` (the name to use: one only it has where there is one), `shared` (its names others have, with how many have each), `bounds` (`[left, top, right, bottom]` in the screen's units) and `state` (any of `checked`, `focused`, `selected`, `editable`, `scrollable`, `disabled`). |
 
 ```text
+text           'View All' (2 on screen)
 button         'Sign in' | 'login_button'
 text_field     'Email'
 ```
-
-Copy a name from it rather than guessing from the picture: text that wraps on screen, or a card that reads as one element, shows here as the app reports it. A `${NAME}` value on screen is written as its name, as in the reports. When the screen couldn't be read, the screenshot is saved without the list.
 
 Screenshots are pictures of the screen, so they show what the app shows: a signed-in email appears as the email, not as `${EMAIL}`. Password fields show dots. Treat a results folder you upload from CI accordingly.

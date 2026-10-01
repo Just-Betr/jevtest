@@ -1,6 +1,6 @@
 # Command line
 
-jevtest has one command.
+jevtest has two commands: `run` runs tests, and [`inspect`](#inspect) shows what's on the app's screen as steps name it, for writing them.
 
 ```bash
 jevtest run PATH... --lock MODE --out DIR [--test NAME]... [--platform android|ios]... [--prune-lock] [-v]
@@ -55,6 +55,29 @@ Prune with the same devices you record on: decisions recorded on one device's sc
 | 129 | stopped by SIGHUP (the terminal closed) |
 
 A stopped run puts every device back (orientation, appearance, network, autofill, location) and says so: `stopped (SIGINT): devices put back; this run wrote no report`.
+
+## `inspect`
+
+```bash
+jevtest inspect APP --device NAME --out DIR [--once]
+```
+
+| Argument | Required | Meaning |
+|---|---|---|
+| `APP` | yes | The build: `.apk`/`.aab` for Android, `.app`/`.zip`/`.ipa` for iOS. |
+| `--device NAME` | yes | The running device, named as a test file names it. |
+| `--out DIR` | yes | Where to save. Each inspect adds a timestamped folder inside it. |
+| `--once` | no | Save the screen once and stop, instead of waiting for Enter: for scripts and agents. |
+
+It installs and starts the app as a run does, keeping the app's data (no `fresh:`), waits until the screen stopped moving as a `screenshot:` step does, and saves it as `001.png` with the [notes beside it](results.md#screenshots): the elements and every name a step can find each by, as a list (`.txt`), as JSON for an agent (`.json`), and as a page that boxes each element on the screenshot (`.html`). Then it waits: use the app on the device, press Enter to save the screen again (`002.png`, …), or type `q` to stop. The list is printed too:
+
+```text
+text           'Welcome back,'
+text           'View All' (2 on screen)
+button         'Sign in' | 'login_button'
+```
+
+The exit codes are those of `run`: 0 when done, 2 when something needs fixing first, 128 + the signal when stopped.
 
 ## Environment
 

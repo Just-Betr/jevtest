@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- `jevtest inspect APP --device NAME --out DIR` shows what's on the app's screen as steps name it, for writing
+  tests: it starts the app, waits until the screen stopped moving, and saves it, again each time you press Enter.
+  `--once` saves one screen and stops, for scripts and agents. Steps had to be written by guessing names, then
+  running them to read the error.
+- The tools jevtest starts (adb, xcrun, the agents) no longer get its input: a tool that reads it took what was
+  typed to jevtest (measured: Enter and q piped into `jevtest inspect` were read by adb, and inspect saw no input).
+- Beside each screenshot, besides the `.txt` list: a `.html` page that boxes each element on the screenshot (point
+  at one for its names, click to copy a step that finds it), and a `.json` for agents (each element's names, the one
+  to use, its bounds and state). A name more than one element has says how many: a step with it may find either
+  (measured: Slipply's home screen has two `View All`).
+
 ## 0.9.22
 
 - On Android, a system dialog in front of the app couldn't be tapped: jevtest took every system window for a bar

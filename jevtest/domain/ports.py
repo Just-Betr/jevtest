@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Protocol
 
 from .decisions import SavedStep
+from .inspection import ScreenNotes
 from .kinds import AppState, Direction, Orientation
 from .model import Answer, ModelCall, Question, State
 from .results import CheckResult, StepResult, TestResult
@@ -204,6 +205,14 @@ class DecisionModel(Protocol):
 
     def save_steps(self, key: str, steps: Sequence[SavedStep]) -> None:
         """Save the steps the `do:` goal `key` took, for later runs to repeat."""
+        ...
+
+
+class ScreenNotesWriter(Protocol):
+    """Saves what was on a screen beside its screenshot, for people and agents writing tests."""
+
+    def write(self, screenshot: Path, notes: ScreenNotes) -> None:
+        """Save `notes` beside `screenshot` (same name, other extensions)."""
         ...
 
 

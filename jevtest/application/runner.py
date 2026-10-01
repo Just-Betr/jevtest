@@ -33,9 +33,10 @@ from jevtest.domain.decisions import (
     WaitForScreen,
 )
 from jevtest.domain.failures import DeviceError, ModelError, NotRecorded, StepFailed
+from jevtest.domain.inspection import notes
 from jevtest.domain.kinds import AppState, Direction, Gesture, Platform, Status
 from jevtest.domain.model import ModelCall
-from jevtest.domain.ports import Clock, Device, RunListener
+from jevtest.domain.ports import Clock, Device, RunListener, ScreenNotesWriter
 from jevtest.domain.results import CheckResult, RunResult, StepResult, TestResult
 from jevtest.domain.screen import Bounds, Element, Screen, near_names
 from jevtest.domain.settings import Settings
@@ -93,7 +94,6 @@ KEYBOARD_UP = (
 )
 """Added when what a step looks for isn't on screen and the keyboard is up."""
 
-ELEMENTS_HEADER = "# What was on the screen, as steps name it: any one name finds the element (tap:, see:, into:)."
 """The first line of the element list saved beside each screenshot."""
 
 OFF_SCREEN = "; the app has it off screen: bring it on screen first, e.g. with `scroll_to:`"
@@ -150,6 +150,7 @@ class TestRunner:
             under, since the same goal takes different steps on each.
         clock: Time.
         listener: Told about each test, step and check as it finishes.
+        notes: Saves what was on the screen beside each screenshot, as steps name it.
     """
 
     __test__ = False  # not a pytest test class
@@ -164,6 +165,7 @@ class TestRunner:
         platform: Platform,
         clock: Clock,
         listener: RunListener,
+        notes: ScreenNotesWriter,
     ) -> None:
         self.suite = suite
         self.device = device
@@ -172,6 +174,7 @@ class TestRunner:
         self.platform = platform
         self.clock = clock
         self.listener = listener
+        self.notes = notes
         self._app_should_run = False
         self._shots = 0
 
@@ -342,7 +345,7 @@ class TestRunner:
         return fill(text, self.suite.variables)
 
     def _screenshot(self, name: str) -> str:
-        """Save a screenshot, and beside it what's on the screen as steps name it (`ELEMENTS_HEADER`)."""
+        """Save a screenshot, and beside it what's on the screen as steps name it (`ScreenNotesWriter`)."""
         self._shots += 1
         safe = re.sub(r"[^\w-]+", "_", name)[:60].strip("_") or "screen"
         path = self.screenshots / f"{self._shots:03d}_{safe}.png"
@@ -350,17 +353,9 @@ class TestRunner:
             self.device.screenshot(path)
         except DeviceError as e:
             return f"(screenshot failed: {e})"
-        with contextlib.suppress(DeviceError):  # the picture is what was asked for; the list helps write the test
-            path.with_suffix(".txt").write_text(self._elements_text(self.device.screen()))
+        with contextlib.suppress(DeviceError):  # the picture is what was asked for; the notes help write the test
+            self.notes.write(path, notes(self.device.screen(), self._masked))
         return path.name
-
-    def _elements_text(self, screen: Screen) -> str:
-        """One line per element: its kind, then each name a step can find it by (`Element.names`), masked."""
-        lines = [ELEMENTS_HEADER]
-        for el in screen.elements:
-            names = " | ".join(f"'{self._masked(n)}'" for n in el.names()) or "(no name)"
-            lines.append(f"{el.kind:<14} {names}")
-        return "\n".join(lines) + "\n"
 
     def _near(self, text: str, elements: Sequence[Element]) -> str:
         """The close-but-not-exact texts on screen, for an error. Never matched: shown so the test can be fixed."""

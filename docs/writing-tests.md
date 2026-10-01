@@ -48,6 +48,16 @@ Exact steps don't ask Jev what to do. They wait until an element says their exac
 
 **Exact step or `do:`?** Use an exact step when you can name what's on screen (`tap: Save nickname`, `see: Data loaded`). Use `do:` when you'd describe it the way a person would: a goal that takes several actions (`do: Sign in with email "…" and password "…"`), something with no text to name, or when the test shouldn't depend on exact labels (`do: Turn notifications on`). The first run works each `do:` out with Jev and saves the steps; later runs repeat them.
 
+### Finding the names
+
+A step names an element by what the app reports, which isn't always what the screen seems to say: text that wraps, a card that reads as one element, a button known by its id. To see the names, run
+
+```bash
+jevtest inspect app.apk --device emulator-5554 --out inspect
+```
+
+and open the page it saves: each element is boxed on the screenshot, pointing at one shows its names, and clicking it copies a step. Use the app on the device and press Enter to save the next screen. An agent writing tests passes `--once` and reads the `.json` ([what's in it](reference/results.md#screenshots)). Every `screenshot:` step, and every failure, saves the same notes beside its picture.
+
 ## Checks
 
 | Check | Passes when |

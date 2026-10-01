@@ -75,7 +75,8 @@ def run_bytes(cmd: list[str], *, timeout: float = 120, check: bool = True) -> by
         ToolFailed: With `check`, it exited with an error.
     """
     try:
-        p = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False)
+        # No stdin: a tool that reads it would take what's typed to jevtest (`jevtest inspect` reads Enter and q).
+        p = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout, check=False)
     except FileNotFoundError:
         raise DeviceError(f"Command not found: {cmd[0]}") from None
     except subprocess.TimeoutExpired:
@@ -165,8 +166,14 @@ def start_process(
         DeviceError: It didn't get ready within `timeout` seconds, or exited first. The message quotes its log.
     """
     log.parent.mkdir(parents=True, exist_ok=True)
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env, start_new_session=True
+    proc = subprocess.Popen(  # no stdin, as in `run_bytes`
+        cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env,
+        start_new_session=True,
     )
     output = proc.stdout
     if output is None:  # pragma: no cover - stdout=PIPE always gives a pipe

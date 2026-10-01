@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from jevtest.adapters.devices._typing import override
+from jevtest.adapters.reports.screen_notes import ScreenNotesFiles
 from jevtest.adapters.testfile.steps import parse_step
 from jevtest.application.brain import Brain
 from jevtest.application.runner import TestRunner
@@ -50,6 +51,7 @@ def make(tmp_path, clock, out, *steps, device=None, model=None, verbose=False, t
         platform=Platform.ANDROID,
         clock=clock,
         listener=console(out, verbose=verbose),
+        notes=ScreenNotesFiles(),
     )
     return runner, device, model
 
@@ -218,13 +220,17 @@ def test_a_screenshot_has_the_screens_elements_beside_it_as_steps_name_them(tmp_
         "button         'Welcome, ${E}'",  # values masked, as everywhere else
         "progress       (no name)",
     ]
+    dump = json.loads((tmp_path / "001_home.json").read_text())  # the same, for an agent
+    assert [e["names"] for e in dump["elements"]] == [["Welcome, ${E}"], []]
+    assert "a@b.c" not in (tmp_path / "001_home.html").read_text()
 
 
 def test_a_screen_that_cant_be_read_still_gets_its_screenshot(tmp_path, clock, out):
     d = FakeDevice()
     d.fail["screen"] = DeviceError("agent gone")
     runner, d, _ = make(tmp_path, clock, out, "back", device=d)
-    assert runner._screenshot("x") == "001_x.png" and not (tmp_path / "001_x.txt").exists()
+    assert runner._screenshot("x") == "001_x.png"
+    assert [p.name for p in tmp_path.iterdir() if p.stem == "001_x"] == ["001_x.png"]  # no notes: nothing to say
 
 
 def test_screenshot_waits_until_the_screen_stopped_moving(tmp_path, clock, out):
@@ -1225,7 +1231,14 @@ def test_a_files_settings_reach_every_step(tmp_path, clock, out):
     d = FakeDevice()
     d.clock = clock
     res = TestRunner(
-        suite, d, Brain(FakeModel()), tmp_path, platform=Platform.ANDROID, clock=clock, listener=console(out)
+        suite,
+        d,
+        Brain(FakeModel()),
+        tmp_path,
+        platform=Platform.ANDROID,
+        clock=clock,
+        listener=console(out),
+        notes=ScreenNotesFiles(),
     ).run_test(test)
     assert failure_of(res).endswith("Waited 2s until an element says 'Ghost' on screen and stopped moving")
     assert clock.slept == [0.5] * 4  # checked at 0, 0.5, 1, 1.5 and 2 seconds
