@@ -217,7 +217,7 @@ class Agent:
             reply = reply.pop(0)
         if isinstance(reply, Exception):
             raise reply
-        return reply
+        return reply(body) if callable(reply) else reply  # a function answers from the call itself
 
     def paths(self):
         return [p for p, _ in self.calls]

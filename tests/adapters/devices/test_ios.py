@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from jevtest.adapters.devices.common import AgentRefused, ToolFailed, Undo
-from jevtest.adapters.devices.ios import IOSDevice
+from jevtest.adapters.devices.ios import IOSDevice, took_all
 from jevtest.adapters.devices.ios_tools import AGENT_SRC
 from jevtest.domain.failures import DeviceError
 from jevtest.domain.screen import Element
@@ -227,9 +227,11 @@ def test_agent_commands(drv, env):
         ("/double_tap", {"x": 1, "y": 2}),
         ("/long_press", {"x": 1, "y": 2, "seconds": 2}),
         ("/drag", {"x1": 1, "y1": 2, "x2": 3, "y2": 4, "velocity": 1500, "hold": 0.05}),
+        ("/tree", {}),  # which field typing goes into: none here, so nothing to check after
         ("/type", {"text": "hi"}),
         ("/tap", {"x": 5, "y": 6}),
         ("/tree", {}),  # focused, with the keyboard up
+        ("/tree", {}),
         ("/type", {"text": "hi"}),
         ("/tap", {"x": 8, "y": 5}),
         ("/tree", {}),
@@ -444,9 +446,9 @@ def test_typing_waits_until_the_keyboard_is_up(drv, env, slept):
         "keyboard": True,
         "elements": [{"type": "text_field", "x": 0, "y": 0, "w": 9, "h": 9, "focused": False}],
     }
-    agent.replies["/tree"] = [plain, focused]  # right after the tap: not yet
+    agent.replies["/tree"] = [plain, focused, focused]  # right after the tap: not yet
     drv.type_text("x", at=(1, 1))
-    assert [p for p, _ in agent.calls][-4:] == ["/tap", "/tree", "/tree", "/type"] and slept == [0.25]
+    assert [p for p, _ in agent.calls][-5:] == ["/tap", "/tree", "/tree", "/tree", "/type"] and slept == [0.25]
 
 
 def field_tree(value: str) -> dict[str, object]:
@@ -476,6 +478,77 @@ def test_an_app_that_ends_while_it_is_read_shows_nothing(drv, env):
     assert drv.screen().elements == ()
     with pytest.raises(DeviceError, match="something else"):
         drv.screen()
+
+
+CHANGED = "Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type Keyboard`"
+
+
+def field_with(value: str, kind: str = "text_field") -> dict[str, object]:
+    field = {"type": kind, "label": "Email", "value": value, "x": 0, "y": 100, "w": 300, "h": 40, "focused": True}
+    return {"width": 402, "height": 874, "elements": [field], "keyboard": True}
+
+
+class DroppingField:
+    """A field that loses the first keys typed into it `drops` times, as a React Native field just shown did."""
+
+    def __init__(self, drops: int) -> None:
+        self.value, self.drops = "", drops
+
+    def type(self, body: dict[str, object]) -> dict[str, object]:
+        text = str(body["text"])
+        self.value, self.drops = (text[3:] if self.drops else text), self.drops - 1
+        return {"ok": True}
+
+    def key(self, body: dict[str, object]) -> dict[str, object]:
+        self.value = self.value[: -int(str(body.get("count", 1)))]
+        return {"ok": True}
+
+    def tree(self, _: dict[str, object]) -> dict[str, object]:
+        return field_with(self.value)
+
+
+def test_typing_into_an_empty_field_that_dropped_keys_types_it_again(drv, env):
+    """Measured on an iPhone: a React Native field just shown took `sper@example.com` of `shopper@example.com`."""
+    field = DroppingField(drops=1)
+    env[1].replies.update({"/tree": field.tree, "/type": field.type, "/key": field.key})
+    drv.type_text("shopper@example.com")
+    assert field.value == "shopper@example.com" and env[1].paths().count("/type") == 2
+
+
+def test_typing_that_keeps_losing_keys_says_what_the_field_shows(drv, env, monkeypatch):
+    ticks = iter(range(0, 10000, 4))
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
+    field = DroppingField(drops=9)
+    env[1].replies.update({"/tree": field.tree, "/type": field.type, "/key": field.key})
+    with pytest.raises(
+        DeviceError, match=r"^Typed 'shopper@example.com', but the field shows 'pper@example.com': it lost"
+    ):
+        drv.type_text("shopper@example.com")
+    assert env[1].paths().count("/type") == 3  # TYPE_TRIES
+
+
+@pytest.mark.parametrize(
+    ("shown", "typed", "secure", "took"),
+    [
+        ("(555) 123-4567", "5551234567", False, True),  # a field that formats what it takes
+        ("SHOPPER", "shopper", False, True),  # or capitalizes it
+        ("sper@example.com", "shopper@example.com", False, False),
+        ("•••••", "hunter", True, False),
+        ("••••••", "hunter", True, True),
+    ],
+)
+def test_took_all_is_every_key_typed_in_order(shown, typed, secure, took):
+    assert took_all(shown, typed, secure=secure) is took
+
+
+def test_a_screen_that_changed_while_it_was_read_is_read_again(drv, env):
+    """Measured on an iPhone: the read failed as a Save Password sheet and the keyboard went away."""
+    screen = {"width": 402, "height": 874, "elements": [], "keyboard": False}
+    env[1].replies["/tree"] = [{"error": CHANGED}, {"error": CHANGED}, screen]
+    assert drv.screen().width == 402  # the third read, the last one
+    env[1].replies["/tree"] = [{"error": CHANGED}] * 3
+    with pytest.raises(DeviceError, match="Failed to get matching snapshot"):
+        drv.screen()  # still changing after three reads: not hidden
 
 
 def test_a_picker_wheel_is_turned_by_xctest(drv, env):

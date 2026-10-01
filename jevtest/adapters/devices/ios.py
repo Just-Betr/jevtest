@@ -71,6 +71,12 @@ AGENT_CALL_TIMEOUT = 150
 SpringBoard to settle (normally well under a second; an iPhone that needs a restart can take the full 60 s)."""
 APP_WAIT = 10.0
 """Seconds to wait for the app to come to the foreground after a launch or a resume."""
+TYPE_TRIES = 3
+"""Times text is typed into an empty field that keeps losing keys (`type_text`)."""
+
+READ_TRIES = 3
+"""Reads of the screen when XCTest fails one because the screen changed while it read it (`screen`)."""
+
 AGENT_START_TIMEOUT = 300
 """Seconds the agent may take to start, including xcodebuild installing it on a fresh simulator or phone."""
 SWIPE_SPEED = 1500
@@ -101,6 +107,17 @@ PORTRAIT, LANDSCAPE_LEFT = 1, 3
 SCREEN_ORIENTATIONS = frozenset({1, 2, 3, 4})
 """The UIDeviceOrientation raw values that turn the screen: portrait, upside down, landscape left and right. The
 others (unknown, face up, face down) say nothing about which way the screen is turned."""
+
+
+def took_all(shown: str, typed: str, *, secure: bool) -> bool:
+    """Whether a field shows every character typed, in order, ignoring case; a secure field, as many dots.
+
+    A field may add to what it takes (a phone number's brackets) or change its case, but a key it dropped is missing.
+    """
+    if secure:
+        return len(shown) >= len(typed)
+    rest = iter(shown.casefold())
+    return all(ch in rest for ch in typed.casefold())
 
 
 class IOSDevice(BaseDevice):
@@ -409,8 +426,19 @@ class IOSDevice(BaseDevice):
         """What's on the screen now; nothing of the app when it isn't running.
 
         The agent answers so for an app that isn't in the foreground, and XCTest fails the read of one that ends while
-        it reads it: that too is nothing of the app.
+        it reads it: that too is nothing of the app. XCTest also fails a read when the screen changes under it, a
+        keyboard or a sheet going away: the screen is read again, up to `READ_TRIES` times.
         """
+        for _ in range(READ_TRIES - 1):
+            try:
+                return self._read_screen()
+            except DeviceError as e:
+                if not says.tree_changed(str(e)):
+                    raise
+        return self._read_screen()
+
+    def _read_screen(self) -> Screen:
+        """One read of the screen: nothing of the app when it ended while the agent read it."""
         try:
             return parse_tree(cast("AgentTree", self._call("/tree")))  # the agent's own JSON
         except DeviceError as e:
@@ -449,11 +477,51 @@ class IOSDevice(BaseDevice):
         self._call("/drag", x1=x1, y1=y1, x2=x2, y2=y2, velocity=SCROLL_SPEED, hold=SCROLL_HOLD)
 
     def type_text(self, text: str, at: Point | None = None) -> None:
-        """Type into the focused field, or first focus the field at `at`."""
+        """Type into the focused field, or first focus the field at `at`; into an empty field, check it took it all.
+
+        A React Native field just shown dropped keys typed as fast as XCTest types them (measured on an iPhone:
+        `shopper@example.com` became `sper@example.com`, 10 times in 10). So when the field was empty, jevtest reads
+        it back: while any character typed is missing (in order, any case: a field may format or capitalize what it
+        takes), it clears the field and types again, up to `TYPE_TRIES` times, then fails saying what the field shows.
+
+        Raises:
+            DeviceError: The field still lacks what was typed.
+        """
         if at:  # focus the field; keys sent before the keyboard is up are lost
             self.tap(*at)
             self._wait_for_keyboard()
+        field = self._typing_field()
         self._call("/type", text=text)
+        if field is None or field.value or "\n" in text:  # only an empty field says what typing should leave
+            return
+        tries = 1
+        # until it's all there, or the field went away (typing submitted it)
+        while (shown := self._shown_after_typing(text)) is not None and (now := self._typing_field()) is not None:
+            if tries == TYPE_TRIES:
+                raise DeviceError(f"Typed {text!r}, but the field shows {shown!r}: it lost keys as they were typed")
+            self.clear_text(now)
+            self._call("/type", text=text)
+            tries += 1
+
+    def _typing_field(self) -> Element | None:
+        """The text field typing goes into: the one with the keyboard's focus."""
+        return next((e for e in self.screen().elements if e.editable and e.focused), None)
+
+    def _shown_after_typing(self, text: str) -> str | None:
+        """None when the field has all of `text` (`took_all`), else what it shows, after `FOLLOW_UP` seconds."""
+        shown = ""
+
+        def took() -> bool:
+            nonlocal shown
+            field = self._typing_field()
+            shown = field.value if field is not None else text
+            return took_all(shown, text, secure=field is not None and field.kind == "password_field")
+
+        try:
+            wait_until(took, "typed")
+        except TimedOut:
+            return shown
+        return None
 
     def choose(self, picker: Element, value: str) -> None:
         """Turn the picker wheel at `picker` to `value` (XCTest's own way: the wheel shows only its selected row).

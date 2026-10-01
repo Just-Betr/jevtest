@@ -205,3 +205,22 @@ def test_parse_rules():
         "Size: Large": ("Size", "Large"),
     }
     assert s.elements[3].parts == ()  # a value with no label is the whole text
+
+
+def test_what_the_app_has_off_screen_is_kept_as_its_labels():
+    """Measured on iOS 26.5: a web page reports its buttons below the screen where they are (y 966 of 874)."""
+    shown: AgentElement = {"type": "button", "label": "Say hello", "x": 16, "y": 400, "w": 370, "h": 46}
+    below: AgentElement = {"type": "button", "label": "Show web alert", "x": 16, "y": 966, "w": 370, "h": 46}
+    field: AgentElement = {
+        "type": "password_field",
+        "label": "Web password",
+        "value": "secret",
+        "x": 16,
+        "y": 1000,
+        "w": 370,
+        "h": 40,
+    }
+    unlabelled: AgentElement = {"type": "other", "label": "", "x": 0, "y": 1100, "w": 402, "h": 40}
+    s = parse_tree({"width": 402, "height": 874, "elements": [shown, below, field, unlabelled]})
+    assert [e.text for e in s.elements] == ["Say hello"]
+    assert s.offscreen == ("Show web alert", "Web password")  # labels only: never a field's value

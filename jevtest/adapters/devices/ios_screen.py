@@ -83,7 +83,18 @@ def parse_tree(tree: AgentTree) -> Screen:
         bars=tuple(dict.fromkeys(b for b in bars if b is not None)),
         keyboard_visible=tree.get("keyboard", False),
         keyboard_top=int(tree.get("keyboard_top", 0)),
+        offscreen=_offscreen(tree, width, height),
     )
+
+
+def _offscreen(tree: AgentTree, width: int, height: int) -> tuple[str, ...]:
+    """What the app reports but doesn't show: the label of each element too little of which is on screen.
+
+    A web page reports its content below the screen where it is (measured on iOS 26.5: `Show web alert` at y 966 on
+    an 874-point screen). Labels only: never a field's value.
+    """
+    labels = (one_line(raw.get("label", "")) for raw in tree["elements"] if _bounds(raw, width, height) is None)
+    return tuple(dict.fromkeys(label for label in labels if label))
 
 
 def _one_switch_per_toggle(elements: tuple[Element, ...]) -> tuple[Element, ...]:

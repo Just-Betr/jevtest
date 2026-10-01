@@ -89,6 +89,15 @@ PRIVACY_KEEPS_APP_RUNNING = frozenset({"location", "location-always", "siri"})
 even when the grant changes nothing (measured on iOS 26.5, each service granted twice to a running app)."""
 
 
+def tree_changed(said: str) -> bool:
+    """Whether the agent's read failed because what it read changed while it read it.
+
+    Measured on an iPhone (iOS 27): `Failed to get matching snapshot: No matches found for first query match
+    sequence: Descendants matching type Keyboard`, as a Save Password sheet and the keyboard went away.
+    """
+    return "Failed to get matching snapshot" in said
+
+
 def app_ended(said: str) -> bool:
     """Whether the agent couldn't read the app because it ended meanwhile: XCTest's ui-testing error 10001.
 

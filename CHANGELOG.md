@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- A `do:` whose button was off screen could stay stuck tapping the nearest one on screen: Jev sees only what's on
+  screen (measured: "On the web page, trigger the alert and dismiss it" tapped Say hello again and again, the alert
+  button below the screen). Working out a `do:`, Jev is also told the text the app has off screen, and scrolls to it
+  (measured: that goal, "show more content" and "pick the Pro plan and submit the form" passed on Android and iOS).
+  Screens with nothing off screen, and `expect:` checks, are asked as before, so their recorded answers still
+  match. A goal whose failing answer was recorded before this repeats it with `--lock record`: work it out again
+  with `--lock refresh` on that test.
+- On an iPhone, typing into a React Native field just shown lost its first keys: XCTest types far faster than a
+  person, and the field dropped what came before it was ready (measured: `shopper@example.com` became
+  `sper@example.com`, 10 times in 10, and the sign-in after it failed). Typing into an empty field is read back:
+  while a character typed is missing, jevtest clears the field and types again, up to 3 times, then fails saying
+  what the field shows (now 5 of 5 took it all). A field may format or capitalize what it takes; only a missing key
+  counts.
+- An iPhone read of the screen could fail a step with XCTest's `Failed to get matching snapshot`, when the screen
+  changed while it was read (measured: as a Save Password sheet and the keyboard went away). The screen is read
+  again, up to 3 times.
+
 ## 0.9.17
 
 - A simulator turned by `rotate:` could be left turned after the run, sideways or upside down: before the first turn

@@ -270,7 +270,11 @@ class Brain:
         """
         values = quoted_values(goal)[:MAX_OPTIONS]
         questions = _goal_questions(goal, screen, values)
-        answers = self._ask(_state(screen, actions_taken=list(actions_taken) or ["(none yet)"]), questions)
+        # what the app has off screen, so Jev knows to scroll to it (measured: told a web page's buttons below the
+        # screen, a goal naming none of them scrolled down to its button, where without it Jev tapped the nearest
+        # one on screen again and again); only when there is some, so a screen with none asks as it always has
+        extra = {"off_screen": list(screen.offscreen)} if screen.offscreen else {}
+        answers = self._ask(_state(screen, actions_taken=list(actions_taken) or ["(none yet)"], **extra), questions)
         action = _picked(answers["action"])
         return Decision(
             self._move(action.choice, answers, screen, values), action.confidence, dict(action.probabilities)

@@ -30,7 +30,7 @@ sequenceDiagram
 ```
 
 1. **Read the screen.** A small agent on the device (an instrumentation APK on Android, an XCUITest runner on iOS) stays running for the whole run and returns the accessibility tree in milliseconds (measured medians: 7 ms on an Android emulator, 55 ms on a Pixel 4a, 39 ms on an iOS simulator, 170 ms on an iPhone over USB).
-2. **Describe it as text.** Each element becomes a short line: `{"id": "e4", "type": "button", "text": "Sign in", "position": "top-center"}`.
+2. **Describe it as text.** Each element becomes a short line: `{"id": "e4", "type": "button", "text": "Sign in", "position": "top-center"}`. When the app reports text the screen doesn't show, such as a web page's buttons below the screen, working out a `do:` also gets that text as `off_screen`, so Jev knows to scroll to it rather than tap the nearest thing on screen.
 3. **Ask Jev to choose.** One request, several questions: *what's the next action* (tap, type, scroll, back, done, impossible, …), *on which element*, and *which quoted value to type*. Jev answers each by choosing one of the options, with probabilities.
 4. **Act** through the agent or `adb`, and **save the step**: its action and its element, by kind and name (and which one, if several have that name).
 5. **Repeat** until Jev answers `done` or `impossible`. A goal gets at most 10 actions, or its [`max_actions`](reference/test-file.md#settings-optional).

@@ -96,6 +96,17 @@ def test_next_action_offers_only_possible_actions():
     assert model.asked[0][0]["actions_taken"] == ["tap x"]
 
 
+def test_next_action_tells_jev_what_the_app_has_off_screen():
+    """Measured: told a web page's buttons below the screen, a goal naming none of them scrolled down to its button."""
+    model = FakeModel(act("scroll_down"), act("scroll_down"))
+    Brain(model).next_action(
+        "Trigger the alert", dataclasses.replace(login_screen(), offscreen=("Show web alert",)), []
+    )
+    Brain(model).next_action("Trigger the alert", login_screen(), [])
+    assert model.asked[0][0]["off_screen"] == ["Show web alert"]
+    assert "off_screen" not in model.asked[1][0]  # nothing off screen: asked as it always has been
+
+
 def test_next_action_with_keyboard_and_no_fields():
     s = Screen(10, 10, (el("button", "Go", bounds=(0, 0, 10, 10)),), keyboard_visible=True)
     model = FakeModel(act("press_enter"))
