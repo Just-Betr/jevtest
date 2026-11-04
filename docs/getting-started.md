@@ -31,13 +31,16 @@ jevtest only tests. It never boots, shuts down or reconfigures a device: start t
 
 ## 2. Get a Jev API key
 
-jevtest uses exactly one model: TypeSafe's **Jev**, through TypeSafe's own API. Create a key at [console.typesafe.ai/keys](https://console.typesafe.ai/keys).
+jevtest uses exactly one model: TypeSafe's **Jev**, through TypeSafe's own API by default. Create a key at [console.typesafe.ai/keys](https://console.typesafe.ai/keys).
 
 Put it in a `.env` file **next to your test file** (and keep `.env` out of git):
 
 ```bash title=".env"
 TYPESAFE_API_KEY=apikey_...
 ```
+
+!!! note "Jev through OpenRouter"
+    You can also reach Jev through [OpenRouter's Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request): create a key at [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys), put `OPENROUTER_API_KEY=sk-or-...` in the `.env`, and add `settings: {provider: openrouter}` to the test file (or set `JEVTEST_PROVIDER=openrouter`). The model is then `typesafe/jev-1.13` unless `model:` names another. See [settings](reference/test-file.md#settings-optional).
 
 Or set it in the environment, as you would for CI secrets. If both set it to different values, jevtest stops and tells you, rather than picking one.
 

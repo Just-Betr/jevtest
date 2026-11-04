@@ -262,3 +262,36 @@ def test_prune_drops_saved_steps_this_run_did_not_use(tmp_path):
     assert second.prune() == 1
     second.save()
     assert list(json.loads((tmp_path / "t.lock.json").read_text())["steps"]) == ["kept"]
+
+
+def test_a_typesafe_key_hashes_as_it_did_before_providers():
+    # computed with jevtest 0.10.0's request_key: lockfiles recorded then must still match
+    key = "70a5382fd85b79969a8f86080905a312a65d2c90820756d1e415dc54ec5a5672"
+    questions = {"q": {"type": "noul", "instructions": "Is it home?"}}
+    assert request_key("jev-1.13.0", {"screen": "Home"}, questions) == key
+    assert request_key("jev-1.13.0", {"screen": "Home"}, questions, "typesafe") == key
+    assert request_key("jev-1.13.0", {"screen": "Home"}, questions, "openrouter") != key
+
+
+def test_another_providers_recordings_are_kept_apart(tmp_path):
+    made = []
+
+    def connect():
+        made.append(FakeClient(A1))
+        return made[-1]
+
+    lock = LockedModel("typesafe/jev-1.13", tmp_path / "t.lock.json", LockMode.RECORD, connect, provider="openrouter")
+    fork = lock.fork()
+    assert fork.provider == "openrouter"
+    fork.ask({"screen": "screen"}, Q)
+    lock.save()
+    data = json.loads((tmp_path / "t.lock.json").read_text())
+    assert data["provider"] == "openrouter" and data["model"] == "typesafe/jev-1.13"
+    assert list(data["decisions"]) == [request_key("typesafe/jev-1.13", {"screen": "screen"}, WIRE_Q, "openrouter")]
+
+
+def test_a_typesafe_lockfile_names_no_provider(tmp_path):
+    lock, _ = locked(tmp_path, LockMode.RECORD, A1)
+    lock.ask({"screen": "screen"}, Q)
+    lock.save()
+    assert "provider" not in json.loads((tmp_path / "t.lock.json").read_text())

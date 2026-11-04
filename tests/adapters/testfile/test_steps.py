@@ -149,6 +149,10 @@ def test_options_where_they_apply(raw):
         ({"tap": "Go", "distance": 40}, "^`distance` belongs to swipe, not to tap$"),
         ({"background": 99999}, "'background' must be from 0 to 300 seconds, got 99999"),
         ({"tap": "X", "model": "jev-1.13.0"}, r"^`model` is for the whole file, not a step: set it in `settings:`$"),
+        (
+            {"tap": "X", "provider": "openrouter"},
+            r"^`provider` is for the whole file, not a step: set it in `settings:`$",
+        ),
         ({"grant": []}, "'grant' needs at least one permission"),
         ({"grant": {}}, "grant takes permission names, or names per platform"),
         ({"grant": {"windows": "x"}}, "or names per platform: .*; got windows"),

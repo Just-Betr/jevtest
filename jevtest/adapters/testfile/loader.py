@@ -17,12 +17,12 @@ import yaml
 from jevtest.adapters.shapes import is_list, is_mapping, read_user_text
 from jevtest.domain.failures import TestFileError
 from jevtest.domain.kinds import Platform
-from jevtest.domain.settings import DEFAULTS, REMOVED, STEP_SETTINGS, Settings
+from jevtest.domain.settings import DEFAULT_MODELS, DEFAULTS, REMOVED, STEP_SETTINGS, Settings
 from jevtest.domain.steps import KEYS, Action, AutofillOff, Grant, Key, Network, Step, Suite, Test, Use
 from jevtest.domain.variables import VARIABLE, fill
 
 from .steps import CHECKS, GRANT_PER_PLATFORM, full_android_permission, parse_step, unknown_names
-from .values import coherent, model, on_off, setting, text
+from .values import coherent, model, on_off, provider, setting, text
 
 Document = Mapping[object, object]
 """A YAML file's top-level mapping. YAML keys can be numbers or dates too, so they're checked, not assumed."""
@@ -220,7 +220,7 @@ def load(path: str | Path, env: Mapping[str, str], platforms: Collection[Platfor
             if not platforms or p in platforms
         }
         devices = _devices(data.get("device"), apps, variables)
-    settings = _settings(data.get("settings"), problems)
+    settings = _settings(data.get("settings"), problems, env)
     tests = _tests(data.get("tests"), path.name, settings, problems)
     shared = [t for lib, doc in libraries.items() for t in _tests(doc.get("tests"), lib.name, settings, problems)]
     _check_names(tests + shared, problems)
@@ -338,28 +338,59 @@ def _device_names(
     return found
 
 
-def _settings(raw: object, problems: Problems) -> Settings:
-    """The file's `settings:` block; anything it leaves out keeps its default. Each bad setting is a problem."""
+PROVIDER_ENV = "JEVTEST_PROVIDER"
+MODEL_ENV = "JEVTEST_MODEL"
+
+
+def _settings(raw: object, problems: Problems, env: Mapping[str, str]) -> Settings:
+    """The file's `settings:` block; anything it leaves out keeps its default. Each bad setting is a problem.
+
+    `JEVTEST_PROVIDER` and `JEVTEST_MODEL` in `env` win over the file's `provider` and `model`.
+    """
+    allowed = ["model", "provider", *sorted(STEP_SETTINGS)]
     if raw is None:
-        return DEFAULTS
-    allowed = ["model", *sorted(STEP_SETTINGS)]
-    if not is_mapping(raw) or not raw:
+        raw = {}
+    elif not is_mapping(raw) or not raw:
         problems.add(
             f"`settings` must be a mapping of {', '.join(allowed)}; got {raw!r} (leave it out to use the defaults)"
         )
-        return DEFAULTS
-    settings, changes = DEFAULTS, dict[str, float]()
+        raw = {}
+    changes = dict[str, float]()
     for name, value in raw.items():
         with problems.collect():
             if isinstance(name, str) and name in REMOVED:
                 raise TestFileError(REMOVED[name])
             if not isinstance(name, str) or name not in allowed:
                 raise TestFileError(f"`settings` has an unknown key: {name} (it takes {', '.join(allowed)})")
-            if name == "model":
-                settings = Settings(model=model(value))
-            else:
+            if name in STEP_SETTINGS:
                 changes[name] = setting(name, value)
+    settings = DEFAULTS
+    with problems.collect():
+        settings = _jev(raw, env)
     return coherent(settings.changed(changes))
+
+
+def _jev(raw: Mapping[object, object], env: Mapping[str, str]) -> Settings:
+    """The provider and model: the environment's, else the file's, else the provider's default model.
+
+    The file's `model` is for the file's provider: when `JEVTEST_PROVIDER` names another one and `JEVTEST_MODEL`
+    isn't set, that provider's default model is used.
+
+    Raises:
+        TestFileError: A provider or model is bad.
+    """
+    in_file = provider(raw["provider"]) if "provider" in raw else DEFAULTS.provider
+    named = env.get(PROVIDER_ENV)
+    chosen = provider(named, PROVIDER_ENV) if named else in_file
+    file_model = model(raw["model"], in_file) if "model" in raw else None
+    named_model = env.get(MODEL_ENV)
+    if named_model:
+        name = model(named_model, chosen, MODEL_ENV)
+    elif file_model is not None and chosen == in_file:
+        name = file_model
+    else:
+        name = DEFAULT_MODELS[chosen]
+    return Settings(model=name, provider=chosen)
 
 
 # --- tests -------------------------------------------------------------------------------------------------------

@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import TypeVar
 
 from jevtest.domain.failures import TestFileError
-from jevtest.domain.settings import JEV_VERSION, LIMITS, WHOLE, Settings
+from jevtest.domain.settings import JEV_VERSION, LIMITS, PROVIDERS, ROUTED_MODEL, TYPESAFE, WHOLE, Settings
 from jevtest.domain.words import number_text
 
 E = TypeVar("E", bound=StrEnum)
@@ -135,16 +135,33 @@ def coherent(settings: Settings) -> Settings:
     return settings
 
 
-def model(value: object) -> str:
-    """A pinned Jev version, like ``jev-1.13.0``.
+def provider(value: object, what: str = "`provider`") -> str:
+    """Who serves Jev: one of `PROVIDERS`.
 
     Raises:
-        TestFileError: It isn't text, or isn't a pinned Jev version.
+        TestFileError: It isn't one of them.
     """
-    name = text(value, "`model`")
-    if not JEV_VERSION.fullmatch(name):
+    name = text(value, what)
+    if name not in PROVIDERS:
         raise TestFileError(
-            f"`model` must be a pinned Jev version like jev-1.13.0, got {name!r}: jevtest uses Jev only, and an "
+            f"{what} must be one of {', '.join(PROVIDERS)}, got {name!r}: typesafe is TypeSafe's own API, openrouter "
+            "is OpenRouter's Decisions API"
+        )
+    return name
+
+
+def model(value: object, provider: str = TYPESAFE, what: str = "`model`") -> str:
+    """A model `provider` serves: a pinned Jev version (``jev-1.13.0``) for TypeSafe, a ``vendor/name`` id else.
+
+    Raises:
+        TestFileError: It isn't text, or isn't a model name of the kind `provider` takes.
+    """
+    name = text(value, what)
+    if provider == TYPESAFE and not JEV_VERSION.fullmatch(name):
+        raise TestFileError(
+            f"{what} must be a pinned Jev version like jev-1.13.0, got {name!r}: jevtest uses Jev only, and an "
             "alias such as jev-latest moves when a new Jev ships"
         )
+    if provider != TYPESAFE and not ROUTED_MODEL.fullmatch(name):
+        raise TestFileError(f"{what} must be a model id like typesafe/jev-1.13 for provider {provider}, got {name!r}")
     return name

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Jev can be reached through OpenRouter's Decisions API as well as TypeSafe's own: `settings: provider: openrouter`
+  (default `typesafe`) uses `OPENROUTER_API_KEY` and a `vendor/name` model id (default `typesafe/jev-1.13`), and the
+  cost OpenRouter reports. `JEVTEST_PROVIDER`, `JEVTEST_MODEL` and `JEVTEST_API_URL` (a proxy or compatible endpoint)
+  override the file for CI or one machine. The run's first line shows the provider and model in effect, and
+  `report.json` names the provider. The provider is part of the lockfile key for any provider but TypeSafe, so
+  existing lockfiles stay valid and recordings from different providers don't mix.
+
 ## 0.10.0
 
 - `jevtest inspect APP --device NAME --out DIR` shows what's on the app's screen as steps name it, for writing

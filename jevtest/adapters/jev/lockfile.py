@@ -21,6 +21,7 @@ from jevtest.adapters.shapes import is_json_object, is_list, objects_by_key, rea
 from jevtest.domain.decisions import STEP_ACTIONS, SavedStep, Target
 from jevtest.domain.failures import ModelError, NotRecorded
 from jevtest.domain.model import Answer, ModelCall, Question, State
+from jevtest.domain.settings import TYPESAFE
 
 from .client import Reply
 from .wire import RawAnswers, answers_from_wire, questions_to_wire
@@ -50,10 +51,16 @@ class LockMode(StrEnum):
     """Don't read or write a lockfile."""
 
 
-def request_key(model: str, state: object, questions: Mapping[str, object]) -> str:
-    """The lockfile key for one request: a hash of exactly what Jev would be sent."""
+def request_key(model: str, state: object, questions: Mapping[str, object], provider: str = TYPESAFE) -> str:
+    """The lockfile key for one request: a hash of exactly what Jev would be sent, and who it is sent to.
+
+    The provider is left out for TypeSafe, so lockfiles recorded before providers could be chosen still match.
+    """
+    request: dict[str, object] = {"model": model, "state": state, "questions": questions}
+    if provider != TYPESAFE:
+        request["provider"] = provider
     canonical = json.dumps(
-        {"model": model, "state": state, "questions": questions},
+        request,
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,
@@ -171,15 +178,24 @@ class LockedModel:
         mode: How to use it.
         connect: Makes the Jev client. Called only on the first request the lockfile can't answer, so a fully
             recorded run needs no API key and no network.
+        provider: Who serves `model`; part of every lockfile key but TypeSafe's.
 
     Devices testing the same file at once each get a `fork()`, with its own `calls` for its report and the
     same recorded decisions, guarded by one lock.
     """
 
     def __init__(
-        self, model: str, path: Path, mode: LockMode, connect: Callable[[], JevAsker], *, _store: _Store | None = None
+        self,
+        model: str,
+        path: Path,
+        mode: LockMode,
+        connect: Callable[[], JevAsker],
+        *,
+        provider: str = TYPESAFE,
+        _store: _Store | None = None,
     ) -> None:
         self.model = model
+        self.provider = provider
         self.mode = mode
         self._connect = connect
         self._client: JevAsker | None = None
@@ -230,7 +246,7 @@ class LockedModel:
 
     def fork(self) -> LockedModel:
         """A model for another device: its own calls, the same recorded decisions."""
-        return LockedModel(self.model, self.path, self.mode, self._connect, _store=self._store)
+        return LockedModel(self.model, self.path, self.mode, self._connect, provider=self.provider, _store=self._store)
 
     def ask(self, state: State, questions: Mapping[str, Question]) -> Mapping[str, Answer]:
         """The recorded answer for this exact request, or Jev's (recorded for next time), per the mode.
@@ -239,7 +255,7 @@ class LockedModel:
             ModelError: The request isn't recorded and the mode is frozen, or Jev failed.
         """
         wire = questions_to_wire(questions)
-        key = request_key(self.model, state, wire)
+        key = request_key(self.model, state, wire, self.provider)
         store = self._store
         with store.lock:
             store.used.add(key)
@@ -295,11 +311,13 @@ class LockedModel:
         with store.lock:
             if not store.dirty:
                 return
-            data = {
+            data: dict[str, object] = {
                 "version": VERSION,
                 "model": self.model,
                 "steps": {key: [_step_to_wire(step) for step in steps] for key, steps in store.steps.items()},
                 "decisions": store.entries,
             }
+            if self.provider != TYPESAFE:
+                data["provider"] = self.provider
             store.path.write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
             store.dirty = False
