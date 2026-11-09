@@ -127,14 +127,16 @@ def test_every_bad_setting_is_reported_at_once(tmp_path):
     [
         (
             "settings: 5",
-            "`settings` must be a mapping of model, confidence, interval, max_actions, max_scrolls, timeout",
+            "`settings` must be a mapping of model, provider, confidence, interval, max_actions, max_scrolls, timeout",
         ),
         ("settings: {}", "`settings` must be a mapping"),
-        ("settings: {wait: 5}", "`settings` has an unknown key: wait (it takes model, confidence"),
+        ("settings: {wait: 5}", "`settings` has an unknown key: wait (it takes model, provider, confidence"),
         ("settings: {model: gpt-5}", "`model` must be a pinned Jev version like jev-1.13.0, got 'gpt-5'"),
         ("settings: {model: jev-latest}", "an alias such as jev-latest moves when a new Jev ships"),
         ("settings: {model: typesafe/jev-1.13}", "must be a pinned Jev version like jev-1.13.0"),
         ("settings: {model: 5}", "`model` needs text"),
+        ("settings: {provider: openai}", "`provider` must be one of typesafe, openrouter, got 'openai'"),
+        ("settings: {provider: openrouter, model: jev-1.13.0}", "`model` must be a model id like typesafe/jev-1.13"),
         ("settings: {timeout: 1000}", "`timeout` must be from 1 to 300, got 1000"),
         ("settings: {timeout: '5'}", "`timeout` must be a number, got '5' (remove the quotes)"),
     ],
@@ -550,3 +552,47 @@ def test_a_misspelled_platform_key_is_still_an_error_with_a_platform(tmp_path):
     body = "app: {phone: a.apk}\ndevice: {android: Pixel}\ntests:\n  - {name: T, fresh: true, steps: [back]}\n"
     with pytest.raises(TestFileError, match="`app` keys must be android and/or ios, got 'phone'"):
         load(write(tmp_path, body), {}, [Platform.ANDROID])
+
+
+@pytest.mark.parametrize(
+    ("settings", "env", "expected"),
+    [
+        ("", {}, ("typesafe", "jev-1.13.0")),
+        ("settings: {provider: openrouter}", {}, ("openrouter", "typesafe/jev-1.13")),
+        ("settings: {provider: openrouter, model: typesafe/jev-2.0}", {}, ("openrouter", "typesafe/jev-2.0")),
+        ("settings: {model: jev-2.0.0}", {"JEVTEST_PROVIDER": "openrouter"}, ("openrouter", "typesafe/jev-1.13")),
+        ("settings: {model: jev-2.0.0}", {"JEVTEST_PROVIDER": "typesafe"}, ("typesafe", "jev-2.0.0")),
+        ("settings: {model: jev-2.0.0}", {"JEVTEST_MODEL": "jev-3.0.0"}, ("typesafe", "jev-3.0.0")),
+        (
+            "settings: {provider: openrouter}",
+            {"JEVTEST_PROVIDER": "openrouter", "JEVTEST_MODEL": "typesafe/jev-1.14"},
+            ("openrouter", "typesafe/jev-1.14"),
+        ),
+        ("settings: {provider: openrouter}", {"JEVTEST_PROVIDER": ""}, ("openrouter", "typesafe/jev-1.13")),
+        ("settings: 5", {"JEVTEST_PROVIDER": "openrouter"}, None),
+    ],
+)
+def test_the_environment_chooses_the_provider_and_model_over_the_file(tmp_path, settings, env, expected):
+    path = write(tmp_path, minimal(extra=settings + "\n"))
+    if expected is None:  # a bad settings block is still an error
+        with pytest.raises(TestFileError, match="`settings` must be a mapping"):
+            load(path, env)
+        return
+    s = load(path, env).settings
+    assert (s.provider, s.model) == expected
+
+
+@pytest.mark.parametrize(
+    ("env", "message"),
+    [
+        ({"JEVTEST_PROVIDER": "openai"}, "JEVTEST_PROVIDER must be one of typesafe, openrouter, got 'openai'"),
+        ({"JEVTEST_MODEL": "jev-latest"}, "JEVTEST_MODEL must be a pinned Jev version like jev-1.13.0"),
+        (
+            {"JEVTEST_PROVIDER": "openrouter", "JEVTEST_MODEL": "jev-1.13.0"},
+            "JEVTEST_MODEL must be a model id like typesafe/jev-1.13 for provider openrouter",
+        ),
+    ],
+)
+def test_a_bad_provider_or_model_in_the_environment_is_an_error(tmp_path, env, message):
+    with pytest.raises(TestFileError, match=re.escape(message)):
+        load(write(tmp_path, minimal()), env)

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from jevtest import __version__
 from jevtest.adapters.devices.android_tools import bundletool_path
-from jevtest.adapters.jev.client import KEY_HELP
+from jevtest.adapters.jev.client import ENDPOINTS, Endpoint
 from jevtest.adapters.jev.lockfile import JevAsker, LockedModel, LockMode
 from jevtest.adapters.reports.json_report import write_report
 from jevtest.adapters.reports.junit import Suite as JunitSuite
@@ -38,7 +38,8 @@ from jevtest.domain.words import plural
 
 from .console import ConsoleListener, Printer, summary
 
-API_KEY = "TYPESAFE_API_KEY"
+API_URL_ENV = "JEVTEST_API_URL"
+"""Names a custom endpoint (a proxy, or another endpoint that speaks the provider's API)."""
 
 MakeDevice = Callable[[Platform, str, Path, Callable[[str], None]], Device]
 """Makes the device for a platform: (platform, device name, app build, progress) -> device."""
@@ -47,8 +48,8 @@ FindDevice = Callable[[Platform, str, Path], bool]
 """Claims the named device, and says whether it's a real iPhone. Raises `DeviceError` unless it's running and the
 build (the path) suits it."""
 
-MakeClient = Callable[[str, str | None], JevAsker]
-"""Makes the Jev client from the model and the API key (None when it isn't set)."""
+MakeClient = Callable[[str, str, str | None, str | None], JevAsker]
+"""Makes the Jev client: (provider, model, API key, endpoint URL), the last two None when they aren't set."""
 
 
 @dataclass(frozen=True)
@@ -183,7 +184,8 @@ class Runs:
         try:
             app_id = device.install(job.app)
             header = (
-                f"jevtest {__version__} · {job.tag} · {app_id} · {job.suite.settings.model} · "
+                f"jevtest {__version__} · {job.tag} · {app_id} · {job.suite.settings.provider}: "
+                f"{job.suite.settings.model} · "
                 f"lockfile: {model.mode.value}"
             )
             printer.block(job.tag, [header])
@@ -208,6 +210,7 @@ class Runs:
                 "app": str(job.app),
                 "app_id": app_id,
                 "model": job.suite.settings.model,
+                "provider": job.suite.settings.provider,
             },
             result,
             listener.logs,
@@ -323,12 +326,19 @@ def _check_options(loaded: Loaded, options: RunOptions) -> None:
             "(not --lock off): what a run skipped isn't unused"
         )
     if options.lock in (LockMode.REFRESH, LockMode.OFF):
-        keyless = [suite.path.name for suite, env in loaded if not env.get(API_KEY) and _asks_jev(suite)]
+        keyless = [suite for suite, env in loaded if not env.get(_endpoint(suite).key) and _asks_jev(suite)]
         if keyless:
+            endpoint = _endpoint(keyless[0])
             raise TestFileError(
-                f"--lock {options.lock} asks Jev about every do: and expect:, and {keyless[0]} has them, but "
-                f"{API_KEY} is not set: put it in the .env next to the test file, or in the environment. {KEY_HELP}"
+                f"--lock {options.lock} asks Jev about every do: and expect:, and {keyless[0].path.name} has them, "
+                f"but {endpoint.key} is not set: put it in the .env next to the test file, or in the environment. "
+                f"{endpoint.key_help}"
             )
+
+
+def _endpoint(suite: Suite) -> Endpoint:
+    """Where the file's provider serves Jev, and the key it takes."""
+    return ENDPOINTS[suite.settings.provider]
 
 
 def results_folder(parent: Path, stamp: str) -> Path:
@@ -479,9 +489,18 @@ def _run_file(
     jobs = plan(suite, out, label, printer)
 
     def connect() -> JevAsker:
-        return make_client(suite.settings.model, env.get(API_KEY))
+        settings = suite.settings
+        return make_client(
+            settings.provider, settings.model, env.get(_endpoint(suite).key), env.get(API_URL_ENV) or None
+        )
 
-    model = LockedModel(suite.settings.model, suite.path.with_suffix(".lock.json"), options.lock, connect)
+    model = LockedModel(
+        suite.settings.model,
+        suite.path.with_suffix(".lock.json"),
+        options.lock,
+        connect,
+        provider=suite.settings.provider,
+    )
     try:
         done = runs.all(jobs, model, printer)
         if options.prune_lock:

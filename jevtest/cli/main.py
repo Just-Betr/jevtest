@@ -52,9 +52,11 @@ FIND_DEVICE: FindDevice = functools.partial(find_device, CLAIMS)
 """Finds each device a file names, and claims it for this process."""
 
 
-def make_client(model: str, api_key: str | None) -> JevClient:
-    """The real Jev client for `model`; retries are reported on stderr."""
-    return JevClient(model, api_key, log=lambda message: print(message, file=sys.stderr, flush=True))
+def make_client(provider: str, model: str, api_key: str | None, url: str | None = None) -> JevClient:
+    """The real Jev client for `model` at `provider` (or `url`); retries are reported on stderr."""
+    return JevClient(
+        model, api_key, log=lambda message: print(message, file=sys.stderr, flush=True), provider=provider, url=url
+    )
 
 
 def parser() -> argparse.ArgumentParser:

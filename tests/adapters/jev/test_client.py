@@ -149,7 +149,8 @@ def test_unreachable_after_retries():
 def test_client_errors_are_not_retried():
     j, slept = client(http_error(401, b"bad key"))
     with pytest.raises(
-        SetupRefused, match=r"HTTP 401: bad key \(check the key; Create a key at https://console.typesafe.ai/keys\)"
+        SetupRefused,
+        match=r"HTTP 401: bad key \(check TYPESAFE_API_KEY; Create a key at https://console.typesafe.ai/keys\)",
     ):
         j.ask("s", Q)
     assert not slept
@@ -225,8 +226,122 @@ def test_an_unknown_model_stops_the_run_saying_which_version_jevtest_is_tested_w
     j, slept = client(http_error(400, body))
     with pytest.raises(
         SetupRefused,
-        match=r"^Jev HTTP 400: Unknown model: jev-1\.12\.0 \(settings: model names a Jev version TypeSafe serves; "
+        match=r"^Jev HTTP 400: Unknown model: jev-1\.12\.0 \(settings: model names a model typesafe serves; "
         r"this jevtest is tested with jev-1\.13\.0\)$",
     ):
+        j.ask("s", Q)
+    assert not slept
+
+
+def openrouter(*outcomes, **kw):
+    slept: list[float] = []
+    j = JevClient(
+        "typesafe/jev-1.13",
+        "or-key",
+        LOGGED.append,
+        provider="openrouter",
+        sleep=slept.append,
+        urlopen=Opener(*outcomes),
+        **kw,
+    )
+    return j, slept
+
+
+OR_GOOD = {
+    "model": "typesafe/jev-1.13-20260917",
+    "answers": {"q": {"type": "choice", "choice": "a"}},
+    "usage": {"input_tokens": 476, "output_tokens": 70, "cost": 0.000019992},
+}
+
+
+def test_openrouter_is_asked_at_its_decisions_api_with_its_own_model_name_and_cost():
+    j, _ = openrouter(OR_GOOD)
+    reply = j.ask({"s": 1}, Q)
+    req, _ = opener_of(j).seen[0]
+    assert req.full_url == "https://openrouter.ai/api/alpha/decisions"
+    assert req.get_header("Authorization") == "Bearer or-key"
+    assert isinstance(req.data, bytes) and json.loads(req.data)["model"] == "typesafe/jev-1.13"
+    assert (reply.served_by, reply.cost) == ("typesafe/jev-1.13-20260917", 0.000019992)
+
+
+@pytest.mark.parametrize("usage", [{"input_tokens": 5}, {"cost": True}, {"cost": "0.1"}, "free"])
+def test_openrouter_without_a_cost_has_none(usage):
+    j, _ = openrouter({**OR_GOOD, "usage": usage})
+    assert j.ask("s", Q).cost is None
+
+
+def test_openrouter_cost_may_be_a_whole_number():
+    j, _ = openrouter({**OR_GOOD, "usage": {"cost": 0}})
+    assert j.ask("s", Q).cost == 0.0
+
+
+def test_a_custom_url_is_used():
+    j, _ = openrouter(OR_GOOD, url="http://localhost:8080/decisions")
+    j.ask("s", Q)
+    assert opener_of(j).seen[0][0].full_url == "http://localhost:8080/decisions"
+
+
+def test_a_custom_url_must_be_http():
+    with pytest.raises(ModelError, match=r"^JEVTEST_API_URL must be an http\(s\) URL, got 'ftp://x'$"):
+        JevClient(MODEL, "k", LOGGED.append, url="ftp://x")
+
+
+def test_openrouter_missing_key_names_its_variable():
+    with pytest.raises(ModelError, match=r"OPENROUTER_API_KEY is not set: .* https://openrouter.ai/settings/keys$"):
+        JevClient("typesafe/jev-1.13", "", LOGGED.append, provider="openrouter")
+
+
+def test_openrouter_refusing_the_key_names_its_variable():
+    j, _ = openrouter(http_error(401, b'{"error":{"code":401,"message":"No auth credentials found"}}'))
+    with pytest.raises(
+        SetupRefused,
+        match=r"^Jev HTTP 401: No auth credentials found \(check OPENROUTER_API_KEY; Create a key at "
+        r"https://openrouter.ai/settings/keys\)$",
+    ):
+        j.ask("s", Q)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Model typesafe/jev-9.9 does not exist",
+        "typesafe/jev-9 is not a valid model ID",
+        "No endpoints found for typesafe/jev-9.",
+        "Model not found",
+    ],
+)
+def test_openrouter_not_serving_the_model_stops_the_run(message):
+    j, slept = openrouter(http_error(400, json.dumps({"error": {"code": 400, "message": message}}).encode()))
+    with pytest.raises(
+        SetupRefused,
+        match=r"\(settings: model names a model openrouter serves; this jevtest is tested with typesafe/jev-1\.13\)$",
+    ):
+        j.ask("s", Q)
+    assert not slept
+
+
+def test_openrouter_in_flight_budget_is_retried_as_asked():
+    busy = {
+        "error": {
+            "code": 402,
+            "message": "Too many in flight",
+            "metadata": {"limit_source": "openrouter_in_flight_budget"},
+        }
+    }
+    j, slept = openrouter(http_error(402, json.dumps(busy).encode(), retry_after="3"), OR_GOOD)
+    assert j.ask("s", Q).answers == OR_GOOD["answers"]
+    assert slept == [3.0]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        {"code": 402, "message": "Insufficient credits"},
+        {"code": 402, "message": "Insufficient credits", "metadata": {"limit_source": "key"}},
+    ],
+)
+def test_openrouter_out_of_credits_is_not_retried(error):
+    j, slept = openrouter(http_error(402, json.dumps({"error": error}).encode()))
+    with pytest.raises(ModelError, match=r"^Jev HTTP 402: Insufficient credits$"):
         j.ask("s", Q)
     assert not slept

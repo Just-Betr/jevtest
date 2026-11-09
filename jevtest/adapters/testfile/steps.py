@@ -297,8 +297,9 @@ def _step_keys(raw: Mapping[object, object]) -> dict[str, object]:
 def _reject_unknown_keys(raw: Mapping[object, object]) -> None:
     if "text" in raw:
         raise TestFileError("`text` goes inside type: `type: {text: hello, into: Email}`")
-    if "model" in raw:
-        raise TestFileError("`model` is for the whole file, not a step: set it in `settings:`")
+    for name in ("model", "provider"):
+        if name in raw:
+            raise TestFileError(f"`{name}` is for the whole file, not a step: set it in `settings:`")
     removed = [k for k in raw if isinstance(k, str) and k in REMOVED]
     if removed:
         raise TestFileError(REMOVED[removed[0]])

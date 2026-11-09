@@ -70,7 +70,18 @@ Most test files need none: the defaults suit most apps. A `settings:` block chan
 | `max_actions` | `10` | 1–50 | Actions a `do:` goal may take before it fails. | `do:` |
 | `max_scrolls` | `50` | 1–500 | Scrolls a `scroll_to:` may make. It also stops at the end of the content. | `scroll_to:` |
 | `confidence` | `0.5` | 0.5–0.99 | An `expect:` passes when Jev's probability that the statement is true is above this. `0.5` means "more likely true than false". | steps with an `expect:` |
-| `model` | `jev-1.13.0` | a pinned Jev version (`jev-X.Y.Z`) | The Jev version that decides and judges. Changing it re-asks Jev: it's part of every lockfile entry. | the whole file only |
+| `provider` | `typesafe` | `typesafe` or `openrouter` | Who jevtest asks for Jev: TypeSafe's own API (key `TYPESAFE_API_KEY`), or [OpenRouter's Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request) (key `OPENROUTER_API_KEY`). Part of every lockfile entry but TypeSafe's, so recordings from different providers don't mix, and lockfiles recorded before stay valid. `JEVTEST_PROVIDER` overrides it. | the whole file only |
+| `model` | `jev-1.13.0` (typesafe), `typesafe/jev-1.13` (openrouter) | typesafe: a pinned Jev version (`jev-X.Y.Z`); openrouter: a `vendor/name` model id | The model that decides and judges. Changing it re-asks Jev: it's part of every lockfile entry. `JEVTEST_MODEL` overrides it. | the whole file only |
+
+The environment variables `JEVTEST_PROVIDER` and `JEVTEST_MODEL` (from the environment or the `.env` next to the file) win over the file's `provider` and `model`, for CI or one machine. The file's `model` is for the file's provider: when `JEVTEST_PROVIDER` names another provider and `JEVTEST_MODEL` isn't set, that provider's default model is used. The run's first line shows the provider and model in effect (`... · openrouter: typesafe/jev-1.13 · lockfile: record`).
+
+To ask Jev through OpenRouter:
+
+```yaml
+settings:
+  provider: openrouter
+  model: typesafe/jev-1.13   # the default for openrouter; any vendor/name id OpenRouter serves
+```
 
 ```yaml
 settings:

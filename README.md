@@ -66,7 +66,7 @@ Results: results/20260928-161344/android/emulator-5554
 pip install jevtest
 ```
 
-You also need the platform tools for your apps: the Android SDK and a JDK, and/or Xcode. A [TypeSafe API key](https://console.typesafe.ai/keys) gives access to Jev. See [Getting started](https://just-betr.github.io/jevtest/getting-started/).
+You also need the platform tools for your apps: the Android SDK and a JDK, and/or Xcode. A [TypeSafe API key](https://console.typesafe.ai/keys) gives access to Jev, or an [OpenRouter key](https://openrouter.ai/settings/keys) with `settings: {provider: openrouter}` to reach Jev through OpenRouter. See [Getting started](https://just-betr.github.io/jevtest/getting-started/).
 
 ## Run
 

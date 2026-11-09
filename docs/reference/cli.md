@@ -34,7 +34,7 @@ jevtest checks everything it can before it installs or starts anything, and exit
 - every step a file's tests take can run on each platform the file runs on: no `network:` or Android-only `key:` in a file that runs on iOS, and every `grant:` names its permission for each platform;
 - every app build exists;
 - every device a file names is running (a missing one is listed with the devices that are), and no other jevtest run is testing it: a second run on the same device would restart the app under the first. The claim ends with the run, however it ends;
-- with `--lock refresh` or `--lock off`, `TYPESAFE_API_KEY` is set if a test that runs has a `do:` or an `expect:`, since those always ask Jev then;
+- with `--lock refresh` or `--lock off`, the provider's API key (`TYPESAFE_API_KEY`, or `OPENROUTER_API_KEY` for `provider: openrouter`) is set if a test that runs has a `do:` or an `expect:`, since those always ask Jev then;
 - `--prune-lock` has every test on every platform and a lockfile to prune (below).
 
 ## `--prune-lock`
@@ -83,5 +83,9 @@ The exit codes are those of `run`: 0 when done, 2 when something needs fixing fi
 
 | Variable | Meaning |
 |---|---|
-| `TYPESAFE_API_KEY` | Your [TypeSafe API key](https://console.typesafe.ai/keys), for Jev. From the environment or the `.env` next to the test file. Not needed when every decision comes from the lockfile. |
+| `TYPESAFE_API_KEY` | Your [TypeSafe API key](https://console.typesafe.ai/keys), for Jev through TypeSafe (`provider: typesafe`, the default). From the environment or the `.env` next to the test file. Not needed when every decision comes from the lockfile. |
+| `OPENROUTER_API_KEY` | Your [OpenRouter API key](https://openrouter.ai/settings/keys), for Jev through OpenRouter's Decisions API (`provider: openrouter`). From the environment or the `.env`, like `TYPESAFE_API_KEY`. |
+| `JEVTEST_PROVIDER` | `typesafe` or `openrouter`: overrides the test file's `settings: provider`. |
+| `JEVTEST_MODEL` | Overrides the test file's `settings: model` (validated for the provider in effect). Without it, a `JEVTEST_PROVIDER` other than the file's uses that provider's default model. |
+| `JEVTEST_API_URL` | Sends Jev requests to this http(s) URL instead of the provider's own endpoint: a proxy, or another endpoint that speaks the provider's API. The key and model still follow the provider. |
 | `JEVTEST_CACHE` | Where the built on-device agents are cached (default `~/.cache/jevtest`). |

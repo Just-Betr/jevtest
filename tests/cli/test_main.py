@@ -80,6 +80,7 @@ class Fakes:
         self.devices: list[FakeDevice] = []
         self.clients: list[FakeJevClient] = []
         self.models: list[str] = []
+        self.endpoints: list[tuple[str, str | None]] = []
         self.answers: list[object] = []  # scripted Jev answers (dicts) or errors
         self.make_device = self.default_device
         self.clock = FakeClock()  # waiting for a screen takes no real time
@@ -97,10 +98,11 @@ class Fakes:
         self.devices.append(FakeDevice())
         return self.devices[-1]
 
-    def client(self, model, api_key):
+    def client(self, provider, model, api_key, url=None):
         self.models.append(model)
+        self.endpoints.append((provider, url))
         if not api_key:  # the real client's own check, and its message
-            return JevClient(model, api_key, print)
+            return JevClient(model, api_key, print, provider=provider)
         self.clients.append(FakeJevClient(api_key, self.answers))
         return self.clients[-1]
 
@@ -191,7 +193,7 @@ def test_the_files_model_asks_jev_and_is_reported(tmp_path, monkeypatch, fakes, 
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
     fakes.script(yes(0.95))
     assert fakes.run() == 0
-    assert fakes.models == ["jev-2.0.0"] and "· jev-2.0.0 ·" in capsys.readouterr().out
+    assert fakes.models == ["jev-2.0.0"] and "· typesafe: jev-2.0.0 ·" in capsys.readouterr().out
     report = json.loads((stamp_of(tmp_path) / "android" / "emulator-5554" / "report.json").read_text())
     assert report["model"] == "jev-2.0.0"
 
@@ -640,7 +642,7 @@ def test_make_device_picks_the_platform(monkeypatch):
 
 
 def test_make_client_reports_retries_on_stderr(capsys):
-    client = cli.make_client("jev-1.13.0", "k")
+    client = cli.make_client("typesafe", "jev-1.13.0", "k")
     assert client.api_key == "k" and client.model == "jev-1.13.0"
     client._log("Jev HTTP 503: trying again")
     assert "Jev HTTP 503: trying again" in capsys.readouterr().err
@@ -840,3 +842,39 @@ def test_a_platform_needs_no_values_or_libraries_of_the_others(tmp_path, monkeyp
     (tmp_path / "suite" / "lib.yaml").write_text("tests: [{name: L, fresh: true, steps: [back]}]\n")
     monkeypatch.chdir(tmp_path)
     assert fakes.run("--platform", "android", files=("suite",)) == 0
+
+
+def test_make_client_for_openrouter():
+    client = cli.make_client("openrouter", "typesafe/jev-1.13", "k", "https://proxy.example/decisions")
+    assert (client.provider, client.model, client.url) == (
+        "openrouter",
+        "typesafe/jev-1.13",
+        "https://proxy.example/decisions",
+    )
+
+
+def test_openrouter_from_the_environment_asks_with_its_key_and_url(tmp_path, monkeypatch, fakes, capsys):
+    spec_file(tmp_path, tests="  - {name: T, fresh: true, steps: [{expect: Home is showing}]}\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.setenv("JEVTEST_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-key")
+    monkeypatch.setenv("JEVTEST_API_URL", "https://proxy.example/decisions")
+    clients = fakes.script(yes(0.95))
+    assert fakes.run() == 0
+    assert fakes.models == ["typesafe/jev-1.13"] and clients[0].api_key == "or-key"
+    assert fakes.endpoints == [("openrouter", "https://proxy.example/decisions")]
+    assert "· openrouter: typesafe/jev-1.13 ·" in capsys.readouterr().out
+    report = json.loads((stamp_of(tmp_path) / "android" / "emulator-5554" / "report.json").read_text())
+    assert (report["provider"], report["model"]) == ("openrouter", "typesafe/jev-1.13")
+    assert json.loads((tmp_path / "t.lock.json").read_text())["provider"] == "openrouter"
+
+
+@pytest.mark.parametrize("lock", ["refresh", "off"])
+def test_an_openrouter_run_needs_its_own_key_before_it_starts(project, fakes, monkeypatch, capsys, lock):
+    monkeypatch.setenv("JEVTEST_PROVIDER", "openrouter")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    assert fakes.run(lock=lock) == 2
+    err = capsys.readouterr().err
+    assert "and t.yaml has them, but OPENROUTER_API_KEY is not set" in err
+    assert "https://openrouter.ai/settings/keys" in err
